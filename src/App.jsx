@@ -34,6 +34,8 @@ import NewspaperApp from './apps/newspaper/NewspaperApp';
 import MarginNotesApp from './apps/margin-notes/MarginNotesApp';
 import AlmanacApp from './apps/almanac/AlmanacApp';
 
+import { syncWorkflowsToServer } from './services/workflow/workflowSyncService';
+
 import {
   consumeMcpOAuthCallback,
 } from './services/mcp/mcpOAuthService';
@@ -415,21 +417,26 @@ export const App = () => {
     };
   }, []);
 
-   useEffect(() => {
-    startAutoMessageScheduler();
-    startTravelPostcardScheduler();
-    startScheduledMessageScheduler();
-    startParallelOrbitScheduler();
-    startWorkflowScheduler();
+  useEffect(() => {
+  startAutoMessageScheduler();
+  startTravelPostcardScheduler();
+  startScheduledMessageScheduler();
+  startParallelOrbitScheduler();
+  startWorkflowScheduler();
 
-    return () => {
-      stopAutoMessageScheduler();
-      stopTravelPostcardScheduler();
-      stopScheduledMessageScheduler();
-      stopParallelOrbitScheduler();
-      stopWorkflowScheduler();
-    };
-  }, []);
+  // 🆕 开屏时顺手把当前全量 workflow + MCP 连接同步一次给服务器，
+  // 覆盖"之前已建好的 workflow 从未同步过"这种情况。
+  // 失败/未配置服务器都会在函数内部静默处理，不影响其它调度器启动。
+  void syncWorkflowsToServer();
+
+  return () => {
+    stopAutoMessageScheduler();
+    stopTravelPostcardScheduler();
+    stopScheduledMessageScheduler();
+    stopParallelOrbitScheduler();
+    stopWorkflowScheduler();
+  };
+}, []);
 
   useEffect(() => {
     let cancelled = false;
