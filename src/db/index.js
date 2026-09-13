@@ -3997,6 +3997,17 @@ db.version(40).stores({
   `,
 });
 
+db.version(41).stores({
+  profileTimelines: `
+    ++id,
+    characterId,
+    date,
+    createdAt,
+    updatedAt,
+    [characterId+date]
+  `,
+});
+
 export default db;
 
 

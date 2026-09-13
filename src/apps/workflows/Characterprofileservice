@@ -1,0 +1,77 @@
+import db from '../../db'; // 请按你项目实际路径调整
+
+/**
+ * 角色"主页"相关的字段：
+ *   avatar   —— 已有字段，头像（base64）
+ *   banner   —— 新增字段，主页横幅图（base64）
+ *   handle   —— 新增字段，一句话签名 / 副标题（用户自己写）
+ *   name/bio —— 沿用已有字段
+ *
+ * 这些字段都直接挂在 characters 表已有的记录上，不需要新的 Dexie 索引，
+ * 所以这里只是普通的 db.characters.update()。
+ */
+
+export async function getCharacterProfile(characterId) {
+  return db.characters.get(characterId);
+}
+
+export async function updateCharacterProfile(characterId, patch) {
+  // patch 可能包含 { avatar, banner, handle, name, bio }
+  const allowed = ['avatar', 'banner', 'handle', 'name', 'bio'];
+  const safePatch = {};
+  for (const key of allowed) {
+    if (key in patch) safePatch[key] = patch[key];
+  }
+  await db.characters.update(characterId, safePatch);
+  return db.characters.get(characterId);
+}
+
+export async function listCharactersForGallery() {
+  // 只取画廊需要展示的字段，避免把整条聊天记录相关的大字段也带出来
+  const all = await db.characters.toArray();
+  return all.map((c) => ({
+    id: c.id,
+    name: c.name,
+    avatar: c.avatar,
+    banner: c.banner,
+    handle: c.handle
+  }));
+}
+
+/* ------------------------- 时间轴（profileTimelines） ------------------------- */
+
+export async function listTimelineEntries(characterId) {
+  const rows = await db.profileTimelines
+    .where('characterId')
+    .equals(characterId)
+    .toArray();
+
+  return rows.sort((a, b) => (a.date < b.date ? 1 : -1)); // 新的在前
+}
+
+export async function addTimelineEntry(characterId, { date, photo, caption }) {
+  const now = Date.now();
+  const id = await db.profileTimelines.add({
+    characterId,
+    date: date || new Date().toISOString().slice(0, 10),
+    photo: photo || null, // base64，用户自己上传，绝不放外部 URL
+    caption: caption || '',
+    createdAt: now,
+    updatedAt: now
+  });
+  return db.profileTimelines.get(id);
+}
+
+export async function updateTimelineEntry(entryId, patch) {
+  const allowed = ['date', 'photo', 'caption'];
+  const safePatch = { updatedAt: Date.now() };
+  for (const key of allowed) {
+    if (key in patch) safePatch[key] = patch[key];
+  }
+  await db.profileTimelines.update(entryId, safePatch);
+  return db.profileTimelines.get(entryId);
+}
+
+export async function deleteTimelineEntry(entryId) {
+  await db.profileTimelines.delete(entryId);
+}
