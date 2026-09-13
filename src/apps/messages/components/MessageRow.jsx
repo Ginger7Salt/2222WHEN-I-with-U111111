@@ -30,7 +30,7 @@ import AppleHealthCard from './cards/AppleHealthCard';
 import RobotActionCard from './cards/RobotActionCard';
 import AppleCalendarCard from './cards/AppleCalendarCard';
 import LuckinCoffeeCard from './cards/LuckinCoffeeCard';
-
+import NeteaseMusicCard from './cards/NeteaseMusicCard';
 
 const MessageRow = ({
   msg,
@@ -130,7 +130,6 @@ const MessageRow = ({
             <User className="h-3.5 w-3.5 opacity-60" />
           </div>
         )}
-
 
         <div className="flex flex-col gap-1">
           {isErrorMsg ? (
@@ -285,6 +284,13 @@ const MessageRow = ({
               card={messageOrderCard}
             />
           )}
+
+          {/* 网易云音乐专属无框动效卡片 */}
+          {!isUser && messageOrderCard?.kind === 'netease_music' && (
+            <NeteaseMusicCard
+              card={messageOrderCard}
+            />
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -299,8 +305,6 @@ const MessageRow = ({
               <RotateCw className="h-3 w-3" />
             </button>
           )}
-
-          
 
           <button
             type="button"
@@ -362,7 +366,7 @@ const MessageRow = ({
         )}
 
         <span>
-          {new Date(msg.timestamp).toLocaleTimeString([], {
+          {new Date(msg.timestamp || msg.createdAt || Date.now()).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
           })}
@@ -389,4 +393,3 @@ const MessageRow = ({
 };
 
 export default React.memo(MessageRow);
-
