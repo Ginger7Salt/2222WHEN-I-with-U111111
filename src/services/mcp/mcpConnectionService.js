@@ -1,5 +1,5 @@
 import db from '../../db';
-import { scheduleWorkflowSync } from './workflowSyncService';
+import { scheduleWorkflowSync } from '../workflow/workflowSyncService';
 import {
   disconnectMcpClient,
   getMcpErrorMessage,
