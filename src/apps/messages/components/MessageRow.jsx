@@ -29,6 +29,7 @@ import McdOrderCard from './cards/McdOrderCard';
 import AppleHealthCard from './cards/AppleHealthCard';
 import RobotActionCard from './cards/RobotActionCard';
 import AppleCalendarCard from './cards/AppleCalendarCard';
+import LuckinCoffeeCard from './cards/LuckinCoffeeCard';
 
 
 const MessageRow = ({
@@ -274,6 +275,13 @@ const MessageRow = ({
           {/*  Apple 日历专属卡片 */}
           {!isUser && messageOrderCard?.kind === 'apple_calendar' && (
             <AppleCalendarCard
+              card={messageOrderCard}
+            />
+          )}
+
+          {/* 瑞幸咖啡专属卡片 */}
+          {!isUser && messageOrderCard?.kind?.startsWith('luckin_') && (
+            <LuckinCoffeeCard
               card={messageOrderCard}
             />
           )}
