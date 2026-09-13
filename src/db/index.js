@@ -3998,13 +3998,15 @@ db.version(40).stores({
 });
 
 db.version(41).stores({
-  profileTimelines: `
+  workflowRuns: `
     ++id,
+    workflowId,
+    chatId,
     characterId,
-    date,
-    createdAt,
-    updatedAt,
-    [characterId+date]
+    status,
+    source,
+    runAt,
+    [workflowId+runAt]
   `,
 });
 
