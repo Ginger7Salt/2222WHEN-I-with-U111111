@@ -17,7 +17,7 @@ function urlBase64ToUint8Array(base64String) {
  * 动态获取用户在应用内配置的推送服务器地址
  * 严禁任何硬编码域名兜底
  */
-async function getEffectiveServerUrl(explicitUrl) {
+export async function getEffectiveServerUrl(explicitUrl) {
   if (explicitUrl && typeof explicitUrl === 'string') {
     return explicitUrl.trim().replace(/\/$/, '');
   }

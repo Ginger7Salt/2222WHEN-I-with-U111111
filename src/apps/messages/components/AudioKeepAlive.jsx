@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useRef,
 } from 'react';
+import { getEffectiveServerUrl } from '../../../services/cloudPushService';
 
 let generatedKeepAliveUrl = null;
 
@@ -118,20 +119,15 @@ export const AudioKeepAlive = ({
       return undefined;
     }
 
-    const sendHeartbeat = () => {
+    const sendHeartbeat = async () => {
       try {
-        const pushServerUrl =
-          localStorage.getItem('push_server_url') ||
-          localStorage.getItem('pushServerUrl') ||
-          '';
+        const pushServerUrl = await getEffectiveServerUrl();
 
         if (!pushServerUrl) {
           return;
         }
 
-        const normalizedUrl = pushServerUrl.replace(/\/+$/, '');
-
-        fetch(`${normalizedUrl}/api/heartbeat`, {
+        fetch(`${pushServerUrl}/api/heartbeat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ timestamp: Date.now() }),
@@ -139,15 +135,17 @@ export const AudioKeepAlive = ({
           // 断网或离线静默失败，绝不影响保活
         });
       } catch {
-        // 忽略 localStorage 读取异常
+        // 忽略读取配置异常
       }
     };
 
     // 保活刚开启时立即报告一次存活
-    sendHeartbeat();
+    void sendHeartbeat();
 
     // 随后每 2 分钟定期上报一次（后端 3.5 分钟超时，留有充足缓冲）
-    const heartbeatInterval = setInterval(sendHeartbeat, 2 * 60 * 1000);
+    const heartbeatInterval = setInterval(() => {
+      void sendHeartbeat();
+    }, 2 * 60 * 1000);
 
     return () => {
       clearInterval(heartbeatInterval);
@@ -371,4 +369,5 @@ export const AudioKeepAlive = ({
 };
 
 export default AudioKeepAlive;
+
 
