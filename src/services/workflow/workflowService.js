@@ -1,4 +1,5 @@
 import db from '../../db';
+import { scheduleWorkflowSync } from './workflowSyncService';
 
 const nowIso = () => new Date().toISOString();
 const normalizeText = (value) => String(value || '').trim();
@@ -45,6 +46,7 @@ export const createWorkflow = async ({
     updatedAt: timestamp
   });
 
+  scheduleWorkflowSync();
   return db.workflows.get(id);
 };
 
@@ -61,15 +63,18 @@ export const updateWorkflow = async (id, patch = {}) => {
   }
 
   await db.workflows.put(next);
+  scheduleWorkflowSync();
   return next;
 };
 
 export const deleteWorkflow = async (id) => {
   await db.workflows.delete(id);
+  scheduleWorkflowSync();
 };
 
 export const setWorkflowEnabled = async (id, enabled) => {
   await db.workflows.update(id, { enabled: Boolean(enabled), updatedAt: nowIso() });
+  scheduleWorkflowSync();
 };
 
 /**

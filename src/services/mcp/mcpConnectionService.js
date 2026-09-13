@@ -1,4 +1,5 @@
 import db from '../../db';
+import { scheduleWorkflowSync } from './workflowSyncService';
 import {
   disconnectMcpClient,
   getMcpErrorMessage,
@@ -641,6 +642,7 @@ export const setMcpConnectionEnabled = async (connectionId, enabled) => {
     await disconnectMcpClient(existing);
   }
 
+  scheduleWorkflowSync();
   return db.mcpConnections.get(connectionId);
 };
 
@@ -656,6 +658,7 @@ export const setMcpToolEnabled = async (toolId, enabled) => {
     updatedAt: nowIso(),
   });
 
+  scheduleWorkflowSync();
   return db.mcpTools.get(toolId);
 };
 
@@ -742,6 +745,7 @@ export const testAndSyncMcpConnection = async (connectionId) => {
       updatedAt: connectedAt,
     });
 
+    scheduleWorkflowSync();
     return {
       connection: await getMcpConnection(connectionId),
       tools: syncedTools,
@@ -798,6 +802,7 @@ export const deleteMcpConnection = async (connectionId) => {
     },
   );
 
+  scheduleWorkflowSync();
   return true;
 };
 
@@ -877,4 +882,3 @@ export {
   inferToolRiskLevel,
   normalizeEndpoint,
 };
-
