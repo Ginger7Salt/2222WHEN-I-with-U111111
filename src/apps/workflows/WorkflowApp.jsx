@@ -921,14 +921,17 @@ export const WorkflowApp = ({ onBackHub }) => {
   const banner = getCharacterBanner(selectedCharacter) || safeImage(profile.banner);
   const avatar = getCharacterAvatar(selectedCharacter) || safeImage(profile.avatar);
 
-  return (
-    <div
-      className={[
-        'min-h-screen transition-colors duration-500',
-        theme === 'dark' ? 'bg-[#111] text-[#f5f5f5]' : 'bg-white text-[#111]'
-      ].join(' ')}
-    >
-      <style>{`
+ return (
+  <div
+    className={[
+      'fixed inset-0 z-[999] h-[100dvh] w-screen overflow-y-auto transition-colors duration-500',
+      theme === 'dark'
+        ? 'bg-[#111] text-[#f5f5f5]'
+        : 'bg-white text-[#111]'
+    ].join(' ')}
+  >
+    <style>{`
+
         .profile-scroll::-webkit-scrollbar{display:none}
         .profile-scroll{scrollbar-width:none;-ms-overflow-style:none}
         @keyframes profileFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -938,7 +941,8 @@ export const WorkflowApp = ({ onBackHub }) => {
         }
       `}</style>
 
-      <div className="mx-auto min-h-screen w-full max-w-6xl">
+      <div className="min-h-full w-full">
+
         <header className="flex items-center justify-between px-5 py-5 sm:px-10">
           <button
             type="button"
