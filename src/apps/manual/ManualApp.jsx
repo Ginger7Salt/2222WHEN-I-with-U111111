@@ -39,6 +39,8 @@ export const MANUAL_SECTIONS = [
         <p>
           请注意，这个网站是完全不商业化的，并且之后也没有商业化的想法。
           网站地址可以二次分享，感谢您的分享。
+          网站还在更新新的子app和部分页面美化。修改过程中可能会出现bug，都会尽快解决。
+          感谢老师们的谅解
         </p>
 
         <div className="manual-note">
