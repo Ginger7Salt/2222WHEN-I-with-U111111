@@ -835,7 +835,6 @@ const styles = `
 
 .rhythm-settings-button {
   margin-left: auto;
-}
 
 }
 `;
@@ -1172,10 +1171,12 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
   };
 
   return (
-    <div className="rhythm-app">
-      <style>{styles}</style>
+  <div className="rhythm-app">
+    <style>{styles}</style>
 
+    <div className="rhythm-shell">
       <div className="rhythm-window-header">
+
   <button
     type="button"
     className="rhythm-header-button rhythm-back-button"
@@ -1204,11 +1205,11 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
     title="日程设置"
   >
     <Settings size={15} strokeWidth={1.8} />
-  </button>
-</div>
+         </button>
+      </div>
 
+      <section className="rhythm-profile">
 
-        <section className="rhythm-profile">
           <div className="rhythm-avatar">
             Rhythm
           </div>
