@@ -395,9 +395,6 @@ export default function McdOrderCard({ card: rawCard, ...restProps }) {
 
   const { phase } = card;
 
-  return (
-    <>
-      <style>{`
 
   return (
     <>
