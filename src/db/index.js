@@ -4010,6 +4010,14 @@ db.version(41).stores({
   `,
 });
 
+db.version(42).stores({
+  // 工作流/档案专属的用户主页配置，与全局 profile 彻底解耦
+  // key 可以是 'user_profile' 或者角色专属自定义ID
+  workflowProfiles: '&key, updatedAt',
+});
+
+
+
 export default db;
 
 

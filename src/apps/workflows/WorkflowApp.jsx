@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
-  ArrowRight,
   Camera,
   Check,
   ChevronLeft,
@@ -27,13 +26,12 @@ import {
 
 const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
 
-const DEFAULT_PROFILE = {
-  id: 1,
-  name: '你的名字',
-  handle: '@yourstory',
-  bio: '记录一些人，也记录一些没有被说出口的时刻。',
-  location: '',
-  joined: '',
+const DEFAULT_WORKFLOW_PROFILE = {
+  key: 'current_user',
+  name: 'User',
+  handle: '@WHAT',
+  bio: 'We are all in the gutter, but some of us are looking at the stars.',
+  location: 'Archive Space',
   avatar: '',
   banner: ''
 };
@@ -54,448 +52,426 @@ const formatWeekdays = (weekdays) => {
     .join('、');
 };
 
-const formatDate = (value) => {
-  if (!value) return '暂无记录';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-};
-
 const formatTime = (value) => {
-  if (!value) return '未设置';
+  if (!value) return '00:00';
   return String(value).slice(0, 5);
 };
 
 const getCharacterId = (character) => character?.id ?? character?.characterId;
+const getCharacterName = (character) => character?.name || character?.displayName || '未命名角色';
 
-const getCharacterName = (character) =>
-  character?.name || character?.displayName || '未命名角色';
-
+// 优先读取工作流专属美术素材，回退到系统素材
 const getCharacterAvatar = (character) =>
-  safeImage(character?.avatar || character?.userAvatar);
+  safeImage(character?.workflowAvatar || character?.avatar || character?.userAvatar);
 
 const getCharacterBanner = (character) =>
-  safeImage(character?.banner || character?.cover || character?.bgImage);
+  safeImage(character?.workflowBanner || character?.banner || character?.bgImage);
 
 const getInitial = (value) => String(value || '?').trim().slice(0, 1).toUpperCase();
 
-const readAndCompressImage = (file, options = {}) =>
+// 本地 Canvas 压缩图片为 Base64，不消耗服务端也不走外链
+const compressImage = (file, options = {}) =>
   new Promise((resolve, reject) => {
     if (!file || !file.type.startsWith('image/')) {
-      reject(new Error('请选择图片文件'));
+      reject(new Error('请选择有效的图片文件'));
       return;
     }
-
     const reader = new FileReader();
-
     reader.onload = () => {
-      const image = new Image();
-
-      image.onload = () => {
+      const img = new Image();
+      img.onload = () => {
         const maxWidth = options.maxWidth || 1600;
         const maxHeight = options.maxHeight || 1200;
-        const ratio = Math.min(
-          1,
-          maxWidth / image.width,
-          maxHeight / image.height
-        );
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
 
         const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(image.width * ratio));
-        canvas.height = Math.max(1, Math.round(image.height * ratio));
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        const context = canvas.getContext('2d');
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-        resolve(
-          canvas.toDataURL('image/jpeg', options.quality || 0.82)
-        );
+        resolve(canvas.toDataURL('image/jpeg', options.quality || 0.82));
       };
-
-      image.onerror = () => reject(new Error('图片读取失败'));
-      image.src = reader.result;
+      img.onerror = () => reject(new Error('图片解析失败'));
+      img.src = reader.result;
     };
-
-    reader.onerror = () => reject(new Error('图片读取失败'));
+    reader.onerror = () => reject(new Error('读取文件失败'));
     reader.readAsDataURL(file);
   });
 
-const LocalImageInput = ({
+// 无缝上传组件，无生硬外框
+const LocalImageUploader = ({
   label,
   value,
   onChange,
-  circular = false,
-  wide = false
+  aspect = 'square', // 'circle' | 'square' | 'wide'
+  className = ''
 }) => {
   const inputRef = useRef(null);
-  const [loading, setLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleChange = async (event) => {
-    const file = event.target.files?.[0];
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-
-    setLoading(true);
-
+    setIsProcessing(true);
     try {
-      const image = await readAndCompressImage(file, {
-        maxWidth: wide ? 1800 : 1000,
-        maxHeight: wide ? 900 : 1000,
+      const base64 = await compressImage(file, {
+        maxWidth: aspect === 'wide' ? 1800 : 900,
+        maxHeight: aspect === 'wide' ? 1000 : 900,
         quality: 0.82
       });
-
-      onChange(image);
-    } catch (error) {
-      alert(error?.message || '图片处理失败');
+      onChange(base64);
+    } catch (err) {
+      alert(err.message || '图片处理失败');
     } finally {
-      setLoading(false);
-      event.target.value = '';
+      setIsProcessing(false);
+      e.target.value = '';
     }
   };
 
+  const getShapeClasses = () => {
+    if (aspect === 'circle') return 'h-24 w-24 rounded-full';
+    if (aspect === 'wide') return 'h-36 w-full rounded-2xl';
+    return 'h-28 w-28 rounded-2xl';
+  };
+
   return (
-    <div className="relative">
+    <div className={`relative ${className}`}>
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={handleChange}
+        onChange={handleFile}
       />
-
-      <button
-        type="button"
+      <div
         onClick={() => inputRef.current?.click()}
-        className={[
-          'group relative flex overflow-hidden bg-black/[0.04] transition hover:bg-black/[0.08]',
-          circular ? 'h-24 w-24 rounded-full' : '',
-          wide ? 'h-28 w-full rounded-[1.5rem]' : '',
-          !circular && !wide ? 'h-24 w-24 rounded-2xl' : ''
-        ].join(' ')}
+        className={`group relative flex cursor-pointer items-center justify-center overflow-hidden border border-black/10 bg-black/[0.03] transition-all hover:bg-black/[0.06] ${getShapeClasses()}`}
       >
         {value ? (
-          <img
-            src={value}
-            alt=""
-            className="h-full w-full object-cover"
-          />
+          <img src={value} alt="" className="h-full w-full object-cover" />
         ) : (
-          <span className="m-auto flex flex-col items-center gap-1 text-black/45">
-            <ImagePlus className="h-5 w-5" />
-            <span className="text-[10px]">{label}</span>
-          </span>
+          <div className="flex flex-col items-center gap-1.5 p-3 text-center text-black/40">
+            <ImagePlus className="h-5 w-5 stroke-[1.5]" />
+            <span className="text-[10px] tracking-wider">{label}</span>
+          </div>
         )}
-
-        <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
-          {loading ? '处理中…' : <Camera className="h-5 w-5" />}
-        </span>
-      </button>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 backdrop-blur-[2px] transition group-hover:opacity-100">
+          {isProcessing ? (
+            <span className="text-xs">压缩中…</span>
+          ) : (
+            <Camera className="h-5 w-5 stroke-[1.5]" />
+          )}
+        </div>
+      </div>
     </div>
   );
 };
 
-const IconButton = ({ children, onClick, label, dark = false }) => (
-  <button
-    type="button"
-    aria-label={label}
-    title={label}
-    onClick={onClick}
-    className={[
-      'flex h-9 w-9 items-center justify-center rounded-full transition',
-      dark
-        ? 'bg-black text-white hover:bg-black/75'
-        : 'bg-white/75 text-black hover:bg-white'
-    ].join(' ')}
-  >
-    {children}
-  </button>
-);
-
-const Toggle = ({ value, onChange }) => (
-  <button
-    type="button"
-    onClick={() => onChange(!value)}
-    className={[
-      'relative h-5 w-9 rounded-full transition',
-      value ? 'bg-black' : 'bg-black/15'
-    ].join(' ')}
-  >
-    <span
-      className={[
-        'absolute top-0.5 h-4 w-4 rounded-full bg-white transition',
-        value ? 'left-[18px]' : 'left-0.5'
-      ].join(' ')}
-    />
-  </button>
-);
-
-const CharacterPortrait = ({
-  character,
-  active,
-  index,
-  onClick
-}) => {
+// 照相机相片质感的单个人物展示（去卡片化、胶片感）
+const CameraFilmItem = ({ character, index, isActive, onClick }) => {
   const avatar = getCharacterAvatar(character);
+  const banner = getCharacterBanner(character);
+  const displayPhoto = banner || avatar;
 
   return (
-    <button
-      type="button"
+    <div
       onClick={onClick}
-      className={[
-        'relative shrink-0 overflow-hidden text-left transition-all duration-500',
-        active
-          ? 'h-[18rem] w-[13rem] opacity-100'
-          : 'h-[13rem] w-[9rem] opacity-45 grayscale hover:opacity-75'
-      ].join(' ')}
+      className={`group relative shrink-0 cursor-pointer select-none transition-all duration-500 ease-out ${
+        isActive
+          ? 'h-[22rem] w-[15.5rem] opacity-100 scale-100'
+          : 'h-[17rem] w-[11.5rem] opacity-35 scale-95 grayscale hover:opacity-60 hover:grayscale-0'
+      }`}
     >
-      {avatar ? (
-        <img
-          src={avatar}
-          alt=""
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center bg-black text-5xl font-serif text-white">
-          {getInitial(getCharacterName(character))}
+      <div className="relative h-full w-full overflow-hidden rounded-2xl bg-black">
+        {displayPhoto ? (
+          <img
+            src={displayPhoto}
+            alt=""
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-zinc-900 font-serif text-6xl italic text-white/40">
+            {getInitial(getCharacterName(character))}
+          </div>
+        )}
+
+        {/* 电影级渐变压光，不使用实线边框 */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+
+        {/* 相片底部的信息铭刻 */}
+        <div className="absolute bottom-5 left-5 right-5 text-white">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/60">
+              0{index + 1} / FILM
+            </span>
+            <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
+          </div>
+          <p className="mt-2 truncate font-serif text-2xl italic tracking-wide text-white">
+            {getCharacterName(character)}
+          </p>
         </div>
-      )}
-
-      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
-
-      <div className="absolute bottom-4 left-4 right-4 text-white">
-        <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] opacity-70">
-          0{index + 1} / character
-        </p>
-        <p className="truncate font-serif text-xl italic">
-          {getCharacterName(character)}
-        </p>
       </div>
-    </button>
+    </div>
   );
 };
 
-const ProfileEditor = ({
-  profile,
-  selectedCharacter,
-  onProfileChange,
-  onCharacterChange,
+// 时间轴单项
+const TimelineEntry = ({ workflow, onEdit, onDelete, onToggle }) => (
+  <div className="group relative grid grid-cols-[4.5rem_1px_1fr] gap-5 py-4">
+    <div className="pt-0.5 text-right">
+      <p className="font-mono text-xs font-medium tracking-wider">
+        {formatTime(workflow.time)}
+      </p>
+      <p className="mt-1 text-[10px] tracking-tight opacity-40">
+        {formatWeekdays(workflow.weekdays)}
+      </p>
+    </div>
+
+    {/* 极细时间轴线 */}
+    <div className="relative bg-current opacity-15">
+      <span
+        className={`absolute left-1/2 top-1.5 h-2 w-2 -translate-x-1/2 rounded-full border-2 border-white transition-all ${
+          workflow.enabled ? 'bg-current opacity-100 ring-2 ring-current/20' : 'bg-current opacity-25'
+        }`}
+      />
+    </div>
+
+    <div className="pb-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h4 className="font-serif text-lg italic tracking-wide">
+            {workflow.name || '未命名事务'}
+          </h4>
+          {workflow.goal && (
+            <p className="mt-1.5 max-w-lg text-xs leading-relaxed opacity-60">
+              {workflow.goal}
+            </p>
+          )}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => onEdit(workflow)}
+            className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10"
+            title="编辑"
+          >
+            <Pencil className="h-3.5 w-3.5 opacity-70" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(workflow)}
+            className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10"
+            title="删除"
+          >
+            <Trash2 className="h-3.5 w-3.5 opacity-70" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => onToggle(workflow)}
+          className={`flex items-center gap-1.5 text-[9px] uppercase tracking-[0.18em] transition ${
+            workflow.enabled ? 'opacity-70' : 'opacity-30'
+          }`}
+        >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              workflow.enabled ? 'bg-current' : 'bg-current/30'
+            }`}
+          />
+          {workflow.enabled ? 'ACTIVE ROUTINE' : 'PAUSED'}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// 专属编辑抽屉（独立保存，不影响全局）
+const ProfileAndVisualEditor = ({
+  userProfile,
+  currentCharacter,
   onClose,
   onSave
 }) => {
-  const [draftProfile, setDraftProfile] = useState(profile || DEFAULT_PROFILE);
-  const [draftCharacter, setDraftCharacter] = useState(selectedCharacter || null);
-  const [saving, setSaving] = useState(false);
-
-  const updateProfile = (key, value) => {
-    setDraftProfile((current) => ({
-      ...current,
-      [key]: value
-    }));
-  };
-
-  const updateCharacter = (key, value) => {
-    setDraftCharacter((current) => ({
-      ...current,
-      [key]: value
-    }));
-  };
+  const [draftUser, setDraftUser] = useState(userProfile);
+  const [draftChar, setDraftChar] = useState(currentCharacter);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
-    setSaving(true);
-
+    setIsSaving(true);
     try {
-      await onSave(draftProfile, draftCharacter);
-      onProfileChange(draftProfile);
-      onCharacterChange(draftCharacter);
+      await onSave(draftUser, draftChar);
       onClose();
-    } catch (error) {
-      alert(error?.message || '保存失败');
+    } catch (e) {
+      alert(e.message || '保存失败');
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
-      <div className="mx-auto min-h-screen w-full max-w-3xl px-5 pb-10 pt-5 sm:px-10">
-        <div className="mb-10 flex items-center justify-between">
+    <div className="fixed inset-0 z-[10000] flex justify-end bg-black/40 backdrop-blur-sm transition-all">
+      <div className="h-full w-full max-w-xl overflow-y-auto bg-white p-6 text-[#111] shadow-2xl transition-all sm:p-10">
+        <div className="flex items-center justify-between border-b border-black/10 pb-5">
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-[0.2em] opacity-40">
+              Personal Aesthetic
+            </p>
+            <h2 className="mt-1 font-serif text-2xl italic">专属档案美化</h2>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-2 text-sm opacity-60 transition hover:opacity-100"
+            className="flex h-8 w-8 items-center justify-center rounded-full opacity-50 hover:opacity-100"
           >
-            <ArrowLeft className="h-4 w-4" />
-            返回主页
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 bg-black px-4 py-2 text-xs text-white disabled:opacity-50"
-          >
-            <Check className="h-3.5 w-3.5" />
-            {saving ? '保存中…' : '保存修改'}
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="mb-12">
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.22em] opacity-40">
-            Edit your page
-          </p>
-          <h1 className="font-serif text-4xl italic sm:text-6xl">
-            个人主页
-          </h1>
-        </div>
+        <div className="mt-8 space-y-10">
+          {/* 用户专属工作流外观 */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif text-lg italic">你的独立展板</h3>
+              <span className="text-[10px] text-black/40">
+                仅在当前子页面生效，不改变系统主页
+              </span>
+            </div>
 
-        <section className="border-t border-black/10 py-8">
-          <div className="mb-6 flex items-center justify-between">
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-40">
-                Profile
-              </p>
-              <h2 className="mt-1 font-serif text-2xl italic">
-                你的资料
-              </h2>
+              <span className="mb-2 block text-xs opacity-50">横幅背景 (Banner)</span>
+              <LocalImageUploader
+                label="上传专属横幅"
+                aspect="wide"
+                value={draftUser?.banner}
+                onChange={(img) => setDraftUser((prev) => ({ ...prev, banner: img }))}
+              />
             </div>
 
-            <LocalImageInput
-              label="头像"
-              value={safeImage(draftProfile.avatar)}
-              circular
-              onChange={(value) => updateProfile('avatar', value)}
-            />
-          </div>
-
-          <LocalImageInput
-            label="上传主页横幅"
-            value={safeImage(draftProfile.banner)}
-            wide
-            onChange={(value) => updateProfile('banner', value)}
-          />
-
-          <div className="mt-6 grid gap-5 sm:grid-cols-2">
-            <label className="text-xs">
-              <span className="mb-2 block opacity-45">名称</span>
-              <input
-                value={draftProfile.name || ''}
-                onChange={(event) =>
-                  updateProfile('name', event.target.value)
-                }
-                className="w-full border-b border-black/20 bg-transparent py-2 outline-none focus:border-black"
-                placeholder="你的名字"
-              />
-            </label>
-
-            <label className="text-xs">
-              <span className="mb-2 block opacity-45">账号</span>
-              <input
-                value={draftProfile.handle || ''}
-                onChange={(event) =>
-                  updateProfile('handle', event.target.value)
-                }
-                className="w-full border-b border-black/20 bg-transparent py-2 outline-none focus:border-black"
-                placeholder="@yourstory"
-              />
-            </label>
-          </div>
-
-          <label className="mt-5 block text-xs">
-            <span className="mb-2 block opacity-45">个人介绍</span>
-            <textarea
-              value={draftProfile.bio || ''}
-              onChange={(event) =>
-                updateProfile('bio', event.target.value)
-              }
-              rows={3}
-              className="w-full resize-none border-b border-black/20 bg-transparent py-2 outline-none focus:border-black"
-              placeholder="写一点关于你的内容"
-            />
-          </label>
-
-          <label className="mt-5 block text-xs">
-            <span className="mb-2 block opacity-45">位置</span>
-            <input
-              value={draftProfile.location || ''}
-              onChange={(event) =>
-                updateProfile('location', event.target.value)
-              }
-              className="w-full border-b border-black/20 bg-transparent py-2 outline-none focus:border-black"
-              placeholder="例如：Shanghai / Online"
-            />
-          </label>
-        </section>
-
-        {draftCharacter && (
-          <section className="border-t border-black/10 py-8">
-            <div className="mb-6">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-40">
-                Character
-              </p>
-              <h2 className="mt-1 font-serif text-2xl italic">
-                当前角色页面
-              </h2>
-            </div>
-
-            <LocalImageInput
-              label="上传角色 Banner"
-              value={getCharacterBanner(draftCharacter)}
-              wide
-              onChange={(value) => updateCharacter('banner', value)}
-            />
-
-            <div className="mt-6 flex items-center gap-5">
-              <LocalImageInput
-                label="头像"
-                value={getCharacterAvatar(draftCharacter)}
-                circular
-                onChange={(value) => updateCharacter('avatar', value)}
-              />
-
-              <div className="flex-1">
-                <label className="block text-xs">
-                  <span className="mb-2 block opacity-45">角色名称</span>
+            <div className="flex items-center gap-5 pt-2">
+              <div>
+                <span className="mb-2 block text-xs opacity-50">专属头像</span>
+                <LocalImageUploader
+                  label="上传头像"
+                  aspect="circle"
+                  value={draftUser?.avatar}
+                  onChange={(img) => setDraftUser((prev) => ({ ...prev, avatar: img }))}
+                />
+              </div>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <span className="mb-1 block text-xs opacity-50">你的称呼</span>
                   <input
-                    value={draftCharacter.name || ''}
-                    onChange={(event) =>
-                      updateCharacter('name', event.target.value)
-                    }
-                    className="w-full border-b border-black/20 bg-transparent py-2 outline-none focus:border-black"
+                    value={draftUser?.name || ''}
+                    onChange={(e) => setDraftUser((prev) => ({ ...prev, name: e.target.value }))}
+                    className="w-full border-b border-black/20 bg-transparent py-1 text-sm outline-none focus:border-black"
                   />
-                </label>
+                </div>
+                <div>
+                  <span className="mb-1 block text-xs opacity-50">Handle 标识</span>
+                  <input
+                    value={draftUser?.handle || ''}
+                    onChange={(e) => setDraftUser((prev) => ({ ...prev, handle: e.target.value }))}
+                    className="w-full border-b border-black/20 bg-transparent py-1 text-sm outline-none focus:border-black"
+                  />
+                </div>
               </div>
             </div>
 
-            <label className="mt-5 block text-xs">
-              <span className="mb-2 block opacity-45">角色简介</span>
+            <div>
+              <span className="mb-1 block text-xs opacity-50">随笔格言 / Bio</span>
               <textarea
-                value={draftCharacter.bio || ''}
-                onChange={(event) =>
-                  updateCharacter('bio', event.target.value)
-                }
-                rows={4}
-                className="w-full resize-none border-b border-black/20 bg-transparent py-2 outline-none focus:border-black"
-                placeholder="为这个角色写一段介绍"
+                rows={2}
+                value={draftUser?.bio || ''}
+                onChange={(e) => setDraftUser((prev) => ({ ...prev, bio: e.target.value }))}
+                className="w-full resize-none border-b border-black/20 bg-transparent py-1 text-xs outline-none focus:border-black"
               />
-            </label>
+            </div>
           </section>
-        )}
+
+          {/* 当前角色的工作流专属照片 */}
+          {draftChar && (
+            <section className="space-y-4 border-t border-black/10 pt-8">
+              <div className="flex items-center justify-between">
+                <h3 className="font-serif text-lg italic">
+                  角色相片：{getCharacterName(draftChar)}
+                </h3>
+                <span className="text-[10px] text-black/40">独立胶片封面</span>
+              </div>
+
+              <div>
+                <span className="mb-2 block text-xs opacity-50">
+                  相片/封面（将在滑动相册与背景中优先展示）
+                </span>
+                <LocalImageUploader
+                  label="上传角色专属写真大图"
+                  aspect="wide"
+                  value={draftChar.workflowBanner || draftChar.banner}
+                  onChange={(img) =>
+                    setDraftChar((prev) => ({ ...prev, workflowBanner: img }))
+                  }
+                />
+              </div>
+
+              <div className="flex items-center gap-5 pt-2">
+                <div>
+                  <span className="mb-2 block text-xs opacity-50">工作流专属头像</span>
+                  <LocalImageUploader
+                    label="头像"
+                    aspect="circle"
+                    value={draftChar.workflowAvatar || draftChar.avatar}
+                    onChange={(img) =>
+                      setDraftChar((prev) => ({ ...prev, workflowAvatar: img }))
+                    }
+                  />
+                </div>
+                <div className="flex-1">
+                  <span className="mb-1 block text-xs opacity-50">角色专属语录</span>
+                  <textarea
+                    rows={3}
+                    value={draftChar.workflowBio || draftChar.bio || ''}
+                    onChange={(e) =>
+                      setDraftChar((prev) => ({ ...prev, workflowBio: e.target.value }))
+                    }
+                    placeholder="写一句属于这个角色的白描..."
+                    className="w-full resize-none border-b border-black/20 bg-transparent py-1 text-xs outline-none focus:border-black"
+                  />
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+
+        <div className="mt-10 border-t border-black/10 pt-6">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3 text-xs uppercase tracking-widest text-white transition hover:bg-black/80 disabled:opacity-50"
+          >
+            <Check className="h-4 w-4" />
+            {isSaving ? '正在写入档案…' : '确认并应用美化'}
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
-const WorkflowForm = ({
-  chat,
-  workflow,
-  onClose,
-  onSaved
-}) => {
-  const targetCharacter = workflow?.character || chat?.character;
-
+// 新增/编辑工作流表单
+const WorkflowFormModal = ({ chat, workflow, onClose, onSaved }) => {
+  const targetChar = workflow?.character || chat?.character;
   const [name, setName] = useState(workflow?.name || '');
   const [time, setTime] = useState(workflow?.time || '09:00');
   const [goal, setGoal] = useState(workflow?.goal || '');
@@ -508,21 +484,17 @@ const WorkflowForm = ({
   const [saving, setSaving] = useState(false);
 
   const toggleDay = (day) => {
-    setWeekdays((current) =>
-      current.includes(day)
-        ? current.filter((item) => item !== day)
-        : [...current, day]
+    setWeekdays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
     );
   };
 
   const handleSave = async () => {
     if (!name.trim()) {
-      alert('请填写工作流名称');
+      alert('请填写任务名称');
       return;
     }
-
     setSaving(true);
-
     try {
       if (workflow?.id) {
         await updateWorkflow(workflow.id, {
@@ -543,686 +515,610 @@ const WorkflowForm = ({
           enabled
         });
       }
-
       onSaved();
-    } catch (error) {
-      alert(error?.message || '保存失败');
+    } catch (e) {
+      alert(e.message || '保存失败');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto bg-white px-5 pb-8 pt-5 sm:px-8">
-        <div className="mb-8 flex items-start justify-between">
+    <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-6 text-[#111] shadow-2xl sm:rounded-2xl sm:p-8">
+        <div className="flex items-center justify-between border-b border-black/10 pb-4">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-40">
-              {getCharacterName(targetCharacter)}
+            <p className="font-mono text-[9px] uppercase tracking-[0.2em] opacity-40">
+              {getCharacterName(targetChar)}
             </p>
-            <h2 className="mt-2 font-serif text-3xl italic">
-              {workflow ? '编辑工作流' : '新建工作流'}
-            </h2>
+            <h3 className="mt-1 font-serif text-2xl italic">
+              {workflow ? '修整时间节点' : '建立时刻安排'}
+            </h3>
           </div>
-
-          <IconButton label="关闭" onClick={onClose}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 opacity-40 hover:opacity-100"
+          >
             <X className="h-4 w-4" />
-          </IconButton>
+          </button>
         </div>
 
-        <div className="space-y-6">
-          <label className="block text-xs">
-            <span className="mb-2 block opacity-45">标题</span>
+        <div className="mt-6 space-y-5 text-xs">
+          <div>
+            <span className="mb-1 block opacity-50">事务名称</span>
             <input
+              type="text"
               value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="w-full border-b border-black/20 bg-transparent py-2 text-base outline-none focus:border-black"
-              placeholder="例如：早安问候"
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如：清晨问候与咖啡提醒"
+              className="w-full border-b border-black/20 bg-transparent py-2 text-sm outline-none focus:border-black"
             />
-          </label>
+          </div>
 
-          <div className="grid grid-cols-2 gap-5">
-            <label className="block text-xs">
-              <span className="mb-2 block opacity-45">执行时间</span>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <span className="mb-1 block opacity-50">触发时刻</span>
               <input
                 type="time"
                 value={time}
-                onChange={(event) => setTime(event.target.value)}
-                className="w-full border-b border-black/20 bg-transparent py-2 outline-none"
+                onChange={(e) => setTime(e.target.value)}
+                className="w-full border-b border-black/20 bg-transparent py-2 font-mono text-sm outline-none"
               />
-            </label>
-
+            </div>
             <div>
-              <span className="mb-2 block text-xs opacity-45">状态</span>
-              <div className="flex items-center gap-3 py-2 text-xs">
-                <Toggle value={enabled} onChange={setEnabled} />
-                {enabled ? '运行中' : '已暂停'}
-              </div>
+              <span className="mb-1 block opacity-50">运转状态</span>
+              <button
+                type="button"
+                onClick={() => setEnabled(!enabled)}
+                className="mt-2 flex items-center gap-2 font-mono text-xs uppercase"
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    enabled ? 'bg-black' : 'bg-black/20'
+                  }`}
+                />
+                {enabled ? 'Active' : 'Paused'}
+              </button>
             </div>
           </div>
 
           <div>
-            <span className="mb-3 block text-xs opacity-45">重复星期</span>
-            <div className="flex gap-2">
-              {WEEKDAY_LABELS.map((label, day) => (
-                <button
-                  type="button"
-                  key={label}
-                  onClick={() => toggleDay(day)}
-                  className={[
-                    'h-9 w-9 rounded-full text-xs transition',
-                    weekdays.includes(day)
-                      ? 'bg-black text-white'
-                      : 'bg-black/[0.06] text-black/45'
-                  ].join(' ')}
-                >
-                  {label}
-                </button>
-              ))}
+            <span className="mb-2 block opacity-50">重复周期</span>
+            <div className="flex gap-1.5">
+              {WEEKDAY_LABELS.map((label, day) => {
+                const isSelected = weekdays.includes(day);
+                return (
+                  <button
+                    type="button"
+                    key={label}
+                    onClick={() => toggleDay(day)}
+                    className={`h-8 w-8 rounded-full font-mono text-[11px] transition ${
+                      isSelected
+                        ? 'bg-black text-white'
+                        : 'bg-black/5 text-black/40 hover:bg-black/10'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <label className="block text-xs">
-            <span className="mb-2 block opacity-45">目标 / 意图</span>
+          <div>
+            <span className="mb-1 block opacity-50">触发意图 (Goal)</span>
             <textarea
+              rows={3}
               value={goal}
-              onChange={(event) => setGoal(event.target.value)}
-              rows={4}
-              className="w-full resize-none border-b border-black/20 bg-transparent py-2 outline-none focus:border-black"
-              placeholder="告诉 AI 这次主动联系想做什么"
+              onChange={(e) => setGoal(e.target.value)}
+              placeholder="交代此时角色需要做的事..."
+              className="w-full resize-none border-b border-black/20 bg-transparent py-2 text-xs outline-none focus:border-black"
             />
-          </label>
+          </div>
         </div>
 
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="mt-8 flex w-full items-center justify-center gap-2 bg-black py-3 text-sm text-white disabled:opacity-50"
+          className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3 text-xs uppercase tracking-widest text-white transition hover:bg-black/85 disabled:opacity-50"
         >
           <Check className="h-4 w-4" />
-          {saving ? '保存中…' : '保存工作流'}
+          {saving ? '记录中…' : '保存进入时间线'}
         </button>
       </div>
     </div>
   );
 };
 
-const ChatPicker = ({ chats, onPick, onClose }) => (
-  <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center">
-    <div className="max-h-[80vh] w-full max-w-lg overflow-y-auto bg-white px-5 pb-8 pt-5 sm:px-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-40">
-            Select a chat
-          </p>
-          <h2 className="mt-2 font-serif text-3xl italic">
-            选择对话
-          </h2>
-        </div>
-
-        <IconButton label="关闭" onClick={onClose}>
+// 选对话绑定弹层
+const ChatSelectorModal = ({ chats, onSelect, onClose }) => (
+  <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center">
+    <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-6 text-[#111] shadow-2xl sm:rounded-2xl">
+      <div className="flex items-center justify-between border-b border-black/10 pb-4">
+        <h3 className="font-serif text-xl italic">挂接对话通道</h3>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1 opacity-40 hover:opacity-100"
+        >
           <X className="h-4 w-4" />
-        </IconButton>
+        </button>
       </div>
-
-      <div className="space-y-1">
+      <div className="mt-4 space-y-1">
         {chats.length === 0 ? (
-          <p className="py-10 text-center text-sm opacity-45">
-            还没有可以绑定的聊天。
-          </p>
+          <p className="py-8 text-center text-xs opacity-40">暂无可用对话</p>
         ) : (
-          chats.map((chat) => {
-            const character = chat.character;
-            const avatar = getCharacterAvatar(character);
-
-            return (
-              <button
-                type="button"
-                key={chat.id}
-                onClick={() => onPick(chat)}
-                className="flex w-full items-center gap-4 border-b border-black/10 py-4 text-left transition hover:bg-black/[0.04]"
-              >
-                {avatar ? (
-                  <img
-                    src={avatar}
-                    alt=""
-                    className="h-12 w-12 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
-                    {getInitial(getCharacterName(character))}
-                  </div>
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-serif text-lg italic">
-                    {getCharacterName(character)}
-                  </p>
-                  <p className="truncate text-xs opacity-45">
-                    {chat.title || '默认对话'}
-                  </p>
-                </div>
-
-                <ChevronRight className="h-4 w-4 opacity-40" />
-              </button>
-            );
-          })
+          chats.map((chat) => (
+            <button
+              type="button"
+              key={chat.id}
+              onClick={() => onSelect(chat)}
+              className="flex w-full items-center gap-3.5 border-b border-black/5 p-3 text-left transition hover:bg-black/[0.03]"
+            >
+              <img
+                src={getCharacterAvatar(chat.character)}
+                alt=""
+                className="h-10 w-10 rounded-full object-cover bg-black/5"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-serif text-sm font-semibold">
+                  {getCharacterName(chat.character)}
+                </p>
+                <p className="truncate font-mono text-[10px] opacity-40">
+                  {chat.title || '默认会话'}
+                </p>
+              </div>
+            </button>
+          ))
         )}
       </div>
     </div>
   </div>
 );
 
-const TimelineItem = ({
-  workflow,
-  onEdit,
-  onDelete,
-  onToggle
-}) => (
-  <div className="group relative grid grid-cols-[4.5rem_1px_1fr] gap-4">
-    <div className="pt-1 text-right">
-      <p className="font-mono text-xs">
-        {formatTime(workflow.time)}
-      </p>
-      <p className="mt-1 text-[10px] opacity-40">
-        {formatWeekdays(workflow.weekdays)}
-      </p>
-    </div>
-
-    <div className="relative bg-black/15">
-      <span
-        className={[
-          'absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 border-white',
-          workflow.enabled ? 'bg-black' : 'bg-black/20'
-        ].join(' ')}
-      />
-    </div>
-
-    <div className="relative pb-9">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="font-serif text-xl italic">
-            {workflow.name || '未命名工作流'}
-          </h3>
-          <p className="mt-2 max-w-xl text-xs leading-6 opacity-55">
-            {workflow.goal || '没有填写执行意图'}
-          </p>
-        </div>
-
-        <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
-          <IconButton label="编辑" onClick={() => onEdit(workflow)}>
-            <Pencil className="h-3.5 w-3.5" />
-          </IconButton>
-          <IconButton label="删除" onClick={() => onDelete(workflow)}>
-            <Trash2 className="h-3.5 w-3.5" />
-          </IconButton>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onToggle(workflow)}
-        className="mt-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] opacity-45 transition hover:opacity-100"
-      >
-        <span
-          className={[
-            'h-1.5 w-1.5 rounded-full',
-            workflow.enabled ? 'bg-black' : 'bg-black/25'
-          ].join(' ')}
-        />
-        {workflow.enabled ? 'active' : 'paused'}
-      </button>
-    </div>
-  </div>
-);
-
+// 主应用入口
 export const WorkflowApp = ({ onBackHub }) => {
-  const [profile, setProfile] = useState(DEFAULT_PROFILE);
+  const [userProfile, setUserProfile] = useState(DEFAULT_WORKFLOW_PROFILE);
   const [characters, setCharacters] = useState([]);
   const [workflows, setWorkflows] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [pickingChat, setPickingChat] = useState(false);
+  const [themeMode, setThemeMode] = useState('light'); // 'light' | 'dark'
+
+  const [isEditingVisuals, setIsEditingVisuals] = useState(false);
+  const [isPickingChat, setIsPickingChat] = useState(false);
   const [candidateChats, setCandidateChats] = useState([]);
-  const [formTarget, setFormTarget] = useState(null);
-  const [theme, setTheme] = useState('light');
+  const [formSheetTarget, setFormSheetTarget] = useState(null);
 
-  const selectedCharacter = characters[selectedIndex] || null;
+  const containerRef = useRef(null);
+  const touchStartRef = useRef(0);
 
-  const loadPage = useCallback(async () => {
-    setLoading(true);
-
+  // 1. 初始化读取数据（优先读取工作流独立档案）
+  const reloadData = useCallback(async () => {
     try {
-      const [profileRows, characterRows, workflowRows] =
-        await Promise.all([
-          db.profile.toArray(),
-          db.characters.toArray(),
-          getAllWorkflowsWithContext()
-        ]);
+      const [chars, wfs] = await Promise.all([
+        db.characters.toArray(),
+        getAllWorkflowsWithContext()
+      ]);
 
-      if (profileRows[0]) {
-        setProfile({
-          ...DEFAULT_PROFILE,
-          ...profileRows[0]
-        });
+      // 读取工作流专属 profile
+      let customProfile = null;
+      if (db.workflowProfiles) {
+        customProfile = await db.workflowProfiles.get('current_user');
       }
 
-      setCharacters(characterRows || []);
-      setWorkflows(workflowRows || []);
-    } catch (error) {
-      console.error('[WorkflowApp] 读取主页数据失败：', error);
-    } finally {
-      setLoading(false);
+      // 如果尚未保存过工作流独立 profile，智能拉取全局 profile 做一份副本
+      if (!customProfile) {
+        const sysProfile = await db.profile.toCollection().first();
+        customProfile = {
+          key: 'current_user',
+          name: sysProfile?.name || DEFAULT_WORKFLOW_PROFILE.name,
+          handle: sysProfile?.handle || DEFAULT_WORKFLOW_PROFILE.handle,
+          bio: sysProfile?.bio || DEFAULT_WORKFLOW_PROFILE.bio,
+          location: sysProfile?.location || DEFAULT_WORKFLOW_PROFILE.location,
+          avatar: sysProfile?.avatar || '',
+          banner: sysProfile?.banner || ''
+        };
+      }
+
+      setUserProfile(customProfile);
+      setCharacters(chars || []);
+      setWorkflows(wfs || []);
+    } catch (err) {
+      console.error('[WorkflowApp] 初始化读取失败:', err);
     }
   }, []);
 
   useEffect(() => {
-    void loadPage();
-  }, [loadPage]);
+    void reloadData();
+  }, [reloadData]);
 
+  // 2. 黑白模式与主题 CSS 变量双向同步
   useEffect(() => {
     const root = document.documentElement;
-    const previous = {
-      bg: root.style.getPropertyValue('--bg-main'),
-      text: root.style.getPropertyValue('--text-main'),
-      soft: root.style.getPropertyValue('--control-soft-bg'),
-      border: root.style.getPropertyValue('--card-border')
-    };
-
-    if (theme === 'dark') {
-      root.style.setProperty('--bg-main', '#111111');
-      root.style.setProperty('--text-main', '#f5f5f5');
-      root.style.setProperty('--control-soft-bg', '#1d1d1d');
-      root.style.setProperty('--card-border', 'rgba(255,255,255,.16)');
+    if (themeMode === 'dark') {
+      root.style.setProperty('--bg-main', '#0a0a0a');
+      root.style.setProperty('--text-main', '#f2f2f2');
+      root.style.setProperty('--control-soft-bg', '#181818');
+      root.style.setProperty('--card-border', 'rgba(255,255,255,0.12)');
     } else {
       root.style.setProperty('--bg-main', '#ffffff');
-      root.style.setProperty('--text-main', '#111111');
-      root.style.setProperty('--control-soft-bg', '#f1f1ef');
-      root.style.setProperty('--card-border', 'rgba(0,0,0,.13)');
+      root.style.setProperty('--text-main', '#0f0f0f');
+      root.style.setProperty('--control-soft-bg', '#f5f5f5');
+      root.style.setProperty('--card-border', 'rgba(0,0,0,0.08)');
     }
+  }, [themeMode]);
 
-    return () => {
-      root.style.setProperty('--bg-main', previous.bg);
-      root.style.setProperty('--text-main', previous.text);
-      root.style.setProperty('--control-soft-bg', previous.soft);
-      root.style.setProperty('--card-border', previous.border);
-    };
-  }, [theme]);
+  const currentCharacter = characters[selectedIndex] || null;
 
-  const characterWorkflows = useMemo(() => {
-    if (!selectedCharacter) return [];
-
-    const characterId = getCharacterId(selectedCharacter);
-
+  // 当前选中角色的专属时间轴列表
+  const currentWorkflows = useMemo(() => {
+    if (!currentCharacter) return [];
+    const charId = getCharacterId(currentCharacter);
     return workflows
-      .filter((workflow) => workflow.characterId === characterId)
+      .filter((w) => w.characterId === charId)
       .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
-  }, [selectedCharacter, workflows]);
+  }, [currentCharacter, workflows]);
 
-  const changeCharacter = (direction) => {
+  // 左右切人逻辑
+  const switchCharacter = (step) => {
     if (!characters.length) return;
-
-    setSelectedIndex((current) => {
-      const next = current + direction;
-
+    setSelectedIndex((prev) => {
+      const next = prev + step;
       if (next < 0) return characters.length - 1;
       if (next >= characters.length) return 0;
-
       return next;
     });
   };
 
-  const saveProfile = async (nextProfile, nextCharacter) => {
-    const profileId = nextProfile.id || profile.id || 1;
+  // 支持触控滑动相册
+  const handleTouchStart = (e) => {
+    touchStartRef.current = e.touches[0].clientX;
+  };
 
-    await db.profile.put({
-      ...nextProfile,
-      id: profileId
-    });
+  const handleTouchEnd = (e) => {
+    const delta = e.changedTouches[0].clientX - touchStartRef.current;
+    if (delta > 45) {
+      switchCharacter(-1); // 右滑看上一个
+    } else if (delta < -45) {
+      switchCharacter(1);  // 左滑看下一个
+    }
+  };
 
-    if (nextCharacter?.id) {
-      await db.characters.update(nextCharacter.id, {
-        name: nextCharacter.name,
-        bio: nextCharacter.bio,
-        avatar: nextCharacter.avatar,
-        banner: nextCharacter.banner
+  // 3. 专属保存逻辑：仅写入 workflowProfiles 与角色的专属字段
+  const handleSaveVisuals = async (nextUser, nextChar) => {
+    if (db.workflowProfiles) {
+      await db.workflowProfiles.put({
+        ...nextUser,
+        key: 'current_user',
+        updatedAt: Date.now()
       });
     }
 
-    await loadPage();
+    if (nextChar?.id) {
+      // 仅更新该角色的工作流专属素材，保留原本系统的 avatar 不受污染
+      await db.characters.update(nextChar.id, {
+        workflowBanner: nextChar.workflowBanner,
+        workflowAvatar: nextChar.workflowAvatar,
+        workflowBio: nextChar.workflowBio
+      });
+    }
+
+    await reloadData();
   };
 
-  const openCreateWorkflow = async () => {
+  const handleCreateNewWorkflow = async () => {
     try {
       const chats = await getWorkflowCandidateChats();
       setCandidateChats(chats || []);
-      setPickingChat(true);
-    } catch (error) {
-      console.error('[WorkflowApp] 读取聊天失败：', error);
+      setIsPickingChat(true);
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const toggleWorkflow = async (workflow) => {
-    await setWorkflowEnabled(workflow.id, !workflow.enabled);
-    await loadPage();
+  const handleToggleWorkflow = async (wf) => {
+    await setWorkflowEnabled(wf.id, !wf.enabled);
+    await reloadData();
   };
 
-  const removeWorkflow = async (workflow) => {
-    if (!window.confirm(`确定删除「${workflow.name || '未命名工作流'}」吗？`)) {
-      return;
+  const handleDeleteWorkflow = async (wf) => {
+    if (window.confirm(`确定删除事务「${wf.name}」吗？`)) {
+      await deleteWorkflow(wf.id);
+      await reloadData();
     }
-
-    await deleteWorkflow(workflow.id);
-    await loadPage();
   };
 
-  const banner = getCharacterBanner(selectedCharacter) || safeImage(profile.banner);
-  const avatar = getCharacterAvatar(selectedCharacter) || safeImage(profile.avatar);
+  const activeBanner =
+    getCharacterBanner(currentCharacter) || safeImage(userProfile.banner);
+  const activeUserAvatar = safeImage(userProfile.avatar);
 
- return (
-  <div
-    className={[
-      'fixed inset-0 z-[999] h-[100dvh] w-screen overflow-y-auto transition-colors duration-500',
-      theme === 'dark'
-        ? 'bg-[#111] text-[#f5f5f5]'
-        : 'bg-white text-[#111]'
-    ].join(' ')}
-  >
-    <style>{`
-
-        .profile-scroll::-webkit-scrollbar{display:none}
-        .profile-scroll{scrollbar-width:none;-ms-overflow-style:none}
-        @keyframes profileFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-        .profile-fade{animation:profileFadeIn .55s cubic-bezier(.2,.8,.2,1) both}
-        @media (hover:hover){
-          .profile-photo:hover img{transform:scale(1.045)}
-        }
+  return (
+    /* 
+      关键修复：使用 fixed inset-0 z-[9999] h-[100dvh] w-screen
+      脱离所有外部容器 padding / margin / border-radius，撑满屏幕
+    */
+    <div
+      ref={containerRef}
+      className={`fixed inset-0 z-[9999] h-[100dvh] w-screen overflow-y-auto overflow-x-hidden font-sans transition-colors duration-500 ${
+        themeMode === 'dark' ? 'bg-[#0a0a0a] text-[#f2f2f2]' : 'bg-white text-[#111]'
+      }`}
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
+      <style>{`
+        .film-scroll::-webkit-scrollbar { display: none; }
+        .film-scroll { scrollbar-width: none; -ms-overflow-style: none; }
       `}</style>
 
-      <div className="min-h-full w-full">
+      {/* 极简顶栏 */}
+      <header className="relative z-20 flex items-center justify-between px-6 pt-5 pb-3">
+        <button
+          type="button"
+          onClick={onBackHub}
+          className="flex items-center gap-2 text-xs tracking-widest uppercase opacity-60 transition hover:opacity-100"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Hub</span>
+        </button>
 
-        <header className="flex items-center justify-between px-5 py-5 sm:px-10">
+        <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={onBackHub}
-            className="flex items-center gap-2 text-xs opacity-55 transition hover:opacity-100"
+            onClick={() => setThemeMode((m) => (m === 'light' ? 'dark' : 'light'))}
+            className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-45 hover:opacity-100"
           >
-            <ArrowLeft className="h-4 w-4" />
-            返回
+            {themeMode === 'light' ? 'DARK' : 'WHITE'}
           </button>
+          <button
+            type="button"
+            onClick={() => setIsEditingVisuals(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-full opacity-60 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+            title="定制专属主页"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        </div>
+      </header>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}
-              className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] opacity-50 transition hover:opacity-100"
-            >
-              {theme === 'light' ? 'Black mode' : 'White mode'}
-            </button>
+      {/* 1. 顶部大展板：个人主页式 Header */}
+      <div className="relative mx-auto w-full px-4 sm:px-8">
+        <div className="relative min-h-[22rem] w-full overflow-hidden rounded-3xl bg-zinc-800 text-white sm:min-h-[28rem]">
+          {activeBanner ? (
+            <img
+              src={activeBanner}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover transition-all duration-700 ease-out"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-[#161616]" />
+          )}
 
-            <IconButton
-              label="编辑主页"
-              onClick={() => setEditing(true)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </IconButton>
-          </div>
-        </header>
+          {/* 纯净暗角渐变 */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10" />
 
-        <main className="px-5 pb-20 sm:px-10">
-          <section className="profile-fade relative min-h-[26rem] overflow-hidden sm:min-h-[34rem]">
-            {banner ? (
-              <img
-                src={banner}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0 bg-[#eeeeeb]" />
-            )}
+          {/* 展板文字与身份 */}
+          <div className="relative flex h-full min-h-[22rem] flex-col justify-between p-6 sm:min-h-[28rem] sm:p-10">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-white/60">
+                  PERSONAL ARCHIVE
+                </p>
+                <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-white/40">
+                  {userProfile.location || 'CHRONICLE SPACE'}
+                </p>
+              </div>
+              <Sparkles className="h-4 w-4 text-white/50" />
+            </div>
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/10" />
-
-            <div className="relative flex min-h-[26rem] flex-col justify-between p-6 text-white sm:min-h-[34rem] sm:p-10">
-              <div className="flex justify-between">
-                <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.25em] opacity-70">
-                    Personal archive
-                  </p>
-                  <p className="mt-2 max-w-xs text-xs leading-5 opacity-70">
-                    {profile.joined
-                      ? `Since ${profile.joined}`
-                      : 'A page made of people, time and small memories.'}
-                  </p>
-                </div>
-
-                <Sparkles className="h-5 w-5 opacity-80" />
+            <div className="flex items-end justify-between gap-4">
+              <div className="max-w-lg">
+                <span className="font-mono text-[10px] tracking-wider text-white/60">
+                  {userProfile.handle || '@USER'}
+                </span>
+                <h1 className="mt-1 font-serif text-4xl italic tracking-wide text-white sm:text-6xl">
+                  {userProfile.name || 'User'}
+                </h1>
+                <p className="mt-3 max-w-sm text-xs leading-relaxed text-white/70">
+                  {userProfile.bio}
+                </p>
               </div>
 
-              <div className="flex items-end justify-between gap-5">
-                <div className="max-w-xl">
-                  <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] opacity-65">
-                    {profile.handle || '@yourstory'}
-                  </p>
-                  <h1 className="font-serif text-5xl italic leading-[0.9] sm:text-8xl">
-                    {profile.name || '你的名字'}
-                  </h1>
-                  <p className="mt-5 max-w-md text-sm leading-6 opacity-80">
-                    {profile.bio || '写一点关于你的内容。'}
-                  </p>
-                </div>
-
-                {avatar ? (
+              {/* 个人专属头像浮动 */}
+              <div className="shrink-0">
+                {activeUserAvatar ? (
                   <img
-                    src={avatar}
+                    src={activeUserAvatar}
                     alt=""
-                    className="h-16 w-16 rounded-full border border-white/40 object-cover sm:h-24 sm:w-24"
+                    className="h-16 w-16 rounded-full border border-white/30 object-cover shadow-lg sm:h-20 sm:w-20"
                   />
                 ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/40 bg-white/10 font-serif text-2xl sm:h-24 sm:w-24">
-                    {getInitial(profile.name)}
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/30 bg-white/10 font-serif text-xl sm:h-20 sm:w-20">
+                    {getInitial(userProfile.name)}
                   </div>
                 )}
               </div>
             </div>
-          </section>
-
-          <section className="profile-fade mt-16">
-            <div className="mb-6 flex items-end justify-between">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-40">
-                  People in this story
-                </p>
-                <h2 className="mt-2 font-serif text-3xl italic sm:text-5xl">
-                  选择一个人
-                </h2>
-              </div>
-
-              <div className="hidden items-center gap-2 sm:flex">
-                <IconButton
-                  label="上一个角色"
-                  onClick={() => changeCharacter(-1)}
-                  dark={theme === 'dark'}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </IconButton>
-                <IconButton
-                  label="下一个角色"
-                  onClick={() => changeCharacter(1)}
-                  dark={theme === 'dark'}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </IconButton>
-              </div>
-            </div>
-
-            {characters.length === 0 ? (
-              <div className="border-y border-black/10 py-14 text-center text-sm opacity-45">
-                还没有角色。先创建一个角色，再回来布置这页主页。
-              </div>
-            ) : (
-              <div className="profile-scroll -mx-5 flex snap-x snap-mandatory items-end gap-3 overflow-x-auto px-5 pb-3 sm:-mx-10 sm:px-10">
-                {characters.map((character, index) => (
-                  <div key={getCharacterId(character)} className="snap-center">
-                    <CharacterPortrait
-                      character={character}
-                      index={index}
-                      active={index === selectedIndex}
-                      onClick={() => setSelectedIndex(index)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {selectedCharacter && (
-            <section className="profile-fade mt-20">
-              <div className="grid gap-12 lg:grid-cols-[.75fr_1.25fr]">
-                <div>
-                  <div className="mb-6 flex items-start justify-between">
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-40">
-                        Character page
-                      </p>
-                      <h2 className="mt-2 font-serif text-4xl italic">
-                        {getCharacterName(selectedCharacter)}
-                      </h2>
-                    </div>
-
-                    <IconButton
-                      label="编辑角色主页"
-                      onClick={() => setEditing(true)}
-                      dark={theme === 'dark'}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </IconButton>
-                  </div>
-
-                  <p className="max-w-sm text-sm leading-7 opacity-55">
-                    {selectedCharacter.bio ||
-                      '这个角色还没有填写简介。你可以为他上传照片、编辑文字，并建立一条只属于他的时间线。'}
-                  </p>
-
-                  <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-[10px] uppercase tracking-[0.18em] opacity-40">
-                    <span>
-                      {characterWorkflows.length} routines
-                    </span>
-                    <span>
-                      {selectedCharacter.handle || 'private page'}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-7 flex items-end justify-between">
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-40">
-                        Timeline
-                      </p>
-                      <h3 className="mt-2 font-serif text-3xl italic">
-                        时间线
-                      </h3>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={openCreateWorkflow}
-                      className="flex items-center gap-2 text-xs opacity-55 transition hover:opacity-100"
-                    >
-                      <Plus className="h-4 w-4" />
-                      添加
-                    </button>
-                  </div>
-
-                  {loading ? (
-                    <div className="py-12 text-sm opacity-40">
-                      正在读取时间线…
-                    </div>
-                  ) : characterWorkflows.length === 0 ? (
-                    <div className="border-y border-black/10 py-12">
-                      <Clock3 className="mb-4 h-5 w-5 opacity-40" />
-                      <p className="font-serif text-xl italic">
-                        这里还没有安排好的时刻。
-                      </p>
-                      <button
-                        type="button"
-                        onClick={openCreateWorkflow}
-                        className="mt-4 text-xs underline underline-offset-4 opacity-55"
-                      >
-                        创建第一条工作流
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      {characterWorkflows.map((workflow) => (
-                        <TimelineItem
-                          key={workflow.id}
-                          workflow={workflow}
-                          onEdit={(item) => setFormTarget({ workflow: item })}
-                          onDelete={removeWorkflow}
-                          onToggle={toggleWorkflow}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
-
-          <section className="mt-20 border-t border-black/10 pt-5">
-            <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] opacity-40">
-              <span>{profile.location || 'Personal space'}</span>
-              <span>{formatDate(new Date())}</span>
-            </div>
-          </section>
-        </main>
+          </div>
+        </div>
       </div>
 
-      {editing && (
-        <ProfileEditor
-          profile={profile}
-          selectedCharacter={selectedCharacter}
-          onProfileChange={setProfile}
-          onCharacterChange={(nextCharacter) => {
-            if (!nextCharacter) return;
+      {/* 2. 核心：相片感角色画廊 (Camera Film Roll) */}
+      <section className="mt-12 px-4 sm:px-8">
+        <div className="mb-6 flex items-end justify-between">
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-[0.25em] opacity-40">
+              Select Protagonist
+            </p>
+            <h2 className="mt-1 font-serif text-3xl italic tracking-tight sm:text-4xl">
+              挑选人物
+            </h2>
+          </div>
 
-            setCharacters((current) =>
-              current.map((character) =>
-                getCharacterId(character) === getCharacterId(nextCharacter)
-                  ? nextCharacter
-                  : character
-              )
-            );
-          }}
-          onClose={() => setEditing(false)}
-          onSave={saveProfile}
-        />
+          {/* 控制按钮 */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => switchCharacter(-1)}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-current/10 opacity-60 transition hover:opacity-100"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => switchCharacter(1)}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-current/10 opacity-60 transition hover:opacity-100"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* 左右横滑相片带 */}
+        {characters.length === 0 ? (
+          <div className="py-12 text-center text-xs opacity-40">
+            暂无角色，请在宿主应用中创建角色后再来挑选
+          </div>
+        ) : (
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className="film-scroll -mx-4 flex items-center gap-4 overflow-x-auto px-4 py-2 sm:-mx-8 sm:px-8"
+          >
+            {characters.map((char, idx) => (
+              <CameraFilmItem
+                key={getCharacterId(char)}
+                character={char}
+                index={idx}
+                isActive={idx === selectedIndex}
+                onClick={() => setSelectedIndex(idx)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 3. 独立角色页面详情与时间轴 */}
+      {currentCharacter && (
+        <section className="mt-16 px-4 pb-24 sm:px-8">
+          <div className="grid gap-12 lg:grid-cols-[1fr_1.5fr]">
+            {/* 左侧：角色独立展示与描述 */}
+            <div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-mono text-[9px] uppercase tracking-[0.25em] opacity-40">
+                    Solo Journal
+                  </p>
+                  <h3 className="mt-1 font-serif text-3xl italic tracking-wide">
+                    {getCharacterName(currentCharacter)}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingVisuals(true)}
+                  className="rounded-full p-2 opacity-50 hover:opacity-100"
+                  title="上传专属照片"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              <p className="mt-4 text-xs leading-relaxed opacity-60">
+                {currentCharacter.workflowBio ||
+                  currentCharacter.bio ||
+                  '未填写专属描述，点击右上角笔形图标即可为他撰写独白或上传胶片大图。'}
+              </p>
+
+              <div className="mt-8 flex gap-6 font-mono text-[10px] uppercase tracking-widest opacity-40">
+                <span>{currentWorkflows.length} ROUTINES</span>
+                <span>CHRONICLE LINKED</span>
+              </div>
+            </div>
+
+            {/* 右侧：优雅融合的时间轴 */}
+            <div>
+              <div className="mb-6 flex items-center justify-between border-b border-current/10 pb-4">
+                <div>
+                  <p className="font-mono text-[9px] uppercase tracking-[0.2em] opacity-40">
+                    Timeline Sequence
+                  </p>
+                  <h4 className="mt-1 font-serif text-2xl italic">运行时刻</h4>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCreateNewWorkflow}
+                  className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider opacity-60 hover:opacity-100"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>添加时刻</span>
+                </button>
+              </div>
+
+              {currentWorkflows.length === 0 ? (
+                <div className="py-12 text-center">
+                  <Clock3 className="mx-auto h-5 w-5 opacity-30" />
+                  <p className="mt-3 font-serif text-base italic opacity-50">
+                    还没有为 {getCharacterName(currentCharacter)} 设立任何时间流。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCreateNewWorkflow}
+                    className="mt-3 text-xs underline underline-offset-4 opacity-70"
+                  >
+                    创建第一条工作流
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y divide-current/5">
+                  {currentWorkflows.map((wf) => (
+                    <TimelineEntry
+                      key={wf.id}
+                      workflow={wf}
+                      onEdit={(item) => setFormSheetTarget({ workflow: item })}
+                      onDelete={handleDeleteWorkflow}
+                      onToggle={handleToggleWorkflow}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
       )}
 
-      {pickingChat && (
-        <ChatPicker
+      {/* 弹窗层：选择对话绑定 */}
+      {isPickingChat && (
+        <ChatSelectorModal
           chats={candidateChats}
-          onClose={() => setPickingChat(false)}
-          onPick={(chat) => {
-            setPickingChat(false);
-            setFormTarget({ chat });
+          onSelect={(chat) => {
+            setIsPickingChat(false);
+            setFormSheetTarget({ chat });
+          }}
+          onClose={() => setIsPickingChat(false)}
+        />
+      )}
+
+      {/* 弹窗层：创建/编辑时间节点 */}
+      {formSheetTarget && (
+        <WorkflowFormModal
+          chat={formSheetTarget.chat}
+          workflow={formSheetTarget.workflow}
+          onClose={() => setFormSheetTarget(null)}
+          onSaved={async () => {
+            setFormSheetTarget(null);
+            await reloadData();
           }}
         />
       )}
 
-      {formTarget && (
-        <WorkflowForm
-          chat={formTarget.chat}
-          workflow={formTarget.workflow}
-          onClose={() => setFormTarget(null)}
-          onSaved={async () => {
-            setFormTarget(null);
-            await loadPage();
-          }}
+      {/* 抽屉层：独立美化与上传 */}
+      {isEditingVisuals && (
+        <ProfileAndVisualEditor
+          userProfile={userProfile}
+          currentCharacter={currentCharacter}
+          onClose={() => setIsEditingVisuals(false)}
+          onSave={handleSaveVisuals}
         />
       )}
     </div>
