@@ -1,30 +1,857 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
-  Copy, 
-  Check, 
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Copy,
+  Check,
   Calendar,
   Settings,
-  X
+  X,
+  ExternalLink
 } from 'lucide-react';
+
 import db from '../../db';
+
+const styles = `
+.rhythm-app {
+  --rhythm-bg: #f4f4f5;
+  --rhythm-app-bg: #fff;
+  --rhythm-main: #111;
+  --rhythm-sub: #71717a;
+  --rhythm-border: #e4e4e7;
+  --rhythm-dark-border: #27272a;
+  --rhythm-soft: #fafafa;
+  --rhythm-muted: #a1a1aa;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 20px;
+  background: var(--rhythm-bg);
+  color: var(--rhythm-main);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.rhythm-app *,
+.rhythm-app *::before,
+.rhythm-app *::after {
+  box-sizing: border-box;
+}
+
+.rhythm-shell {
+  width: 100%;
+  max-width: 420px;
+  min-height: calc(100vh - 40px);
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  background: var(--rhythm-app-bg);
+  border: 1px solid var(--rhythm-border);
+  border-radius: 24px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.08);
+}
+
+.rhythm-window-header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--rhythm-border);
+}
+
+.rhythm-window-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.rhythm-window-dots span {
+  width: 12px;
+  height: 12px;
+  display: block;
+  border: 1px solid var(--rhythm-border);
+  border-radius: 50%;
+  background: #fff;
+}
+
+.rhythm-window-dots span:first-child {
+  border-color: var(--rhythm-dark-border);
+  background: var(--rhythm-dark-border);
+}
+
+.rhythm-window-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  color: var(--rhythm-sub);
+  font-size: 14px;
+  letter-spacing: .5px;
+  white-space: nowrap;
+}
+
+
+.rhythm-profile {
+  display: flex;
+  gap: 15px;
+  padding: 20px;
+  border-bottom: 1px solid var(--rhythm-border);
+}
+
+.rhythm-avatar {
+  width: 88px;
+  height: 88px;
+  flex: 0 0 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  color: var(--rhythm-main);
+  border: 1px solid var(--rhythm-dark-border);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at center, #eee 0 39%, transparent 40%),
+    linear-gradient(45deg, transparent 40%, #ddd 41%, #ddd 60%, transparent 61%),
+    #fafafa;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+}
+
+.rhythm-avatar::after {
+  content: "01";
+  position: absolute;
+  right: 7px;
+  bottom: 5px;
+  color: var(--rhythm-sub);
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.rhythm-profile-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rhythm-banner {
+  height: 32px;
+  border: 1px solid var(--rhythm-border);
+  border-radius: 8px;
+  background: repeating-linear-gradient(
+    -45deg,
+    #f0f0f0,
+    #f0f0f0 10px,
+    #fff 10px,
+    #fff 20px
+  );
+}
+
+.rhythm-field label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--rhythm-sub);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.rhythm-field-value {
+  width: 100%;
+  min-height: 25px;
+  overflow: hidden;
+  padding: 5px 9px;
+  color: var(--rhythm-main);
+  border: 1px solid var(--rhythm-border);
+  border-radius: 8px;
+  background: var(--rhythm-soft);
+  font-size: 12px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rhythm-info-row {
+  display: flex;
+  gap: 8px;
+}
+
+.rhythm-tabs {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--rhythm-border);
+  background: var(--rhythm-soft);
+}
+
+.rhythm-tab {
+  min-height: 42px;
+  padding: 12px 13px 11px;
+  color: var(--rhythm-sub);
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rhythm-tab:hover {
+  color: var(--rhythm-main);
+}
+
+.rhythm-tab.active {
+  z-index: 1;
+  color: var(--rhythm-main);
+  border-color: var(--rhythm-border);
+  margin-bottom: -1px;
+  background: #fff;
+  font-weight: 600;
+}
+
+.rhythm-tab.external {
+  margin-left: auto;
+  padding-right: 10px;
+  padding-left: 10px;
+  font-size: 16px;
+}
+
+.rhythm-content {
+  padding: 20px;
+  background: #fff;
+}
+
+.rhythm-config {
+  position: relative;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px dashed var(--rhythm-dark-border);
+  background: var(--rhythm-soft);
+}
+
+.rhythm-config-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rhythm-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  color: var(--rhythm-main);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rhythm-config p {
+  margin: 0 0 12px;
+  color: var(--rhythm-sub);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.rhythm-config-row {
+  display: flex;
+  gap: 8px;
+}
+
+.rhythm-app input,
+.rhythm-app select,
+.rhythm-app textarea {
+  font-family: inherit;
+}
+
+.rhythm-config input,
+.rhythm-form input,
+.rhythm-form select,
+.rhythm-import textarea {
+  min-width: 0;
+  color: var(--rhythm-main);
+  border: 1px solid var(--rhythm-border);
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+}
+
+.rhythm-config input:focus,
+.rhythm-form input:focus,
+.rhythm-form select:focus,
+.rhythm-import textarea:focus {
+  border-color: var(--rhythm-dark-border);
+}
+
+.rhythm-config input {
+  flex: 1;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+
+.rhythm-primary-button {
+  padding: 7px 13px;
+  color: #fff;
+  border: 1px solid var(--rhythm-dark-border);
+  border-radius: 8px;
+  background: var(--rhythm-dark-border);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rhythm-primary-button:hover {
+  opacity: .8;
+}
+
+.rhythm-week-badge {
+  margin: 0 0 14px;
+  color: var(--rhythm-sub);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 10px;
+  letter-spacing: 1.3px;
+  text-align: center;
+}
+
+.rhythm-week-badge span {
+  display: inline-block;
+  padding: 5px 10px;
+  border: 1px solid var(--rhythm-border);
+  border-radius: 999px;
+  background: var(--rhythm-soft);
+}
+
+.rhythm-day-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  margin-bottom: 22px;
+  padding: 0 0 7px;
+  border-bottom: 1px solid var(--rhythm-border);
+}
+
+.rhythm-day-tab {
+  flex: 1;
+  position: relative;
+  padding: 5px 1px 6px;
+  color: var(--rhythm-sub);
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.rhythm-day-tab.active {
+  color: var(--rhythm-main);
+  font-weight: 700;
+}
+
+.rhythm-day-tab.active::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: var(--rhythm-dark-border);
+}
+
+.rhythm-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 14px;
+  color: var(--rhythm-sub);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  letter-spacing: .4px;
+}
+
+.rhythm-empty {
+  padding: 34px 12px;
+  color: var(--rhythm-sub);
+  border: 1px dashed var(--rhythm-border);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  font-style: italic;
+  text-align: center;
+}
+
+.rhythm-schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rhythm-schedule {
+  display: flex;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--rhythm-border);
+  border-radius: 14px;
+  background: #fff;
+  transition: border-color .2s ease, transform .2s ease;
+}
+
+.rhythm-schedule:hover {
+  border-color: var(--rhythm-dark-border);
+  transform: translateY(-1px);
+}
+
+.rhythm-time {
+  width: 82px;
+  flex: 0 0 82px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  border-right: 1px dashed var(--rhythm-border);
+  background: var(--rhythm-soft);
+  text-align: center;
+}
+
+.rhythm-time strong {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 13px;
+}
+
+.rhythm-time i {
+  width: 1px;
+  height: 8px;
+  display: block;
+  margin: 4px 0;
+  background: var(--rhythm-border);
+}
+
+.rhythm-time small {
+  color: var(--rhythm-sub);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 10px;
+}
+
+.rhythm-schedule-body {
+  min-width: 0;
+  flex: 1;
+  padding: 12px 13px;
+}
+
+.rhythm-schedule-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.rhythm-schedule-title {
+  min-width: 0;
+  overflow: hidden;
+  margin: 0;
+  padding-right: 8px;
+  color: var(--rhythm-main);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rhythm-category {
+  flex: 0 0 auto;
+  color: var(--rhythm-sub);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 9px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.rhythm-meta {
+  min-height: 20px;
+  color: var(--rhythm-sub);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.rhythm-cycle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 9px;
+  padding-top: 7px;
+  color: var(--rhythm-sub);
+  border-top: 1px solid var(--rhythm-border);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 9px;
+}
+
+.rhythm-delete {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  display: inline-flex;
+  padding: 4px;
+  color: var(--rhythm-sub);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .2s ease, color .2s ease;
+}
+
+.rhythm-schedule:hover .rhythm-delete,
+.rhythm-delete:focus {
+  opacity: 1;
+}
+
+.rhythm-delete:hover {
+  color: #dc2626;
+}
+
+.rhythm-memo {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rhythm-dark-border);
+}
+
+.rhythm-memo-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 12px;
+  color: var(--rhythm-main);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.rhythm-memo-title::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--rhythm-border);
+}
+
+.rhythm-memo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  color: var(--rhythm-main);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.rhythm-memo-item:nth-child(odd) {
+  background: var(--rhythm-soft);
+}
+
+.rhythm-memo-item input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  margin: 1px 0 0;
+  border: 1px solid var(--rhythm-dark-border);
+  border-radius: 2px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.rhythm-memo-item input:checked {
+  background:
+    linear-gradient(135deg, transparent 42%, #fff 42% 52%, transparent 52%),
+    var(--rhythm-dark-border);
+}
+
+.rhythm-divider {
+  height: 1px;
+  margin: 26px 0 20px;
+  border-top: 1px dashed var(--rhythm-border);
+}
+
+.rhythm-import {
+  padding: 15px;
+  border: 1px solid var(--rhythm-border);
+  border-radius: 14px;
+  background: var(--rhythm-soft);
+}
+
+.rhythm-import-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rhythm-import-title {
+  color: var(--rhythm-main);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rhythm-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  color: var(--rhythm-sub);
+  border: 0;
+  background: transparent;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.rhythm-copy:hover {
+  color: var(--rhythm-main);
+}
+
+.rhythm-import-description {
+  margin: 0 0 11px;
+  color: var(--rhythm-sub);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.rhythm-import textarea {
+  width: 100%;
+  height: 78px;
+  display: block;
+  resize: vertical;
+  padding: 9px;
+  margin-bottom: 10px;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 10px;
+}
+
+.rhythm-import-submit {
+  width: 100%;
+  padding: 9px;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  background: var(--rhythm-dark-border);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rhythm-import-submit:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.rhythm-manual {
+  margin-top: 14px;
+  border: 1px solid var(--rhythm-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.rhythm-manual summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px;
+  color: var(--rhythm-main);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.rhythm-manual summary::-webkit-details-marker {
+  display: none;
+}
+
+.rhythm-manual[open] summary {
+  border-bottom: 1px solid var(--rhythm-border);
+}
+
+.rhythm-manual summary svg {
+  transition: transform .2s ease;
+}
+
+.rhythm-manual[open] summary svg {
+  transform: rotate(45deg);
+}
+
+.rhythm-form {
+  padding: 14px;
+}
+
+.rhythm-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rhythm-form-field {
+  min-width: 0;
+}
+
+.rhythm-form-field.full {
+  grid-column: 1 / -1;
+}
+
+.rhythm-form-field label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--rhythm-sub);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.rhythm-form input,
+.rhythm-form select {
+  width: 100%;
+  padding: 8px 9px;
+  font-size: 11px;
+}
+
+.rhythm-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rhythm-mode label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--rhythm-main);
+  font-size: 10px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.rhythm-form-submit {
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  background: var(--rhythm-dark-border);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rhythm-message {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.rhythm-message.error {
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+}
+
+.rhythm-message.success {
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+}
+
+.rhythm-fab {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  z-index: 3;
+  color: var(--rhythm-main);
+  border: 2px solid var(--rhythm-dark-border);
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,.1);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.rhythm-fab:hover {
+  color: #fff;
+  background: var(--rhythm-dark-border);
+}
+
+@media (max-width: 480px) {
+  .rhythm-app {
+    padding: 0;
+  }
+
+  .rhythm-shell {
+    min-height: 100vh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+    .rhythm-header-button {
+  width: 25px;
+  height: 25px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  padding: 0;
+  color: var(--rhythm-main);
+  border: 1px solid var(--rhythm-border);
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.rhythm-header-button:hover {
+  color: #fff;
+  border-color: var(--rhythm-dark-border);
+  background: var(--rhythm-dark-border);
+}
+
+.rhythm-back-button {
+  margin-right: 10px;
+}
+
+.rhythm-settings-button {
+  margin-left: auto;
+}
+
+}
+`;
 
 export default function RhythmApp({ onBackHub, currentCharacterId }) {
   const [schedules, setSchedules] = useState([]);
   const [activeDay, setActiveDay] = useState(new Date().getDay() || 7);
   const [activePromptTab, setActivePromptTab] = useState('student');
-  
-  // 开学日期配置状态
+
   const [termStartDate, setTermStartDate] = useState('');
   const [showConfig, setShowConfig] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(1);
 
-  // 新建日程表单状态
-  const [isRepeating, setIsRepeating] = useState(true); // true 为每周重复，false 为单次日程
+  const [isRepeating, setIsRepeating] = useState(true);
   const [singleDate, setSingleDate] = useState(new Date().toISOString().split('T')[0]);
-  
+
   const [title, setTitle] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState(1);
   const [startTime, setStartTime] = useState('09:00');
@@ -32,8 +859,8 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
   const [weeks, setWeeks] = useState('1-16');
   const [location, setLocation] = useState('');
   const [teacher, setTeacher] = useState('');
-  const [category, setCategory] = useState('course'); // course, work, life
-  
+  const [category, setCategory] = useState('course');
+
   const [pasteData, setPasteData] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -49,48 +876,57 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
     { label: '周日', value: 7 }
   ];
 
-  // 计算当前是第几周
   const calculateCurrentWeek = (startDateStr) => {
     if (!startDateStr) return 1;
+
     try {
       const now = new Date();
       const start = new Date(startDateStr);
-      // 将时间设为当天清晨做计算
-      start.setHours(0,0,0,0);
-      now.setHours(0,0,0,0);
-      
+
+      start.setHours(0, 0, 0, 0);
+      now.setHours(0, 0, 0, 0);
+
       const diffTime = now - start;
-      if (diffTime < 0) return 1; // 还没开学
+
+      if (diffTime < 0) return 1;
+
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       const week = Math.floor(diffDays / 7) + 1;
+
       return week <= 25 ? week : 1;
     } catch {
       return 1;
     }
   };
 
-  // 读取与保存开学日期设定
   useEffect(() => {
     const loadConfig = async () => {
       const saved = await db.settings.get('term_start_date');
+
       if (saved?.value) {
         setTermStartDate(saved.value);
         setCurrentWeek(calculateCurrentWeek(saved.value));
       }
     };
+
     loadConfig();
   }, []);
 
   const handleSaveTermStart = async () => {
     if (!termStartDate) return;
-    await db.settings.put({ key: 'term_start_date', value: termStartDate });
+
+    await db.settings.put({
+      key: 'term_start_date',
+      value: termStartDate
+    });
+
     setCurrentWeek(calculateCurrentWeek(termStartDate));
     setShowConfig(false);
     setSuccessMsg('学期开学日期设定已更新。');
+
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
-  // 针对不同人群生成的外部 AI 提示词
   const getPromptText = () => {
     return `你是一个专业的时间数据格式化助手。请帮我将以下给出的【日程/课表文本】整理成标准的 JSON 数据。
 
@@ -123,6 +959,7 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
   const handleCopyPrompt = () => {
     navigator.clipboard.writeText(getPromptText());
     setIsCopied(true);
+
     setTimeout(() => setIsCopied(false), 2000);
   };
 
@@ -132,6 +969,7 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
         .where('characterId')
         .equals(currentCharacterId || 0)
         .toArray();
+
       data.sort((a, b) => a.startTime.localeCompare(b.startTime));
       setSchedules(data);
     } catch (err) {
@@ -146,35 +984,50 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
   const handleImportJson = async () => {
     setErrorMsg('');
     setSuccessMsg('');
+
     try {
       let cleanData = pasteData.trim();
+
       if (cleanData.startsWith('```json')) {
-        cleanData = cleanData.replace(/^```json/, '').replace(/```$/, '').trim();
+        cleanData = cleanData
+          .replace(/^```json/, '')
+          .replace(/```$/, '')
+          .trim();
       } else if (cleanData.startsWith('```')) {
-        cleanData = cleanData.replace(/^```/, '').replace(/```$/, '').trim();
+        cleanData = cleanData
+          .replace(/^```/, '')
+          .replace(/```$/, '')
+          .trim();
       }
 
       const parsed = JSON.parse(cleanData);
+
       if (!Array.isArray(parsed)) {
         throw new Error('导入的日程格式必须为数组列表');
       }
 
       const validated = parsed.map((item, index) => {
         if (!item.title || !item.startTime || !item.endTime) {
-          throw new Error(`第 ${index + 1} 个日程信息不完整(必填: title, startTime, endTime)`);
+          throw new Error(
+            `第 ${index + 1} 个日程信息不完整(必填: title, startTime, endTime)`
+          );
         }
-        
+
         const rep = item.isRepeating !== false;
-        
+
         let parsedWeeks = [];
+
         if (Array.isArray(item.weeks) && item.weeks.length > 0) {
           parsedWeeks = item.weeks.map(Number);
         } else if (item.category === 'course' && rep) {
-          parsedWeeks = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+          parsedWeeks = [
+            1, 2, 3, 4, 5, 6, 7, 8,
+            9, 10, 11, 12, 13, 14, 15, 16
+          ];
         }
 
-        // 计算 dayOfWeek (如果是非重复的，算出具体日期是星期几)
         let dow = Number(item.dayOfWeek || 1);
+
         if (!rep && item.date) {
           const dObj = new Date(item.date);
           dow = dObj.getDay() || 7;
@@ -191,7 +1044,9 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
           weeks: parsedWeeks,
           location: String(item.location || '').trim(),
           teacher: String(item.teacher || '').trim(),
-          category: ['course', 'work', 'life'].includes(item.category) ? item.category : 'life',
+          category: ['course', 'work', 'life'].includes(item.category)
+            ? item.category
+            : 'life',
           createdAt: new Date().toISOString()
         };
       });
@@ -205,6 +1060,7 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
       setSuccessMsg(`成功同步了 ${validated.length} 项生活日程。`);
       setPasteData('');
       loadSchedules();
+
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       setErrorMsg(`解析失败: ${err.message}`);
@@ -213,21 +1069,30 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
 
   const handleAddSingle = async (e) => {
     e.preventDefault();
+
     if (!title.trim()) return;
 
     let parsedWeeks = [];
+
     if (isRepeating && category === 'course') {
       if (weeks.includes('-')) {
         const [start, end] = weeks.split('-').map(Number);
+
         if (!isNaN(start) && !isNaN(end)) {
-          for (let i = start; i <= end; i++) parsedWeeks.push(i);
+          for (let i = start; i <= end; i++) {
+            parsedWeeks.push(i);
+          }
         }
       } else {
-        parsedWeeks = weeks.split(',').map(Number).filter(n => !isNaN(n));
+        parsedWeeks = weeks
+          .split(',')
+          .map(Number)
+          .filter((n) => !isNaN(n));
       }
     }
 
     let targetDayOfWeek = Number(dayOfWeek);
+
     if (!isRepeating && singleDate) {
       const dObj = new Date(singleDate);
       targetDayOfWeek = dObj.getDay() || 7;
@@ -254,6 +1119,7 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
       setTeacher('');
       loadSchedules();
       setSuccessMsg('日程添加成功。');
+
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       setErrorMsg(`添加失败: ${err.message}`);
@@ -269,519 +1135,568 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
     }
   };
 
-  // 根据当前 activeDay（周几）以及具体的日期筛选出今日日程
   const getTodaySchedules = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    return schedules.filter(s => {
-      if (s.isRepeating) {
-        return s.dayOfWeek === activeDay;
-      } else {
-        // 单次事件：如果选择查看的星期刚好对应单次事件的日期，或者刚好就是单次事件设定的那一天
-        if (s.date) {
-          const sDateObj = new Date(s.date);
-          const dow = sDateObj.getDay() || 7;
-          return dow === activeDay;
-        }
-        return false;
+    return schedules.filter((schedule) => {
+      if (schedule.isRepeating) {
+        return schedule.dayOfWeek === activeDay;
       }
+
+      if (schedule.date) {
+        const dateObject = new Date(schedule.date);
+        const day = dateObject.getDay() || 7;
+        return day === activeDay;
+      }
+
+      return false;
     });
   };
 
   const filteredSchedules = getTodaySchedules();
 
+  const categoryLabels = {
+    course: 'Course',
+    work: 'Work',
+    life: 'Life'
+  };
+
+  const openManualForm = () => {
+    const manualForm = document.getElementById('rhythm-manual-form');
+
+    if (manualForm) {
+      manualForm.open = true;
+      manualForm.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
+  };
+
   return (
-    <div
-  className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col px-5 pb-24 pt-5 text-left"
-  style={{
-    color: 'var(--text-main)'
-  }}
->
-      {/* 手账页眉 */}
-<header
-  className="relative mb-7 px-1"
-  style={{ color: 'var(--text-main)' }}
->
-  {/* 顶部操作栏 */}
-  <div className="flex items-center justify-between">
-    <button
-      type="button"
-      onClick={onBackHub}
-      aria-label="返回主页"
-      className="flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90"
-      style={{
-        color: 'var(--text-main)',
-        backgroundColor: 'var(--control-soft-bg)',
-        border: '1px solid var(--card-border)'
-      }}
-    >
-      <ArrowLeft
-        className="h-[17px] w-[17px]"
-        strokeWidth={1.8}
-      />
-    </button>
+    <div className="rhythm-app">
+      <style>{styles}</style>
 
-    <button
-      type="button"
-      onClick={() => setShowConfig((value) => !value)}
-      aria-label="打开日程设置"
-      title="日程设置"
-      className="flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90"
-      style={{
-        color: 'var(--text-main)',
-        backgroundColor: 'transparent',
-        border: '1px solid var(--card-border)'
-      }}
-    >
-      <Settings
-        className="h-[17px] w-[17px]"
-        strokeWidth={1.7}
-      />
-    </button>
+      <div className="rhythm-window-header">
+  <button
+    type="button"
+    className="rhythm-header-button rhythm-back-button"
+    onClick={onBackHub}
+    aria-label="返回主页"
+    title="返回主页"
+  >
+    <ArrowLeft size={15} strokeWidth={1.8} />
+  </button>
+
+  <div className="rhythm-window-dots">
+    <span />
+    <span />
+    <span />
   </div>
 
-  {/* 标题与日期 */}
-  <div className="mt-5 flex items-end justify-between">
-    <div>
-      <p
-        className="mb-1 font-mono text-[9px] uppercase tracking-[0.28em]"
-        style={{ color: 'var(--text-sub)' }}
-      >
-        Personal Rhythm / 01
-      </p>
-
-      <h1
-        className="font-serif text-[29px] font-semibold leading-none tracking-[0.08em]"
-        style={{ color: 'var(--text-main)' }}
-      >
-        时光作息
-      </h1>
-    </div>
-
-    <div className="pb-0.5 text-right">
-      <p
-        className="font-mono text-[10px] tracking-wider"
-        style={{ color: 'var(--text-sub)' }}
-      >
-        {new Date().toLocaleDateString('zh-CN', {
-          month: '2-digit',
-          day: '2-digit'
-        })}
-      </p>
-
-      <p
-        className="mt-1 text-[10px] italic"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        留一点时间给生活
-      </p>
-    </div>
+  <div className="rhythm-window-title">
+    Rhythm.exe
   </div>
 
-  {/* 页眉底部装饰线 */}
-  <div className="mt-4 flex items-center gap-3">
-    <span
-      className="h-px w-12"
-      style={{
-        backgroundColor: 'var(--accent-color)'
-      }}
-    />
-
-    <span
-      className="h-px flex-1"
-      style={{
-        backgroundColor: 'var(--card-border)',
-        opacity: 0.65
-      }}
-    />
-  </div>
-</header>
-
-
-      {/* 学期第一周配置气泡（小书签） */}
-      {showConfig && (
-        <div
-  className="mb-6 space-y-3 border border-dashed p-4 text-xs"
-  style={{
-    borderColor: 'var(--card-border)',
-    backgroundColor: 'var(--control-soft-bg)'
-  }}
->
-
-          <div className="flex items-center justify-between">
-            <span className="font-bold">设定开学周一 (计算当前学周)</span>
-            <button onClick={() => setShowConfig(false)}><X className="w-4 h-4" /></button>
-          </div>
-          <p
-  className="text-[10px] leading-relaxed"
-  style={{ color: 'var(--text-sub)' }}
->
-
-            仅学生党需要配置。配置后系统会根据此日期自动算得当前的学周次，用以在上课日自动进行日程关照。
-          </p>
-          <div className="flex gap-2">
-            <input 
-              type="date" 
-              value={termStartDate} 
-              onChange={(e) => setTermStartDate(e.target.value)}
-              className="flex-1 border p-1.5 font-sans"
-style={{
-  color: 'var(--text-main)',
-  backgroundColor: 'var(--bg-main)',
-  borderColor: 'var(--card-border)'
-}}
-            />
-            <button 
-              onClick={handleSaveTermStart}
-              className="px-4 py-1.5 font-sans font-bold transition-opacity hover:opacity-80"
-style={{
-  color: 'var(--accent-foreground)',
-  backgroundColor: 'var(--accent-color)'
-}}
-            >
-              确定
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 学期进度挂签（仅当配置了开学日期时显示） */}
-      {termStartDate && (
-        <div className="mb-4 text-center">
-          <span className="inline-block px-3 py-1 rounded-full text-[10px] uppercase font-mono tracking-widest bg-[var(--control-soft-bg,rgba(0,0,0,0.03))] border border-[var(--theme-border)]">
-            School Calendar / Week {currentWeek}
-          </span>
-        </div>
-      )}
-
-      {/* 星期选择 */}
-<div
-  className="mb-7 flex items-end justify-between gap-1 border-b pb-2"
-  style={{
-    borderColor: 'var(--card-border)'
-  }}
->
-  {weekDays.map((day) => {
-    const isActive = activeDay === day.value;
-
-    return (
-      <button
-        key={day.value}
-        type="button"
-        onClick={() => setActiveDay(day.value)}
-        className="relative min-w-[38px] flex-1 pb-2 text-center transition-all"
-        style={{
-          color: isActive
-            ? 'var(--text-main)'
-            : 'var(--text-sub)',
-          opacity: isActive ? 1 : 0.62
-        }}
-      >
-        <span
-          className={`font-serif text-xs ${
-            isActive ? 'font-semibold' : 'font-normal'
-          }`}
-        >
-          {day.label}
-        </span>
-
-        {isActive && (
-          <span
-            className="absolute bottom-[-3px] left-1/2 h-[5px] w-[5px] -translate-x-1/2 rounded-full"
-            style={{
-              backgroundColor: 'var(--accent-color)'
-            }}
-          />
-        )}
-      </button>
-    );
-  })}
+  <button
+    type="button"
+    className="rhythm-header-button rhythm-settings-button"
+    onClick={() => setShowConfig((value) => !value)}
+    aria-label="打开日程设置"
+    title="日程设置"
+  >
+    <Settings size={15} strokeWidth={1.8} />
+  </button>
 </div>
 
 
-      {/* 拟物化撕裂票根日程卡片区 */}
-      <div className="flex-1 mb-8">
-        <h3 className="text-xs font-semibold mb-4 tracking-wider text-[var(--theme-text-muted)] flex items-center gap-1.5">
-          <Calendar className="w-3.5 h-3.5" /> 今日日程票根
-        </h3>
-        
-        {filteredSchedules.length === 0 ? (
-          <div className="py-12 text-center text-xs italic text-[var(--theme-text-muted)] border border-dashed border-[var(--theme-border)] rounded-lg">
-            此页尚未夹入任何日程纸条。
+        <section className="rhythm-profile">
+          <div className="rhythm-avatar">
+            Rhythm
           </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredSchedules.map((item) => {
-              // 类别显示文字
-              const categoryLabels = { course: 'Course', work: 'Work', life: 'Life' };
-              const typeLabel = categoryLabels[item.category] || 'Life';
-              
-              return (
-                <div 
-                  key={item.id} 
-                  className="flex border border-[var(--theme-border)] rounded bg-[var(--theme-card-bg,rgba(255,255,255,0.45))] shadow-sm relative group overflow-hidden"
-                >
-                  {/* 左侧：时间撕切联 (Time Stub) */}
-                  <div className="w-[100px] shrink-0 p-3 bg-[rgba(0,0,0,0.015)] flex flex-col justify-center items-center text-center select-none border-r border-dashed border-[var(--theme-border)]">
-                    <span className="font-mono text-[13px] font-bold tracking-tight">
-                      {item.startTime}
-                    </span>
-                    <div className="h-2 w-px bg-[var(--theme-border)] my-1 opacity-60" />
-                    <span className="font-mono text-[11px] opacity-50">
-                      {item.endTime}
-                    </span>
-                  </div>
 
-                  {/* 右侧：日程详情联 */}
-                  <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-                    <div>
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <h4 className="font-bold text-[13px] truncate pr-4 text-[var(--theme-text)]">
-                          {item.title}
-                        </h4>
-                        <span className="font-mono text-[9px] uppercase tracking-wider opacity-40 shrink-0 select-none">
-                          [{typeLabel}]
-                        </span>
-                      </div>
+          <div className="rhythm-profile-info">
+            <div className="rhythm-banner" />
 
-                      {/* 动态元数据 (只有存在时才占位展示，保持诗意留白) */}
-                      <div className="text-[10px] space-y-0.5 text-[var(--theme-text-muted)] font-mono">
-                        {item.location && (
-                          <div className="truncate">At: {item.location}</div>
-                        )}
-                        {item.teacher && (
-                          <div className="truncate">With: {item.teacher}</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 日程周期详情 */}
-                    <div className="mt-2 text-[9px] font-mono opacity-50 border-t border-[rgba(0,0,0,0.03)] pt-1.5 flex justify-between items-center">
-                      <span>
-                        {!item.isRepeating && item.date ? (
-                          `Once: ${item.date}`
-                        ) : item.category === 'course' && item.weeks?.length > 0 ? (
-                          `Weeks: ${item.weeks[0]}-${item.weeks[item.weeks.length - 1]}`
-                        ) : (
-                          'Every week repeat'
-                        )}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 删除按钮 */}
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-[var(--theme-text-muted)] hover:text-red-500"
-                    title="撕去此页"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* 导入区与手动添加折叠 */}
-      <div className="border-t border-dashed border-[var(--theme-border)] pt-6 space-y-6">
-        {/* 外部 AI 导入向导 */}
-        <div className="p-4 bg-[var(--theme-accent-bg,rgba(0,0,0,0.015))] border border-[var(--theme-border)] rounded-lg">
-          <h4 className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
-            <span>使用外部 AI 助理导入</span>
-            <button 
-              onClick={handleCopyPrompt}
-              className="flex items-center gap-1 text-[var(--theme-accent)] hover:opacity-85 text-xs font-sans font-normal"
-            >
-              {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-              {isCopied ? '复制解析提示词' : '复制解析提示词'}
-            </button>
-          </h4>
-
-          <p className="text-[10px] leading-relaxed text-[var(--theme-text-muted)] mb-3">
-            点击复制上面的解析提示词，发给任意外部 AI（如 Claude/ChatGPT），并将你的课表文本、工作时间安排发给它。它会为你提取为标准的 JSON 序列，然后直接贴回在下方导入。
-          </p>
-
-          <textarea
-            value={pasteData}
-            onChange={(e) => setPasteData(e.target.value)}
-            placeholder="粘贴 AI 吐出的 JSON 文本..."
-            className="w-full h-20 p-2 text-xs border border-[var(--theme-border)] rounded bg-[var(--theme-bg)] focus:outline-none focus:border-[var(--theme-accent)] font-mono resize-none mb-3"
-          />
-
-          <button
-            onClick={handleImportJson}
-            disabled={!pasteData.trim()}
-            className="w-full py-2 bg-[var(--theme-accent)] text-white text-xs font-bold rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
-          >
-            导入日程票根
-          </button>
-        </div>
-
-        {/* 手动添加单条日程 */}
-        <details className="group border border-[var(--theme-border)] rounded bg-[rgba(0,0,0,0.005)]">
-          <summary className="flex justify-between items-center p-3 text-xs font-bold tracking-wider cursor-pointer select-none">
-            <span>手动填写日程纸条</span>
-            <Plus className="w-4 h-4 group-open:rotate-45 transition-transform" />
-          </summary>
-          
-          <form onSubmit={handleAddSingle} className="p-4 space-y-4 border-t border-[var(--theme-border)] text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              
-              {/* 重复选项 */}
-              <div className="col-span-2">
-                <label className="block mb-1 font-semibold text-[var(--theme-text-muted)]">日程模式</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      checked={isRepeating} 
-                      onChange={() => setIsRepeating(true)}
-                    />
-                    每周重复安排
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      checked={!isRepeating} 
-                      onChange={() => setIsRepeating(false)}
-                    />
-                    仅限单次事件
-                  </label>
-                </div>
-              </div>
-
-              <div className="col-span-2">
-                <label className="block mb-1 font-semibold text-[var(--theme-text-muted)]">日程/课程名称</label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="如：高数 / 通勤 / 团队站会"
-                  className="w-full p-2 border border-[var(--theme-border)] rounded bg-[var(--theme-bg)]"
-                />
-              </div>
-
-              {isRepeating ? (
-                <div>
-                  <label className="block mb-1 font-semibold text-[var(--theme-text-muted)]">星期几</label>
-                  <select
-                    value={dayOfWeek}
-                    onChange={(e) => setDayOfWeek(Number(e.target.value))}
-                    className="w-full p-2 border border-[var(--theme-border)] rounded bg-[var(--theme-bg)]"
-                  >
-                    {weekDays.map(d => (
-                      <option key={d.value} value={d.value}>{d.label}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="block mb-1 font-semibold text-[var(--theme-text-muted)]">选择日期</label>
-                  <input
-                    type="date"
-                    required
-                    value={singleDate}
-                    onChange={(e) => setSingleDate(e.target.value)}
-                    className="w-full p-2 border border-[var(--theme-border)] rounded bg-[var(--theme-bg)] font-sans"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block mb-1 font-semibold text-[var(--theme-text-muted)]">类别</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full p-2 border border-[var(--theme-border)] rounded bg-[var(--theme-bg)]"
-                >
-                  <option value="course">学生课表</option>
-                  <option value="work">工作日程</option>
-                  <option value="life">生活日常</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block mb-1 font-semibold text-[var(--theme-text-muted)]">开始时间</label>
-                <input
-                  type="time"
-                  required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full p-2 border border-[var(--theme-border)] rounded bg-[var(--theme-bg)]"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1 font-semibold text-[var(--theme-text-muted)]">结束时间</label>
-                <input
-                  type="time"
-                  required
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full p-2 border border-[var(--theme-border)] rounded bg-[var(--theme-bg)]"
-                />
-              </div>
-
-              {isRepeating && category === 'course' && (
-                <div className="col-span-2">
-                  <label className="block mb-1 font-semibold text-[var(--theme-text-muted)]">上课周次 (如 1-16)</label>
-                  <input
-                    type="text"
-                    value={weeks}
-                    onChange={(e) => setWeeks(e.target.value)}
-                    className="w-full p-2 border border-[var(--theme-border)] rounded bg-[var(--theme-bg)] font-sans"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block mb-1 font-semibold text-[var(--theme-text-muted)]">地点 (选填)</label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="如：教一302 / 会议室"
-                  className="w-full p-2 border border-[var(--theme-border)] rounded bg-[var(--theme-bg)]"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1 font-semibold text-[var(--theme-text-muted)]">人物 (选填)</label>
-                <input
-                  type="text"
-                  value={teacher}
-                  onChange={(e) => setTeacher(e.target.value)}
-                  placeholder="如：王老师 / 经理"
-                  className="w-full p-2 border border-[var(--theme-border)] rounded bg-[var(--theme-bg)]"
-                />
+            <div className="rhythm-field">
+              <label>Personal Rhythm</label>
+              <div className="rhythm-field-value">
+                时光作息
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="w-full py-2 bg-[var(--theme-text)] text-[var(--theme-bg)] font-bold rounded hover:opacity-90 transition-opacity"
-            >
-              保存此日程票根
-            </button>
-          </form>
-        </details>
-      </div>
+            <div className="rhythm-info-row">
+              <div
+                className="rhythm-field"
+                style={{ flex: 1 }}
+              >
+                <label>Week</label>
+                <div className="rhythm-field-value">
+                  {termStartDate ? currentWeek : '--'}
+                </div>
+              </div>
 
-      {errorMsg && (
-        <div className="mt-4 p-3 bg-red-50 text-red-700 text-xs rounded border border-red-200 font-sans">
-          {errorMsg}
-        </div>
-      )}
-      {successMsg && (
-        <div className="mt-4 p-3 bg-green-50 text-green-700 text-xs rounded border border-green-200 font-sans">
-          {successMsg}
-        </div>
-      )}
+              <div
+                className="rhythm-field"
+                style={{ flex: 1.5 }}
+              >
+                <label>Today</label>
+                <div className="rhythm-field-value">
+                  {new Date().toLocaleDateString('zh-CN', {
+                    month: '2-digit',
+                    day: '2-digit'
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <nav className="rhythm-tabs">
+          <button
+            type="button"
+            className={`rhythm-tab ${
+              activePromptTab === 'student' ? 'active' : ''
+            }`}
+            onClick={() => setActivePromptTab('student')}
+          >
+            Tasks
+          </button>
+
+          <button
+            type="button"
+            className={`rhythm-tab ${
+              activePromptTab === 'events' ? 'active' : ''
+            }`}
+            onClick={() => setActivePromptTab('events')}
+          >
+            Events
+          </button>
+
+          <button
+            type="button"
+            className={`rhythm-tab ${
+              activePromptTab === 'memo' ? 'active' : ''
+            }`}
+            onClick={() => setActivePromptTab('memo')}
+          >
+            Memo
+          </button>
+
+          <button
+            type="button"
+            className="rhythm-tab external"
+            title="返回主页"
+            onClick={onBackHub}
+          >
+            <ExternalLink size={15} strokeWidth={1.8} />
+          </button>
+        </nav>
+
+        <main className="rhythm-content">
+          {showConfig && (
+            <section className="rhythm-config">
+              <div className="rhythm-config-head">
+                <span>设定开学周一 / 计算当前学周</span>
+
+                <button
+                  type="button"
+                  className="rhythm-icon-button"
+                  onClick={() => setShowConfig(false)}
+                  aria-label="关闭设置"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <p>
+                仅学生党需要配置。配置后系统会根据此日期自动计算当前学周次。
+              </p>
+
+              <div className="rhythm-config-row">
+                <input
+                  type="date"
+                  value={termStartDate}
+                  onChange={(e) => setTermStartDate(e.target.value)}
+                />
+
+                <button
+                  type="button"
+                  className="rhythm-primary-button"
+                  onClick={handleSaveTermStart}
+                >
+                  确定
+                </button>
+              </div>
+            </section>
+          )}
+
+          <div className="rhythm-profile-info" style={{ display: 'none' }}>
+            {activePromptTab}
+          </div>
+
+          {termStartDate && (
+            <div className="rhythm-week-badge">
+              <span>
+                School Calendar / Week {currentWeek}
+              </span>
+            </div>
+          )}
+
+          <div className="rhythm-day-tabs">
+            {weekDays.map((day) => {
+              const isActive = activeDay === day.value;
+
+              return (
+                <button
+                  type="button"
+                  key={day.value}
+                  className={`rhythm-day-tab ${
+                    isActive ? 'active' : ''
+                  }`}
+                  onClick={() => setActiveDay(day.value)}
+                >
+                  {day.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <section>
+            <h2 className="rhythm-section-heading">
+              <Calendar size={14} strokeWidth={1.8} />
+              今日日程票根
+            </h2>
+
+            {filteredSchedules.length === 0 ? (
+              <div className="rhythm-empty">
+                此页尚未夹入任何日程纸条。
+              </div>
+            ) : (
+              <div className="rhythm-schedule-list">
+                {filteredSchedules.map((item) => {
+                  const typeLabel =
+                    categoryLabels[item.category] || 'Life';
+
+                  return (
+                    <article
+                      key={item.id}
+                      className="rhythm-schedule"
+                    >
+                      <div className="rhythm-time">
+                        <strong>{item.startTime}</strong>
+                        <i />
+                        <small>{item.endTime}</small>
+                      </div>
+
+                      <div className="rhythm-schedule-body">
+                        <div className="rhythm-schedule-title-row">
+                          <h3 className="rhythm-schedule-title">
+                            {item.title}
+                          </h3>
+
+                          <span className="rhythm-category">
+                            [{typeLabel}]
+                          </span>
+                        </div>
+
+                        <div className="rhythm-meta">
+                          {item.location && (
+                            <div>At: {item.location}</div>
+                          )}
+
+                          {item.teacher && (
+                            <div>With: {item.teacher}</div>
+                          )}
+
+                          {!item.location && !item.teacher && (
+                            <div>Keep this time for yourself.</div>
+                          )}
+                        </div>
+
+                        <div className="rhythm-cycle">
+                          <span>
+                            {!item.isRepeating && item.date
+                              ? `Once: ${item.date}`
+                              : item.category === 'course' &&
+                                item.weeks?.length > 0
+                              ? `Weeks: ${item.weeks[0]}-${
+                                  item.weeks[item.weeks.length - 1]
+                                }`
+                              : 'Every week repeat'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="rhythm-delete"
+                        onClick={() => handleDelete(item.id)}
+                        title="删除此日程"
+                        aria-label="删除此日程"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="rhythm-memo">
+            <h2 className="rhythm-memo-title">
+              daily to do list
+            </h2>
+
+            <label className="rhythm-memo-item">
+              <input type="checkbox" />
+              <span>drink water</span>
+            </label>
+
+            <label className="rhythm-memo-item">
+              <input type="checkbox" />
+              <span>read a book</span>
+            </label>
+
+            <label className="rhythm-memo-item">
+              <input type="checkbox" />
+              <span>add info to the notion</span>
+            </label>
+
+            <label className="rhythm-memo-item">
+              <input type="checkbox" />
+              <span>watch something interesting (no matter what)</span>
+            </label>
+          </section>
+
+          <div className="rhythm-divider" />
+
+          <section className="rhythm-import">
+            <div className="rhythm-import-head">
+              <span className="rhythm-import-title">
+                使用外部 AI 助理导入
+              </span>
+
+              <button
+                type="button"
+                className="rhythm-copy"
+                onClick={handleCopyPrompt}
+              >
+                {isCopied ? (
+                  <Check size={12} />
+                ) : (
+                  <Copy size={12} />
+                )}
+                {isCopied ? '已复制' : '复制解析提示词'}
+              </button>
+            </div>
+
+            <p className="rhythm-import-description">
+              将提示词发送给 Claude、ChatGPT 等外部 AI，并把生成的 JSON
+              粘贴到下方导入。
+            </p>
+
+            <textarea
+              value={pasteData}
+              onChange={(e) => setPasteData(e.target.value)}
+              placeholder="粘贴 AI 吐出的 JSON 文本..."
+            />
+
+            <button
+              type="button"
+              className="rhythm-import-submit"
+              onClick={handleImportJson}
+              disabled={!pasteData.trim()}
+            >
+              导入日程票根
+            </button>
+          </section>
+
+          <details
+            id="rhythm-manual-form"
+            className="rhythm-manual"
+          >
+            <summary>
+              <span>手动填写日程纸条</span>
+              <Plus size={16} strokeWidth={1.8} />
+            </summary>
+
+            <form
+              onSubmit={handleAddSingle}
+              className="rhythm-form"
+            >
+              <div className="rhythm-form-grid">
+                <div className="rhythm-form-field full">
+                  <label>日程模式</label>
+
+                  <div className="rhythm-mode">
+                    <label>
+                      <input
+                        type="radio"
+                        checked={isRepeating}
+                        onChange={() => setIsRepeating(true)}
+                      />
+                      每周重复安排
+                    </label>
+
+                    <label>
+                      <input
+                        type="radio"
+                        checked={!isRepeating}
+                        onChange={() => setIsRepeating(false)}
+                      />
+                      仅限单次事件
+                    </label>
+                  </div>
+                </div>
+
+                <div className="rhythm-form-field full">
+                  <label>日程 / 课程名称</label>
+
+                  <input
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="如：高数 / 通勤 / 团队站会"
+                  />
+                </div>
+
+                {isRepeating ? (
+                  <div className="rhythm-form-field">
+                    <label>星期几</label>
+
+                    <select
+                      value={dayOfWeek}
+                      onChange={(e) =>
+                        setDayOfWeek(Number(e.target.value))
+                      }
+                    >
+                      {weekDays.map((day) => (
+                        <option
+                          key={day.value}
+                          value={day.value}
+                        >
+                          {day.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="rhythm-form-field">
+                    <label>选择日期</label>
+
+                    <input
+                      type="date"
+                      required
+                      value={singleDate}
+                      onChange={(e) => setSingleDate(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                <div className="rhythm-form-field">
+                  <label>类别</label>
+
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                  >
+                    <option value="course">学生课表</option>
+                    <option value="work">工作日程</option>
+                    <option value="life">生活日常</option>
+                  </select>
+                </div>
+
+                <div className="rhythm-form-field">
+                  <label>开始时间</label>
+
+                  <input
+                    type="time"
+                    required
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
+                </div>
+
+                <div className="rhythm-form-field">
+                  <label>结束时间</label>
+
+                  <input
+                    type="time"
+                    required
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                  />
+                </div>
+
+                {isRepeating && category === 'course' && (
+                  <div className="rhythm-form-field full">
+                    <label>上课周次，如 1-16</label>
+
+                    <input
+                      type="text"
+                      value={weeks}
+                      onChange={(e) => setWeeks(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                <div className="rhythm-form-field">
+                  <label>地点 / 选填</label>
+
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="如：教一302"
+                  />
+                </div>
+
+                <div className="rhythm-form-field">
+                  <label>人物 / 选填</label>
+
+                  <input
+                    type="text"
+                    value={teacher}
+                    onChange={(e) => setTeacher(e.target.value)}
+                    placeholder="如：王老师"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="rhythm-form-submit"
+              >
+                保存此日程票根
+              </button>
+            </form>
+          </details>
+
+          {errorMsg && (
+            <div className="rhythm-message error">
+              {errorMsg}
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="rhythm-message success">
+              {successMsg}
+            </div>
+          )}
+        </main>
+
+        <button
+          type="button"
+          className="rhythm-fab"
+          onClick={openManualForm}
+          aria-label="添加日程"
+          title="添加日程"
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }
-
-
 

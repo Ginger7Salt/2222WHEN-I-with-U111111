@@ -36,6 +36,9 @@ import AlmanacApp from './apps/almanac/AlmanacApp';
 
 import { syncWorkflowsToServer } from './services/workflow/workflowSyncService';
 
+import soundService from './services/soundService';
+
+
 import {
   consumeMcpOAuthCallback,
 } from './services/mcp/mcpOAuthService';
@@ -284,7 +287,7 @@ export const App = () => {
     setActiveCharacterId,
   ] = useState(null);
 
-   // 云端离线推送消息开屏/切回前台无感补齐 + 监听 ServiceWorker 点击直达
+    // 云端离线推送消息开屏/切回前台无感补齐 + 监听 ServiceWorker 点击直达 + 伴侣新消息提示音
   useEffect(() => {
     void syncPendingPushMessages();
 
@@ -294,22 +297,40 @@ export const App = () => {
       }
     };
 
-    // 监听 Service Worker 投递的消息（后台新消息通知或点击通知直达聊天框）
+    // 监听 Service Worker 投递的消息
     const handleServiceWorkerMessage = (event) => {
       const data = event.data;
       if (!data) return;
 
       if (data.type === 'SYNC_OFFLINE_MESSAGES') {
         void syncPendingPushMessages();
+        // 收到来自 SW 的新消息广播时播放提示音
+        if (data.action === 'new_message' && data.chatId) {
+          soundService.playCompanionMessageSound({ chatId: data.chatId });
+        }
       } else if (data.type === 'NAVIGATE_TO_CHAT') {
         // 用户点击系统横幅通知时，自动直达消息 App
         setCurrentApp('messages');
       }
     };
 
+    // 监听本地新插入消息事件（仅伴侣发来的消息才响铃，绝不干扰用户发消息）
+    const handleLocalMessageInserted = (event) => {
+      const detail = event.detail || {};
+      // 如果携带了 sender 且不是伴侣，直接退出；用户自己发消息时走聊天框既有音效
+      if (detail.sender && detail.sender !== 'character') {
+        return;
+      }
+      soundService.playCompanionMessageSound({
+        chatId: detail.chatId,
+      });
+    };
+
     window.addEventListener('focus', handleWakeSync);
     window.addEventListener('pageshow', handleWakeSync);
     document.addEventListener('visibilitychange', handleWakeSync);
+    window.addEventListener('new-local-message-inserted', handleLocalMessageInserted);
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
     }
@@ -318,11 +339,14 @@ export const App = () => {
       window.removeEventListener('focus', handleWakeSync);
       window.removeEventListener('pageshow', handleWakeSync);
       document.removeEventListener('visibilitychange', handleWakeSync);
+      window.removeEventListener('new-local-message-inserted', handleLocalMessageInserted);
+
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
       }
     };
   }, []);
+
 
 
   useEffect(() => {

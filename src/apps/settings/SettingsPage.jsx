@@ -24,6 +24,7 @@ import {
   Upload,
   X,
   XCircle,
+  Volume2,
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -33,6 +34,7 @@ import BondConnection from './mcp/BondConnection';
 import { requestNotificationPermission } from '../../services/aiService';
 import { Send, Cloud, Radio } from 'lucide-react'; // 补上图标
 import { registerCloudPush } from '../../services/cloudPushService';
+import soundService from '../../services/soundService';
 
 import {
   DEFAULT_PRELOADER_QUOTE_CONFIG,
@@ -154,6 +156,22 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
   const [cloudServerUrl, setCloudServerUrl] = useState('');
   const [cloudVapidKey, setCloudVapidKey] = useState('');
   const [isSyncingPush, setIsSyncingPush] = useState(false);
+
+    // 伴侣消息提示音状态
+  const [soundEnabled, setSoundEnabledState] = useState(() => soundService.getSoundEnabled());
+  const [soundPreset, setSoundPresetState] = useState(() => soundService.getCurrentPreset());
+
+  const handleToggleSound = (enabled) => {
+    soundService.setSoundEnabled(enabled);
+    setSoundEnabledState(enabled);
+  };
+
+  const handleSelectSoundPreset = (presetId) => {
+    soundService.setCurrentPreset(presetId);
+    setSoundPresetState(presetId);
+    soundService.preview(presetId); // 点击时试听一声
+  };
+
 
   // 从本地 db.settings 恢复已有配置
   useEffect(() => {
@@ -1401,6 +1419,64 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
           </button>
         </div>
       </GlassCard>
+
+
+            {/* 伴侣新消息提示音设置 */}
+      <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <Volume2 className="h-4 w-4" />
+            <span>伴侣新消息提示音</span>
+          </div>
+          {/* 开关 */}
+          <button
+            type="button"
+            onClick={() => handleToggleSound(!soundEnabled)}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out ${
+              soundEnabled ? 'bg-black dark:bg-white' : 'bg-black/20 dark:bg-white/20'
+            }`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition duration-200 ease-in-out dark:bg-black ${
+                soundEnabled ? 'translate-x-4 mt-[3px] ml-[2px]' : 'translate-x-0.5 mt-[3px]'
+              }`}
+            />
+          </button>
+        </div>
+
+        <p className="text-[11px] leading-relaxed opacity-60">
+          当伴侣主动给你发消息或前台收到新消息时播放的专属提示音。点击音效即可实时试听。
+        </p>
+
+        {soundEnabled && (
+          <div className="space-y-2 pt-1">
+            <div className="grid grid-cols-2 gap-2">
+              {soundService.presets.map((preset) => {
+                const isSelected = soundPreset === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectSoundPreset(preset.id)}
+                    className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-xs transition-all ${
+                      isSelected
+                        ? 'bg-black text-white dark:bg-white dark:text-black font-semibold shadow-sm'
+                        : 'bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 opacity-80'
+                    }`}
+                  >
+                    <span>{preset.name}</span>
+                    {isSelected && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] opacity-40 text-right">
+              * 即使未放置本地 mp3，也将自动使用纯净合成音播放
+            </p>
+          </div>
+        )}
+      </GlassCard>
+
 
 
 

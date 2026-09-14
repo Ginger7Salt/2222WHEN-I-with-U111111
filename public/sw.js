@@ -1,7 +1,7 @@
 // public/sw.js
 
 // 每次发布一个需要用户更新的版本时，递增此版本号以激活新 SW
-const CACHE_NAME = 'when-i-with-u-v12';
+const CACHE_NAME = 'when-i-with-u-v13';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径
 const APP_SCOPE = self.registration.scope;
@@ -170,7 +170,6 @@ self.addEventListener('sync', (event) => {
 function savePushMessageToIndexedDB(payload) {
   return new Promise((resolve) => {
     const DB_NAME = 'WhenIWithUDatabase';
-    // 明确对齐 Dexie 版本 39
     const request = indexedDB.open(DB_NAME, 39);
 
     request.onerror = (e) => {
@@ -215,11 +214,11 @@ function savePushMessageToIndexedDB(payload) {
         // 2. 彻底剥离可能携带的外部 id，确保 messages 表 ++id 自增
         const { id, ...cleanEntity } = entity;
 
-        // 3. 严格对齐真实前端数据结构
+        // 3. 严格对齐前端伴侣消息数据结构
         const newMessage = {
           chatId: targetChatId,
           characterId: targetCharId,
-          sender: 'character', // ⚠️ 绝不能是 assistant，必须是 character
+          sender: 'character', // 必须是 character
           type: cleanEntity.type || payload.msgType || 'text',
           content: contentText,
           metadata: {
@@ -229,9 +228,8 @@ function savePushMessageToIndexedDB(payload) {
             ...(cleanEntity.metadata || {}),
           },
           quotedMessageId: cleanEntity.quotedMessageId ?? null,
-          isRead: false,       // ⚠️ 布尔值 false
-          timestamp: nowIso,   // ⚠️ ISO 字符串
-          // ⚠️ versions 内部必须是 type, content, timestamp
+          isRead: false,
+          timestamp: nowIso,
           versions: cleanEntity.versions || [
             {
               type: 'text',
@@ -310,7 +308,7 @@ self.addEventListener('push', (event) => {
     payload.messageEntity?.chatId || payload.chatId || 1
   );
 
-  // 1. 如果是聊天消息或携带 messageEntity，立即在后台写入本地数据库，并向所有窗口广播
+  // 1. 如果是聊天消息或携带 messageEntity，立即后台写入 IndexedDB
   const shouldSave =
     (payload.type === 'message' && Boolean(payload.body)) || Boolean(payload.messageEntity);
 
@@ -330,7 +328,7 @@ self.addEventListener('push', (event) => {
       })
     : Promise.resolve();
 
-  // 2. 根据伴侣名称与推送类型动态决定通知标题
+  // 2. 确定显示标题
   let displayTitle = payload.characterName || payload.title;
   if (payload.type === 'diary') {
     displayTitle = `${payload.characterName || '伴侣'} · 写了新日记`;
@@ -338,19 +336,26 @@ self.addEventListener('push', (event) => {
     displayTitle = `${payload.characterName || '伴侣'} · 发布了新动态`;
   }
 
+  // 3. 锁屏通知参数补齐（开启系统通知音与震动请求）
   const options = {
     body: payload.body || payload.messageEntity?.content || '',
     icon: 'https://s1.eisite.cn/autoupload/amqnh/20260821/dHbf/1280X1280/00-d55fd7352057ecab338faca8.png/webp',
     badge: 'https://s1.eisite.cn/autoupload/amqnh/20260821/dHbf/1280X1280/00-d55fd7352057ecab338faca8.png/webp',
     tag: `companion_${targetChatId}_${Date.now()}`,
+    
+    // 关键配置：通知重复提醒 & 请求系统声音与震动
     renotify: true,
+    silent: false,
+    sound: 'default',
+    vibrate: [200, 100, 200],
+
     data: {
       url: payload.url || APP_INDEX_URL,
       chatId: targetChatId,
+      timestamp: payload.timestamp || Date.now(),
     },
   };
 
-  // 等待数据落库与通知展示全部完成后再结束 push 事件生命周期
   event.waitUntil(
     Promise.all([
       saveTask,
@@ -359,7 +364,7 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// 点击系统通知时，尝试聚焦已打开的窗口并导航至对应 chat，否则新开 App 入口。
+// 点击系统通知时的处理
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
