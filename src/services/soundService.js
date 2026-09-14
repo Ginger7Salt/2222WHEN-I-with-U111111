@@ -1,5 +1,6 @@
 // src/services/soundService.js
-import db from './db'; // 引用你的 Dexie 数据库实例，路径请按项目实际对齐
+import db from '../db';
+ // 引用你的 Dexie 数据库实例，路径请按项目实际对齐
 
 class SoundService {
   constructor() {
