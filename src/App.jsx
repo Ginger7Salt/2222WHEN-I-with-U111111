@@ -418,18 +418,26 @@ export const App = () => {
   }, []);
 
   useEffect(() => {
-  startAutoMessageScheduler();
-  startTravelPostcardScheduler();
-  startScheduledMessageScheduler();
-  startParallelOrbitScheduler();
-  startWorkflowScheduler();
+  let cancelled = false;
 
-  // 🆕 开屏时顺手把当前全量 workflow + MCP 连接同步一次给服务器，
-  // 覆盖"之前已建好的 workflow 从未同步过"这种情况。
-  // 失败/未配置服务器都会在函数内部静默处理，不影响其它调度器启动。
-  void syncWorkflowsToServer();
+  (async () => {
+    // 🆕 先问服务器：这些 workflow 有没有在 App 关闭期间被代跑过，
+    // 合并结果落地后再启动本地调度器，避免重复触发。
+    await pullServerWorkflowRunStatus();
+
+    if (cancelled) return;
+
+    startAutoMessageScheduler();
+    startTravelPostcardScheduler();
+    startScheduledMessageScheduler();
+    startParallelOrbitScheduler();
+    startWorkflowScheduler();
+
+    void syncWorkflowsToServer();
+  })();
 
   return () => {
+    cancelled = true;
     stopAutoMessageScheduler();
     stopTravelPostcardScheduler();
     stopScheduledMessageScheduler();
