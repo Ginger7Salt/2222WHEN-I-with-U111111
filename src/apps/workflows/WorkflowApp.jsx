@@ -3,8 +3,11 @@ import {
   ArrowLeft,
   Camera,
   Check,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
+  CircleDashed,
   Clock3,
   ImagePlus,
   Pencil,
@@ -60,7 +63,6 @@ const formatTime = (value) => {
 const getCharacterId = (character) => character?.id ?? character?.characterId;
 const getCharacterName = (character) => character?.name || character?.displayName || '未命名角色';
 
-// 优先读取工作流专属美术素材，回退到系统素材
 const getCharacterAvatar = (character) =>
   safeImage(character?.workflowAvatar || character?.avatar || character?.userAvatar);
 
@@ -106,12 +108,12 @@ const compressImage = (file, options = {}) =>
     reader.readAsDataURL(file);
   });
 
-// 无缝上传组件，无生硬外框
+// 无缝上传组件
 const LocalImageUploader = ({
   label,
   value,
   onChange,
-  aspect = 'square', // 'circle' | 'square' | 'wide'
+  aspect = 'square',
   className = ''
 }) => {
   const inputRef = useRef(null);
@@ -175,7 +177,35 @@ const LocalImageUploader = ({
   );
 };
 
-// 照相机相片质感的单个人物展示（去卡片化、胶片感）
+// 【保留原业务】精确的工作流运行状态徽标
+const WorkflowStatusIndicator = ({ workflow }) => {
+  if (!workflow.lastRunAt) {
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider opacity-40">
+        <CircleDashed className="h-2.5 w-2.5" />
+        尚未运行
+      </span>
+    );
+  }
+
+  if (workflow.lastRunStatus === 'error') {
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-rose-500 opacity-80" title={workflow.lastRunError}>
+        <CircleAlert className="h-2.5 w-2.5" />
+        {workflow.lastRunError ? workflow.lastRunError.slice(0, 18) : '执行异常'}
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider opacity-60">
+      <CheckCircle2 className="h-2.5 w-2.5" />
+      已送达
+    </span>
+  );
+};
+
+// 照相机相片质感角色卡
 const CameraFilmItem = ({ character, index, isActive, onClick }) => {
   const avatar = getCharacterAvatar(character);
   const banner = getCharacterBanner(character);
@@ -203,10 +233,8 @@ const CameraFilmItem = ({ character, index, isActive, onClick }) => {
           </div>
         )}
 
-        {/* 电影级渐变压光，不使用实线边框 */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
 
-        {/* 相片底部的信息铭刻 */}
         <div className="absolute bottom-5 left-5 right-5 text-white">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-white/60">
@@ -223,9 +251,17 @@ const CameraFilmItem = ({ character, index, isActive, onClick }) => {
   );
 };
 
-// 时间轴单项
-const TimelineEntry = ({ workflow, onEdit, onDelete, onToggle }) => (
-  <div className="group relative grid grid-cols-[4.5rem_1px_1fr] gap-5 py-4">
+// 【保留原业务】时间轴项：完整包含会话名、状态指示、行内两步确认删除与开关
+const TimelineEntry = ({
+  workflow,
+  onEdit,
+  onRequestDelete,
+  confirmingDelete,
+  onCancelDelete,
+  onConfirmDelete,
+  onToggle
+}) => (
+  <div className="group relative grid grid-cols-[4.5rem_1px_1fr] gap-5 py-5">
     <div className="pt-0.5 text-right">
       <p className="font-mono text-xs font-medium tracking-wider">
         {formatTime(workflow.time)}
@@ -244,12 +280,21 @@ const TimelineEntry = ({ workflow, onEdit, onDelete, onToggle }) => (
       />
     </div>
 
-    <div className="pb-4">
+    <div className="pb-2">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h4 className="font-serif text-lg italic tracking-wide">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-mono text-[9px] uppercase tracking-[0.16em] opacity-40">
+              {workflow.chat?.title || workflow.character?.name || '未命名聊天'}
+            </p>
+            <span className="opacity-25">·</span>
+            <WorkflowStatusIndicator workflow={workflow} />
+          </div>
+
+          <h4 className="mt-1 font-serif text-xl italic tracking-wide">
             {workflow.name || '未命名事务'}
           </h4>
+
           {workflow.goal && (
             <p className="mt-1.5 max-w-lg text-xs leading-relaxed opacity-60">
               {workflow.goal}
@@ -257,27 +302,50 @@ const TimelineEntry = ({ workflow, onEdit, onDelete, onToggle }) => (
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
-          <button
-            type="button"
-            onClick={() => onEdit(workflow)}
-            className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10"
-            title="编辑"
-          >
-            <Pencil className="h-3.5 w-3.5 opacity-70" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(workflow)}
-            className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10"
-            title="删除"
-          >
-            <Trash2 className="h-3.5 w-3.5 opacity-70" />
-          </button>
+        {/* 操作区：带行内两步安全删除 */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {confirmingDelete ? (
+            <div className="flex items-center gap-1 rounded-full border border-black/10 px-2 py-0.5 text-[11px] backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={onConfirmDelete}
+                className="font-medium text-rose-500 hover:underline"
+              >
+                确认删除
+              </button>
+              <span className="opacity-30">/</span>
+              <button
+                type="button"
+                onClick={onCancelDelete}
+                className="opacity-60 hover:opacity-100"
+              >
+                取消
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+              <button
+                type="button"
+                onClick={() => onEdit(workflow)}
+                className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10"
+                title="编辑"
+              >
+                <Pencil className="h-3.5 w-3.5 opacity-70" />
+              </button>
+              <button
+                type="button"
+                onClick={onRequestDelete}
+                className="flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10"
+                title="删除"
+              >
+                <Trash2 className="h-3.5 w-3.5 opacity-70" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-3">
+      <div className="mt-3 flex items-center gap-4">
         <button
           type="button"
           onClick={() => onToggle(workflow)}
@@ -297,7 +365,7 @@ const TimelineEntry = ({ workflow, onEdit, onDelete, onToggle }) => (
   </div>
 );
 
-// 专属编辑抽屉（独立保存，不影响全局）
+// 专属编辑抽屉（独立保存，不污染全局）
 const ProfileAndVisualEditor = ({
   userProfile,
   currentCharacter,
@@ -340,12 +408,11 @@ const ProfileAndVisualEditor = ({
         </div>
 
         <div className="mt-8 space-y-10">
-          {/* 用户专属工作流外观 */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-serif text-lg italic">你的独立展板</h3>
               <span className="text-[10px] text-black/40">
-                仅在当前子页面生效，不改变系统主页
+                仅在当前工作流子页面生效
               </span>
             </div>
 
@@ -400,19 +467,18 @@ const ProfileAndVisualEditor = ({
             </div>
           </section>
 
-          {/* 当前角色的工作流专属照片 */}
           {draftChar && (
             <section className="space-y-4 border-t border-black/10 pt-8">
               <div className="flex items-center justify-between">
                 <h3 className="font-serif text-lg italic">
                   角色相片：{getCharacterName(draftChar)}
                 </h3>
-                <span className="text-[10px] text-black/40">独立胶片封面</span>
+                <span className="text-[10px] text-black/40">独立胶片写真</span>
               </div>
 
               <div>
                 <span className="mb-2 block text-xs opacity-50">
-                  相片/封面（将在滑动相册与背景中优先展示）
+                  相片/封面（将在滑动相册与顶部优先展示）
                 </span>
                 <LocalImageUploader
                   label="上传角色专属写真大图"
@@ -426,7 +492,7 @@ const ProfileAndVisualEditor = ({
 
               <div className="flex items-center gap-5 pt-2">
                 <div>
-                  <span className="mb-2 block text-xs opacity-50">工作流专属头像</span>
+                  <span className="mb-2 block text-xs opacity-50">专属头像</span>
                   <LocalImageUploader
                     label="头像"
                     aspect="circle"
@@ -444,7 +510,7 @@ const ProfileAndVisualEditor = ({
                     onChange={(e) =>
                       setDraftChar((prev) => ({ ...prev, workflowBio: e.target.value }))
                     }
-                    placeholder="写一句属于这个角色的白描..."
+                    placeholder="为这个角色写一段独白..."
                     className="w-full resize-none border-b border-black/20 bg-transparent py-1 text-xs outline-none focus:border-black"
                   />
                 </div>
@@ -469,9 +535,12 @@ const ProfileAndVisualEditor = ({
   );
 };
 
-// 新增/编辑工作流表单
+// 【保留原业务】新增/编辑工作流表单：严格保留原版的空星期校验与 errorText 输出
 const WorkflowFormModal = ({ chat, workflow, onClose, onSaved }) => {
-  const targetChar = workflow?.character || chat?.character;
+  const isEdit = Boolean(workflow?.id);
+  const targetChat = workflow?.chat || chat;
+  const targetCharacter = workflow?.character || chat?.character;
+
   const [name, setName] = useState(workflow?.name || '');
   const [time, setTime] = useState(workflow?.time || '09:00');
   const [goal, setGoal] = useState(workflow?.goal || '');
@@ -481,6 +550,7 @@ const WorkflowFormModal = ({ chat, workflow, onClose, onSaved }) => {
       ? workflow.weekdays
       : [1, 2, 3, 4, 5]
   );
+  const [errorText, setErrorText] = useState('');
   const [saving, setSaving] = useState(false);
 
   const toggleDay = (day) => {
@@ -491,12 +561,20 @@ const WorkflowFormModal = ({ chat, workflow, onClose, onSaved }) => {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      alert('请填写任务名称');
+      setErrorText('请输入工作流名称。');
       return;
     }
+
+    if (weekdays.length === 0) {
+      setErrorText('请至少选择一个重复星期。');
+      return;
+    }
+
     setSaving(true);
+    setErrorText('');
+
     try {
-      if (workflow?.id) {
+      if (isEdit) {
         await updateWorkflow(workflow.id, {
           name: name.trim(),
           time,
@@ -506,8 +584,8 @@ const WorkflowFormModal = ({ chat, workflow, onClose, onSaved }) => {
         });
       } else {
         await createWorkflow({
-          chatId: chat?.id,
-          characterId: chat?.characterId,
+          chatId: targetChat.id,
+          characterId: targetChat.characterId,
           name: name.trim(),
           time,
           weekdays,
@@ -517,7 +595,7 @@ const WorkflowFormModal = ({ chat, workflow, onClose, onSaved }) => {
       }
       onSaved();
     } catch (e) {
-      alert(e.message || '保存失败');
+      setErrorText(e?.message || '保存失败，请重试。');
     } finally {
       setSaving(false);
     }
@@ -529,10 +607,10 @@ const WorkflowFormModal = ({ chat, workflow, onClose, onSaved }) => {
         <div className="flex items-center justify-between border-b border-black/10 pb-4">
           <div>
             <p className="font-mono text-[9px] uppercase tracking-[0.2em] opacity-40">
-              {getCharacterName(targetChar)}
+              {targetCharacter?.name || '未知角色'} · {targetChat?.title || '主会话'}
             </p>
             <h3 className="mt-1 font-serif text-2xl italic">
-              {workflow ? '修整时间节点' : '建立时刻安排'}
+              {isEdit ? '修整时间节点' : '建立时刻安排'}
             </h3>
           </div>
           <button
@@ -550,8 +628,11 @@ const WorkflowFormModal = ({ chat, workflow, onClose, onSaved }) => {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="例如：清晨问候与咖啡提醒"
+              onChange={(e) => {
+                setName(e.target.value);
+                if (errorText) setErrorText('');
+              }}
+              placeholder="例如：早安问候"
               className="w-full border-b border-black/20 bg-transparent py-2 text-sm outline-none focus:border-black"
             />
           </div>
@@ -616,6 +697,12 @@ const WorkflowFormModal = ({ chat, workflow, onClose, onSaved }) => {
               className="w-full resize-none border-b border-black/20 bg-transparent py-2 text-xs outline-none focus:border-black"
             />
           </div>
+
+          {errorText && (
+            <p className="font-mono text-xs text-rose-500">
+              {errorText}
+            </p>
+          )}
         </div>
 
         <button
@@ -684,12 +771,15 @@ export const WorkflowApp = ({ onBackHub }) => {
   const [characters, setCharacters] = useState([]);
   const [workflows, setWorkflows] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [themeMode, setThemeMode] = useState('light'); // 'light' | 'dark'
+  const [themeMode, setThemeMode] = useState('light');
 
   const [isEditingVisuals, setIsEditingVisuals] = useState(false);
   const [isPickingChat, setIsPickingChat] = useState(false);
   const [candidateChats, setCandidateChats] = useState([]);
   const [formSheetTarget, setFormSheetTarget] = useState(null);
+  
+  // 【保留原业务】行内删除状态管理
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
 
   const containerRef = useRef(null);
   const touchStartRef = useRef(0);
@@ -702,13 +792,11 @@ export const WorkflowApp = ({ onBackHub }) => {
         getAllWorkflowsWithContext()
       ]);
 
-      // 读取工作流专属 profile
       let customProfile = null;
       if (db.workflowProfiles) {
         customProfile = await db.workflowProfiles.get('current_user');
       }
 
-      // 如果尚未保存过工作流独立 profile，智能拉取全局 profile 做一份副本
       if (!customProfile) {
         const sysProfile = await db.profile.toCollection().first();
         customProfile = {
@@ -752,7 +840,6 @@ export const WorkflowApp = ({ onBackHub }) => {
 
   const currentCharacter = characters[selectedIndex] || null;
 
-  // 当前选中角色的专属时间轴列表
   const currentWorkflows = useMemo(() => {
     if (!currentCharacter) return [];
     const charId = getCharacterId(currentCharacter);
@@ -761,7 +848,6 @@ export const WorkflowApp = ({ onBackHub }) => {
       .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
   }, [currentCharacter, workflows]);
 
-  // 左右切人逻辑
   const switchCharacter = (step) => {
     if (!characters.length) return;
     setSelectedIndex((prev) => {
@@ -772,7 +858,6 @@ export const WorkflowApp = ({ onBackHub }) => {
     });
   };
 
-  // 支持触控滑动相册
   const handleTouchStart = (e) => {
     touchStartRef.current = e.touches[0].clientX;
   };
@@ -780,13 +865,12 @@ export const WorkflowApp = ({ onBackHub }) => {
   const handleTouchEnd = (e) => {
     const delta = e.changedTouches[0].clientX - touchStartRef.current;
     if (delta > 45) {
-      switchCharacter(-1); // 右滑看上一个
+      switchCharacter(-1);
     } else if (delta < -45) {
-      switchCharacter(1);  // 左滑看下一个
+      switchCharacter(1);
     }
   };
 
-  // 3. 专属保存逻辑：仅写入 workflowProfiles 与角色的专属字段
   const handleSaveVisuals = async (nextUser, nextChar) => {
     if (db.workflowProfiles) {
       await db.workflowProfiles.put({
@@ -797,7 +881,6 @@ export const WorkflowApp = ({ onBackHub }) => {
     }
 
     if (nextChar?.id) {
-      // 仅更新该角色的工作流专属素材，保留原本系统的 avatar 不受污染
       await db.characters.update(nextChar.id, {
         workflowBanner: nextChar.workflowBanner,
         workflowAvatar: nextChar.workflowAvatar,
@@ -823,10 +906,14 @@ export const WorkflowApp = ({ onBackHub }) => {
     await reloadData();
   };
 
-  const handleDeleteWorkflow = async (wf) => {
-    if (window.confirm(`确定删除事务「${wf.name}」吗？`)) {
-      await deleteWorkflow(wf.id);
+  // 【保留原业务】非原生弹窗、两步行内确认删除
+  const handleConfirmDelete = async (workflowId) => {
+    try {
+      await deleteWorkflow(workflowId);
+      setConfirmingDeleteId(null);
       await reloadData();
+    } catch (e) {
+      alert(e?.message || '删除失败');
     }
   };
 
@@ -835,10 +922,6 @@ export const WorkflowApp = ({ onBackHub }) => {
   const activeUserAvatar = safeImage(userProfile.avatar);
 
   return (
-    /* 
-      关键修复：使用 fixed inset-0 z-[9999] h-[100dvh] w-screen
-      脱离所有外部容器 padding / margin / border-radius，撑满屏幕
-    */
     <div
       ref={containerRef}
       className={`fixed inset-0 z-[9999] h-[100dvh] w-screen overflow-y-auto overflow-x-hidden font-sans transition-colors duration-500 ${
@@ -881,7 +964,7 @@ export const WorkflowApp = ({ onBackHub }) => {
         </div>
       </header>
 
-      {/* 1. 顶部大展板：个人主页式 Header */}
+      {/* 1. 顶部大展板 */}
       <div className="relative mx-auto w-full px-4 sm:px-8">
         <div className="relative min-h-[22rem] w-full overflow-hidden rounded-3xl bg-zinc-800 text-white sm:min-h-[28rem]">
           {activeBanner ? (
@@ -894,10 +977,8 @@ export const WorkflowApp = ({ onBackHub }) => {
             <div className="absolute inset-0 bg-[#161616]" />
           )}
 
-          {/* 纯净暗角渐变 */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10" />
 
-          {/* 展板文字与身份 */}
           <div className="relative flex h-full min-h-[22rem] flex-col justify-between p-6 sm:min-h-[28rem] sm:p-10">
             <div className="flex items-start justify-between">
               <div>
@@ -924,7 +1005,6 @@ export const WorkflowApp = ({ onBackHub }) => {
                 </p>
               </div>
 
-              {/* 个人专属头像浮动 */}
               <div className="shrink-0">
                 {activeUserAvatar ? (
                   <img
@@ -943,7 +1023,7 @@ export const WorkflowApp = ({ onBackHub }) => {
         </div>
       </div>
 
-      {/* 2. 核心：相片感角色画廊 (Camera Film Roll) */}
+      {/* 2. 相机相片感选人画廊 */}
       <section className="mt-12 px-4 sm:px-8">
         <div className="mb-6 flex items-end justify-between">
           <div>
@@ -955,7 +1035,6 @@ export const WorkflowApp = ({ onBackHub }) => {
             </h2>
           </div>
 
-          {/* 控制按钮 */}
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -974,7 +1053,6 @@ export const WorkflowApp = ({ onBackHub }) => {
           </div>
         </div>
 
-        {/* 左右横滑相片带 */}
         {characters.length === 0 ? (
           <div className="py-12 text-center text-xs opacity-40">
             暂无角色，请在宿主应用中创建角色后再来挑选
@@ -1002,7 +1080,6 @@ export const WorkflowApp = ({ onBackHub }) => {
       {currentCharacter && (
         <section className="mt-16 px-4 pb-24 sm:px-8">
           <div className="grid gap-12 lg:grid-cols-[1fr_1.5fr]">
-            {/* 左侧：角色独立展示与描述 */}
             <div>
               <div className="flex items-center justify-between">
                 <div>
@@ -1026,7 +1103,7 @@ export const WorkflowApp = ({ onBackHub }) => {
               <p className="mt-4 text-xs leading-relaxed opacity-60">
                 {currentCharacter.workflowBio ||
                   currentCharacter.bio ||
-                  '未填写专属描述，点击右上角笔形图标即可为他撰写独白或上传胶片大图。'}
+                  '未填写专属描述，点击右上角笔形图标即可为他撰写独白或上传胶片写真。'}
               </p>
 
               <div className="mt-8 flex gap-6 font-mono text-[10px] uppercase tracking-widest opacity-40">
@@ -1035,7 +1112,6 @@ export const WorkflowApp = ({ onBackHub }) => {
               </div>
             </div>
 
-            {/* 右侧：优雅融合的时间轴 */}
             <div>
               <div className="mb-6 flex items-center justify-between border-b border-current/10 pb-4">
                 <div>
@@ -1076,7 +1152,10 @@ export const WorkflowApp = ({ onBackHub }) => {
                       key={wf.id}
                       workflow={wf}
                       onEdit={(item) => setFormSheetTarget({ workflow: item })}
-                      onDelete={handleDeleteWorkflow}
+                      confirmingDelete={confirmingDeleteId === wf.id}
+                      onRequestDelete={() => setConfirmingDeleteId(wf.id)}
+                      onCancelDelete={() => setConfirmingDeleteId(null)}
+                      onConfirmDelete={() => handleConfirmDelete(wf.id)}
                       onToggle={handleToggleWorkflow}
                     />
                   ))}
@@ -1087,7 +1166,7 @@ export const WorkflowApp = ({ onBackHub }) => {
         </section>
       )}
 
-      {/* 弹窗层：选择对话绑定 */}
+      {/* 选对话绑定弹层 */}
       {isPickingChat && (
         <ChatSelectorModal
           chats={candidateChats}
@@ -1099,7 +1178,7 @@ export const WorkflowApp = ({ onBackHub }) => {
         />
       )}
 
-      {/* 弹窗层：创建/编辑时间节点 */}
+      {/* 编辑/新建工作流 */}
       {formSheetTarget && (
         <WorkflowFormModal
           chat={formSheetTarget.chat}
@@ -1112,7 +1191,7 @@ export const WorkflowApp = ({ onBackHub }) => {
         />
       )}
 
-      {/* 抽屉层：独立美化与上传 */}
+      {/* 独立美化抽屉 */}
       {isEditingVisuals && (
         <ProfileAndVisualEditor
           userProfile={userProfile}
