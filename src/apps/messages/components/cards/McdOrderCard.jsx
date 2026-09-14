@@ -315,10 +315,89 @@ function Cancelled() {
   );
 }
 
-export default function McdOrderCard({ card }) {
+// 1. 在 McdOrderCard 上方加入这个自动识别并转换的函数
+function normalizeCardData(raw) {
+  if (!raw) return null;
+
+  // 如果传进来的是 MCP 原生信封字符串，先尝试解析
+  let data = raw;
+  if (typeof raw === 'string') {
+    try { data = JSON.parse(raw); } catch (e) { return null; }
+  }
+  // 如果是 MCP 标准 content 结构: { content: [{ type: 'text', text: '...' }] }
+  if (data.content && Array.isArray(data.content) && data.content[0]?.text) {
+    try { data = JSON.parse(data.content[0].text); } catch (e) {}
+  }
+  // 解包 data 层
+  const payload = data.data || data;
+
+  // 场景 A：如果本来就已经符合卡片规范，直接返回
+  if (data.kind === 'mcd' && data.phase) {
+    return data;
+  }
+
+  // 场景 B：识别是否为「附近门店」返回 (query-nearby-stores)
+  const stores = payload.stores || payload.storeList || (Array.isArray(payload) ? payload : null);
+  if (stores && Array.isArray(stores) && stores.length > 0 && (stores[0].storeName || stores[0].storeCode || stores[0].name)) {
+    return {
+      kind: 'mcd',
+      phase: 'store_list',
+      stores: stores.map((s) => ({
+        name: s.storeName || s.name || '麦当劳餐厅',
+        address: s.address || s.storeAddress || '',
+        distance: typeof s.distance === 'number' ? `${s.distance.toFixed(1)}km` : (s.distance || ''),
+        status: s.businessStatusDesc || (s.isOpen ? '营业中' : '') || ''
+      }))
+    };
+  }
+
+  // 场景 C：识别是否为「订单相关」返回 (query-order 或 下单返回)
+  const detail = payload.orderDetailVo || payload.order || payload;
+  if (detail && (detail.orderId || detail.orderNo || detail.orderStatus !== undefined)) {
+    // 状态码转换
+    let phase = 'order_created';
+    const status = detail.orderStatus;
+    if (status === 1) phase = 'order_created';      // 待支付
+    else if (status === 2) phase = 'cooking';       // 制作中
+    else if (status === 3) phase = 'ready';         // 待取餐
+    else if (status === 4 || status === 5) phase = 'completed'; // 完成
+    else if (status === -1 || status === 6) phase = 'cancelled'; // 取消
+
+    const rawItems = detail.items || detail.orderProductList || detail.productList || [];
+    return {
+      kind: 'mcd',
+      phase: phase,
+      orderNo: detail.orderId || detail.orderNo || '',
+      storeName: detail.storeName || '麦当劳',
+      total: detail.orderAmount || detail.totalFee || detail.total || 0,
+      pickupCode: detail.pickupCode || detail.mealCode || detail.takeMealNo || '',
+      etaMinutes: detail.estimatedTime || 10,
+      payUrl: detail.payUrl || detail.payLink || '',
+      items: rawItems.map((item) => ({
+        name: item.productName || item.name || '餐品',
+        qty: item.quantity || item.qty || 1,
+        price: item.unitPrice || item.price || 0
+      }))
+    };
+  }
+
+  // 兜底：如果完全无法识别，返回原数据
+  return data;
+}
+
+// 2. 主组件入口
+export default function McdOrderCard({ card: rawCard, ...restProps }) {
+  // 无论外部传入的是 rawCard 还是直接放在 props 里，都统一规整
+  const card = normalizeCardData(rawCard || restProps);
+
+  // 校验
   if (!card || card.kind !== 'mcd') return null;
 
   const { phase } = card;
+
+  return (
+    <>
+      <style>{`
 
   return (
     <>
