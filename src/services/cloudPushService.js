@@ -520,14 +520,19 @@ export async function syncAllChatContextsToCloud() {
           .limit(5)
           .toArray();
 
-        recentContext = recentMsgs
+               recentContext = recentMsgs
           .reverse()
           .map((m) => {
+            let text = '';
             if (m.versions && m.versions.length > 0) {
               const idx = m.currentVersionIndex || 0;
-              return m.versions[idx]?.content || m.versions[idx]?.text || m.content || '';
+              text = m.versions[idx]?.content || m.versions[idx]?.text || m.content || '';
+            } else {
+              text = m.content || '';
             }
-            return m.content || '';
+            if (!text) return '';
+            const tag = m.sender === 'user' ? '用户' : '伴侣';
+            return `${tag}: ${text}`;
           })
           .filter(Boolean)
           .join('；');
@@ -539,9 +544,14 @@ export async function syncAllChatContextsToCloud() {
           .limit(5)
           .toArray();
 
-        recentContext = fallbackMsgs
+               recentContext = fallbackMsgs
           .reverse()
-          .map((m) => m.content || '')
+          .map((m) => {
+            const text = m.content || '';
+            if (!text) return '';
+            const tag = m.sender === 'user' ? '用户' : '伴侣';
+            return `${tag}: ${text}`;
+          })
           .filter(Boolean)
           .join('；');
       }
