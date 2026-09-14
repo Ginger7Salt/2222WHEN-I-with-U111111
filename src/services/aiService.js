@@ -1443,6 +1443,19 @@ export const stopAutoMessageScheduler = () => {
   console.log('[AutoScheduler] AI 主动消息调度器已停止。');
 };
 
+// 门槛可以按需调整：设太低（比如几秒）会导致正常快速聊天时
+// 也频繁插入这段提示，反而显得啰嗦；3 分钟是一个比较均衡的默认值。
+const MIN_ELAPSED_MS_TO_MENTION = 3 * 60 * 1000;
+
+// 把一个具体的 Date 对象格式化成"某年某月某日 星期几 几点几分"，
+// 用于精确标注某条历史消息的真实发送时刻。
+const formatAbsoluteTimestamp = (date) => {
+  const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  const dateStr = date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  return `${dateStr} ${days[date.getDay()]} ${timeStr}`;
+};
+
 const buildUserReturnContext = (messages) => {
   const userMessages = messages
     .filter((message) => (
@@ -1467,39 +1480,34 @@ const buildUserReturnContext = (messages) => {
 
   const elapsedMs = latestTime - previousTime;
 
-  // 时间异常、间隔过短时无需提及，避免 AI 对每一句话都问候。
-  if (elapsedMs < 30 * 60 * 1000) {
+  if (elapsedMs < MIN_ELAPSED_MS_TO_MENTION) {
     return '';
   }
 
   const totalMinutes = Math.floor(elapsedMs / (60 * 1000));
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
 
-  let elapsedText = '';
+  // 精确到分钟的确切时长，不再使用"大约"这类模糊估算表述。
+  const preciseParts = [];
+  if (days > 0) preciseParts.push(`${days}天`);
+  if (hours > 0) preciseParts.push(`${hours}小时`);
+  if (minutes > 0 || preciseParts.length === 0) preciseParts.push(`${minutes}分钟`);
+  const preciseElapsedText = preciseParts.join('');
 
-  if (totalMinutes < 60) {
-    elapsedText = `大约 ${totalMinutes} 分钟`;
-  } else if (totalMinutes < 24 * 60) {
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    elapsedText = minutes >= 15
-      ? `大约 ${hours} 小时 ${minutes} 分钟`
-      : `大约 ${hours} 小时`;
-  } else {
-    const days = Math.floor(totalMinutes / (24 * 60));
-    const remainingHours = Math.floor((totalMinutes % (24 * 60)) / 60);
-
-    elapsedText = remainingHours >= 6
-      ? `大约 ${days} 天 ${remainingHours} 小时`
-      : `大约 ${days} 天`;
-  }
+  const previousTimestampText = formatAbsoluteTimestamp(new Date(previousTime));
+  const latestTimestampText = formatAbsoluteTimestamp(new Date(latestTime));
 
   return `
-【用户再次出现的时间线索】
-- 用户距离上一次发来消息，已过去约 ${elapsedText}。
-- 这是可自然使用的情境线索，而不是每次都必须复述的信息。
-- 若这段间隔对当前语境有意义，你可以结合角色设定、用户近期状态与当前话题，自然表达关心、询问近况，或分享这段时间里自己想说的话。
-- 不要机械地逐字复述“你离开了多久”，不要因此责备、质问、制造压力，也不要每次都以此作为回复开头。
+【用户再次出现的时间线索——真实且必须尊重的事实】
+- 用户上一次发消息的确切时间是：${previousTimestampText}。
+- 用户这一次发消息的确切时间是：${latestTimestampText}。
+- 两者之间真实流逝了：${preciseElapsedText}（这是精确计算值，不是估算）。
+- 这是客观事实，优先级高于你此前在对话里随口提到的任何时长（比如你自己说过的"半小时后""一会儿"等）。如果你之前提到过一个具体等待时长，而现实间隔明显不同于那个时长，你应当感知到这种落差，让角色的反应符合真实流逝的时间，而不是假设只过去了你自己说的那个时长。
+- 这是可自然使用的情境线索，不代表你必须每次都提及或复述具体数字，更不要逐字报时、报分钟数。
+- 若这段间隔对当前语境有意义，可结合角色设定、用户近期状态与当前话题，自然表达关心、询问近况，或分享这段时间里自己想说的话。
+- 不要因此责备、质问、制造压力，也不要每次都以此作为回复开头。
 - 若用户明确说明了离开的原因，应以用户说明为准，不要重复追问。
 `;
 };
@@ -1876,7 +1884,7 @@ const almanacPromptContext =
 
 const finalSystemPrompt = `${
   systemPrompt
-}${userReturnContext}${memoryContext}${characterEmotionContext}${almanacPromptContext}`;
+}${memoryContext}${characterEmotionContext}${almanacPromptContext}${userReturnContext}`;
 
 
 
@@ -2530,18 +2538,23 @@ const latestUserMessage = [...recentMessages]
   ));
 
 // 5. 主动消息也读取当前 chatId 的长期记忆。
-// getSafeChatMemoryContext 内部已安全降级：
-// 记忆读取失败不会阻塞主动消息。
 const memoryContext = await getSafeChatMemoryContext({
   chatId,
   userText: latestUserMessage?.content || '',
   recentMessages
 });
 
+// 5.5 用完整的 msgs（而不是被截断的 recentMessages）计算精确时间线索，
+// 保证即使聊天记录很长，也能拿到真正最近的两条用户消息。
+const userReturnContext = buildUserReturnContext(msgs);
+
+
+
+
 // 6. 主动发送场景的微指引。
 const autoSendGuide = `
 【注意：这是你作为伴侣的主动发起的对话触达】
-由于用户有一段时间没有说话了，请你基于当下的时间背景（${getFormattedRealTime()}），结合你们之前的聊天上下文，主动给用户发一条问候、分享一下你此刻在做的事情、或者延续之前的某个话题。
+由于用户有一段时间没有说话了，请你基于当下的时间背景（${getFormattedRealTime()}）和下方【用户再次出现的时间线索】中给出的精确间隔，结合你们之前的聊天上下文，主动给用户发一条问候、分享一下你此刻在做的事情、或者延续之前的某个话题。
 
 要求：
 - 直接发信，不要表现出系统正在调用你。
@@ -2557,7 +2570,7 @@ const characterEmotionContext = await getSafeCharacterEmotionContext({
 
 const finalSystemPrompt = `${
   systemPrompt
-}${memoryContext}${characterEmotionContext}${autoSendGuide}`;
+}${memoryContext}${characterEmotionContext}${autoSendGuide}${userReturnContext}`;
 
 
 const finalMessages = [
