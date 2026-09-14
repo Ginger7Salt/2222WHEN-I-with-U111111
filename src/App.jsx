@@ -35,6 +35,8 @@ import MarginNotesApp from './apps/margin-notes/MarginNotesApp';
 import AlmanacApp from './apps/almanac/AlmanacApp';
 
 import { syncWorkflowsToServer } from './services/workflow/workflowSyncService';
+import { syncAllChatContextsToCloud } from './services/cloudPushService';
+
 
 import soundService from './services/soundService';
 
@@ -315,7 +317,7 @@ export const App = () => {
     };
 
     // 监听本地新插入消息事件（仅伴侣发来的消息才响铃，绝不干扰用户发消息）
-    const handleLocalMessageInserted = (event) => {
+        const handleLocalMessageInserted = (event) => {
       const detail = event.detail || {};
       // 如果携带了 sender 且不是伴侣，直接退出；用户自己发消息时走聊天框既有音效
       if (detail.sender && detail.sender !== 'character') {
@@ -326,9 +328,17 @@ export const App = () => {
       });
     };
 
+    const handleAppHiding = () => {
+      if (document.visibilityState === 'hidden') {
+        void syncAllChatContextsToCloud();
+      }
+    };
+
     window.addEventListener('focus', handleWakeSync);
     window.addEventListener('pageshow', handleWakeSync);
     document.addEventListener('visibilitychange', handleWakeSync);
+    document.addEventListener('visibilitychange', handleAppHiding);
+    window.addEventListener('pagehide', handleAppHiding);
     window.addEventListener('new-local-message-inserted', handleLocalMessageInserted);
 
     if ('serviceWorker' in navigator) {
@@ -339,6 +349,8 @@ export const App = () => {
       window.removeEventListener('focus', handleWakeSync);
       window.removeEventListener('pageshow', handleWakeSync);
       document.removeEventListener('visibilitychange', handleWakeSync);
+      document.removeEventListener('visibilitychange', handleAppHiding);
+      window.removeEventListener('pagehide', handleAppHiding);
       window.removeEventListener('new-local-message-inserted', handleLocalMessageInserted);
 
       if ('serviceWorker' in navigator) {

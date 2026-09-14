@@ -496,3 +496,65 @@ export function mountTemporaryDebugButton() {
 
   document.body.appendChild(btn);
 }
+
+
+export async function syncAllChatContextsToCloud() {
+  try {
+    const cleanServerUrl = await getEffectiveServerUrl();
+    if (!cleanServerUrl) return;
+
+    const allChats = await db.chats.toArray();
+    if (!allChats || allChats.length === 0) return;
+
+    const chatContextUpdates = [];
+
+    for (const chat of allChats) {
+      const chatId = Number(chat.id);
+      let recentContext = '';
+
+      try {
+        const recentMsgs = await db.messages
+          .where('[chatId+timestamp]')
+          .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
+          .reverse()
+          .limit(5)
+          .toArray();
+
+        recentContext = recentMsgs
+          .reverse()
+          .map((m) => {
+            if (m.versions && m.versions.length > 0) {
+              const idx = m.currentVersionIndex || 0;
+              return m.versions[idx]?.content || m.versions[idx]?.text || m.content || '';
+            }
+            return m.content || '';
+          })
+          .filter(Boolean)
+          .join('；');
+      } catch (err) {
+        const fallbackMsgs = await db.messages
+          .where('chatId')
+          .equals(chatId)
+          .reverse()
+          .limit(5)
+          .toArray();
+
+        recentContext = fallbackMsgs
+          .reverse()
+          .map((m) => m.content || '')
+          .filter(Boolean)
+          .join('；');
+      }
+
+      chatContextUpdates.push({ chatId, recentContext });
+    }
+
+    await fetch(`${cleanServerUrl}/api/update-contexts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatContextUpdates }),
+    }).catch(() => {});
+  } catch (err) {
+    // 静默失败
+  }
+}
