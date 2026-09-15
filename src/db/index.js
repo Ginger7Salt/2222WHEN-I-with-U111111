@@ -4016,6 +4016,30 @@ db.version(42).stores({
   workflowProfiles: '&key, updatedAt',
 });
 
+db.version(43).stores({
+  // 内心主页：每个chat一条，随日期滚动重置（密码、当日尝试次数）
+  innerWorldAccess: `
+    &chatId,
+    characterId,
+    date,
+    password,
+    attemptsUsed,
+    isUnlocked,
+    updatedAt
+  `,
+
+  // 内心主页：每天一条历史记录，用于心情/性格维度的成长曲线
+  innerWorldEntries: `
+    ++id,
+    chatId,
+    characterId,
+    date,
+    createdAt,
+    updatedAt,
+    [chatId+date]
+  `,
+});
+
 
 
 export default db;
