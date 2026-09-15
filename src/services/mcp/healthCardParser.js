@@ -45,7 +45,7 @@ export const parseHealthMarkdown = (text = '') => {
       details.match(/REM\s*([\d.]+)\s*h/i);
 
     const unclassifiedMatch =
-      details.match(/未分类睡眠\s*([\d.]+)\s*h/);
+      details.match(/未分类睡眠\s*([\d.]+)\s*h/) || details.match(/常规睡眠\s*([\d.]+)\s*h/);
 
     const awakeMatch =
       details.match(/清醒\s*([\d.]+)\s*h/);
