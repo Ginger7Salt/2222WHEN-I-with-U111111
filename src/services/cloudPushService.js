@@ -693,40 +693,107 @@ export async function syncAllChatContextsToCloud() {
  * @param {string} [options.intent] - 预约意图（如：提醒喝水、跟进刚才的话题）
  * @param {number} [options.chatId] - 该预约归属的具体消息框 ID
  */
-export async function syncScheduledTaskToCloud({ targetTime, intent = '', chatId = null }) {
+
+export async function syncScheduledTaskToCloud({
+  targetTime,
+  intent = '',
+  chatId = null,
+} = {}) {
   try {
     const cleanServerUrl = await getEffectiveServerUrl();
-    if (!cleanServerUrl) return;
+
+    if (!cleanServerUrl) {
+      console.warn('[CloudPush] 未配置推送服务器地址');
+      return false;
+    }
 
     let targetTimestamp = 0;
+
     if (typeof targetTime === 'number') {
       targetTimestamp = targetTime;
-    } else if (typeof targetTime === 'string') {
-      targetTimestamp = new Date(targetTime).getTime();
     } else if (targetTime instanceof Date) {
       targetTimestamp = targetTime.getTime();
+    } else if (typeof targetTime === 'string') {
+      const numericTime = Number(targetTime);
+
+      targetTimestamp =
+        Number.isFinite(numericTime) && numericTime > 0
+          ? numericTime
+          : new Date(targetTime).getTime();
     }
 
-    if (!targetTimestamp || targetTimestamp <= Date.now()) {
-      return; // 过期或无效的时间不提交
+    if (
+      !Number.isFinite(targetTimestamp) ||
+      targetTimestamp <= Date.now()
+    ) {
+      console.warn('[CloudPush] 预约时间无效或已经过期:', targetTime);
+      return false;
     }
 
-    await fetch(`${cleanServerUrl}/api/sync-push-config`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
+    const payload = {
+      targetTime: targetTimestamp,
+      intent: String(intent || '伴侣主动找你'),
+    };
+
+    if (chatId !== null && chatId !== undefined) {
+      const numericChatId = Number(chatId);
+
+      if (Number.isFinite(numericChatId)) {
+        payload.targetChatId = numericChatId;
+      }
+    }
+
+    const response = await fetch(
+      `${cleanServerUrl}/api/sync-push-config`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify({
-        targetTime: targetTimestamp,
-        intent: intent || '伴侣主动找你',
-        targetChatId: chatId ? Number(chatId) : undefined
-      })
-    });
+    );
 
-    console.log(`[CloudPush] 预约任务已成功托管至云端：将在 ${new Date(targetTimestamp).toLocaleTimeString()} 准时触发`);
-  } catch (err) {
-    // 静默降级
-    console.warn('[CloudPush] 预约任务同步至云端失败:', err.message);
+    const responseText = await response.text();
+
+    let result = null;
+
+    if (responseText) {
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        result = null;
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        `服务器返回 HTTP ${response.status}${
+          responseText ? `: ${responseText}` : ''
+        }`,
+      );
+    }
+
+    if (result && result.ok === false) {
+      throw new Error(
+        result.error || result.message || '服务器拒绝保存预约任务',
+      );
+    }
+
+    console.log(
+      `[CloudPush] 预约任务已托管至云端：${new Date(
+        targetTimestamp,
+      ).toLocaleString()}`,
+    );
+
+    return true;
+  } catch (error) {
+    console.warn(
+      '[CloudPush] 预约任务同步至云端失败:',
+      error?.message || error,
+    );
+
+    return false;
   }
 }

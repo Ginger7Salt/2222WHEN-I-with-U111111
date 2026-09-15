@@ -1,6 +1,8 @@
 import Dexie from 'dexie';
 import db from '../../db';
 import { runChatCompletionWithMcpTools } from '../../services/mcp/scheduledMcpToolBridge';
+import { syncScheduledTaskToCloud } from '../../services/cloudPushService';
+
 
 
 const SCHEDULE_PATTERN =
@@ -352,24 +354,27 @@ export const createScheduledMessage = async ({
   );
 
     // 如果用户配置了推送服务器，告诉服务器一声：
-  try {
-    const cloudPushSetting = await db.settings.get('cloudPushConfig');
-    const pushServerUrl = cloudPushSetting?.value?.serverUrl;
+ // 预约写入本地成功后，将同一条预约托管到云端。
+// 不阻塞本地预约逻辑，云端失败时仍保留本地预约。
+try {
+  const cloudSyncResult = await syncScheduledTaskToCloud({
+    targetTime: scheduledFor,
+    intent: intent || '伴侣主动找你',
+    chatId,
+  });
 
-    if (!pushServerUrl) {
-      console.warn('[ScheduledMessage] 未配置推送服务器地址，跳过云端同步。');
-    } else {
-      fetch(`${pushServerUrl}/api/sync-push-config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetTime: new Date(scheduledFor).getTime(), // 传入精确的到期毫秒时间戳
-          intent: intent || '伴侣主动找你',
-          // 这里只需要同步预约时间，不需要重复传大段 context
-        })
-      }).catch(() => {});
-    }
-  } catch (e) {}
+  if (!cloudSyncResult) {
+    console.warn(
+      '[ScheduledMessage] 预约已写入本地，但云端托管未成功。',
+    );
+  }
+} catch (error) {
+  console.warn(
+    '[ScheduledMessage] 云端预约同步异常:',
+    error?.message || error,
+  );
+}
+
 
   return scheduleId;
 };
