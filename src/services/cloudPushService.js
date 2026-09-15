@@ -168,6 +168,76 @@ export async function syncPendingPushMessages() {
   }
 }
 
+
+/**
+ * 获取本地下一条尚未到期的预约任务。
+ *
+ * 这里使用安全探测：
+ * - 如果当前 Dexie 没有 scheduledMessages 表，直接返回 null
+ * - 如果 status 没有索引，则退化为全表读取
+ * - 只返回未来时间且状态为 pending 的最早任务
+ */
+async function getNextPendingScheduledTask() {
+  try {
+    const scheduledTable = db?.scheduledMessages;
+
+    if (!scheduledTable) {
+      return null;
+    }
+
+    let records = [];
+
+    try {
+      records = await scheduledTable
+        .where('status')
+        .equals('pending')
+        .toArray();
+    } catch (indexError) {
+      records = await scheduledTable.toArray();
+    }
+
+    const now = Date.now();
+
+    const pendingTasks = records
+      .filter((task) => {
+        if (!task || task.status && task.status !== 'pending') {
+          return false;
+        }
+
+        if (!task.scheduledFor) {
+          return false;
+        }
+
+        const scheduledTime =
+          typeof task.scheduledFor === 'number'
+            ? task.scheduledFor
+            : new Date(task.scheduledFor).getTime();
+
+        return Number.isFinite(scheduledTime) && scheduledTime > now;
+      })
+      .sort((a, b) => {
+        const timeA =
+          typeof a.scheduledFor === 'number'
+            ? a.scheduledFor
+            : new Date(a.scheduledFor).getTime();
+
+        const timeB =
+          typeof b.scheduledFor === 'number'
+            ? b.scheduledFor
+            : new Date(b.scheduledFor).getTime();
+
+        return timeA - timeB;
+      });
+
+    return pendingTasks[0] || null;
+  } catch (error) {
+    // 预约表不存在、数据库升级中或读取失败时，不影响推送注册
+    return null;
+  }
+}
+
+
+
 /**
  * 注册并向云端同步推送配置
  * 收集用户存在/聊过的所有消息框，使其全部具备云端独立主动发信的能力
@@ -302,59 +372,66 @@ export async function registerCloudPush({
       updatedAt: chat.updatedAt || new Date().toISOString(),
     });
   }
+// 6. 读取系统 API 设置
+const apiSettings = await db.settings.get('apiConfig');
 
-  // 6. 读取系统 API 设置
-  const apiSettings = await db.settings.get('apiConfig');
+// 7. 读取本地尚未触发的下一条预约任务
+const nextScheduledTask = await getNextPendingScheduledTask();
 
-  // 7. 发送包含全部可用消息框的配置数据包
-  const payloadData = {
-    subscription: subscription.toJSON(),
-    apiConfig: apiSettings?.value || {},
-    chatTargets: chatTargets,
-    // 兼容字段
-    character: chatTargets[0]
-      ? {
-          id: chatTargets[0].characterId,
-          chatId: chatTargets[0].chatId,
-          name: chatTargets[0].characterName,
-          persona: chatTargets[0].persona,
-          userName: chatTargets[0].userName,
-        }
-      : { id: 1, chatId: 1, name: '伴侣', persona: '' },
-    recentContext: chatTargets[0]?.recentContext || '',
-  };
+let pendingTargetTime = null;
+let pendingIntent = '';
+let pendingChatId = null;
 
-  let response;
-  try {
-    response = await fetch(`${cleanServerUrl}/api/sync-push-config`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(payloadData),
-    });
-  } catch (networkErr) {
-    throw new Error(
-      `连接服务器网络失败: ${networkErr.message}（请检查域名证书或反向代理）`,
-    );
-  }
+if (nextScheduledTask) {
+  pendingTargetTime =
+    typeof nextScheduledTask.scheduledFor === 'number'
+      ? nextScheduledTask.scheduledFor
+      : new Date(nextScheduledTask.scheduledFor).getTime();
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`服务器拒绝接收 (状态码 ${response.status}): ${errorText}`);
-  }
+  pendingIntent =
+    nextScheduledTask.intent ||
+    nextScheduledTask.content ||
+    '伴侣主动找你';
 
-  const result = await response.json();
-  if (!result.ok) {
-    throw new Error(`服务器保存失败: ${result.error || '未知错误'}`);
-  }
-
-  // 8. 顺带执行一次开屏拉齐补漏
-  void syncPendingPushMessages();
-
-  return true;
+  pendingChatId =
+    nextScheduledTask.chatId ??
+    nextScheduledTask.targetChatId ??
+    null;
 }
+
+// 8. 发送包含全部消息框与预约任务的配置数据包
+const payloadData = {
+  subscription: subscription.toJSON(),
+  apiConfig: apiSettings?.value || {},
+  chatTargets: chatTargets,
+
+  // 预约任务字段
+  targetTime: pendingTargetTime,
+  intent: pendingIntent,
+  targetChatId:
+    pendingChatId === null || pendingChatId === undefined
+      ? undefined
+      : Number(pendingChatId),
+
+  // 兼容旧版服务端字段
+  character: chatTargets[0]
+    ? {
+        id: chatTargets[0].characterId,
+        chatId: chatTargets[0].chatId,
+        name: chatTargets[0].characterName,
+        persona: chatTargets[0].persona,
+        userName: chatTargets[0].userName,
+      }
+    : {
+        id: 1,
+        chatId: 1,
+        name: '伴侣',
+        persona: '',
+      },
+
+  recentContext: chatTargets[0]?.recentContext || '',
+};
+
 
 // ==========================================================
 // 🔍 手机真实状态体检探针（无任何硬编码地址）
@@ -566,5 +643,51 @@ export async function syncAllChatContextsToCloud() {
     }).catch(() => {});
   } catch (err) {
     // 静默失败
+  }
+}
+/**
+ * ⏰ 预约任务离线托管：将前端产生的精确预约单同步到云端
+ * 当手机息屏/划掉后台后，由云端服务器接管倒计时并准时推送到 iOS 锁屏
+ * 
+ * @param {Object} options
+ * @param {number|string|Date} options.targetTime - 预约到期的时间戳或 ISO 字符串
+ * @param {string} [options.intent] - 预约意图（如：提醒喝水、跟进刚才的话题）
+ * @param {number} [options.chatId] - 该预约归属的具体消息框 ID
+ */
+export async function syncScheduledTaskToCloud({ targetTime, intent = '', chatId = null }) {
+  try {
+    const cleanServerUrl = await getEffectiveServerUrl();
+    if (!cleanServerUrl) return;
+
+    let targetTimestamp = 0;
+    if (typeof targetTime === 'number') {
+      targetTimestamp = targetTime;
+    } else if (typeof targetTime === 'string') {
+      targetTimestamp = new Date(targetTime).getTime();
+    } else if (targetTime instanceof Date) {
+      targetTimestamp = targetTime.getTime();
+    }
+
+    if (!targetTimestamp || targetTimestamp <= Date.now()) {
+      return; // 过期或无效的时间不提交
+    }
+
+    await fetch(`${cleanServerUrl}/api/sync-push-config`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({
+        targetTime: targetTimestamp,
+        intent: intent || '伴侣主动找你',
+        targetChatId: chatId ? Number(chatId) : undefined
+      })
+    });
+
+    console.log(`[CloudPush] 预约任务已成功托管至云端：将在 ${new Date(targetTimestamp).toLocaleTimeString()} 准时触发`);
+  } catch (err) {
+    // 静默降级
+    console.warn('[CloudPush] 预约任务同步至云端失败:', err.message);
   }
 }
