@@ -18,7 +18,7 @@ import {
   RotateCw,
   BookOpen,
   ReceiptText,
-  moon,
+  Moon,
 } from 'lucide-react';
 
 import db from '../../db';
