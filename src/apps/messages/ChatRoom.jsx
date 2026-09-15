@@ -18,6 +18,7 @@ import {
   RotateCw,
   BookOpen,
   ReceiptText,
+  moon,
 } from 'lucide-react';
 
 import db from '../../db';
@@ -68,6 +69,7 @@ import {
 } from './scheduledMessageService';
 
 import ParallelOrbit from './components/ParallelOrbit';
+import InnerWorldApp from '../innerworld/InnerWorldApp';
 
 const INITIAL_VISIBLE_MESSAGE_COUNT = 200;
 const LOAD_MORE_MESSAGE_BATCH = 200;
@@ -115,8 +117,8 @@ export const ChatRoom = ({
 const forceScrollMessageIdRef = useRef(null);
 const isLoadingMoreRef = useRef(false);
 
-  const [showParallelOrbit, setShowParallelOrbit] = useState(false);
-  const [isPrioritizedLoaded, setIsPrioritizedLoaded] = useState(false);
+   const [showParallelOrbit, setShowParallelOrbit] = useState(false);
+  const [showInnerWorld, setShowInnerWorld] = useState(false);
 
   const defaultCss = useMemo(() => `
     .user-bubble {
@@ -689,6 +691,16 @@ useLayoutEffect(() => {
     );
   }
 
+    if (showInnerWorld) {
+    return (
+      <InnerWorldApp
+        chatId={chatId}
+        characterId={character?.id}
+        onClose={() => setShowInnerWorld(false)}
+      />
+    );
+  }
+
   return (
     <div
       className="chat-room-container fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden text-left text-xs animate-fade-in-up"
@@ -767,6 +779,21 @@ useLayoutEffect(() => {
             >
               <BookOpen className="h-4 w-4" />
             </button>
+
+                        <button
+              type="button"
+              onClick={() => setShowInnerWorld(true)}
+              className="flex items-center justify-center rounded-full p-2 opacity-80 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
+              style={{
+                color: 'var(--text-main)',
+                border: '1px solid var(--card-border)',
+                background: 'var(--control-soft-bg)',
+              }}
+              title="内心主页"
+            >
+              <Moon className="h-4 w-4" />
+            </button>
+
           </div>
 
                  <div className="flex items-center gap-2">

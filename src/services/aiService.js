@@ -17,6 +17,7 @@ import {
 
 
 import { runAiToolOrchestrator } from './aiToolOrchestrator';
+import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptContext';
 
 import {
   requestMcpToolApproval,
@@ -1882,9 +1883,16 @@ const characterEmotionContext = await getSafeCharacterEmotionContext({
 const almanacPromptContext =
   await getSafeAlmanacPromptContext(chatId);
 
+const innerWorldPasswordContext =
+  await getSafeInnerWorldPasswordContext({
+    chatId,
+    characterId: character.id,
+    character,
+  });
+
 const finalSystemPrompt = `${
   systemPrompt
-}${memoryContext}${characterEmotionContext}${almanacPromptContext}${userReturnContext}`;
+}${memoryContext}${characterEmotionContext}${almanacPromptContext}${userReturnContext}${innerWorldPasswordContext}`;
 
 
 
