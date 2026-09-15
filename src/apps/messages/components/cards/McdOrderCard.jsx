@@ -107,12 +107,41 @@ function StoreList({ stores = [] }) {
   );
 }
 
+function getPickupTypeLabel(value) {
+  const type = String(value || '').toLowerCase();
+
+  if (
+    type.includes('delivery') ||
+    type.includes('deliver') ||
+    type.includes('送')
+  ) {
+    return '麦乐送外送';
+  }
+
+  if (
+    type.includes('drive') ||
+    type.includes('dt') ||
+    type.includes('得来速')
+  ) {
+    return '得来速取餐';
+  }
+
+  return '到店取餐';
+}
+
 function Receipt({ card }) {
   const items = card.items || [];
   const total =
     typeof card.total === 'number'
       ? card.total.toFixed(2)
       : card.total || '-';
+
+  const pickupType = getPickupTypeLabel(
+    card.pickupType ||
+    card.takeWay ||
+    card.pickupMethod
+  );
+
 
   return (
     <section className="mcd-receipt-scene">
@@ -135,7 +164,7 @@ function Receipt({ card }) {
             <span>{card.orderNo || '生成中'}</span>
 
             <span>取餐方式</span>
-            <span>到店取餐</span>
+<span>{pickupType}</span>
 
             <span>门店</span>
             <span>{card.storeName || '麦当劳'}</span>
@@ -302,6 +331,19 @@ function Ready({ card }) {
   );
 }
 
+function Completed({ card }) {
+  return (
+    <section className="mcd-completed">
+      <div className="mcd-completed-icon">
+        <Icon name="check" />
+      </div>
+
+      <h2>订单已完成</h2>
+      <p>{card?.orderNo ? `订单号：${card.orderNo}` : '感谢你的使用'}</p>
+    </section>
+  );
+}
+
 function Cancelled() {
   return (
     <section className="mcd-cancelled">
@@ -315,75 +357,346 @@ function Cancelled() {
   );
 }
 
+
 // 1. 在 McdOrderCard 上方加入这个自动识别并转换的函数
 function normalizeCardData(raw) {
   if (!raw) return null;
 
-  // 如果传进来的是 MCP 原生信封字符串，先尝试解析
   let data = raw;
-  if (typeof raw === 'string') {
-    try { data = JSON.parse(raw); } catch (e) { return null; }
-  }
-  // 如果是 MCP 标准 content 结构: { content: [{ type: 'text', text: '...' }] }
-  if (data.content && Array.isArray(data.content) && data.content[0]?.text) {
-    try { data = JSON.parse(data.content[0].text); } catch (e) {}
-  }
-  // 解包 data 层
-  const payload = data.data || data;
 
-  // 场景 A：如果本来就已经符合卡片规范，直接返回
-  if (data.kind === 'mcd' && data.phase) {
-    return data;
+  if (typeof data === 'string') {
+    try {
+      const cleaned = data
+        .replace(/^```json\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+
+      data = JSON.parse(cleaned);
+    } catch {
+      return null;
+    }
   }
 
-  // 场景 B：识别是否为「附近门店」返回 (query-nearby-stores)
-  const stores = payload.stores || payload.storeList || (Array.isArray(payload) ? payload : null);
-  if (stores && Array.isArray(stores) && stores.length > 0 && (stores[0].storeName || stores[0].storeCode || stores[0].name)) {
+  if (
+    data?.content &&
+    Array.isArray(data.content)
+  ) {
+    const textPart = data.content.find(
+      (part) => part?.type === 'text' && part.text
+    );
+
+    if (textPart) {
+      try {
+        const cleaned = textPart.text
+          .replace(/^```json\s*/i, '')
+          .replace(/\s*```$/i, '')
+          .trim();
+
+        data = JSON.parse(cleaned);
+      } catch {
+        // 非 JSON 文本时继续使用原对象
+      }
+    }
+  }
+
+  if (!data || typeof data !== 'object') return null;
+
+  // 兼容 MCP 外层 data
+  const payload =
+    data.data &&
+    (
+      data.success !== undefined ||
+      data.code !== undefined ||
+      data.message !== undefined
+    )
+      ? data.data
+      : data;
+
+  if (!payload || typeof payload !== 'object') return null;
+
+  // 已经是卡片标准结构
+  if (
+    (payload.kind === 'mcd' || payload.kind === 'mcd-order') &&
+    payload.phase
+  ) {
+    return {
+      ...payload,
+      kind: 'mcd',
+      storeName:
+        payload.storeName ||
+        payload.store ||
+        '麦当劳',
+      pickupType:
+        payload.pickupType ||
+        payload.takeWay ||
+        '',
+      items: Array.isArray(payload.items)
+        ? payload.items
+        : [],
+    };
+  }
+
+  // 兼容官方附近门店返回：
+  // data: [...]
+  // data: { stores: [...] }
+  // data: { storeList: [...] }
+  const stores =
+    Array.isArray(payload)
+      ? payload
+      : payload.stores ||
+        payload.storeList ||
+        payload.data;
+
+  if (
+    Array.isArray(stores) &&
+    stores.length > 0 &&
+    (
+      stores[0]?.storeName ||
+      stores[0]?.storeCode ||
+      stores[0]?.name
+    )
+  ) {
     return {
       kind: 'mcd',
       phase: 'store_list',
-      stores: stores.map((s) => ({
-        name: s.storeName || s.name || '麦当劳餐厅',
-        address: s.address || s.storeAddress || '',
-        distance: typeof s.distance === 'number' ? `${s.distance.toFixed(1)}km` : (s.distance || ''),
-        status: s.businessStatusDesc || (s.isOpen ? '营业中' : '') || ''
-      }))
+      stores: stores.slice(0, 5).map((store) => ({
+        name:
+          store.storeName ||
+          store.name ||
+          '麦当劳餐厅',
+        address:
+          store.address ||
+          store.fullAddress ||
+          store.storeAddress ||
+          '',
+        distance:
+          store.distance !== undefined &&
+          store.distance !== null &&
+          store.distance !== ''
+            ? `${store.distance}${String(store.distance).includes('m') ? '' : 'm'}`
+            : '',
+        status:
+          store.businessStatus === false
+            ? '休息中'
+            : '营业中',
+        businessHours:
+          store.businessStartTime &&
+          store.businessEndTime
+            ? `${store.businessStartTime}-${store.businessEndTime}`
+            : '',
+        storeCode: store.storeCode || '',
+        beCode: store.beCode || '',
+      })),
     };
   }
 
-  // 场景 C：识别是否为「订单相关」返回 (query-order 或 下单返回)
-  const detail = payload.orderDetailVo || payload.order || payload;
-  if (detail && (detail.orderId || detail.orderNo || detail.orderStatus !== undefined)) {
-    // 状态码转换
-    let phase = 'order_created';
-    const status = detail.orderStatus;
-    if (status === 1) phase = 'order_created';      // 待支付
-    else if (status === 2) phase = 'cooking';       // 制作中
-    else if (status === 3) phase = 'ready';         // 待取餐
-    else if (status === 4 || status === 5) phase = 'completed'; // 完成
-    else if (status === -1 || status === 6) phase = 'cancelled'; // 取消
+  // 官方订单详情通常位于 payload.orderDetail
+  const detail =
+    payload.orderDetail ||
+    payload.orderDetailVo ||
+    payload.order ||
+    payload;
 
-    const rawItems = detail.items || detail.orderProductList || detail.productList || [];
-    return {
-      kind: 'mcd',
-      phase: phase,
-      orderNo: detail.orderId || detail.orderNo || '',
-      storeName: detail.storeName || '麦当劳',
-      total: detail.orderAmount || detail.totalFee || detail.total || 0,
-      pickupCode: detail.pickupCode || detail.mealCode || detail.takeMealNo || '',
-      etaMinutes: detail.estimatedTime || 10,
-      payUrl: detail.payUrl || detail.payLink || '',
-      items: rawItems.map((item) => ({
-        name: item.productName || item.name || '餐品',
-        qty: item.quantity || item.qty || 1,
-        price: item.unitPrice || item.price || 0
-      }))
-    };
+  if (!detail || typeof detail !== 'object') {
+    return payload;
   }
 
-  // 兜底：如果完全无法识别，返回原数据
-  return data;
+  const hasOrderData =
+    detail.orderId ||
+    detail.orderNo ||
+    payload.orderId ||
+    payload.orderNo ||
+    detail.orderStatus !== undefined ||
+    payload.orderStatus !== undefined ||
+    detail.orderProductList ||
+    detail.items;
+
+  if (!hasOrderData) {
+    return payload;
+  }
+
+  const status = String(
+    detail.orderStatus ??
+    payload.orderStatus ??
+    detail.status ??
+    payload.status ??
+    ''
+  ).trim().toUpperCase();
+
+  const pickupCode =
+    detail.pickupCode ||
+    detail.lockerCode ||
+    detail.takeCode ||
+    detail.pickupNo ||
+    payload.pickupCode ||
+    payload.takeCode ||
+    '';
+
+  let phase = 'order_created';
+
+  if (
+    status.includes('取消') ||
+    status.includes('CANCEL')
+  ) {
+    phase = 'cancelled';
+  } else if (
+    status.includes('完成') ||
+    status.includes('已取') ||
+    status.includes('FINISH') ||
+    status.includes('COMPLETE')
+  ) {
+    phase = 'completed';
+  } else if (
+    status.includes('待取') ||
+    status.includes('取餐') ||
+    status.includes('READY') ||
+    status.includes('PICKUP') ||
+    status.includes('WAIT_PICK') ||
+    pickupCode
+  ) {
+    phase = 'ready';
+  } else if (
+    status.includes('制作') ||
+    status.includes('配送') ||
+    status.includes('进行') ||
+    status.includes('COOK') ||
+    status.includes('DELIVER')
+  ) {
+    phase = 'cooking';
+  } else if (
+    status.includes('待支付') ||
+    status.includes('支付') ||
+    status.includes('下单') ||
+    status.includes('PAY')
+  ) {
+    phase = 'order_created';
+  } else if (
+    typeof detail.orderStatus === 'number' ||
+    typeof payload.orderStatus === 'number'
+  ) {
+    const numericStatus =
+      detail.orderStatus ??
+      payload.orderStatus;
+
+    if (numericStatus === 1) phase = 'order_created';
+    else if (numericStatus === 2) phase = 'cooking';
+    else if (numericStatus === 3) phase = 'ready';
+    else if (numericStatus === 4 || numericStatus === 5) phase = 'completed';
+    else if (numericStatus === -1 || numericStatus === 6) phase = 'cancelled';
+  }
+
+  const rawItems =
+    detail.orderProductList ||
+    detail.items ||
+    detail.productList ||
+    payload.orderProductList ||
+    payload.items ||
+    [];
+
+  const items = Array.isArray(rawItems)
+    ? rawItems.map((item) => ({
+        name:
+          item.productName ||
+          item.name ||
+          item.itemName ||
+          '餐品',
+        qty:
+          Number(
+            item.quantity ??
+            item.qty ??
+            1
+          ) || 1,
+        price:
+          Number(
+            item.price ??
+            item.unitPrice ??
+            0
+          ) || 0,
+        comboItems: Array.isArray(item.comboItemList)
+          ? item.comboItemList.map((combo) => ({
+              name:
+                combo.itemName ||
+                combo.productName ||
+                combo.name ||
+                '套餐内容',
+              qty:
+                Number(
+                  combo.itemQuantity ??
+                  combo.quantity ??
+                  combo.qty ??
+                  1
+                ) || 1,
+            }))
+          : [],
+      }))
+    : [];
+
+  return {
+    kind: 'mcd',
+    phase,
+    orderNo:
+      payload.orderId ||
+      detail.orderId ||
+      payload.orderNo ||
+      detail.orderNo ||
+      payload.order_id ||
+      '',
+    storeName:
+      detail.storeName ||
+      payload.storeName ||
+      detail.store ||
+      payload.store ||
+      '麦当劳',
+    storeAddress:
+      detail.storeAddress ||
+      payload.storeAddress ||
+      '',
+    total:
+      Number(
+        detail.realTotalAmount ??
+        detail.totalAmount ??
+        detail.total ??
+        payload.realTotalAmount ??
+        payload.totalAmount ??
+        payload.total ??
+        payload.amount ??
+        0
+      ) || 0,
+    pickupCode,
+    pickupType:
+      detail.takeWay ||
+      payload.takeWay ||
+      detail.pickupType ||
+      payload.pickupType ||
+      '',
+    etaMinutes:
+      Number(
+        detail.estimatedMinutes ??
+        detail.pickupMinutes ??
+        detail.eta ??
+        payload.estimatedMinutes ??
+        payload.pickupMinutes ??
+        payload.eta ??
+        0
+      ) || null,
+    payUrl:
+      payload.payH5Url ||
+      payload.payUrl ||
+      payload.paymentUrl ||
+      detail.payH5Url ||
+      detail.payUrl ||
+      detail.payLink ||
+      '',
+    orderStatus:
+      detail.orderStatus ??
+      payload.orderStatus ??
+      detail.status ??
+      payload.status ??
+      '',
+    items,
+  };
 }
+
 
 // 2. 主组件入口
 export default function McdOrderCard({ card: rawCard, ...restProps }) {
@@ -970,6 +1283,37 @@ export default function McdOrderCard({ card: rawCard, ...restProps }) {
           border-radius: 21px;
         }
 
+        .mcd-completed {
+  padding: 34px 18px;
+  color: var(--mcd-muted);
+  background: var(--mcd-surface);
+  text-align: center;
+}
+
+.mcd-completed-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 13px;
+  place-items: center;
+  color: var(--mcd-green);
+  border: 1px solid rgba(22, 131, 99, .35);
+  border-radius: 50%;
+}
+
+.mcd-completed h2 {
+  margin: 0;
+  color: var(--mcd-ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mcd-completed p {
+  margin: 7px 0 0;
+  font-size: 10px;
+}
+
+
         .mcd-cooking-scene {
           min-height: 300px;
           padding: 22px 17px 18px;
@@ -1514,9 +1858,15 @@ export default function McdOrderCard({ card: rawCard, ...restProps }) {
 
         {phase === 'ready' && <Ready card={card} />}
 
-        {(phase === 'cancelled' || phase === 'completed') && (
-          <Cancelled />
-        )}
+        {phase === 'completed' && (
+  <Completed card={card} />
+)}
+
+{phase === 'cancelled' && (
+  <Cancelled />
+)}
+
+        
       </article>
     </>
   );
