@@ -432,6 +432,45 @@ const payloadData = {
   recentContext: chatTargets[0]?.recentContext || '',
 };
 
+  let response;
+
+  try {
+    response = await fetch(`${cleanServerUrl}/api/sync-push-config`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(payloadData),
+    });
+  } catch (networkErr) {
+    throw new Error(
+      `连接服务器网络失败: ${networkErr.message}（请检查域名证书或反向代理）`,
+    );
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+
+    throw new Error(
+      `服务器拒绝接收 (状态码 ${response.status}): ${errorText}`,
+    );
+  }
+
+  const result = await response.json();
+
+  if (!result.ok) {
+    throw new Error(
+      `服务器保存失败: ${result.error || '未知错误'}`,
+    );
+  }
+
+  // 注册成功后顺带执行一次开屏拉齐补漏
+  void syncPendingPushMessages();
+
+  return true;
+}
+
 
 // ==========================================================
 // 🔍 手机真实状态体检探针（无任何硬编码地址）
