@@ -280,70 +280,284 @@ const parseAppleCalendarCard = (toolName, toolResult) => {
 
   return null;
 };
-
 // 麦当劳专用解析器（对照 M-China/mcd-mcp-server 官方规范）
 const parseMcdonaldsCard = (toolName, toolResult) => {
-  const data = parseToolRawData(toolResult);
+  const raw = parseToolRawData(toolResult);
+  if (!raw || raw.success === false) return null;
+
+  // MCP 返回可能是：
+  // 1. { success, code, data: {...} }
+  // 2. 直接返回 {...}
+  // 3. structuredContent 中直接包含业务数据
+  const data =
+    raw.data &&
+    (
+      raw.success !== undefined ||
+      raw.code !== undefined ||
+      raw.message !== undefined
+    )
+      ? raw.data
+      : raw;
+
   if (!data) return null;
 
-  // 1. 附近门店查询 (query-nearby-stores / delivery-query-stores)
-  if (/query-.*stores?/i.test(toolName)) {
-    const stores = Array.isArray(data) ? data : (data.stores || []);
+  const name = String(toolName || '');
+
+  const isStoreQuery =
+    /(?:query[-_]?nearby[-_]?stores?|delivery[-_]?query[-_]?stores?)/i.test(name);
+
+  const isCreateOrder = /create[-_]?order/i.test(name);
+
+  const isQueryOrder = /query[-_]?order/i.test(name);
+
+  const toNumber = (value, fallback = 0) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  };
+
+  const parseItems = (list) => {
+    if (!Array.isArray(list)) return [];
+
+    return list.map((item) => ({
+      name: item.productName || item.name || item.itemName || '餐品',
+      qty: toNumber(item.quantity ?? item.qty, 1),
+      price: toNumber(item.price, 0),
+      comboItems: Array.isArray(item.comboItemList)
+        ? item.comboItemList.map((combo) => ({
+            name: combo.itemName || combo.productName || combo.name || '套餐内容',
+            qty: toNumber(combo.itemQuantity ?? combo.quantity ?? combo.qty, 1),
+          }))
+        : [],
+    }));
+  };
+
+  const parsePhase = (status, pickupCode = '', takeWay = '') => {
+    const value = String(status || '').trim().toUpperCase();
+
+    if (
+      value.includes('取消') ||
+      value.includes('CANCEL')
+    ) {
+      return 'cancelled';
+    }
+
+    if (
+      value.includes('完成') ||
+      value.includes('已取') ||
+      value.includes('FINISH') ||
+      value.includes('COMPLETE')
+    ) {
+      return 'completed';
+    }
+
+    if (
+      value.includes('待取') ||
+      value.includes('取餐') ||
+      value.includes('READY') ||
+      value.includes('PICKUP') ||
+      value.includes('WAIT_PICK') ||
+      pickupCode
+    ) {
+      return 'ready';
+    }
+
+    if (
+      value.includes('待支付') ||
+      value.includes('支付') ||
+      value.includes('下单') ||
+      value.includes('PAY')
+    ) {
+      return 'order_created';
+    }
+
+    if (
+      value.includes('制作') ||
+      value.includes('配送') ||
+      value.includes('进行') ||
+      value.includes('COOK') ||
+      value.includes('DELIVER')
+    ) {
+      return 'cooking';
+    }
+
+    return takeWay ? 'cooking' : 'order_created';
+  };
+
+  // 1. 查询附近门店
+  if (isStoreQuery) {
+    const stores = Array.isArray(data)
+      ? data
+      : Array.isArray(data.stores)
+        ? data.stores
+        : Array.isArray(data.data)
+          ? data.data
+          : [];
+
     if (stores.length === 0) return null;
+
     return {
       kind: 'mcd',
       phase: 'store_list',
-      stores: stores.slice(0, 3).map((s) => ({
-        name: s.storeName || s.name,
-        address: s.address || s.fullAddress,
-        distance: s.distance ? `${s.distance}m` : null,
-        status: s.businessStatus ? '营业中' : '休息中',
+      stores: stores.slice(0, 5).map((store) => ({
+        name: store.storeName || store.name || '麦当劳餐厅',
+        address: store.address || store.fullAddress || '',
+        distance: store.distance
+          ? `${store.distance}${String(store.distance).includes('m') ? '' : 'm'}`
+          : '',
+        status: store.businessStatus === false ? '休息中' : '营业中',
+        businessHours:
+          store.businessStartTime && store.businessEndTime
+            ? `${store.businessStartTime}-${store.businessEndTime}`
+            : '',
+        storeCode: store.storeCode || '',
+        beCode: store.beCode || '',
       })),
     };
   }
 
-  // 2. 下单创建 (create-order)
-  if (/create-?order/i.test(toolName)) {
+  // 2. 创建订单
+  if (isCreateOrder) {
+    const detail = data.orderDetail || data;
+
+    const orderNo =
+      data.orderId ||
+      detail.orderId ||
+      detail.orderNo ||
+      data.orderNo ||
+      '';
+
+    const pickupCode =
+      detail.pickupCode ||
+      detail.lockerCode ||
+      detail.takeCode ||
+      '';
+
     return {
       kind: 'mcd',
-      phase: 'order_created',
-      orderNo: data.orderNo || data.orderId || data.order_id,
-      storeName: data.storeName || data.store || '麦当劳餐厅',
-      total: Number(data.totalAmount || data.total || data.amount || 0),
-      items: Array.isArray(data.items) ? data.items.map((it) => ({
-        name: it.productName || it.name || it.itemName,
-        qty: Number(it.quantity || it.qty || 1),
-        price: Number(it.price ?? 0),
-      })) : [],
-      pickupType: data.beType === 2 ? '麦乐送外送' : '到店取餐',
-      payUrl: data.payUrl || data.paymentUrl || null,
+      phase: parsePhase(
+        detail.orderStatus || data.orderStatus || '待支付',
+        pickupCode,
+        detail.takeWay
+      ),
+      orderNo,
+      storeName:
+        detail.storeName ||
+        data.storeName ||
+        data.store ||
+        '麦当劳餐厅',
+      storeAddress:
+        detail.storeAddress ||
+        data.storeAddress ||
+        '',
+      total: toNumber(
+        detail.realTotalAmount ??
+        detail.totalAmount ??
+        data.realTotalAmount ??
+        data.totalAmount ??
+        data.total ??
+        data.amount
+      ),
+      items: parseItems(
+        detail.orderProductList ||
+        detail.items ||
+        data.orderProductList ||
+        data.items
+      ),
+      pickupCode,
+      pickupType:
+        detail.takeWay ||
+        data.takeWay ||
+        '',
+      payUrl:
+        data.payH5Url ||
+        data.payUrl ||
+        data.paymentUrl ||
+        detail.payH5Url ||
+        detail.payUrl ||
+        null,
+      orderStatus:
+        detail.orderStatus ||
+        data.orderStatus ||
+        '待支付',
     };
   }
 
-  // 3. 订单状态查询 (query-order)
-  if (/query-?order/i.test(toolName)) {
-    const rawStatus = String(data.orderStatus || data.status || '').toUpperCase();
-    let phase = 'cooking';
-    if (rawStatus.includes('CANCEL')) phase = 'cancelled';
-    else if (rawStatus.includes('PICKUP') || rawStatus.includes('WAIT')) phase = 'ready';
-    else if (rawStatus.includes('COMPLETE')) phase = 'completed';
+  // 3. 查询订单状态
+  if (isQueryOrder) {
+    const detail = data.orderDetail || data;
+
+    const pickupCode =
+      detail.pickupCode ||
+      detail.lockerCode ||
+      detail.takeCode ||
+      detail.pickupNo ||
+      '';
 
     return {
       kind: 'mcd',
-      phase,
-      orderNo: data.orderNo || data.orderId || '',
-      pickupCode: data.takeCode || data.pickupCode || data.pickupNo || '',
-      storeName: data.storeName || data.store || '麦当劳餐厅',
-      etaMinutes: Number(data.estimatedMinutes || data.pickupMinutes || 0) || null,
-      items: Array.isArray(data.items) ? data.items.map((it) => ({
-        name: it.productName || it.name,
-        qty: Number(it.quantity || it.qty || 1),
-      })) : [],
+      phase: parsePhase(
+        detail.orderStatus ||
+        detail.status ||
+        data.orderStatus ||
+        data.status,
+        pickupCode,
+        detail.takeWay || data.takeWay
+      ),
+      orderNo:
+        detail.orderId ||
+        detail.orderNo ||
+        data.orderId ||
+        data.orderNo ||
+        '',
+      pickupCode,
+      storeName:
+        detail.storeName ||
+        detail.store ||
+        data.storeName ||
+        data.store ||
+        '麦当劳餐厅',
+      storeAddress:
+        detail.storeAddress ||
+        data.storeAddress ||
+        '',
+      total: toNumber(
+        detail.realTotalAmount ??
+        detail.totalAmount ??
+        detail.total ??
+        data.realTotalAmount ??
+        data.totalAmount ??
+        data.total
+      ),
+      etaMinutes: toNumber(
+        detail.estimatedMinutes ??
+        detail.pickupMinutes ??
+        detail.eta ??
+        data.estimatedMinutes ??
+        data.pickupMinutes ??
+        data.eta
+      ) || null,
+      items: parseItems(
+        detail.orderProductList ||
+        detail.items ||
+        data.orderProductList ||
+        data.items
+      ),
+      orderStatus:
+        detail.orderStatus ||
+        detail.status ||
+        data.orderStatus ||
+        data.status ||
+        '',
+      deliveryInfo:
+        detail.deliveryInfo ||
+        data.deliveryInfo ||
+        null,
     };
   }
 
   return null;
 };
+
 
 // 瑞幸专用解析器
 // 适配：queryShopList / searchProductForMcp / queryProductDetailInfo /
