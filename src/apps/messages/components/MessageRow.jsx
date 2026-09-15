@@ -31,6 +31,7 @@ import RobotActionCard from './cards/RobotActionCard';
 import AppleCalendarCard from './cards/AppleCalendarCard';
 import LuckinCoffeeCard from './cards/LuckinCoffeeCard';
 import NeteaseMusicCard from './cards/NeteaseMusicCard';
+import { DidiRideCard } from './cards/DidiRideCard';
 
 const MessageRow = ({
   msg,
@@ -291,6 +292,12 @@ const MessageRow = ({
               card={messageOrderCard}
             />
           )}
+{/* 滴滴打车专属卡片 */}
+{!isUser && messageOrderCard?.kind === 'didi_ride' && (
+  <DidiRideCard card={messageOrderCard} />
+)}
+
+
         </div>
 
         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
