@@ -10,32 +10,53 @@ const getDisplayPrice = (item) => {
   // 兼容：`18元`、`¥18.5`、`18-25元` 等文本格式。
   // 对于区间价格，优先展示第一个数字。
   const matched = String(rawPrice).match(/-?\d+(?:\.\d+)?/);
+
   return matched ? Math.round(Number(matched[0])) : null;
 };
 
 export const DidiRideCard = ({ card }) => {
   if (!card) return null;
 
-  // 同时兼容新旧解析器字段：
-  // - 新契约：subType: 'estimate'
-  // - 当前注册中心：phase: 'estimate'
-  const isEstimate = card.subType === 'estimate' || card.phase === 'estimate';
+  // 兼容解析器生成的 phase 和旧版本 subType
+  const isEstimate =
+    card.subType === 'estimate' ||
+    card.phase === 'estimate';
 
+  const statusCode = Number(card.statusCode);
+
+  // 滴滴官方终态：
+  // 5 行程完成
+  // 6、7、8、9、10、11、12 均属于订单终止或服务未完成
   const isCancelled =
     card.phase === 'cancelled' ||
     card.subType === 'cancelled' ||
-    Number(card.statusCode) === 7;
+    [6, 7, 8, 9, 10, 11, 12].includes(statusCode);
 
   const isCompleted =
     card.phase === 'completed' ||
     card.subType === 'completed' ||
-    [5, 6].includes(Number(card.statusCode));
+    statusCode === 5;
+
+  // 兼容官方 map 节点以及解析器已经提取到根节点的字段
+  const eta = card.eta || card.map?.eta || '';
+
+  const distanceKm =
+    card.distanceKm ||
+    card.map?.distanceKm ||
+    card.distance ||
+    '';
+
+  // 避免 driver 为非对象或空对象时误判为已有司机
+  const driver =
+    card.driver && typeof card.driver === 'object'
+      ? card.driver
+      : null;
 
   const isWaitingForDriver =
     !isEstimate &&
     !isCancelled &&
     !isCompleted &&
-    !card.driver;
+    !driver;
 
   const statusText =
     card.statusText ||
@@ -45,7 +66,7 @@ export const DidiRideCard = ({ card }) => {
         ? '订单已取消'
         : isCompleted
           ? '行程已结束'
-          : card.driver
+          : driver
             ? '司机正在赶来'
             : '正在为您寻找司机');
 
@@ -55,7 +76,9 @@ export const DidiRideCard = ({ card }) => {
       ? 'bg-emerald-500'
       : 'bg-orange-500';
 
-  const normalizedItems = Array.isArray(card.items) ? card.items : [];
+  const normalizedItems = Array.isArray(card.items)
+    ? card.items
+    : [];
 
   return (
     <div className="my-3 w-full max-w-sm select-none overflow-hidden rounded-2xl border border-neutral-100 bg-white text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100">
@@ -66,6 +89,7 @@ export const DidiRideCard = ({ card }) => {
             {!isEstimate && !isCancelled && !isCompleted && (
               <span className="absolute inset-0 animate-ping rounded-full bg-orange-400 opacity-50" />
             )}
+
             <span className={`relative h-2 w-2 rounded-full ${statusDotClass}`} />
           </span>
 
@@ -74,11 +98,11 @@ export const DidiRideCard = ({ card }) => {
           </span>
         </div>
 
-        {!isEstimate && card.eta && (
+        {!isEstimate && eta && (
           <span className="ml-3 shrink-0 text-[12px] text-neutral-500 dark:text-neutral-400">
             预计{' '}
             <strong className="font-semibold text-neutral-900 dark:text-neutral-100">
-              {card.eta}
+              {eta}
             </strong>{' '}
             分钟到达
           </span>
@@ -108,16 +132,24 @@ export const DidiRideCard = ({ card }) => {
         </div>
       )}
 
-      {/* 预估费用：兼容 name/price 和 productName/priceText 两种 MCP 数据格式 */}
+      {/* 预估费用：兼容官方 productName / productCategory / priceText */}
       {isEstimate && normalizedItems.length > 0 && (
         <div className="flex overflow-x-auto px-4 no-scrollbar">
           {normalizedItems.map((item, index) => {
             const price = getDisplayPrice(item);
-            const itemName = item?.name || item?.productName || '可选车型';
+
+            const itemName =
+              item?.productName ||
+              item?.name ||
+              '可选车型';
 
             return (
               <div
-                key={item?.category || item?.productCategory || index}
+                key={
+                  item?.productCategory ||
+                  item?.category ||
+                  index
+                }
                 className="min-w-[104px] flex-1 py-3.5 pr-3 last:pr-0 [&+&]:border-l [&+&]:border-neutral-100 [&+&]:pl-3 dark:[&+&]:border-neutral-800"
               >
                 <div className="truncate text-[12px] text-neutral-500 dark:text-neutral-400">
@@ -127,7 +159,10 @@ export const DidiRideCard = ({ card }) => {
                 <div className="mt-1.5 flex items-baseline">
                   {price !== null ? (
                     <>
-                      <span className="text-[11px] font-medium text-orange-500">¥</span>
+                      <span className="text-[11px] font-medium text-orange-500">
+                        ¥
+                      </span>
+
                       <span className="ml-0.5 text-[21px] font-semibold leading-none tracking-tight text-neutral-900 dark:text-white">
                         {price}
                       </span>
@@ -154,41 +189,45 @@ export const DidiRideCard = ({ card }) => {
       {/* 已取消 / 已结束：展示终态提示，且不显示错误的“呼叫中”动画 */}
       {!isEstimate && (isCancelled || isCompleted) && (
         <div className="px-4 py-3.5 text-[12px] text-neutral-500 dark:text-neutral-400">
-          {isCancelled ? '该行程已终止。' : '感谢使用滴滴出行。'}
+          {isCancelled
+            ? '该行程已终止。'
+            : '感谢使用滴滴出行。'}
         </div>
       )}
 
       {/* 已匹配司机 / 行程中 */}
-      {!isEstimate && !isCancelled && !isCompleted && card.driver && (
+      {!isEstimate && !isCancelled && !isCompleted && driver && (
         <div className="flex items-center justify-between px-4 py-3.5">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="truncate text-[14px] font-semibold">
-                {card.driver.name || '司机师傅'}
+                {driver.name || '司机师傅'}
               </span>
 
-              {(card.driver.carPlate || card.driver.plateNumber) && (
+              {(driver.carPlate || driver.plateNumber) && (
                 <span className="shrink-0 text-[11px] text-neutral-500 dark:text-neutral-400">
-                  {card.driver.carPlate || card.driver.plateNumber}
+                  {driver.carPlate || driver.plateNumber}
                 </span>
               )}
             </div>
 
-            {(card.driver.carModel || card.distanceKm || card.distance) && (
+            {(driver.carModel || distanceKm) && (
               <div className="mt-1 truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-                {card.driver.carModel || ''}
+                {driver.carModel || ''}
 
-                {card.driver.carModel && (card.distanceKm || card.distance) && ' · '}
+                {driver.carModel &&
+                  distanceKm &&
+                  ' · '}
 
-                {(card.distanceKm || card.distance) &&
-                  `距您 ${card.distanceKm || card.distance}km`}
+                {distanceKm &&
+                  `距您 ${distanceKm}km`}
               </div>
             )}
           </div>
 
-          {card.driver.phone && (
+          {driver.phone && (
             <a
-              href={`tel:${card.driver.phone}`}
+              href={`tel:${driver.phone}`}
               aria-label="联系司机"
               className="ml-4 grid h-8 w-8 shrink-0 place-items-center rounded-full text-neutral-600 transition-colors hover:bg-orange-50 hover:text-orange-500 dark:text-neutral-300 dark:hover:bg-orange-950/40 dark:hover:text-orange-400"
             >
@@ -202,7 +241,7 @@ export const DidiRideCard = ({ card }) => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth="1.8"
-                  d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                  d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a2 2 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                 />
               </svg>
             </a>
@@ -214,4 +253,3 @@ export const DidiRideCard = ({ card }) => {
 };
 
 export default DidiRideCard;
-
