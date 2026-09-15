@@ -4,193 +4,14 @@
 // 负责在工具执行完毕时，将真实返回提取为 UI 渲染用的结构化卡片数据
 
 import { parseHealthMarkdown } from './healthCardParser';
+import {
+  parseNeteaseMusicCard,
+  normalizeNeteaseToolName,
+  NETEASE_TOOLS,
+} from './neteaseMusicParser';
 
-const parseToolRawData = (toolResult) => {
-  if (!toolResult) return null;
-  if (toolResult.structuredContent) return toolResult.structuredContent;
-  if (toolResult.data) return toolResult.data;
-  if (Array.isArray(toolResult.content)) {
-    for (const part of toolResult.content) {
-      if (part.type === 'text') {
-        try {
-          const parsed = JSON.parse(part.text);
-          return parsed.data || parsed;
-        } catch {
-          // 不是 JSON 文本，忽略
-        }
-      }
-    }
-  }
-  if (typeof toolResult === 'string') {
-    try {
-      const cleaned = toolResult.replace(/^```json\s*|\s*```$/g, '').trim();
-      return JSON.parse(cleaned);
-    } catch {
-      return toolResult;
-    }
-  }
-  return toolResult;
-};
 
-// 辅助函数：解析网易云常见字符串格式 "序号. 歌名 - 歌手 (ID:123456)"
-const parseNeteaseSongLine = (line) => {
-  if (typeof line !== 'string') return null;
 
-  const idMatch = line.match(/\(ID:(\d+)\)/i);
-  const id = idMatch ? idMatch[1] : null;
-
-  // 清洗序号、(ID:...)、(plays:...)、[时间戳]
-  const clean = line
-    .replace(/^\d+\.\s*/, '')
-    .replace(/\(ID:\d+\)/gi, '')
-    .replace(/\(plays:\s*\d+,\s*ID:\d+\)/gi, '')
-    .replace(/\[.*?UTC\]/gi, '')
-    .trim();
-
-  const parts = clean.split('-');
-  const title = parts[0]?.trim() || line;
-  const artist = parts.slice(1).join('-').trim() || '';
-
-  return { id, title, artist, raw: line };
-};
-
-// 网易云音乐专用解析器（适配 18+1 个 MCP 工具）
-const parseNeteaseMusicCard = (toolName, toolResult) => {
-  const data = parseToolRawData(toolResult);
-  if (!data || data.error) return null;
-
-  // 1. 播放音乐 (play_music)
-  if (/^play_music$/i.test(toolName)) {
-    if (!data.title && !data.id) return null;
-    return {
-      kind: 'netease_music',
-      viewType: 'player',
-      title: data.title || '未知曲目',
-      artist: data.artist || '未知艺人',
-      id: data.id,
-      link: data.link || (data.id ? `https://music.163.com/#/song?id=${data.id}` : '#'),
-    };
-  }
-
-  // 2. 歌词信息 (get_song_lyrics)
-  if (/^get_song_lyrics$/i.test(toolName)) {
-    if (!data.lyrics) return null;
-    return {
-      kind: 'netease_music',
-      viewType: 'lyrics',
-      songId: data.song_id || null,
-      lyrics: data.lyrics,
-      translation: data.translation || null,
-    };
-  }
-
-  // 3. 歌曲列表流（搜索 / 每日推荐 / 歌手热歌 / 播放历史 / 最近播放 / 歌单歌曲）
-  const listDataMap = {
-    search_song: data.results,
-    daily_recommend: data.recommendations,
-    get_artist_hot_songs: data.hot_songs,
-    get_play_history: data.history,
-    get_recent_plays: data.recent_plays,
-    get_playlist_songs: data.songs,
-  };
-
-  if (listDataMap[toolName]) {
-    const rawList = listDataMap[toolName];
-    if (!Array.isArray(rawList) || rawList.length === 0) return null;
-
-    let displayTitle = '精选音乐推荐';
-    if (data.name) displayTitle = data.name;
-    else if (data.artist) displayTitle = `${data.artist} 的热门作品`;
-    else if (toolName === 'daily_recommend') displayTitle = '今日每日推荐';
-    else if (toolName === 'search_song') displayTitle = '歌曲搜索结果';
-    else if (toolName === 'get_play_history') displayTitle = '历史听歌排行';
-    else if (toolName === 'get_recent_plays') displayTitle = '最近播放记录';
-
-    return {
-      kind: 'netease_music',
-      viewType: 'song_list',
-      toolName,
-      title: displayTitle,
-      songs: rawList.map(parseNeteaseSongLine).filter(Boolean),
-    };
-  }
-
-  // 4. 私人 FM (get_personal_fm)
-  if (/^get_personal_fm$/i.test(toolName)) {
-    if (!Array.isArray(data.personal_fm) || data.personal_fm.length === 0) return null;
-    return {
-      kind: 'netease_music',
-      viewType: 'fm',
-      tracks: data.personal_fm.map((str) => {
-        const parts = str.replace(/^\d+\.\s*/, '').split('|');
-        const songPart = parts[0]?.trim() || '';
-        const albumPart = parts[1]?.replace(/Album:\s*/i, '').replace(/\(ID:\d+\)/i, '').trim() || '';
-        const parsed = parseNeteaseSongLine(songPart);
-        return { ...parsed, album: albumPart };
-      }),
-    };
-  }
-
-  // 5. 歌单列表 (list_my_playlists)
-  if (/^list_my_playlists$/i.test(toolName)) {
-    if (!Array.isArray(data.playlists) || data.playlists.length === 0) return null;
-    return {
-      kind: 'netease_music',
-      viewType: 'playlists',
-      playlists: data.playlists.map((line) => {
-        const segments = line.split('|').map((s) => s.trim());
-        const id = segments[0]?.replace(/^ID:\s*/i, '');
-        return {
-          id,
-          name: segments[1] || '我的歌单',
-          count: segments[2] || '',
-          desc: segments[3] || '',
-        };
-      }),
-    };
-  }
-
-  // 6. 歌曲详情 (get_song_details)
-  if (/^get_song_details$/i.test(toolName)) {
-    if (!Array.isArray(data.songs) || data.songs.length === 0) return null;
-    return {
-      kind: 'netease_music',
-      viewType: 'song_details',
-      songs: data.songs,
-    };
-  }
-
-  // 7. 用户等级徽章 (get_user_level)
-  if (/^get_user_level$/i.test(toolName)) {
-    return {
-      kind: 'netease_music',
-      viewType: 'user_level',
-      level: data.level,
-      listenSongs: data.listen_songs,
-      createDays: data.create_days,
-      nickname: data.nickname || '云音乐用户',
-    };
-  }
-
-  // 8. 轻操作反馈（喜欢、创建歌单、增删歌曲、重排、收藏列表总览）
-  if (
-    /^(like_song|create_playlist|add_to_playlist|remove_from_playlist|update_playlist_description|reorder_playlist_tracks|get_liked_songs)$/i.test(toolName)
-    || data.status
-    || data.playlist_id
-    || data.count !== undefined
-  ) {
-    return {
-      kind: 'netease_music',
-      viewType: 'action_feedback',
-      toolName,
-      status: data.status || (data.playlist_id ? `歌单已创建: ${data.name || ''} (#${data.playlist_id})` : null),
-      count: data.count,
-      note: data.note || null,
-    };
-  }
-
-  return null;
-};
 
 // 苹果日历专用解析器（适配 list_calendars / search_events / create_event / update_event / delete_event）
 const parseAppleCalendarCard = (toolName, toolResult) => {
@@ -937,14 +758,19 @@ export const extractMcpCard = (toolName = '', toolResult = null) => {
   if (!toolName || !toolResult) return null;
 
   // 1. 网易云音乐工具匹配（前置判定，避免 reorder_playlist_tracks 触发下方 order 误拦截）
-  if (
-    /^(play_music|search_song|get_play_history|get_recent_plays|daily_recommend|list_my_playlists|get_playlist_songs|create_playlist|add_to_playlist|remove_from_playlist|like_song|update_playlist_description|reorder_playlist_tracks|get_song_lyrics|get_song_details|get_artist_hot_songs|get_personal_fm|get_liked_songs|get_user_level)$/i.test(
-      toolName
-    )
-  ) {
-    const neteaseCard = parseNeteaseMusicCard(toolName, toolResult);
-    if (neteaseCard) return neteaseCard;
+  const normalizedToolName = normalizeNeteaseToolName(toolName);
+
+if (NETEASE_TOOLS.has(normalizedToolName)) {
+  const neteaseCard = parseNeteaseMusicCard(
+    normalizedToolName,
+    toolResult
+  );
+
+  if (neteaseCard) {
+    return neteaseCard;
   }
+}
+
 
   // 2. 苹果日历匹配
   if (/calendar|search_events|create_event|update_event|delete_event/i.test(toolName)) {
