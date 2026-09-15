@@ -684,6 +684,7 @@ export async function syncAllChatContextsToCloud() {
     // 静默失败
   }
 }
+
 /**
  * ⏰ 预约任务离线托管：将前端产生的精确预约单同步到云端
  * 当手机息屏/划掉后台后，由云端服务器接管倒计时并准时推送到 iOS 锁屏
@@ -691,109 +692,60 @@ export async function syncAllChatContextsToCloud() {
  * @param {Object} options
  * @param {number|string|Date} options.targetTime - 预约到期的时间戳或 ISO 字符串
  * @param {string} [options.intent] - 预约意图（如：提醒喝水、跟进刚才的话题）
- * @param {number} [options.chatId] - 该预约归属的具体消息框 ID
+ * @param {number|string} [options.chatId] - 该预约归属的具体消息框 ID
  */
-
-export async function syncScheduledTaskToCloud({
-  targetTime,
-  intent = '',
-  chatId = null,
-} = {}) {
+export async function syncScheduledTaskToCloud({ targetTime, intent = '', chatId = null } = {}) {
   try {
     const cleanServerUrl = await getEffectiveServerUrl();
-
     if (!cleanServerUrl) {
-      console.warn('[CloudPush] 未配置推送服务器地址');
+      console.warn('[CloudPush] 未配置有效推送服务器地址，跳过云端托管');
       return false;
     }
 
     let targetTimestamp = 0;
-
     if (typeof targetTime === 'number') {
       targetTimestamp = targetTime;
     } else if (targetTime instanceof Date) {
       targetTimestamp = targetTime.getTime();
     } else if (typeof targetTime === 'string') {
-      const numericTime = Number(targetTime);
-
-      targetTimestamp =
-        Number.isFinite(numericTime) && numericTime > 0
-          ? numericTime
-          : new Date(targetTime).getTime();
+      const numeric = Number(targetTime);
+      targetTimestamp = Number.isFinite(numeric) && numeric > 0 ? numeric : new Date(targetTime).getTime();
     }
 
-    if (
-      !Number.isFinite(targetTimestamp) ||
-      targetTimestamp <= Date.now()
-    ) {
-      console.warn('[CloudPush] 预约时间无效或已经过期:', targetTime);
+    if (!Number.isFinite(targetTimestamp) || targetTimestamp <= Date.now()) {
+      console.warn('[CloudPush] 预约时间无效或已过期，放弃托管:', targetTime);
       return false;
     }
 
+    // 🎯 核心解决“云端是否知道是哪个消息框”：
+    // 同时注入 targetChatId 和 chatId，做双字段兜底兼容
+    const parsedChatId = (chatId !== null && chatId !== undefined) ? Number(chatId) : undefined;
+    
     const payload = {
       targetTime: targetTimestamp,
       intent: String(intent || '伴侣主动找你'),
+      chatId: Number.isFinite(parsedChatId) ? parsedChatId : undefined,
+      targetChatId: Number.isFinite(parsedChatId) ? parsedChatId : undefined
     };
 
-    if (chatId !== null && chatId !== undefined) {
-      const numericChatId = Number(chatId);
-
-      if (Number.isFinite(numericChatId)) {
-        payload.targetChatId = numericChatId;
-      }
-    }
-
-    const response = await fetch(
-      `${cleanServerUrl}/api/sync-push-config`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(payload),
+    const res = await fetch(`${cleanServerUrl}/api/sync-push-config`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
       },
-    );
+      body: JSON.stringify(payload)
+    });
 
-    const responseText = await response.text();
-
-    let result = null;
-
-    if (responseText) {
-      try {
-        result = JSON.parse(responseText);
-      } catch {
-        result = null;
-      }
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status}: ${errText}`);
     }
 
-    if (!response.ok) {
-      throw new Error(
-        `服务器返回 HTTP ${response.status}${
-          responseText ? `: ${responseText}` : ''
-        }`,
-      );
-    }
-
-    if (result && result.ok === false) {
-      throw new Error(
-        result.error || result.message || '服务器拒绝保存预约任务',
-      );
-    }
-
-    console.log(
-      `[CloudPush] 预约任务已托管至云端：${new Date(
-        targetTimestamp,
-      ).toLocaleString()}`,
-    );
-
+    console.log(`[CloudPush] 预约任务已精准托管至云端（会话框 ID: ${parsedChatId ?? '默认'}）：将于 ${new Date(targetTimestamp).toLocaleTimeString()} 准时触发`);
     return true;
-  } catch (error) {
-    console.warn(
-      '[CloudPush] 预约任务同步至云端失败:',
-      error?.message || error,
-    );
-
+  } catch (err) {
+    console.warn('[CloudPush] 预约任务同步至云端失败:', err.message || err);
     return false;
   }
 }
