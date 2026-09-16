@@ -1,146 +1,87 @@
 import React from 'react';
 import {
-  Cloud,
-  CloudFog,
-  CloudLightning,
-  CloudRain,
-  CloudSnow,
   Droplets,
-  Eye,
-  Gauge,
-  MapPin,
+  Wind,
   Sunrise,
   Sunset,
-  Thermometer,
-  Wind,
+  Gauge,
+  Umbrella,
 } from 'lucide-react';
 
-const getWeatherType = (card) => {
-  const condition = String(card?.condition || '').toLowerCase();
-  const isDay = card?.isDay !== false;
+const getWeatherType = (condition, isDay) => {
+  const text = String(condition || '').toLowerCase();
 
-  if (!isDay && !/雨|雪|雷|雾|rain|snow|storm|fog/i.test(condition)) {
-    return 'night';
-  }
-
-  if (/雷|雷阵雨|storm|thunder/i.test(condition)) {
-    return 'storm';
-  }
-
-  if (/雨|阵雨|小雨|中雨|大雨|rain|shower/i.test(condition)) {
-    return 'rain';
-  }
-
-  if (/雪|雨夹雪|snow/i.test(condition)) {
-    return 'snow';
-  }
-
-  if (/雾|霾|fog|haze/i.test(condition)) {
-    return 'fog';
-  }
-
-  if (/阴|多云|云|cloud|overcast/i.test(condition)) {
-    return 'cloudy';
-  }
+  if (!isDay) return 'night';
+  if (/雷|雷雨|storm|thunder/i.test(text)) return 'storm';
+  if (/雨|阵雨|小雨|中雨|大雨|暴雨|rain|shower/i.test(text)) return 'rain';
+  if (/雪|雨夹雪|snow/i.test(text)) return 'snow';
+  if (/阴|阴天|overcast/i.test(text)) return 'overcast';
+  if (/云|多云|少云|cloud/i.test(text)) return 'cloudy';
 
   return 'clear';
 };
 
-const WEATHER_THEME = {
+const weatherTheme = {
   clear: {
-    shell: 'from-[#4ca8d2] via-[#77c1dd] to-[#e7b879] dark:from-[#1d6388] dark:via-[#397f9e] dark:to-[#87663f]',
+    shell: 'from-[#4c9ccc] via-[#75bddb] to-[#e7b56e] dark:from-[#1c5275] dark:via-[#286c8e] dark:to-[#875b37]',
     glow: 'bg-amber-200/35 dark:bg-amber-200/15',
-    secondaryGlow: 'bg-sky-100/25 dark:bg-sky-200/10',
-    label: '晴朗天空',
-    iconColor: '#ffe29a',
+    text: 'text-white',
+    muted: 'text-white/65',
+    soft: 'bg-white/[0.12]',
   },
   cloudy: {
-    shell: 'from-[#638ca7] via-[#87aabd] to-[#cfae83] dark:from-[#263f53] dark:via-[#3c5f70] dark:to-[#705b48]',
-    glow: 'bg-white/20 dark:bg-sky-200/10',
-    secondaryGlow: 'bg-amber-100/20 dark:bg-slate-300/10',
-    label: '云层流动',
-    iconColor: '#dceaf0',
+    shell: 'from-[#527d99] via-[#759eaf] to-[#bca982] dark:from-[#263f55] dark:via-[#365a6d] dark:to-[#604f40]',
+    glow: 'bg-slate-100/25 dark:bg-sky-200/10',
+    text: 'text-white',
+    muted: 'text-white/65',
+    soft: 'bg-white/[0.12]',
+  },
+  overcast: {
+    shell: 'from-[#607f91] via-[#829ba5] to-[#9d9e9a] dark:from-[#283b48] dark:via-[#384f5c] dark:to-[#4c4c4a]',
+    glow: 'bg-white/20 dark:bg-slate-200/10',
+    text: 'text-white',
+    muted: 'text-white/65',
+    soft: 'bg-white/[0.12]',
   },
   rain: {
-    shell: 'from-[#405d76] via-[#58778e] to-[#66727c] dark:from-[#17283b] dark:via-[#253e52] dark:to-[#303941]',
+    shell: 'from-[#3d5c76] via-[#55738b] to-[#626f7b] dark:from-[#162638] dark:via-[#213d54] dark:to-[#303a43]',
     glow: 'bg-sky-200/15 dark:bg-sky-300/10',
-    secondaryGlow: 'bg-slate-100/10 dark:bg-blue-300/10',
-    label: '降雨天气',
-    iconColor: '#c0e5f5',
+    text: 'text-white',
+    muted: 'text-white/60',
+    soft: 'bg-white/[0.1]',
   },
   storm: {
-    shell: 'from-[#303b57] via-[#4c5d78] to-[#5a5961] dark:from-[#101828] dark:via-[#202d49] dark:to-[#302b39]',
-    glow: 'bg-violet-200/15 dark:bg-violet-300/10',
-    secondaryGlow: 'bg-blue-200/10 dark:bg-indigo-400/10',
-    label: '雷雨天气',
-    iconColor: '#f5d67b',
+    shell: 'from-[#293952] via-[#414e6a] to-[#4d4c5b] dark:from-[#111827] dark:via-[#202b45] dark:to-[#312c43]',
+    glow: 'bg-violet-200/20 dark:bg-violet-300/10',
+    text: 'text-white',
+    muted: 'text-white/60',
+    soft: 'bg-white/[0.1]',
   },
   snow: {
-    shell: 'from-[#8eb6cb] via-[#a7c9d8] to-[#c5d2d0] dark:from-[#314f64] dark:via-[#476d80] dark:to-[#667b83]',
+    shell: 'from-[#759bb3] via-[#a8c5d1] to-[#d3d5d0] dark:from-[#263f56] dark:via-[#486b80] dark:to-[#6f7780]',
     glow: 'bg-white/35 dark:bg-blue-100/10',
-    secondaryGlow: 'bg-cyan-100/25 dark:bg-cyan-300/10',
-    label: '降雪天气',
-    iconColor: '#ecf8ff',
-  },
-  fog: {
-    shell: 'from-[#809aa4] via-[#a5b8b9] to-[#b9b49f] dark:from-[#354850] dark:via-[#4d6267] dark:to-[#5d5c53]',
-    glow: 'bg-white/30 dark:bg-white/10',
-    secondaryGlow: 'bg-amber-100/15 dark:bg-slate-300/10',
-    label: '能见度较低',
-    iconColor: '#e6eeee',
+    text: 'text-white',
+    muted: 'text-white/70',
+    soft: 'bg-white/[0.15]',
   },
   night: {
-    shell: 'from-[#111d3b] via-[#26365b] to-[#111827] dark:from-[#080d1d] dark:via-[#141d3a] dark:to-[#090c16]',
-    glow: 'bg-indigo-300/20 dark:bg-indigo-400/15',
-    secondaryGlow: 'bg-blue-200/10 dark:bg-blue-300/10',
-    label: '宁静夜空',
-    iconColor: '#dce5ff',
+    shell: 'from-[#172743] via-[#293b63] to-[#172033] dark:from-[#0b1224] dark:via-[#151e3b] dark:to-[#080c18]',
+    glow: 'bg-indigo-200/20 dark:bg-indigo-300/10',
+    text: 'text-white',
+    muted: 'text-white/60',
+    soft: 'bg-white/[0.1]',
   },
 };
 
-const AmbientGlow = ({ className }) => (
-  <div
-    className={`pointer-events-none absolute rounded-full blur-3xl ${className}`}
+const Cloud = ({ className = '', opacity = 1 }) => (
+  <path
+    className={className}
+    opacity={opacity}
+    d="M34 78h105c16 0 29-11 29-26 0-15-12-26-27-27-6-22-25-37-48-37-23 0-42 14-49 36C25 25 10 38 10 54c0 14 10 24 24 24Z"
   />
 );
 
 const WeatherIllustration = ({ type }) => {
-  if (type === 'clear') {
-    return (
-      <svg
-        viewBox="0 0 220 190"
-        className="h-full w-full overflow-visible"
-        aria-hidden="true"
-      >
-        <g className="origin-center animate-[spin_24s_linear_infinite]">
-          <path
-            d="M110 9v25M110 156v25M35 95H10M210 95h-25M57 42 39 24M163 42l18-18M57 148l-18 18M163 148l18 18"
-            fill="none"
-            stroke="#FFE9A8"
-            strokeLinecap="round"
-            strokeWidth="5"
-            opacity=".75"
-          />
-        </g>
-        <circle
-          cx="110"
-          cy="95"
-          r="42"
-          fill="#FFE39A"
-          className="animate-[pulse_4s_ease-in-out_infinite]"
-          style={{ filter: 'drop-shadow(0 0 22px rgba(255,218,125,.8))' }}
-        />
-        <circle
-          cx="95"
-          cy="81"
-          r="8"
-          fill="#FFF1BA"
-          opacity=".55"
-        />
-      </svg>
-    );
-  }
-
   if (type === 'night') {
     return (
       <svg
@@ -149,40 +90,62 @@ const WeatherIllustration = ({ type }) => {
         aria-hidden="true"
       >
         <circle
-          cx="112"
-          cy="91"
-          r="48"
-          fill="#E3EBFF"
-          style={{ filter: 'drop-shadow(0 0 22px rgba(184,204,255,.7))' }}
+          cx="107"
+          cy="80"
+          r="42"
+          fill="#dbe7ff"
+          className="drop-shadow-[0_0_22px_rgba(190,210,255,.65)]"
         />
-        <circle cx="135" cy="70" r="48" fill="#24345A" />
+        <circle cx="128" cy="63" r="42" fill="#24365d" />
+        <circle cx="47" cy="47" r="3" fill="#e5edff" className="animate-pulse" />
         <circle
-          cx="49"
+          cx="170"
           cy="45"
-          r="3"
-          fill="#E9EFFF"
-          className="animate-[pulse_3s_ease-in-out_infinite]"
-        />
-        <circle
-          cx="168"
-          cy="46"
           r="2.5"
-          fill="#E9EFFF"
-          className="animate-[pulse_3s_ease-in-out_infinite_700ms]"
+          fill="#e5edff"
+          className="animate-pulse [animation-delay:500ms]"
         />
         <circle
           cx="164"
-          cy="124"
+          cy="112"
           r="3"
-          fill="#E9EFFF"
-          className="animate-[pulse_3s_ease-in-out_infinite_1200ms]"
+          fill="#e5edff"
+          className="animate-pulse [animation-delay:900ms]"
         />
         <circle
-          cx="67"
-          cy="135"
+          cx="55"
+          cy="125"
           r="2"
-          fill="#E9EFFF"
-          className="animate-[pulse_3s_ease-in-out_infinite_1800ms]"
+          fill="#e5edff"
+          className="animate-pulse [animation-delay:1200ms]"
+        />
+      </svg>
+    );
+  }
+
+  if (type === 'clear') {
+    return (
+      <svg
+        viewBox="0 0 220 190"
+        className="h-full w-full overflow-visible"
+        aria-hidden="true"
+      >
+        <g
+          stroke="#ffe7a1"
+          strokeLinecap="round"
+          strokeWidth="5"
+          opacity=".8"
+          className="animate-[spin_24s_linear_infinite]"
+          style={{ transformOrigin: '110px 86px' }}
+        >
+          <path d="M110 12v23M110 137v23M36 86h23M161 86h23M57 33l17 17M146 122l17 17M163 33l-17 17M74 122l-17 17" />
+        </g>
+        <circle
+          cx="110"
+          cy="86"
+          r="39"
+          fill="#ffdf8b"
+          className="drop-shadow-[0_0_25px_rgba(255,213,110,.7)]"
         />
       </svg>
     );
@@ -191,47 +154,29 @@ const WeatherIllustration = ({ type }) => {
   if (type === 'rain' || type === 'storm') {
     return (
       <svg
-        viewBox="0 0 240 210"
+        viewBox="0 0 220 210"
         className="h-full w-full overflow-visible"
         aria-hidden="true"
       >
+        <Cloud fill="#b6cad3" opacity=".54" transform="translate(9 5)" />
+        <Cloud fill="#eef6f8" opacity=".88" />
+        <g
+          stroke={type === 'storm' ? '#f9d98d' : '#b6e1fa'}
+          strokeLinecap="round"
+          strokeWidth="4"
+        >
+          <path d="M66 112l-9 21" className="animate-pulse" />
+          <path d="M98 112l-9 25" className="animate-pulse [animation-delay:180ms]" />
+          <path d="M130 112l-9 21" className="animate-pulse [animation-delay:360ms]" />
+          <path d="M162 112l-9 25" className="animate-pulse [animation-delay:540ms]" />
+        </g>
         {type === 'storm' && (
           <path
-            d="M155 106 128 151h24l-15 36 43-55h-25l18-26Z"
-            fill="#F6D873"
-            className="animate-[pulse_2.4s_ease-in-out_infinite]"
-            style={{ filter: 'drop-shadow(0 0 12px rgba(246,216,115,.65))' }}
+            d="M119 135l-18 31h15l-8 27 27-38h-16l12-20Z"
+            fill="#ffe09c"
+            className="drop-shadow-[0_0_10px_rgba(255,220,130,.55)]"
           />
         )}
-
-        <path
-          d="M48 132h132c17 0 30-12 30-28 0-16-12-28-29-29-6-25-28-43-55-43-26 0-48 16-55 40-19 1-34 16-34 35 0 14 4 21 11 25Z"
-          fill="rgba(205,225,235,.68)"
-        />
-
-        <path
-          d="M40 146h132c17 0 30-12 30-28 0-16-12-28-29-29-6-25-28-43-55-43-26 0-48 16-55 40-19 1-34 16-34 35 0 14 4 21 11 25Z"
-          fill="rgba(242,249,251,.9)"
-          style={{ filter: 'drop-shadow(0 12px 15px rgba(42,70,88,.18))' }}
-        />
-
-        {[
-          ['M72 157 64 178', '0ms'],
-          ['M105 157 97 181', '260ms'],
-          ['M138 157 130 178', '520ms'],
-          ['M171 157 163 181', '780ms'],
-        ].map(([d, delay]) => (
-          <path
-            key={d}
-            d={d}
-            fill="none"
-            stroke="#B9E5F7"
-            strokeLinecap="round"
-            strokeWidth="4"
-            className="animate-[weatherRain_1.5s_ease-in_infinite]"
-            style={{ animationDelay: delay }}
-          />
-        ))}
       </svg>
     );
   }
@@ -239,110 +184,74 @@ const WeatherIllustration = ({ type }) => {
   if (type === 'snow') {
     return (
       <svg
-        viewBox="0 0 240 210"
+        viewBox="0 0 220 200"
         className="h-full w-full overflow-visible"
         aria-hidden="true"
       >
-        <path
-          d="M43 143h139c16 0 28-12 28-27 0-15-11-26-27-27-6-25-27-42-54-42-26 0-47 16-54 40-18 1-32 15-32 33 0 14 3 20 0 23Z"
-          fill="rgba(238,248,252,.9)"
-          style={{ filter: 'drop-shadow(0 12px 16px rgba(58,95,115,.15))' }}
-        />
-
-        {[
-          ['68', '166', '0ms'],
-          ['102', '178', '320ms'],
-          ['139', '166', '640ms'],
-          ['174', '178', '960ms'],
-        ].map(([cx, cy, delay]) => (
-          <g
-            key={`${cx}-${cy}`}
-            transform={`translate(${cx} ${cy})`}
-            className="animate-[weatherSnow_2.8s_ease-in-out_infinite]"
-            style={{ animationDelay: delay }}
-          >
-            <path
-              d="M0-8V8M-7-4 7 4M7-4-7 4"
-              fill="none"
-              stroke="#E8F8FF"
-              strokeLinecap="round"
-              strokeWidth="2.5"
-            />
-          </g>
-        ))}
+        <Cloud fill="#d6e6ec" opacity=".65" transform="translate(8 5)" />
+        <Cloud fill="#f6fbfc" opacity=".92" />
+        <g fill="#e8f7ff" className="animate-pulse">
+          <circle cx="67" cy="137" r="4" />
+          <circle cx="99" cy="154" r="3.5" />
+          <circle cx="131" cy="137" r="4" />
+          <circle cx="162" cy="154" r="3.5" />
+        </g>
       </svg>
     );
   }
 
-  if (type === 'fog') {
+  if (type === 'overcast') {
     return (
       <svg
-        viewBox="0 0 240 190"
+        viewBox="0 0 220 190"
         className="h-full w-full overflow-visible"
         aria-hidden="true"
       >
-        <g
-          fill="none"
-          stroke="rgba(239,247,247,.78)"
-          strokeLinecap="round"
-          strokeWidth="11"
-          className="animate-[weatherFog_6s_ease-in-out_infinite]"
-        >
-          <path d="M40 73h145" />
-          <path d="M25 101h172" />
-          <path d="M52 129h128" />
-        </g>
+        <Cloud fill="#d4e0e4" opacity=".5" transform="translate(7 6)" />
+        <Cloud fill="#f0f5f5" opacity=".85" />
       </svg>
     );
   }
 
   return (
     <svg
-      viewBox="0 0 240 200"
+      viewBox="0 0 220 190"
       className="h-full w-full overflow-visible"
       aria-hidden="true"
     >
       <circle
-        cx="92"
-        cy="67"
-        r="27"
-        fill="#FFE29A"
-        style={{ filter: 'drop-shadow(0 0 18px rgba(255,218,125,.65))' }}
+        cx="78"
+        cy="60"
+        r="28"
+        fill="#ffdf8b"
+        className="drop-shadow-[0_0_18px_rgba(255,215,120,.55)]"
       />
-
-      <path
-        d="M42 139h139c16 0 28-12 28-27 0-15-11-26-27-27-6-24-27-41-53-41-25 0-46 15-53 39-18 1-32 15-32 33 0 14 3 20-2 23Z"
-        fill="rgba(216,232,238,.72)"
-      />
-
-      <path
-        d="M35 151h143c16 0 28-12 28-27 0-15-11-26-27-27-6-24-27-41-53-41-25 0-46 15-53 39-18 1-32 15-32 33 0 14 3 20-6 23Z"
-        fill="rgba(245,250,251,.88)"
-        style={{ filter: 'drop-shadow(0 12px 15px rgba(48,80,99,.16))' }}
-      />
+      <Cloud fill="#d3e4e9" opacity=".58" transform="translate(10 7)" />
+      <Cloud fill="#f2f8f9" opacity=".9" />
     </svg>
   );
 };
 
 const Metric = ({ icon: Icon, label, value }) => (
-  <div className="flex min-w-0 items-center gap-2.5">
-    <Icon className="h-4 w-4 shrink-0 text-white/65" strokeWidth={1.7} />
-
-    <div className="min-w-0">
-      <div className="text-[10px] tracking-[0.12em] text-white/50">
+  <div className="min-w-0">
+    <div className="flex items-center gap-2">
+      <Icon className="h-4 w-4 shrink-0 opacity-60" strokeWidth={1.7} />
+      <span className="truncate text-[11px] tracking-wide opacity-60">
         {label}
-      </div>
-
-      <div className="mt-1 truncate text-[13px] font-medium text-white/90">
-        {value || '--'}
-      </div>
+      </span>
+    </div>
+    <div className="mt-2 truncate text-sm font-medium tracking-tight">
+      {value || '--'}
     </div>
   </div>
 );
 
-const UvLabel = ({ value }) => {
-  if (value === null || value === undefined) return '--';
+const getUvText = (uvIndex) => {
+  if (uvIndex === null || uvIndex === undefined) return '--';
 
+  const value = Number(uvIndex);
+
+  if (!Number.isFinite(value)) return String(uvIndex);
   if (value < 3) return `${value} 低`;
   if (value < 6) return `${value} 中等`;
   if (value < 8) return `${value} 偏高`;
@@ -350,152 +259,95 @@ const UvLabel = ({ value }) => {
   return `${value} 很高`;
 };
 
-const parseTime = (time) => {
-  if (!time || !/^\d{1,2}:\d{2}$/.test(time)) return null;
-
-  const [hour, minute] = time.split(':').map(Number);
-  return hour * 60 + minute;
-};
-
-const SunPath = ({ sunrise, sunset }) => {
-  const start = parseTime(sunrise);
-  const end = parseTime(sunset);
-
-  const daylight = start !== null && end !== null && end > start;
-
-  return (
-    <div className="relative mt-5">
-      <div className="mb-2 flex items-center justify-between text-[10px] text-white/55">
-        <span className="flex items-center gap-1.5">
-          <Sunrise className="h-3.5 w-3.5 text-amber-200/80" />
-          日出 {sunrise || '--:--'}
-        </span>
-
-        <span className="flex items-center gap-1.5">
-          日落 {sunset || '--:--'}
-          <Sunset className="h-3.5 w-3.5 text-indigo-100/75" />
-        </span>
-      </div>
-
-      <div className="relative h-9 overflow-hidden">
-        <div className="absolute left-3 right-3 top-7 h-16 rounded-[50%] border-t border-white/35" />
-
-        <div className="absolute left-3 right-3 top-7 h-px bg-white/10" />
-
-        <div
-          className={[
-            'absolute top-[22px] h-2 w-2 rounded-full',
-            'bg-amber-100 shadow-[0_0_12px_rgba(255,230,150,.9)]',
-            daylight
-              ? 'left-[48%]'
-              : 'left-[50%]',
-          ].join(' ')}
-        />
-      </div>
-    </div>
-  );
-};
-
 const WeatherCard = ({ card }) => {
   if (!card) return null;
 
-  const type = getWeatherType(card);
-  const theme = WEATHER_THEME[type];
+  const type = getWeatherType(card.condition, card.isDay);
+  const theme = weatherTheme[type];
 
   const isDay = card.isDay !== false;
-  const uvValue = card.uvIndex ?? null;
+  const dayText = card.daylightText || (isDay ? '白天' : '夜晚');
 
   return (
     <section
-      aria-label={`${card.city}天气`}
       className={[
-        'relative isolate my-4 w-full max-w-[540px] overflow-hidden',
-        'rounded-[30px] text-white shadow-[0_24px_70px_rgba(24,58,80,.22)]',
-        'bg-gradient-to-br',
+        'relative isolate my-3 w-full max-w-2xl min-w-0 overflow-hidden',
+        'rounded-[28px] bg-gradient-to-br',
         theme.shell,
+        theme.text,
+        'shadow-[0_18px_55px_rgba(30,65,90,.18)]',
+        'dark:shadow-[0_20px_70px_rgba(0,0,0,.3)]',
       ].join(' ')}
+      aria-label={`${card.city}天气`}
     >
-      <style>
-        {`
-          @keyframes weatherRain {
-            0% { transform: translateY(-7px); opacity: 0; }
-            25% { opacity: .9; }
-            100% { transform: translateY(12px); opacity: 0; }
-          }
-          @keyframes weatherSnow {
-            0%, 100% { transform: translateY(-3px) rotate(0deg); opacity: .35; }
-            50% { transform: translateY(6px) rotate(28deg); opacity: 1; }
-          }
-          @keyframes weatherFog {
-            0%, 100% { transform: translateX(-7px); opacity: .55; }
-            50% { transform: translateX(8px); opacity: .9; }
-          }
-        `}
-      </style>
-
-      <AmbientGlow
-        className={`-right-24 -top-28 h-72 w-72 ${theme.glow}`}
+      <div
+        className={[
+          'pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl',
+          theme.glow,
+        ].join(' ')}
       />
 
-      <AmbientGlow
-        className={`-bottom-28 -left-24 h-72 w-72 ${theme.secondaryGlow}`}
-      />
+      <div className="pointer-events-none absolute -bottom-28 -left-24 h-64 w-64 rounded-full bg-black/10 blur-3xl" />
 
-      <div className="relative">
-        <header className="flex items-center justify-between px-6 pb-0 pt-6">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <MapPin className="h-4 w-4 text-white/75" strokeWidth={1.8} />
-            <span>{card.city}</span>
+      <div className="relative px-5 pb-5 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 shrink-0 opacity-75"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden="true"
+            >
+              <path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" />
+              <circle cx="12" cy="9" r="2.2" />
+            </svg>
+
+            <h3 className="truncate text-base font-semibold tracking-tight">
+              {card.city}
+            </h3>
           </div>
 
-          <div className="flex items-center gap-2 text-[10px] tracking-[0.12em] text-white/50">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute h-full w-full animate-ping rounded-full bg-emerald-300/80" />
-              <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-300" />
-            </span>
-            LIVE
+          <div className="shrink-0 text-[10px] tracking-[0.14em] opacity-50">
+            LIVE WEATHER
           </div>
         </header>
 
-        <div className="relative min-h-[285px] px-6 pt-9">
-          <div className="relative z-10 max-w-[58%]">
-            <div className="text-[11px] tracking-[0.14em] text-white/55">
-              {theme.label}
+        <div className="mt-5 grid grid-cols-[minmax(0,1fr)_minmax(130px,42%)] items-center gap-2 sm:gap-5">
+          <div className="min-w-0">
+            <div className={`text-xs ${theme.muted}`}>
+              {dayText}
             </div>
 
-            <div className="mt-3 flex items-start">
-              <span className="text-[70px] font-extralight leading-[.9] tracking-[-0.1em]">
-                {card.temperature || '--'}
-              </span>
+            <div className="mt-3 whitespace-nowrap text-[clamp(3.8rem,16vw,6rem)] font-extralight leading-[.9] tracking-[-0.1em]">
+              {card.temperature}
             </div>
 
-            <div className="mt-5 text-lg font-medium">
-              {card.condition || '天气状况未知'}
+            <div className="mt-4 truncate text-lg font-medium">
+              {card.condition}
             </div>
 
-            <div className="mt-1.5 flex items-center gap-2 text-xs text-white/60">
-              <Thermometer className="h-3.5 w-3.5" strokeWidth={1.7} />
-              体感 {card.feelsLike || '--'}
+            <div className={`mt-1 text-xs ${theme.muted}`}>
+              体感温度 {card.feelsLike}
             </div>
           </div>
 
-          <div className="pointer-events-none absolute -right-3 top-7 h-[205px] w-[230px]">
+          <div className="h-36 w-full sm:h-48">
             <WeatherIllustration type={type} />
-          </div>
-
-          <div className="absolute bottom-5 left-6 right-6 flex items-center gap-2 text-[10px] text-white/45">
-            <span className="h-px flex-1 bg-white/20" />
-            <span>{isDay ? 'DAYLIGHT' : 'NIGHT CONDITIONS'}</span>
-            <span className="h-px flex-1 bg-white/20" />
           </div>
         </div>
 
-        <div className="mx-6 border-t border-white/15" />
-
-        <div className="grid grid-cols-2 gap-x-6 gap-y-6 px-6 py-6 sm:grid-cols-4">
+        <div
+          className={[
+            'mt-5 grid grid-cols-2 gap-x-5 gap-y-5 rounded-2xl px-4 py-4',
+            theme.soft,
+            'sm:grid-cols-4 sm:gap-x-4 sm:px-5',
+          ].join(' ')}
+        >
           <Metric
             icon={Droplets}
-            label="湿度"
+            label="相对湿度"
             value={card.humidity}
           />
 
@@ -507,33 +359,45 @@ const WeatherCard = ({ card }) => {
 
           <Metric
             icon={Gauge}
-            label="紫外线"
-            value={<UvLabel value={uvValue} />}
+            label="紫外线指数"
+            value={getUvText(card.uvIndex)}
           />
 
           <Metric
-            icon={Eye}
-            label="状态"
-            value={card.daylightText || (isDay ? '白天' : '夜晚')}
+            icon={Umbrella}
+            label="体感状态"
+            value={type === 'rain' || type === 'storm' ? '注意降雨' : '适宜外出'}
           />
         </div>
 
-        <div className="mx-6 border-t border-white/15" />
+        <div className="mt-6">
+          <div className="mb-3 flex items-center justify-between text-[11px]">
+            <span className="opacity-60">今日天空变化</span>
+            <span className="opacity-45">
+              {card.sunrise} — {card.sunset}
+            </span>
+          </div>
 
-        <div className="px-6 pb-6">
-          <SunPath
-            sunrise={card.sunrise}
-            sunset={card.sunset}
-          />
+          <div className="relative h-8">
+            <div className="absolute left-1 right-1 top-3 h-px bg-white/30" />
+
+            <div className="absolute left-0 top-0 flex flex-col items-start gap-1">
+              <Sunrise className="h-4 w-4 text-amber-200/90" strokeWidth={1.7} />
+              <span className="text-[10px] opacity-60">
+                {card.sunrise}
+              </span>
+            </div>
+
+            <div className="absolute right-0 top-0 flex flex-col items-end gap-1">
+              <Sunset className="h-4 w-4 text-indigo-100/80" strokeWidth={1.7} />
+              <span className="text-[10px] opacity-60">
+                {card.sunset}
+              </span>
+            </div>
+
+            <div className="absolute left-1/2 top-[9px] h-2 w-2 -translate-x-1/2 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,.8)]" />
+          </div>
         </div>
-
-        <footer className="flex items-center justify-between bg-black/10 px-6 py-3.5 text-[10px] text-white/50">
-          <span>实时环境观测</span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80" />
-            数据已更新
-          </span>
-        </footer>
       </div>
     </section>
   );
