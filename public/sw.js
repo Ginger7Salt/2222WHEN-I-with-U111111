@@ -328,7 +328,7 @@ function getUnreadMessageCount() {
             cursor.continue();
           } else {
             idb.close();
-            resolve(unreadCount || 1);
+            resolve(unreadCount);
           }
         };
 
