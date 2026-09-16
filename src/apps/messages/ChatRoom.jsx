@@ -24,6 +24,12 @@ import {
   PawPrint,
 } from 'lucide-react';
 
+import {
+  SendIcon,
+  SparklesIcon,
+} from 'lucide-animated';
+
+
 import db from '../../db';
 import {
   triggerAiResponse,
@@ -130,6 +136,12 @@ export const ChatRoom = ({
   const mcpApprovalResolverRef = useRef(null);
   const scrollAreaRef = useRef(null);
   const inputRef = useRef(null);
+
+const sendIconRef = useRef(null);
+const sparklesIconRef = useRef(null);
+
+
+
   const previousScrollHeightRef = useRef(null);
   const hasScrolledToLatestRef = useRef(false);
 const locationCheckIntervalRef = useRef(getRandomCheckIntervalMs());
@@ -636,12 +648,28 @@ useLayoutEffect(() => {
     });
   };
 
+  const handleSendButtonClick = () => {
+  if (!inputText.trim() && selectedType === 'text') return;
+
+  sendIconRef.current?.startAnimation();
+  void handleSendMessage();
+};
+
+
   const handleTriggerAi = () => {
     if (!character || isAiTyping) return;
 
     setMcpTrace(null);
     triggerAiResponse(chatId);
   };
+
+  const handleTriggerAiButtonClick = () => {
+  if (!character || isAiTyping) return;
+
+  sparklesIconRef.current?.startAnimation();
+  handleTriggerAi();
+};
+
 
   const handleRerollMessage = useCallback((messageId) => {
     if (isAiTyping) return;
@@ -1369,7 +1397,7 @@ useLayoutEffect(() => {
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
-              onClick={() => void handleSendMessage()}
+              onClick={handleSendButtonClick}
               className="rounded-full p-2 transition-transform hover:opacity-90 active:scale-90"
               style={{
                 background: 'var(--control-soft-bg)',
@@ -1377,12 +1405,19 @@ useLayoutEffect(() => {
               }}
               title="发送记录"
             >
-              <Send className="h-3.5 w-3.5" />
+              <SendIcon
+  ref={sendIconRef}
+  size={14}
+  animateOnHover={false}
+  className="text-current"
+/>
+
             </button>
 
-            <button
-              type="button"
-              onClick={handleTriggerAi}
+           <button
+  type="button"
+  onClick={handleTriggerAiButtonClick}
+
               disabled={isAiTyping}
               className="flex items-center gap-1 rounded-full px-3.5 py-2 text-[10px] font-semibold shadow-sm transition-transform active:scale-95 disabled:opacity-50"
               style={{
@@ -1391,7 +1426,13 @@ useLayoutEffect(() => {
               }}
               title="触发伴侣回应"
             >
-              <Sparkles className="h-3 w-3" />
+              <SparklesIcon
+  ref={sparklesIconRef}
+  size={12}
+  animateOnHover={false}
+  className="text-current"
+/>
+
               <span>回应</span>
             </button>
           </div>
