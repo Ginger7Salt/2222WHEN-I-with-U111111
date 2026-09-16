@@ -73,7 +73,8 @@ import InnerWorldApp from '../innerworld/InnerWorldApp';
 
 import { MapPinned } from 'lucide-react';
 import PlaceBooklet from '../location/PlaceBooklet';
-import PendingPlaceBanner from './components/PendingPlaceBanner';
+import PendingPlaceBanner from './components/cards/PendingPlaceBanner';
+
 import { getCurrentPosition } from '../../apps/location/locationService';
 import {
   getLocationSettings,
