@@ -31,6 +31,130 @@ export async function getEffectiveServerUrl(explicitUrl) {
   return '';
 }
 
+const MAX_CONTEXT_MESSAGES = 8;
+
+function getMessageText(message) {
+  if (Array.isArray(message?.versions) && message.versions.length > 0) {
+    const index = Number.isInteger(message.currentVersionIndex)
+      ? message.currentVersionIndex
+      : 0;
+
+    return (
+      message.versions[index]?.content ||
+      message.versions[index]?.text ||
+      message.content ||
+      ''
+    );
+  }
+
+  return message?.content || '';
+}
+
+function getTimestampMs(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const time = Date.parse(value || '');
+  return Number.isFinite(time) ? time : 0;
+}
+
+function toIsoTimestamp(value) {
+  const time = getTimestampMs(value);
+  return time > 0 ? new Date(time).toISOString() : '';
+}
+
+function formatContextMessages(messages, { characterName, userName } = {}) {
+  const safeCharacterName = characterName || '伴侣';
+  const safeUserName = userName || '你';
+
+  return messages
+    .slice()
+    .sort(
+      (a, b) =>
+        getTimestampMs(a.timestamp) - getTimestampMs(b.timestamp),
+    )
+    .map((message) => {
+      const text = getMessageText(message).trim();
+      if (!text) return '';
+
+      const tag =
+        message.sender === 'user'
+          ? safeUserName
+          : safeCharacterName;
+
+      return `${tag}: ${text}`;
+    })
+    .filter(Boolean)
+    .slice(-MAX_CONTEXT_MESSAGES)
+    .join('；');
+}
+
+async function readRecentChatContext(chat, charObj = {}) {
+  const chatId = Number(chat.id);
+
+  const characterName =
+    charObj.name ||
+    chat.title ||
+    '伴侣';
+
+  const userName =
+    chat.userName ||
+    charObj.userName ||
+    '你';
+
+  let recentMessages = [];
+
+  try {
+    recentMessages = await db.messages
+      .where('[chatId+timestamp]')
+      .between(
+        [chatId, Dexie.minKey],
+        [chatId, Dexie.maxKey],
+      )
+      .reverse()
+      .limit(MAX_CONTEXT_MESSAGES)
+      .toArray();
+  } catch (error) {
+    // 降级时不要直接 reverse 主键索引，读取后按 timestamp 倒排截取
+    const allMessages = await db.messages
+      .where('chatId')
+      .equals(chatId)
+      .toArray();
+
+    recentMessages = allMessages
+      .sort(
+        (a, b) =>
+          getTimestampMs(b.timestamp) -
+          getTimestampMs(a.timestamp),
+      )
+      .slice(0, MAX_CONTEXT_MESSAGES);
+  }
+
+  const orderedMessages = recentMessages
+    .slice()
+    .sort(
+      (a, b) =>
+        getTimestampMs(a.timestamp) -
+        getTimestampMs(b.timestamp),
+    );
+
+  const latestMessageAt =
+    orderedMessages.length > 0
+      ? toIsoTimestamp(
+          orderedMessages[orderedMessages.length - 1].timestamp,
+        )
+      : '';
+
+  return {
+    recentContext: formatContextMessages(orderedMessages, {
+      characterName,
+      userName,
+    }),
+    latestMessageAt,
+  };
+}
+
 /**
  * 🛠️ 开屏/切回前台对齐兜底（全聊天框通用）
  * 从 cloudPushConfig.serverUrl 拉取未写入本地的消息，不使用任何硬编码服务器兜底
@@ -50,13 +174,14 @@ export async function syncPendingPushMessages() {
     if (!res.ok) return;
 
     const data = await res.json();
-    if (!data.messages || !Array.isArray(data.messages) || data.messages.length === 0) {
-      return;
-    }
+
+    const messages = Array.isArray(data.messages)
+      ? data.messages
+      : [];
 
     const syncedIds = [];
 
-    for (const msg of data.messages) {
+    for (const msg of messages) {
       const targetChatId = Number(msg.chatId || 1);
       
       // 1. 严格标准化为 ISO 8601 字符串
@@ -163,11 +288,14 @@ export async function syncPendingPushMessages() {
         body: JSON.stringify({ ids: syncedIds }),
       }).catch(() => {});
     }
+
+    // pending 消息落库并完成回执后，立即重新同步全部聊天上下文完成闭环
+    await syncAllChatContextsToCloud();
+
   } catch (e) {
     // 纯离线或网络波动时静默跳过
   }
 }
-
 
 /**
  * 获取本地下一条尚未到期的预约任务。
@@ -235,8 +363,6 @@ async function getNextPendingScheduledTask() {
     return null;
   }
 }
-
-
 
 /**
  * 注册并向云端同步推送配置
@@ -321,41 +447,10 @@ export async function registerCloudPush({
     const charId = Number(chat.characterId || 1);
     const charObj = characterMap.get(charId) || {};
 
-    // 提取该聊天框专属的最近 5 条对话记录，杜绝多框串戏
-    let recentContext = '';
-    try {
-      const recentMsgs = await db.messages
-        .where('[chatId+timestamp]')
-        .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
-        .reverse()
-        .limit(5)
-        .toArray();
-
-      recentContext = recentMsgs
-        .reverse()
-        .map((m) => {
-          if (m.versions && m.versions.length > 0) {
-            const idx = m.currentVersionIndex || 0;
-            return m.versions[idx]?.content || m.versions[idx]?.text || m.content || '';
-          }
-          return m.content || '';
-        })
-        .filter(Boolean)
-        .join('；');
-    } catch (err) {
-      const fallbackMsgs = await db.messages
-        .where('chatId')
-        .equals(chatId)
-        .reverse()
-        .limit(5)
-        .toArray();
-
-      recentContext = fallbackMsgs
-        .reverse()
-        .map((m) => m.content || '')
-        .filter(Boolean)
-        .join('；');
-    }
+    const {
+      recentContext,
+      latestMessageAt,
+    } = await readRecentChatContext(chat, charObj);
 
     chatTargets.push({
       chatId: chatId,
@@ -368,69 +463,71 @@ export async function registerCloudPush({
         charObj.userPersona ||
         '',
       userName: chat.userName || charObj.userName || '你',
-      recentContext: recentContext,
+      recentContext,
+      latestMessageAt,
       updatedAt: chat.updatedAt || new Date().toISOString(),
     });
   }
-// 6. 读取系统 API 设置
-const apiSettings = await db.settings.get('apiConfig');
 
-// 7. 读取本地尚未触发的下一条预约任务
-const nextScheduledTask = await getNextPendingScheduledTask();
+  // 6. 读取系统 API 设置
+  const apiSettings = await db.settings.get('apiConfig');
 
-let pendingTargetTime = null;
-let pendingIntent = '';
-let pendingChatId = null;
+  // 7. 读取本地尚未触发的下一条预约任务
+  const nextScheduledTask = await getNextPendingScheduledTask();
 
-if (nextScheduledTask) {
-  pendingTargetTime =
-    typeof nextScheduledTask.scheduledFor === 'number'
-      ? nextScheduledTask.scheduledFor
-      : new Date(nextScheduledTask.scheduledFor).getTime();
+  let pendingTargetTime = null;
+  let pendingIntent = '';
+  let pendingChatId = null;
 
-  pendingIntent =
-    nextScheduledTask.intent ||
-    nextScheduledTask.content ||
-    '伴侣主动找你';
+  if (nextScheduledTask) {
+    pendingTargetTime =
+      typeof nextScheduledTask.scheduledFor === 'number'
+        ? nextScheduledTask.scheduledFor
+        : new Date(nextScheduledTask.scheduledFor).getTime();
 
-  pendingChatId =
-    nextScheduledTask.chatId ??
-    nextScheduledTask.targetChatId ??
-    null;
-}
+    pendingIntent =
+      nextScheduledTask.intent ||
+      nextScheduledTask.content ||
+      '伴侣主动找你';
 
-// 8. 发送包含全部消息框与预约任务的配置数据包
-const payloadData = {
-  subscription: subscription.toJSON(),
-  apiConfig: apiSettings?.value || {},
-  chatTargets: chatTargets,
+    pendingChatId =
+      nextScheduledTask.chatId ??
+      nextScheduledTask.targetChatId ??
+      null;
+  }
 
-  // 预约任务字段
-  targetTime: pendingTargetTime,
-  intent: pendingIntent,
-  targetChatId:
-    pendingChatId === null || pendingChatId === undefined
-      ? undefined
-      : Number(pendingChatId),
+  // 8. 发送包含全部消息框与预约任务的配置数据包
+  const payloadData = {
+    subscription: subscription.toJSON(),
+    apiConfig: apiSettings?.value || {},
+    chatTargets: chatTargets,
 
-  // 兼容旧版服务端字段
-  character: chatTargets[0]
-    ? {
-        id: chatTargets[0].characterId,
-        chatId: chatTargets[0].chatId,
-        name: chatTargets[0].characterName,
-        persona: chatTargets[0].persona,
-        userName: chatTargets[0].userName,
-      }
-    : {
-        id: 1,
-        chatId: 1,
-        name: '伴侣',
-        persona: '',
-      },
+    // 预约任务字段
+    targetTime: pendingTargetTime,
+    intent: pendingIntent,
+    targetChatId:
+      pendingChatId === null || pendingChatId === undefined
+        ? undefined
+        : Number(pendingChatId),
 
-  recentContext: chatTargets[0]?.recentContext || '',
-};
+    // 兼容旧版服务端字段
+    character: chatTargets[0]
+      ? {
+          id: chatTargets[0].characterId,
+          chatId: chatTargets[0].chatId,
+          name: chatTargets[0].characterName,
+          persona: chatTargets[0].persona,
+          userName: chatTargets[0].userName,
+        }
+      : {
+          id: 1,
+          chatId: 1,
+          name: '伴侣',
+          persona: '',
+        },
+
+    recentContext: chatTargets[0]?.recentContext || '',
+  };
 
   let response;
 
@@ -470,7 +567,6 @@ const payloadData = {
 
   return true;
 }
-
 
 // ==========================================================
 // 🔍 手机真实状态体检探针（无任何硬编码地址）
@@ -613,76 +709,224 @@ export function mountTemporaryDebugButton() {
   document.body.appendChild(btn);
 }
 
+// 内存热快照缓存：专供锁屏/退后台瞬间 0 延迟发射 Beacon，绝不等待 IndexedDB 查询
+let latestContextPayloadCache = null;
+let cachedServerUrl = '';
 
-export async function syncAllChatContextsToCloud() {
+export async function syncAllChatContextsToCloud({
+  keepalive = false,
+  useCacheFirst = false,
+} = {}) {
   try {
-    const cleanServerUrl = await getEffectiveServerUrl();
-    if (!cleanServerUrl) return;
+    const cleanServerUrl = cachedServerUrl || (await getEffectiveServerUrl());
+    if (!cleanServerUrl) return false;
+    cachedServerUrl = cleanServerUrl;
 
-    const allChats = await db.chats.toArray();
-    if (!allChats || allChats.length === 0) return;
+    let payloadString = '';
 
-    const chatContextUpdates = [];
+    // 🚀 核心优化：如果是切后台触发且内存已有热缓存，直接 0 延迟发射，绝不在被杀前夕查 Dexie
+    if (useCacheFirst && latestContextPayloadCache) {
+      payloadString = latestContextPayloadCache;
+    } else {
+      const allChats = await db.chats.toArray();
+      if (!allChats || allChats.length === 0) return false;
 
-    for (const chat of allChats) {
-      const chatId = Number(chat.id);
-      let recentContext = '';
-
+      let allCharacters = [];
       try {
-        const recentMsgs = await db.messages
-          .where('[chatId+timestamp]')
-          .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
-          .reverse()
-          .limit(5)
-          .toArray();
-
-               recentContext = recentMsgs
-          .reverse()
-          .map((m) => {
-            let text = '';
-            if (m.versions && m.versions.length > 0) {
-              const idx = m.currentVersionIndex || 0;
-              text = m.versions[idx]?.content || m.versions[idx]?.text || m.content || '';
-            } else {
-              text = m.content || '';
-            }
-            if (!text) return '';
-            const tag = m.sender === 'user' ? '用户' : '伴侣';
-            return `${tag}: ${text}`;
-          })
-          .filter(Boolean)
-          .join('；');
-      } catch (err) {
-        const fallbackMsgs = await db.messages
-          .where('chatId')
-          .equals(chatId)
-          .reverse()
-          .limit(5)
-          .toArray();
-
-               recentContext = fallbackMsgs
-          .reverse()
-          .map((m) => {
-            const text = m.content || '';
-            if (!text) return '';
-            const tag = m.sender === 'user' ? '用户' : '伴侣';
-            return `${tag}: ${text}`;
-          })
-          .filter(Boolean)
-          .join('；');
+        allCharacters = await db.characters.toArray();
+      } catch (error) {
+        allCharacters = [];
       }
 
-      chatContextUpdates.push({ chatId, recentContext });
+      const characterMap = new Map(
+        allCharacters.map((character) => [Number(character.id), character]),
+      );
+
+      const chatContextUpdates = [];
+
+      for (const chat of allChats) {
+        const charId = Number(chat.characterId || 1);
+        const charObj = characterMap.get(charId) || {};
+
+        const {
+          recentContext,
+          latestMessageAt,
+        } = await readRecentChatContext(chat, charObj);
+
+        chatContextUpdates.push({
+          chatId: Number(chat.id),
+          recentContext,
+          latestMessageAt,
+        });
+      }
+
+      payloadString = JSON.stringify({
+        chatContextUpdates,
+      });
+
+      // 实时更新热快照
+      latestContextPayloadCache = payloadString;
     }
 
-    await fetch(`${cleanServerUrl}/api/update-contexts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatContextUpdates }),
-    }).catch(() => {});
-  } catch (err) {
-    // 静默失败
+    /*
+     * pagehide / visibilitychange 场景优先使用 sendBeacon。
+     * 这里使用 text/plain 而不是 application/json，防止触发跨域 preflight CORS 导致 WebKit 丢弃。
+     */
+    if (
+      keepalive &&
+      typeof navigator !== 'undefined' &&
+      typeof navigator.sendBeacon === 'function'
+    ) {
+      const beaconBlob = new Blob(
+        [payloadString],
+        {
+          type: 'text/plain;charset=UTF-8',
+        },
+      );
+
+      const accepted = navigator.sendBeacon(
+        `${cleanServerUrl}/api/update-contexts`,
+        beaconBlob,
+      );
+
+      if (accepted) {
+        return true;
+      }
+    }
+
+    /*
+     * 普通场景或 Beacon 失败时降级走 keepalive fetch
+     */
+    const response = await fetch(
+      `${cleanServerUrl}/api/update-contexts`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: payloadString,
+        keepalive: Boolean(keepalive),
+      },
+    );
+
+    return response.ok;
+  } catch (error) {
+    // 网络波动、页面被冻结时静默失败
+    return false;
   }
+}
+
+let autoContextSyncCleanup = null;
+let normalSyncTimer = null;
+let lastLifecycleSyncAt = 0;
+
+export function initAutoContextSync({
+  debounceMs = 800,
+} = {}) {
+  if (
+    typeof window === 'undefined' ||
+    typeof document === 'undefined'
+  ) {
+    return () => {};
+  }
+
+  // 防止 App.jsx 和服务自身重复注册
+  if (autoContextSyncCleanup) {
+    return autoContextSyncCleanup;
+  }
+
+  const scheduleNormalSync = () => {
+    window.clearTimeout(normalSyncTimer);
+
+    normalSyncTimer = window.setTimeout(() => {
+      void syncAllChatContextsToCloud();
+    }, debounceMs);
+  };
+
+  const syncAtLifecycle = () => {
+    const now = Date.now();
+
+    // visibilitychange 和 pagehide 可能连续触发，避免重复发包
+    if (now - lastLifecycleSyncAt < 1000) {
+      return;
+    }
+
+    lastLifecycleSyncAt = now;
+
+    // ⚠️ 传入 useCacheFirst: true，确保在 iOS 冻结线程前同步从内存取包立刻发 Beacon
+    void syncAllChatContextsToCloud({
+      keepalive: true,
+      useCacheFirst: true,
+    });
+  };
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      syncAtLifecycle();
+    } else if (document.visibilityState === 'visible') {
+      // 回到前台时先拉取云端待取消息，并重新预热最新内存快照
+      void syncPendingPushMessages();
+      scheduleNormalSync();
+    }
+  };
+
+  const handlePageHide = () => {
+    syncAtLifecycle();
+  };
+
+  const handlePageShow = () => {
+    void syncPendingPushMessages();
+    scheduleNormalSync();
+  };
+
+  document.addEventListener(
+    'visibilitychange',
+    handleVisibilityChange,
+  );
+
+  window.addEventListener(
+    'pagehide',
+    handlePageHide,
+    true,
+  );
+
+  window.addEventListener(
+    'pageshow',
+    handlePageShow,
+  );
+
+  // 初始化时预热缓存与执行一次防抖同步
+  void getEffectiveServerUrl().then((url) => {
+    if (url) cachedServerUrl = url;
+  });
+  scheduleNormalSync();
+
+  const cleanup = () => {
+    window.clearTimeout(normalSyncTimer);
+
+    document.removeEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
+    );
+
+    window.removeEventListener(
+      'pagehide',
+      handlePageHide,
+      true,
+    );
+
+    window.removeEventListener(
+      'pageshow',
+      handlePageShow,
+    );
+
+    autoContextSyncCleanup = null;
+  };
+
+  autoContextSyncCleanup = cleanup;
+
+  return cleanup;
 }
 
 /**
@@ -749,3 +993,9 @@ export async function syncScheduledTaskToCloud({ targetTime, intent = '', chatId
     return false;
   }
 }
+
+// 自动在客户端运行环境中初始化全局生命周期监听，无需额外侵入业务组件
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  initAutoContextSync();
+}
+
