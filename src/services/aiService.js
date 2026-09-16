@@ -52,9 +52,6 @@ import {
 
 
 
-
-
-
 const listeners = new Set();
 const summaryStatusListeners = new Set();
 
