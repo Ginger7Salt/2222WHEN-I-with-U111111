@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Eye, CheckCircle2 } from 'lucide-react';
-import GlassCard from './GlassCard';
+import GlassCard from '../GlassCard';
 import { getVisionApiConfig, saveVisionApiConfig } from '../../services/visionService';
 
 const VisionApiSettings = () => {
