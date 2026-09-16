@@ -40,6 +40,9 @@
   --star-color: #8c8c8c;
   --star-bright: #ffffff;
   --dice-shadow-color: rgba(17, 17, 17, 0.18);
+    --hub-background-overlay-top: rgba(255, 255, 255, 0.12);
+  --hub-background-overlay-bottom: rgba(255, 255, 255, 0.34);
+
 }
 
 

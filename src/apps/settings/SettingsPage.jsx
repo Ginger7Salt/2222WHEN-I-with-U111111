@@ -27,6 +27,9 @@ import {
   Volume2,
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
+
+import HubBackgroundSettings from '../../components/HubBackgroundSettings';
+
 import ConfirmModal from '../../components/ConfirmModal';
 import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
 import GitHubBackupSettings from './github-backup/GitHubBackupSettings';
@@ -82,7 +85,10 @@ export const SettingsPage = ({
   onChangeTheme,
   showTitle,
   onToggleTitle,
+  currentHubBackground,
+  onChangeHubBackground,
 }) => {
+
   const importInputRef = useRef(null);
   const saveToastTimerRef = useRef(null);
 
@@ -294,6 +300,11 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
           setDraftShowTitle(settingMap.showTitle);
         }
 
+        if (typeof settingMap.hubBackground === 'string') {
+  setDraftHubBackground(settingMap.hubBackground);
+}
+
+
         if (settingMap.preloaderQuoteConfig) {
   setPreloaderQuoteConfig(
     normalizePreloaderQuoteConfig(settingMap.preloaderQuoteConfig),
@@ -385,13 +396,15 @@ setIsCompanionLoading(false);
 
 
   const hasUnsavedChanges =
-    draftTheme !== currentTheme ||
-    draftShowTitle !== showTitle ||
-    autoMessage !== false ||
-    frequency !== 'moderate' ||
-    apiConfig.baseUrl !== '' ||
-    apiConfig.apiKey !== '' ||
-    apiConfig.model !== '';
+  draftTheme !== currentTheme ||
+  draftShowTitle !== showTitle ||
+  draftHubBackground !== (currentHubBackground || '') ||
+  autoMessage !== false ||
+  frequency !== 'moderate' ||
+  apiConfig.baseUrl !== '' ||
+  apiConfig.apiKey !== '' ||
+  apiConfig.model !== '';
+
 
   const showSaveResult = (type, message) => {
     setSaveStatus({ type, message });
@@ -707,6 +720,11 @@ const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
         await db.settings.bulkPut([
           { key: 'theme', value: draftTheme },
           { key: 'showTitle', value: draftShowTitle },
+          {
+  key: 'hubBackground',
+  value: draftHubBackground,
+},
+
           { key: 'autoMessage', value: autoMessage },
           { key: 'frequency', value: frequency },
           { key: 'quietHours', value: quietHours },
@@ -731,6 +749,11 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
       if (draftShowTitle !== showTitle) {
         onToggleTitle();
       }
+
+      if (draftHubBackground !== (currentHubBackground || '')) {
+  onChangeHubBackground(draftHubBackground);
+}
+
 
       showSaveResult('success', '配置保存成功。');
     } catch (error) {
@@ -1032,6 +1055,19 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
           </div>
         </div>
       </GlassCard>
+
+            <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <Palette className="h-4 w-4" />
+          <span>主界面景色</span>
+        </div>
+
+        <HubBackgroundSettings
+          value={draftHubBackground}
+          onChange={setDraftHubBackground}
+        />
+      </GlassCard>
+
 
       {/* 2. 加载页文案库 */}
 <GlassCard className="space-y-4 text-left">

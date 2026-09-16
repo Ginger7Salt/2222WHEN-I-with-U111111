@@ -263,7 +263,9 @@ async function syncPendingPushMessages() {
 export const App = () => {
   const [showPreloader, setShowPreloader] = useState(true);
   const [activeTheme, setActiveTheme] = useState('mono-mist');
-  const [showTitle, setShowTitle] = useState(true);
+const [showTitle, setShowTitle] = useState(true);
+const [hubBackground, setHubBackground] = useState('');
+
   const [currentApp, setCurrentApp] = useState('hub');
   const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
 
@@ -650,6 +652,34 @@ export const App = () => {
     };
   }, []);
 
+    useEffect(() => {
+    let cancelled = false;
+
+    const loadHubBackground = async () => {
+      try {
+        const setting = await db.settings.get(
+          'hubBackground',
+        );
+
+        if (!cancelled && typeof setting?.value === 'string') {
+          setHubBackground(setting.value);
+        }
+      } catch (error) {
+        console.warn(
+          '[App] 读取主界面背景失败:',
+          error,
+        );
+      }
+    };
+
+    void loadHubBackground();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+
   useEffect(() => {
     document.documentElement.setAttribute(
       'data-theme',
@@ -772,11 +802,17 @@ export const App = () => {
 
   const activeAudioUrl = activeAudioTrack?.url || '';
 
-  const shouldDisplayHubHeader =
+   const shouldDisplayHubHeader =
     currentApp === 'hub' && !isInsideChatRoom;
+
+  const shouldDisplayHubBackground =
+    currentApp === 'hub' &&
+    !isInsideChatRoom &&
+    Boolean(hubBackground);
 
   const isMarginNotesApp =
     currentApp === 'margin-notes';
+
 
   const mainClassName = isInsideChatRoom
     ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
@@ -818,33 +854,49 @@ export const App = () => {
         onAudioConfigChange={setAudioConfig}
       />
 
-      <div
+                  <div
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden transition-colors duration-700"
         style={{
           backgroundColor: 'var(--bg-main)',
         }}
       >
-        <div
-          className="absolute -left-32 -top-32 h-[25rem] w-[25rem] rounded-full blur-[115px] transition-colors duration-700"
-          style={{
-            backgroundColor: 'var(--bg-blob-1)',
-          }}
-        />
+        {shouldDisplayHubBackground && (
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{
+              backgroundImage: `url("${hubBackground}")`,
+              opacity: 1,
+            }}
+          />
+        )}
 
-        <div
-          className="absolute -right-40 top-[28%] h-[28rem] w-[28rem] rounded-full blur-[130px] transition-colors duration-700"
-          style={{
-            backgroundColor: 'var(--bg-blob-2)',
-          }}
-        />
+        {!shouldDisplayHubBackground && (
+          <>
+            <div
+              className="absolute -left-32 -top-32 h-[25rem] w-[25rem] rounded-full blur-[115px] transition-colors duration-700"
+              style={{
+                backgroundColor: 'var(--bg-blob-1)',
+              }}
+            />
 
-        <div
-          className="absolute -bottom-48 left-[10%] h-[25rem] w-[25rem] rounded-full blur-[135px] transition-colors duration-700"
-          style={{
-            backgroundColor: 'var(--bg-blob-3)',
-          }}
-        />
+            <div
+              className="absolute -right-40 top-[28%] h-[28rem] w-[28rem] rounded-full blur-[130px] transition-colors duration-700"
+              style={{
+                backgroundColor: 'var(--bg-blob-2)',
+              }}
+            />
+
+            <div
+              className="absolute -bottom-48 left-[10%] h-[25rem] w-[25rem] rounded-full blur-[135px] transition-colors duration-700"
+              style={{
+                backgroundColor: 'var(--bg-blob-3)',
+              }}
+            />
+          </>
+        )}
       </div>
+
+
 
       <main
         className={mainClassName}
@@ -940,14 +992,17 @@ export const App = () => {
 
         {currentApp === 'settings' && (
           <ErrorBoundary>
-            <SettingsPage
+                       <SettingsPage
               onBack={() => openApp('hub')}
               onOpenManual={handleOpenManual}
               currentTheme={activeTheme}
               onChangeTheme={setActiveTheme}
               showTitle={showTitle}
               onToggleTitle={setShowTitle}
+              currentHubBackground={hubBackground}
+              onChangeHubBackground={setHubBackground}
             />
+
           </ErrorBoundary>
         )}
 
