@@ -954,12 +954,7 @@ useLayoutEffect(() => {
         />
       </section>
 
-      <footer
-        className="z-20 shrink-0 px-4 pt-1"
-        style={{
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)',
-        }}
-      >
+      
 
 <footer
   className="z-20 shrink-0 px-4 pt-1"
