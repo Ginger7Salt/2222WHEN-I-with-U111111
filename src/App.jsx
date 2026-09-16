@@ -992,7 +992,6 @@ const [hubBackground, setHubBackground] = useState('');
 
         {currentApp === 'settings' && (
           <ErrorBoundary>
-<<<<<<< HEAD
            <SettingsPage
   onBack={() => openApp('hub')}
   onOpenManual={handleOpenManual}
