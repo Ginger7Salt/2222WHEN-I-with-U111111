@@ -503,848 +503,901 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
   }, [schedules, todayStr]);
 
   return (
-    <div
-      className="rhythm-shell mx-auto flex min-h-screen w-full max-w-[420px] flex-col px-4 pb-24 pt-4 text-left select-none"
-      style={{
-        color: 'var(--text-main)',
-        backgroundColor: 'var(--bg-main)'
-      }}
-    >
-      <style>{`
-        .rhythm-shell {
-          --bg-main: #fbfbfc;
-          --surface-main: rgba(255,255,255,.66);
-          --surface-solid: #fbfbfc;
-          --surface-soft: rgba(255,255,255,.42);
-          --text-main: #121214;
-          --text-sub: #636366;
-          --text-muted: #aaaab0;
-          --accent-color: #171719;
-          --accent-foreground: #fff;
-          --card-bg: rgba(255,255,255,.58);
-          --control-soft-bg: rgba(255,255,255,.42);
-          --card-border: rgba(0,0,0,.085);
-          --line-soft: rgba(0,0,0,.055);
-          --line-strong: rgba(0,0,0,.14);
-          --spring: cubic-bezier(.16,1,.3,1);
-          --elastic: cubic-bezier(.34,1.56,.64,1);
-          position: relative;
-          isolation: isolate;
-          overflow: hidden;
-          min-height: 100vh;
-          padding: 20px 22px 46px;
-          color: var(--text-main);
-          background:
-            radial-gradient(circle at 12% 0%, rgba(220,220,228,.65), transparent 32%),
-            radial-gradient(circle at 100% 26%, rgba(205,205,214,.42), transparent 30%),
-            #e8e8ec;
-          border-radius: 48px;
-          box-shadow:
-            0 40px 100px -24px rgba(0,0,0,.25),
-            0 0 0 1px rgba(0,0,0,.08),
-            inset 0 0 0 2px rgba(255,255,255,.85);
-          font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            "SF Pro Display",
-            "PingFang SC",
-            "Helvetica Neue",
-            sans-serif;
-        }
-
-        .rhythm-shell::before {
-          position: absolute;
-          z-index: -2;
-          top: -130px;
-          left: -130px;
-          width: 610px;
-          height: 580px;
-          content: "";
-          pointer-events: none;
-          opacity: .88;
-          filter: blur(22px);
-          background:
-            radial-gradient(circle at 40% 25%, rgba(226,226,233,.92), transparent 35%),
-            radial-gradient(circle at 82% 65%, rgba(203,203,211,.62), transparent 34%);
-          animation: rhythmAura 13s ease-in-out infinite alternate;
-        }
-
-        .rhythm-shell::after {
-          position: absolute;
-          inset: 0;
-          z-index: -1;
-          content: "";
-          pointer-events: none;
-          opacity: .095;
-          mix-blend-mode: overlay;
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='rhythmNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23rhythmNoise)' opacity='.35'/%3E%3C/svg%3E");
-        }
-
-        .rhythm-shell > *:not(style) {
-          position: relative;
-          z-index: 1;
-        }
-
-        .rhythm-shell button,
-        .rhythm-shell input,
-        .rhythm-shell textarea,
-        .rhythm-shell select {
-          font: inherit;
-        }
-
-        .rhythm-shell button {
-          -webkit-tap-highlight-color: transparent;
-        }
-
-        .rhythm-header {
-          margin-bottom: 27px !important;
-          padding: 0 1px !important;
-          animation: rhythmRise .7s var(--spring) both;
-        }
-
-        .rhythm-header > div:first-child {
-          height: 42px;
-        }
-
-        .rhythm-header button {
-          border: 1px solid rgba(0,0,0,.075) !important;
-          border-radius: 50% !important;
-          background: rgba(255,255,255,.38) !important;
-          transition:
-            transform .38s var(--elastic),
-            background .3s ease,
-            box-shadow .3s ease,
-            color .3s ease;
-        }
-
-        .rhythm-header button:hover {
-          color: #08080a !important;
-          background: rgba(255,255,255,.82) !important;
-          box-shadow: 0 10px 24px rgba(0,0,0,.08);
-          transform: scale(1.08);
-        }
-
-        .rhythm-header button:active {
-          transform: scale(.88);
-        }
-
-        .rhythm-header > div:nth-child(2) {
-          margin-top: 25px !important;
-          align-items: flex-end !important;
-        }
-
-        .rhythm-header > div:nth-child(2) > div:first-child > p {
-          margin-bottom: 8px !important;
-          color: var(--text-sub) !important;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 9px !important;
-          font-weight: 600;
-          letter-spacing: .23em !important;
-        }
-
-        .rhythm-header h1 {
-          color: #08080a !important;
-          font-family: Georgia, "Songti SC", serif !important;
-          font-size: 31px !important;
-          font-style: italic;
-          font-weight: 400 !important;
-          letter-spacing: -.055em !important;
-          line-height: .98 !important;
-        }
-
-        .rhythm-header > div:nth-child(2) > p {
-          color: var(--text-sub) !important;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 11px !important;
-          line-height: 1.55;
-          text-align: right;
-        }
-
-        .rhythm-header > div:nth-child(2)::after {
-          position: absolute;
-          right: 0;
-          bottom: -17px;
-          left: 0;
-          height: 1px;
-          content: "";
-          background: linear-gradient(
-            90deg,
-            var(--text-main) 0 31px,
-            rgba(0,0,0,.09) 31px 100%
-          );
-        }
-
-        .rhythm-config {
-          position: relative;
-          margin: 0 0 21px !important;
-          padding: 18px !important;
-          overflow: hidden;
-          border: 1px solid var(--card-border) !important;
-          border-radius: 24px !important;
-          background: rgba(255,255,255,.56) !important;
-          box-shadow: 0 12px 32px rgba(0,0,0,.055);
-          animation: rhythmPanelIn .55s var(--spring) both;
-          backdrop-filter: blur(22px);
-          -webkit-backdrop-filter: blur(22px);
-        }
-
-        .rhythm-config::before {
-          position: absolute;
-          top: 0;
-          right: 22px;
-          left: 22px;
-          height: 1px;
-          content: "";
-          background: linear-gradient(90deg, transparent, rgba(0,0,0,.16), transparent);
-        }
-
-        .rhythm-config input {
-          height: 38px;
-          border: 1px solid var(--line-strong) !important;
-          border-radius: 12px !important;
-          background: rgba(255,255,255,.72) !important;
-          outline: none;
-          transition: border .25s ease, box-shadow .25s ease;
-        }
-
-        .rhythm-config input:focus,
-        .rhythm-shell input:focus,
-        .rhythm-shell textarea:focus,
-        .rhythm-shell select:focus {
-          border-color: rgba(0,0,0,.28) !important;
-          box-shadow: 0 0 0 4px rgba(0,0,0,.045);
-        }
-
-        .rhythm-config button {
-          border-radius: 999px !important;
-          transition: transform .3s var(--elastic), opacity .25s ease;
-        }
-
-        .rhythm-config button:hover {
-          transform: translateY(-1px);
-        }
-
-        .rhythm-week-switch {
-          min-height: 64px;
-          margin-bottom: 16px !important;
-          padding: 7px 10px !important;
-          border: 0 !important;
-          border-radius: 20px !important;
-          background: rgba(255,255,255,.32) !important;
-          box-shadow: inset 0 0 0 1px rgba(0,0,0,.04);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-          animation: rhythmRise .7s .08s var(--spring) both;
-        }
-
-        .rhythm-week-switch > button {
-          width: 34px !important;
-          height: 34px !important;
-          color: var(--text-sub) !important;
-          border-radius: 50% !important;
-          transition:
-            color .25s ease,
-            background .25s ease,
-            transform .35s var(--elastic);
-        }
-
-        .rhythm-week-switch > button:hover {
-          color: var(--text-main) !important;
-          background: rgba(255,255,255,.78);
-          transform: scale(1.09);
-        }
-
-        .rhythm-week-switch > button:active {
-          transform: scale(.86);
-        }
-
-        .rhythm-week-switch span {
-          color: var(--text-main);
-        }
-
-        .rhythm-week-switch span[class*="bg-"] {
-          border-radius: 999px !important;
-          background: var(--text-main) !important;
-          color: white !important;
-        }
-
-        .rhythm-date-strip {
-          position: relative;
-          display: grid !important;
-          grid-template-columns: repeat(7, 1fr);
-          gap: 4px;
-          min-height: 116px;
-          margin-bottom: 30px !important;
-          padding: 7px !important;
-          border: 1px solid rgba(0,0,0,.06) !important;
-          border-radius: 29px !important;
-          background: rgba(255,255,255,.66) !important;
-          box-shadow: 0 12px 32px rgba(0,0,0,.055);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          animation: rhythmRise .72s .13s var(--spring) both;
-        }
-
-        .rhythm-date-strip::before {
-          position: absolute;
-          top: 1px;
-          right: 25%;
-          left: 25%;
-          height: 1px;
-          content: "";
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
-        }
-
-        .rhythm-date-strip > button {
-          position: relative;
-          display: flex;
-          min-width: 0;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          color: var(--text-muted) !important;
-          border-radius: 23px !important;
-          background: transparent !important;
-          transition:
-            color .35s ease,
-            background .45s var(--spring),
-            transform .45s var(--spring),
-            box-shadow .45s var(--spring);
-        }
-
-        .rhythm-date-strip > button:hover {
-          color: var(--text-main) !important;
-          background: rgba(255,255,255,.76) !important;
-          transform: translateY(-3px);
-        }
-
-        .rhythm-date-strip > button:active {
-          transform: scale(.92);
-        }
-
-        .rhythm-date-strip > button[style*="opacity: 1"] {
-          color: #fff !important;
-          background: var(--text-main) !important;
-          box-shadow: 0 13px 25px rgba(0,0,0,.19);
-          transform: translateY(-5px);
-        }
-
-        .rhythm-date-strip > button span:first-child {
-          font-size: 10px !important;
-          font-weight: 650;
-          letter-spacing: .04em;
-        }
-
-        .rhythm-date-strip > button span:nth-child(2) {
-          margin-top: 9px !important;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 25px !important;
-          font-weight: 500;
-          letter-spacing: -.12em;
-          line-height: 1;
-        }
-
-        .rhythm-date-strip > button span:nth-child(3) {
-          margin-top: 7px !important;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 8px !important;
-          letter-spacing: .05em;
-          opacity: .58;
-        }
-
-        .rhythm-date-strip > button span[style*="border-radius"] {
-          position: absolute;
-          top: 9px;
-          right: 9px;
-          width: 4px !important;
-          height: 4px !important;
-          min-height: 4px;
-          margin: 0 !important;
-          background: #98989e !important;
-        }
-
-        .rhythm-date-strip > button[style*="opacity: 1"] span[style*="border-radius"] {
-          background: #fff !important;
-        }
-
-        .rhythm-schedule-area {
-          margin-bottom: 30px !important;
-          animation: rhythmRise .75s .2s var(--spring) both;
-        }
-
-        .rhythm-schedule-area > div:first-child {
-          margin-bottom: 14px;
-          padding: 0 3px;
-        }
-
-        .rhythm-schedule-area > div:first-child span:first-child {
-          color: var(--text) !important;
-          font-family: Georgia, "Songti SC", serif !important;
-          font-size: 16px !important;
-          font-weight: 500 !important;
-          letter-spacing: .02em;
-        }
-
-        .rhythm-schedule-area > div:first-child span:first-child svg {
-          display: none;
-        }
-
-        .rhythm-schedule-area > div:first-child span:first-child::before {
-          display: inline-block;
-          width: 22px;
-          height: 2px;
-          margin-right: 9px;
-          content: "";
-          vertical-align: middle;
-          border-radius: 2px;
-          background: var(--text-main);
-        }
-
-        .rhythm-schedule-area > div:first-child span:last-child {
-          color: var(--text-muted) !important;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 9px !important;
-          letter-spacing: .08em;
-          text-transform: uppercase;
-        }
-
-        .rhythm-schedule-area > div:nth-child(2) > div {
-          border: 1px dashed rgba(0,0,0,.13) !important;
-          border-radius: 24px !important;
-          background: rgba(255,255,255,.32) !important;
-          color: var(--text-muted) !important;
-        }
-
-        .rhythm-ticket {
-          position: relative;
-          overflow: hidden;
-          border: 1px solid rgba(0,0,0,.055) !important;
-          border-radius: 25px !important;
-          background: rgba(255,255,255,.56) !important;
-          box-shadow: 0 5px 18px rgba(0,0,0,.025);
-          transition:
-            background .35s ease,
-            transform .45s var(--spring),
-            box-shadow .45s var(--spring),
-            opacity .35s ease;
-          animation: rhythmTicketIn .7s var(--spring) both;
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-        }
-
-        .rhythm-ticket:nth-child(2) {
-          animation-delay: .07s;
-        }
-
-        .rhythm-ticket:nth-child(3) {
-          animation-delay: .14s;
-        }
-
-        .rhythm-ticket:nth-child(4) {
-          animation-delay: .21s;
-        }
-
-        .rhythm-ticket:hover {
-          background: rgba(255,255,255,.88) !important;
-          box-shadow: 0 12px 32px rgba(0,0,0,.055);
-          transform: translateX(5px);
-        }
-
-        .rhythm-ticket::before {
-          position: absolute;
-          top: 18px;
-          bottom: 18px;
-          left: 84px;
-          width: 1px;
-          content: "";
-          pointer-events: none;
-          background: linear-gradient(
-            to bottom,
-            rgba(0,0,0,.03),
-            rgba(0,0,0,.16),
-            rgba(0,0,0,.03)
-          );
-        }
-
-        .rhythm-ticket > div:first-of-type {
-          min-height: 112px;
-        }
-
-        .rhythm-ticket > div:first-of-type > div:first-child {
-          position: relative;
-          z-index: 1;
-          width: 85px !important;
-          padding: 17px 10px !important;
-          border-right: 1px dashed var(--line-strong) !important;
-          background: rgba(248,248,250,.34) !important;
-        }
-
-        .rhythm-ticket > div:first-of-type > div:first-child span:first-child {
-          color: var(--text) !important;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 14px !important;
-          font-weight: 600 !important;
-        }
-
-        .rhythm-ticket > div:first-of-type > div:first-child span:last-child {
-          color: var(--text-sub) !important;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 11px !important;
-        }
-
-        .rhythm-ticket > div:first-of-type > div:nth-child(2) {
-          padding: 17px 18px 17px 18px !important;
-        }
-
-        .rhythm-ticket h3 {
-          overflow: hidden;
-          color: var(--text) !important;
-          font-family: Georgia, "Songti SC", serif !important;
-          font-size: 16px !important;
-          font-weight: 600 !important;
-          line-height: 1.25;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .rhythm-ticket h3 + span {
-          padding: 4px 8px !important;
-          border: 0 !important;
-          border-radius: 999px !important;
-          background: rgba(0,0,0,.045) !important;
-          color: var(--text-sub) !important;
-          font-size: 9px !important;
-          letter-spacing: .05em;
-        }
-
-        .rhythm-ticket > div:first-of-type > div:nth-child(2) > div:nth-child(2) {
-          gap: 5px 12px;
-          margin-top: 10px !important;
-          color: var(--text-sub) !important;
-          font-size: 10px !important;
-        }
-
-        .rhythm-ticket > div:first-of-type > div:nth-child(2) > div:nth-child(2) svg {
-          width: 11px;
-          height: 11px;
-          color: var(--text-sub);
-        }
-
-        .rhythm-ticket > div:first-of-type > div:nth-child(2) > div:last-child {
-          margin-top: 14px !important;
-          padding-top: 10px !important;
-          border-top: 1px dashed var(--line-strong) !important;
-          color: var(--text-sub) !important;
-          font-family: Georgia, "Songti SC", serif !important;
-          font-size: 11px !important;
-          font-style: italic;
-          line-height: 1.6;
-        }
-
-        .rhythm-ticket > div:first-of-type > div:nth-child(2) > div:last-child::before {
-          margin-right: 5px;
-          color: var(--text-muted);
-          content: "✦";
-          font-style: normal;
-        }
-
-        .rhythm-ticket > div:last-child {
-          min-height: 40px;
-          border-top: 1px dashed var(--line-strong) !important;
-          padding: 10px 18px !important;
-          background: rgba(248,248,250,.32) !important;
-        }
-
-        .rhythm-ticket > div:last-child p {
-          color: var(--text) !important;
-          font-family: Georgia, "Songti SC", serif !important;
-          font-size: 11px !important;
-          font-style: italic;
-          line-height: 1.6;
-        }
-
-        .rhythm-ticket > div:last-child button {
-          color: var(--text-sub) !important;
-          transition: color .25s ease, opacity .25s ease, transform .3s var(--elastic);
-        }
-
-        .rhythm-ticket > div:last-child button:hover {
-          color: var(--text) !important;
-          transform: translateY(-1px);
-        }
-
-        .rhythm-tools {
-          margin-top: 25px !important;
-          padding-top: 22px !important;
-          border-top: 1px dashed var(--line-strong) !important;
-          animation: rhythmRise .75s .28s var(--spring) both;
-        }
-
-        .rhythm-import,
-        .rhythm-manual {
-          border: 1px solid var(--card-border) !important;
-          border-radius: 23px !important;
-          background: rgba(255,255,255,.56) !important;
-          box-shadow: 0 8px 26px rgba(0,0,0,.035);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-        }
-
-        .rhythm-import {
-          padding: 17px 18px !important;
-        }
-
-        .rhythm-import textarea,
-        .rhythm-manual input,
-        .rhythm-manual select {
-          border: 1px solid var(--line-strong) !important;
-          border-radius: 12px !important;
-          background: rgba(255,255,255,.68) !important;
-          outline: none;
-          transition: border .25s ease, box-shadow .25s ease, background .25s ease;
-        }
-
-        .rhythm-import textarea {
-          min-height: 75px;
-          padding: 12px !important;
-          line-height: 1.6;
-        }
-
-        .rhythm-import > button,
-        .rhythm-manual form > button {
-          min-height: 38px;
-          border-radius: 999px !important;
-          background: var(--text-main) !important;
-          color: #fff !important;
-          box-shadow: 0 10px 22px rgba(0,0,0,.13);
-          transition:
-            transform .35s var(--elastic),
-            opacity .25s ease,
-            box-shadow .3s ease;
-        }
-
-        .rhythm-import > button:hover,
-        .rhythm-manual form > button:hover {
-          box-shadow: 0 14px 28px rgba(0,0,0,.18);
-          transform: translateY(-2px);
-        }
-
-        .rhythm-import > button:active,
-        .rhythm-manual form > button:active {
-          transform: scale(.97);
-        }
-
-        .rhythm-manual {
-          overflow: hidden;
-        }
-
-        .rhythm-manual summary {
-          min-height: 52px;
-          padding: 0 18px !important;
-          transition: background .3s ease;
-        }
-
-        .rhythm-manual summary:hover {
-          background: rgba(255,255,255,.55);
-        }
-
-        .rhythm-manual summary svg {
-          transition: transform .4s var(--elastic);
-        }
-
-        .rhythm-manual[open] summary svg {
-          transform: rotate(45deg);
-        }
-
-        .rhythm-manual form {
-          padding: 18px !important;
-          border-top: 1px dashed var(--line-strong) !important;
-        }
-
-        .rhythm-manual form > div {
-          gap: 12px;
-        }
-
-        .rhythm-manual label {
-          color: var(--text-sub) !important;
-        }
-
-        .rhythm-manual input,
-        .rhythm-manual select {
-          min-height: 36px;
-          padding: 0 11px !important;
-        }
-
-        .rhythm-manual textarea::placeholder,
-        .rhythm-manual input::placeholder,
-        .rhythm-import textarea::placeholder {
-          color: var(--text-muted);
-        }
-
-        .rhythm-toast {
-          z-index: 80 !important;
-          bottom: 28px !important;
-          min-width: 220px;
-          max-width: calc(100vw - 40px);
-          padding: 12px 17px !important;
-          overflow: hidden;
-          border: 1px solid rgba(0,0,0,.08) !important;
-          border-radius: 999px !important;
-          box-shadow: 0 18px 46px rgba(0,0,0,.18) !important;
-          background: rgba(255,255,255,.82) !important;
-          color: var(--text-main) !important;
-          text-align: center;
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          animation: rhythmToastIn .5s var(--elastic) both;
-        }
-
-        .rhythm-toast-error {
-          border-color: rgba(155,60,60,.2) !important;
-          color: #8d3535 !important;
-        }
-
-        .rhythm-toast-success {
-          border-color: rgba(70,110,75,.18) !important;
-          color: #41694a !important;
-        }
-
-        .rhythm-modal-backdrop {
-          z-index: 90 !important;
-          background: rgba(18,18,20,.38) !important;
-          animation: rhythmFadeIn .3s ease both;
-        }
-
-        .rhythm-modal {
-          position: relative;
-          overflow: hidden;
-          border: 1px solid rgba(0,0,0,.1) !important;
-          border-radius: 27px !important;
-          background: rgba(251,251,252,.88) !important;
-          box-shadow: 0 30px 80px rgba(0,0,0,.24) !important;
-          backdrop-filter: blur(26px);
-          -webkit-backdrop-filter: blur(26px);
-          animation: rhythmModalIn .55s var(--elastic) both;
-        }
-
-        .rhythm-modal::before {
-          position: absolute;
-          top: 0;
-          right: 30px;
-          left: 30px;
-          height: 1px;
-          content: "";
-          background: linear-gradient(90deg, transparent, rgba(0,0,0,.2), transparent);
-        }
-
-        .rhythm-modal > div:last-child {
-          border-top-color: var(--line-strong) !important;
-        }
-
-        .rhythm-modal button {
-          border-radius: 999px !important;
-          transition: transform .3s var(--elastic), opacity .25s ease;
-        }
-
-        .rhythm-modal button:hover {
-          transform: translateY(-1px);
-        }
-
-        @keyframes rhythmAura {
-          from {
-            transform: translate3d(-10px, 0, 0) scale(1);
-          }
-          to {
-            transform: translate3d(18px, 26px, 0) scale(1.08);
-          }
-        }
-
-        @keyframes rhythmRise {
-          from {
-            opacity: 0;
-            transform: translateY(13px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes rhythmTicketIn {
-          from {
-            opacity: 0;
-            transform: translateY(14px) scale(.985);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        @keyframes rhythmPanelIn {
-          from {
-            opacity: 0;
-            transform: translateY(-8px) scale(.985);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        @keyframes rhythmToastIn {
-          from {
-            opacity: 0;
-            transform: translate(-50%, 16px) scale(.92);
-          }
-          to {
-            opacity: 1;
-            transform: translate(-50%, 0) scale(1);
-          }
-        }
-
-        @keyframes rhythmModalIn {
-          from {
-            opacity: 0;
-            transform: translateY(18px) scale(.94);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        @keyframes rhythmFadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @media (max-width: 430px) {
-          .rhythm-shell {
-            width: 100%;
-            min-height: 100vh;
-            padding-right: 18px;
-            padding-left: 18px;
-            border-radius: 0;
-            box-shadow: none;
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .rhythm-shell *,
-          .rhythm-shell::before,
-          .rhythm-shell::after {
-            animation-duration: .01ms !important;
-            animation-iteration-count: 1 !important;
-            scroll-behavior: auto !important;
-            transition-duration: .01ms !important;
-          }
-        }
-      `}</style>
+    <div className="rhythm-shell">
+     <style>{`
+  :root {
+    --rhythm-bg: #e8e8ec;
+    --rhythm-surface: rgba(255, 255, 255, .68);
+    --rhythm-surface-solid: #fbfbfc;
+    --rhythm-text: #171719;
+    --rhythm-sub: #77777d;
+    --rhythm-muted: #b2b2b8;
+    --rhythm-line: rgba(0, 0, 0, .075);
+    --rhythm-line-strong: rgba(0, 0, 0, .14);
+
+    --rhythm-serif:
+      "Noto Serif SC",
+      "Source Han Serif SC",
+      "Songti SC",
+      "STSong",
+      "SimSun",
+      serif;
+
+    --rhythm-sans:
+      "Noto Sans SC",
+      "PingFang SC",
+      "Microsoft YaHei",
+      "Helvetica Neue",
+      Arial,
+      sans-serif;
+
+    --rhythm-mono:
+      "SFMono-Regular",
+      "Cascadia Mono",
+      "Roboto Mono",
+      Menlo,
+      Monaco,
+      monospace;
+
+    --rhythm-spring: cubic-bezier(.16, 1, .3, 1);
+    --rhythm-elastic: cubic-bezier(.34, 1.56, .64, 1);
+  }
+
+  html,
+  body,
+  #root {
+    width: 100% !important;
+    min-width: 100% !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  html {
+    background: var(--rhythm-bg) !important;
+  }
+
+  body {
+    overflow-x: hidden !important;
+    background: var(--rhythm-bg) !important;
+    color: var(--rhythm-text);
+    font-family: var(--rhythm-sans) !important;
+  }
+
+  #root {
+    display: block !important;
+    width: 100% !important;
+    min-height: 100vh !important;
+    background: transparent !important;
+  }
+
+  #root > * {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  .rhythm-shell {
+    position: relative;
+    isolation: isolate;
+
+    width: 100vw !important;
+    max-width: none !important;
+    min-width: 100% !important;
+    min-height: 100dvh !important;
+    height: auto !important;
+
+    margin: 0 !important;
+    padding:
+      30px
+      clamp(20px, 4vw, 64px)
+      64px !important;
+
+    overflow: hidden;
+
+    border-radius: 0 !important;
+    box-shadow: none !important;
+
+    color: var(--rhythm-text) !important;
+    background:
+      radial-gradient(
+        circle at 12% 0%,
+        rgba(224, 224, 231, .8),
+        transparent 34%
+      ),
+      radial-gradient(
+        circle at 96% 20%,
+        rgba(207, 207, 216, .55),
+        transparent 32%
+      ),
+      linear-gradient(
+        135deg,
+        #e9e9ed 0%,
+        #f7f7f8 48%,
+        #e5e5ea 100%
+      ) !important;
+
+    font-family: var(--rhythm-sans) !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+  }
+
+  .rhythm-shell::before {
+    position: absolute;
+    z-index: -2;
+    top: -180px;
+    left: -130px;
+    width: 660px;
+    height: 580px;
+    content: "";
+    pointer-events: none;
+    opacity: .72;
+    filter: blur(26px);
+    background:
+      radial-gradient(
+        circle at 35% 28%,
+        rgba(239, 239, 243, .95),
+        transparent 38%
+      ),
+      radial-gradient(
+        circle at 78% 68%,
+        rgba(205, 205, 213, .62),
+        transparent 34%
+      );
+    animation: rhythm-aura 14s ease-in-out infinite alternate;
+  }
+
+  .rhythm-shell::after {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    content: "";
+    pointer-events: none;
+    opacity: .07;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='rhythmNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23rhythmNoise)' opacity='.32'/%3E%3C/svg%3E");
+  }
+
+  .rhythm-shell > *:not(style) {
+    position: relative;
+    z-index: 1;
+  }
+
+  /*
+   * 强制字体继承。
+   * 解决 Tailwind 的 font-serif、font-mono、
+   * text-xs、text-sm 互相覆盖导致的字号异常。
+   */
+  .rhythm-shell,
+  .rhythm-shell div,
+  .rhythm-shell span,
+  .rhythm-shell p,
+  .rhythm-shell label,
+  .rhythm-shell button,
+  .rhythm-shell input,
+  .rhythm-shell textarea,
+  .rhythm-shell select,
+  .rhythm-shell summary {
+    font-family: var(--rhythm-sans) !important;
+  }
+
+  .rhythm-shell .font-serif,
+  .rhythm-shell .font-serif * {
+    font-family: var(--rhythm-serif) !important;
+  }
+
+  .rhythm-shell .font-mono,
+  .rhythm-shell .font-mono * {
+    font-family: var(--rhythm-mono) !important;
+  }
+
+  .rhythm-shell p,
+  .rhythm-shell label,
+  .rhythm-shell input,
+  .rhythm-shell textarea,
+  .rhythm-shell select,
+  .rhythm-shell button,
+  .rhythm-shell summary {
+    font-size: 11px !important;
+    line-height: 1.55 !important;
+  }
+
+  .rhythm-shell svg {
+    flex-shrink: 0;
+  }
+
+  /*
+   * 顶部区域
+   */
+  .rhythm-header {
+    margin: 0 0 26px !important;
+    padding: 0 !important;
+    animation: rhythm-rise .7s var(--rhythm-spring) both;
+  }
+
+  .rhythm-header > div:first-child {
+    height: 40px !important;
+  }
+
+  .rhythm-header > div:first-child button {
+    width: 38px !important;
+    height: 38px !important;
+    border: 1px solid rgba(0, 0, 0, .075) !important;
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, .34) !important;
+    color: var(--rhythm-text) !important;
+    transition:
+      transform .35s var(--rhythm-elastic),
+      background .25s ease,
+      box-shadow .25s ease;
+  }
+
+  .rhythm-header > div:first-child button:hover {
+    background: rgba(255, 255, 255, .78) !important;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .08);
+    transform: scale(1.06);
+  }
+
+  .rhythm-header > div:first-child button:active {
+    transform: scale(.88);
+  }
+
+  .rhythm-header > div:nth-child(2) {
+    position: relative;
+    margin-top: 27px !important;
+    align-items: flex-end !important;
+  }
+
+  /*
+   * 彻底移除标题下方的线。
+   */
+  .rhythm-header > div:nth-child(2)::after,
+  .rhythm-header > div:nth-child(3) {
+    display: none !important;
+    content: none !important;
+  }
+
+  .rhythm-header > div:nth-child(2) > div:first-child > p {
+    margin: 0 0 8px !important;
+    color: var(--rhythm-sub) !important;
+    font-family: var(--rhythm-mono) !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    letter-spacing: .24em !important;
+    line-height: 1 !important;
+  }
+
+  .rhythm-header h1 {
+    margin: 0 !important;
+    color: #121214 !important;
+    font-family: var(--rhythm-serif) !important;
+    font-size: 34px !important;
+    font-style: italic !important;
+    font-weight: 400 !important;
+    letter-spacing: -.08em !important;
+    line-height: 1.05 !important;
+  }
+
+  .rhythm-header > div:nth-child(2) > p {
+    margin: 0 !important;
+    color: var(--rhythm-sub) !important;
+    font-family: var(--rhythm-mono) !important;
+    font-size: 11px !important;
+    letter-spacing: .04em !important;
+    line-height: 1.3 !important;
+    white-space: nowrap;
+  }
+
+  /*
+   * 学期设置
+   */
+  .rhythm-config {
+    margin: 0 0 18px !important;
+    padding: 16px !important;
+    border: 1px solid var(--rhythm-line) !important;
+    border-radius: 20px !important;
+    background: rgba(255, 255, 255, .54) !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .045) !important;
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    animation: rhythm-panel-in .48s var(--rhythm-spring) both;
+  }
+
+  .rhythm-config p {
+    font-size: 10px !important;
+    line-height: 1.65 !important;
+  }
+
+  .rhythm-config input {
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 0 10px !important;
+    border: 1px solid var(--rhythm-line-strong) !important;
+    border-radius: 10px !important;
+    background: rgba(255, 255, 255, .68) !important;
+    font-size: 11px !important;
+    outline: none !important;
+  }
+
+  .rhythm-config button {
+    min-height: 34px !important;
+    padding: 0 13px !important;
+    border-radius: 999px !important;
+    font-size: 10px !important;
+  }
+
+  /*
+   * 周次选择器
+   */
+  .rhythm-week-switch {
+    min-height: 62px !important;
+    margin: 0 0 15px !important;
+    padding: 7px 10px !important;
+    border: 1px solid rgba(0, 0, 0, .055) !important;
+    border-radius: 19px !important;
+    background: rgba(255, 255, 255, .43) !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .025) !important;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    animation: rhythm-rise .7s .08s var(--rhythm-spring) both;
+  }
+
+  .rhythm-week-switch > button {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    color: var(--rhythm-sub) !important;
+    transition:
+      transform .35s var(--rhythm-elastic),
+      background .25s ease;
+  }
+
+  .rhythm-week-switch > button:hover {
+    background: rgba(255, 255, 255, .78) !important;
+    color: var(--rhythm-text) !important;
+    transform: scale(1.07);
+  }
+
+  .rhythm-week-switch span {
+    font-family: var(--rhythm-serif) !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+
+  .rhythm-week-switch span[class*="bg-"] {
+    padding: 2px 7px !important;
+    border-radius: 999px !important;
+    font-family: var(--rhythm-sans) !important;
+    font-size: 9px !important;
+    line-height: 1.2 !important;
+  }
+
+  .rhythm-week-switch span:last-child {
+    font-family: var(--rhythm-mono) !important;
+    font-size: 9px !important;
+  }
+
+  /*
+   * 日期栏
+   */
+  .rhythm-date-strip {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+
+    min-height: 108px !important;
+    height: 108px !important;
+    margin: 0 0 27px !important;
+    padding: 6px !important;
+
+    border: 1px solid rgba(0, 0, 0, .055) !important;
+    border-radius: 26px !important;
+    background: rgba(255, 255, 255, .64) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .045) !important;
+
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    animation: rhythm-rise .72s .13s var(--rhythm-spring) both;
+  }
+
+  .rhythm-date-strip > button {
+    position: relative;
+    display: flex !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    border-radius: 20px !important;
+    background: transparent !important;
+    color: var(--rhythm-muted) !important;
+
+    transition:
+      color .3s ease,
+      background .4s var(--rhythm-spring),
+      transform .4s var(--rhythm-spring),
+      box-shadow .4s var(--rhythm-spring);
+  }
+
+  .rhythm-date-strip > button:hover {
+    background: rgba(255, 255, 255, .72) !important;
+    color: var(--rhythm-text) !important;
+    transform: translateY(-2px);
+  }
+
+  .rhythm-date-strip > button[style*="opacity: 1"] {
+    background: var(--rhythm-text) !important;
+    color: #fff !important;
+    box-shadow: 0 12px 23px rgba(0, 0, 0, .18) !important;
+    transform: translateY(-4px);
+  }
+
+  .rhythm-date-strip > button span {
+    display: block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: clip !important;
+  }
+
+  .rhythm-date-strip > button span:first-child {
+    margin: 0 !important;
+    font-family: var(--rhythm-serif) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+  }
+
+  .rhythm-date-strip > button span:nth-child(2) {
+    margin: 8px 0 0 !important;
+    font-family: var(--rhythm-mono) !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    letter-spacing: -.09em !important;
+    line-height: 1 !important;
+  }
+
+  .rhythm-date-strip > button span:nth-child(3) {
+    margin: 6px 0 0 !important;
+    font-family: var(--rhythm-mono) !important;
+    font-size: 8px !important;
+    line-height: 1 !important;
+    opacity: .62;
+  }
+
+  .rhythm-date-strip > button span[style*="border-radius"] {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    width: 4px !important;
+    height: 4px !important;
+    min-height: 4px !important;
+    margin: 0 !important;
+    border-radius: 50% !important;
+    background: #99999f !important;
+  }
+
+  .rhythm-date-strip > button[style*="opacity: 1"] span[style*="border-radius"] {
+    background: #fff !important;
+  }
+
+  /*
+   * 日程区域
+   */
+  .rhythm-schedule-area {
+    margin: 0 0 30px !important;
+    animation: rhythm-rise .75s .2s var(--rhythm-spring) both;
+  }
+
+  .rhythm-schedule-area > div:first-child {
+    margin: 0 0 13px !important;
+    padding: 0 3px !important;
+  }
+
+  .rhythm-schedule-area > div:first-child span:first-child {
+    color: var(--rhythm-text) !important;
+    font-family: var(--rhythm-serif) !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    line-height: 1.3 !important;
+  }
+
+  .rhythm-schedule-area > div:first-child span:first-child svg {
+    display: none !important;
+  }
+
+  .rhythm-schedule-area > div:first-child span:first-child::before {
+    display: inline-block;
+    width: 22px;
+    height: 2px;
+    margin: 0 9px 3px 0;
+    content: "";
+    vertical-align: middle;
+    border-radius: 2px;
+    background: var(--rhythm-text);
+  }
+
+  .rhythm-schedule-area > div:first-child span:last-child {
+    color: var(--rhythm-muted) !important;
+    font-family: var(--rhythm-mono) !important;
+    font-size: 9px !important;
+    line-height: 1 !important;
+  }
+
+  .rhythm-schedule-area > div:nth-child(2) > div {
+    min-height: 156px;
+    padding: 48px 20px !important;
+    border: 1px dashed rgba(0, 0, 0, .1) !important;
+    border-radius: 0 !important;
+    background: rgba(255, 255, 255, .18) !important;
+    color: var(--rhythm-muted) !important;
+    font-family: var(--rhythm-serif) !important;
+    font-size: 12px !important;
+    line-height: 1.6 !important;
+  }
+
+  /*
+   * 日程票根
+   */
+  .rhythm-ticket {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, .055) !important;
+    border-radius: 22px !important;
+    background: rgba(255, 255, 255, .57) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .025) !important;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    animation: rhythm-ticket-in .65s var(--rhythm-spring) both;
+    transition:
+      background .3s ease,
+      transform .4s var(--rhythm-spring),
+      box-shadow .4s var(--rhythm-spring);
+  }
+
+  .rhythm-ticket:hover {
+    background: rgba(255, 255, 255, .86) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .055) !important;
+    transform: translateX(4px);
+  }
+
+  .rhythm-ticket::before {
+    top: 18px !important;
+    bottom: 18px !important;
+    left: 82px !important;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(0, 0, 0, .12),
+      transparent
+    ) !important;
+  }
+
+  .rhythm-ticket h3 {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--rhythm-text) !important;
+    font-family: var(--rhythm-serif) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rhythm-ticket p {
+    font-size: 10px !important;
+    line-height: 1.6 !important;
+  }
+
+  .rhythm-ticket span {
+    font-size: 10px !important;
+  }
+
+  .rhythm-ticket > div:first-of-type > div:first-child span:first-child {
+    font-family: var(--rhythm-mono) !important;
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+
+  .rhythm-ticket > div:first-of-type > div:first-child span:last-child {
+    font-family: var(--rhythm-mono) !important;
+    font-size: 10px !important;
+  }
+
+  .rhythm-ticket > div:first-of-type > div:nth-child(2) > div:nth-child(2) {
+    font-size: 10px !important;
+    line-height: 1.5 !important;
+  }
+
+  .rhythm-ticket > div:first-of-type > div:nth-child(2) > div:last-child {
+    font-family: var(--rhythm-serif) !important;
+    font-size: 10px !important;
+    line-height: 1.55 !important;
+  }
+
+  /*
+   * 导入和手动添加区域
+   */
+  .rhythm-tools {
+    margin: 0 !important;
+    padding-top: 25px !important;
+    border-top: 0 !important;
+    animation: rhythm-rise .75s .28s var(--rhythm-spring) both;
+  }
+
+  .rhythm-import,
+  .rhythm-manual {
+    border: 1px solid var(--rhythm-line) !important;
+    border-radius: 22px !important;
+    background: rgba(255, 255, 255, .56) !important;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, .035) !important;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .rhythm-import {
+    padding: 17px 18px !important;
+  }
+
+  .rhythm-import span,
+  .rhythm-import p,
+  .rhythm-manual summary,
+  .rhythm-manual label {
+    font-size: 11px !important;
+    line-height: 1.55 !important;
+  }
+
+  .rhythm-import textarea {
+    min-height: 94px !important;
+    padding: 12px 13px !important;
+    border: 1px solid var(--rhythm-line-strong) !important;
+    border-radius: 14px !important;
+    background: rgba(255, 255, 255, .72) !important;
+    color: var(--rhythm-text) !important;
+    font-family: var(--rhythm-sans) !important;
+    font-size: 11px !important;
+    line-height: 1.6 !important;
+    outline: none !important;
+    resize: vertical;
+  }
+
+  .rhythm-import textarea::placeholder {
+    color: #aaaab1 !important;
+    font-size: 11px !important;
+  }
+
+  .rhythm-import > button,
+  .rhythm-manual form > button {
+    min-height: 38px !important;
+    border-radius: 999px !important;
+    font-family: var(--rhythm-serif) !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    transition:
+      transform .35s var(--rhythm-elastic),
+      box-shadow .3s ease,
+      opacity .25s ease;
+  }
+
+  .rhythm-import > button:hover,
+  .rhythm-manual form > button:hover {
+    box-shadow: 0 12px 25px rgba(0, 0, 0, .15);
+    transform: translateY(-2px);
+  }
+
+  .rhythm-manual form {
+    padding: 17px !important;
+  }
+
+  .rhythm-manual input,
+  .rhythm-manual select {
+    min-height: 34px !important;
+    padding: 0 10px !important;
+    border: 1px solid var(--rhythm-line-strong) !important;
+    border-radius: 10px !important;
+    background: rgba(255, 255, 255, .7) !important;
+    color: var(--rhythm-text) !important;
+    font-size: 11px !important;
+    outline: none !important;
+  }
+
+  /*
+   * 提示浮层
+   */
+  .rhythm-toast {
+    z-index: 80 !important;
+    bottom: 28px !important;
+    min-width: 220px;
+    padding: 11px 16px !important;
+    border: 1px solid rgba(0, 0, 0, .08) !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, .84) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .16) !important;
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    font-family: var(--rhythm-serif) !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    animation: rhythm-toast-in .48s var(--rhythm-elastic) both;
+  }
+
+  /*
+   * 删除确认弹窗
+   */
+  .rhythm-modal-backdrop {
+    z-index: 90 !important;
+    background: rgba(16, 16, 18, .38) !important;
+    animation: rhythm-fade-in .25s ease both;
+  }
+
+  .rhythm-modal {
+    border: 1px solid rgba(0, 0, 0, .1) !important;
+    border-radius: 24px !important;
+    background: rgba(251, 251, 252, .9) !important;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, .24) !important;
+    backdrop-filter: blur(26px);
+    -webkit-backdrop-filter: blur(26px);
+    animation: rhythm-modal-in .48s var(--rhythm-elastic) both;
+  }
+
+  .rhythm-modal h4 {
+    font-family: var(--rhythm-serif) !important;
+    font-size: 14px !important;
+  }
+
+  .rhythm-modal p {
+    font-family: var(--rhythm-serif) !important;
+    font-size: 11px !important;
+    line-height: 1.7 !important;
+  }
+
+  .rhythm-modal button {
+    font-family: var(--rhythm-serif) !important;
+    font-size: 11px !important;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    border-color: rgba(0, 0, 0, .26) !important;
+    box-shadow: 0 0 0 4px rgba(0, 0, 0, .045) !important;
+  }
+
+  @keyframes rhythm-aura {
+    from {
+      transform: translate3d(-8px, 0, 0) scale(1);
+    }
+
+    to {
+      transform: translate3d(18px, 24px, 0) scale(1.08);
+    }
+  }
+
+  @keyframes rhythm-rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes rhythm-panel-in {
+    from {
+      opacity: 0;
+      transform: translateY(-7px) scale(.985);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes rhythm-ticket-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(.985);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes rhythm-toast-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 14px) scale(.94);
+    }
+
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
+    }
+  }
+
+  @keyframes rhythm-modal-in {
+    from {
+      opacity: 0;
+      transform: translateY(16px) scale(.95);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes rhythm-fade-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .rhythm-shell {
+      padding:
+        22px
+        18px
+        46px !important;
+    }
+
+    .rhythm-header h1 {
+      font-size: 31px !important;
+    }
+
+    .rhythm-date-strip {
+      height: 104px !important;
+      min-height: 104px !important;
+    }
+
+    .rhythm-date-strip > button span:nth-child(2) {
+      font-size: 15px !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rhythm-shell *,
+    .rhythm-shell::before,
+    .rhythm-shell::after {
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important;
+    }
+  }
+`}</style>
+
 
       <header className="rhythm-header relative mb-5 px-1">
         <div className="flex items-center justify-between">
@@ -1427,16 +1480,6 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
           </p>
         </div>
 
-        <div className="mt-3 flex items-center gap-2">
-          <span
-            className="h-px w-8"
-            style={{ backgroundColor: 'var(--accent-color)' }}
-          />
-          <span
-            className="h-px flex-1 opacity-40"
-            style={{ backgroundColor: 'var(--card-border)' }}
-          />
-        </div>
       </header>
 
       {showConfig && (
