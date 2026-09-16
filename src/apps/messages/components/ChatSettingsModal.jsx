@@ -719,23 +719,30 @@ const handleToggleLocation = async () => {
       开启后，{character?.name || '角色'} 会定期感知你的位置并逐渐记住你去过的地方。默认关闭。
     </p>
   </div>
-
+  
   <button
-    type="button"
-    role="switch"
-    aria-checked={locationEnabled}
-    onClick={handleToggleLocation}
-    className="relative h-5 w-10 shrink-0 rounded-full transition-colors"
-    style={{ background: locationEnabled ? 'var(--accent-color)' : 'var(--divider)' }}
-  >
-    <span
-      className="absolute top-0.5 h-4 w-4 rounded-full transition-transform"
-      style={{
-        background: 'var(--bg-main)',
-        transform: locationEnabled ? 'translateX(20px)' : 'translateX(2px)',
-      }}
-    />
-  </button>
+  type="button"
+  role="switch"
+  aria-checked={locationEnabled}
+  onClick={handleToggleLocation}
+  className="relative h-5 w-10 shrink-0 overflow-hidden rounded-full transition-colors"
+  style={{
+    background: locationEnabled
+      ? 'var(--accent-color)'
+      : 'var(--divider)'
+  }}
+>
+  <span
+    className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition-transform"
+    style={{
+      background: 'var(--bg-main)',
+      transform: locationEnabled
+        ? 'translateX(20px)'
+        : 'translateX(0)'
+    }}
+  />
+</button>
+
 </div>
 
         {/* 阶段性多条目事实总结 */}
