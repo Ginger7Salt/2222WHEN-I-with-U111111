@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
-import { sendPhotoMessage } from '../photoMessageService';
+import { sendPhotoMessage } from '../../../services/photoMessageService';
+
 
 const PhotoCaptureButton = ({ chatId, characterId }) => {
   const fileInputRef = useRef(null);
