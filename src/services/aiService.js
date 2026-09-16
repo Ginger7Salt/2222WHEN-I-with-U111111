@@ -16,7 +16,6 @@ import {
 
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
 
-import { getAlmanacPromptContext } from './almanac/almanacService';
 import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptContext';
 
 
@@ -43,6 +42,10 @@ import {
   buildCharacterAnalysisPromptBlock,
 } from '../apps/messages/characterAnalysisPrompt';
 
+
+import {
+  getAlmanacPromptContext,
+} from '../apps/almanac/services/almanacPromptBuilder';
 
 
 
