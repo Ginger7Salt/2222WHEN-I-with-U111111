@@ -992,17 +992,17 @@ const [hubBackground, setHubBackground] = useState('');
 
         {currentApp === 'settings' && (
           <ErrorBoundary>
-                       <SettingsPage
-              onBack={() => openApp('hub')}
-              onOpenManual={handleOpenManual}
-              currentTheme={activeTheme}
-              onChangeTheme={setActiveTheme}
-              showTitle={showTitle}
-              onToggleTitle={setShowTitle}
-              currentHubBackground={hubBackground}
-              onChangeHubBackground={setHubBackground}
-            />
-
+<<<<<<< HEAD
+           <SettingsPage
+  onBack={() => openApp('hub')}
+  onOpenManual={handleOpenManual}
+  currentTheme={activeTheme}
+  onChangeTheme={setActiveTheme}
+  showTitle={showTitle}
+  onToggleTitle={setShowTitle}
+  currentHubBackground={hubBackground}
+  onChangeHubBackground={setHubBackground}
+/>
           </ErrorBoundary>
         )}
 

@@ -93,7 +93,11 @@ export const SettingsPage = ({
   const saveToastTimerRef = useRef(null);
 
   const [draftTheme, setDraftTheme] = useState(currentTheme);
-  const [draftShowTitle, setDraftShowTitle] = useState(showTitle);
+const [draftShowTitle, setDraftShowTitle] = useState(showTitle);
+const [draftHubBackground, setDraftHubBackground] = useState(
+  currentHubBackground || '',
+);
+
 
 const [preloaderQuoteConfig, setPreloaderQuoteConfig] = useState(
   DEFAULT_PRELOADER_QUOTE_CONFIG,
