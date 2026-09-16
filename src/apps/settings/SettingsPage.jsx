@@ -39,7 +39,8 @@ import { Send, Cloud, Radio } from 'lucide-react'; // 补上图标
 import { registerCloudPush } from '../../services/cloudPushService';
 import soundService from '../../services/soundService';
 
-import VisionApiSettings from '../components/settings/VisionApiSettings';
+import VisionApiSettings from '../../components/settings/VisionApiSettings';
+
 
 
 import {
