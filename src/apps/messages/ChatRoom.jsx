@@ -59,7 +59,8 @@ import { INTERACTION_TYPES } from './interactions/interactionRules';
 import CheckInNotice from './check-in/CheckInNotice';
 import { checkForCrossChatCheckIn } from './check-in/checkInService';
 
-import PhotoCaptureButton from './components/PhotoCaptureButton';
+import PhotoCaptureButton from './components/cards/PhotoCaptureButton';
+
 
 import './check-in/check-in.css';
 import './interactions/chat-interactions.css';
