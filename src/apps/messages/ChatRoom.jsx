@@ -71,6 +71,21 @@ import {
 import ParallelOrbit from './components/ParallelOrbit';
 import InnerWorldApp from '../innerworld/InnerWorldApp';
 
+import { MapPinned } from 'lucide-react';
+import PlaceBooklet from '../location/PlaceBooklet';
+import PendingPlaceBanner from './components/PendingPlaceBanner';
+import { getCurrentPosition } from '../../apps/location/locationService';
+import {
+  getLocationSettings,
+  checkLocationAndDetectTransition,
+  shouldCheckLocation,
+  getRandomCheckIntervalMs,
+  namePlace,
+} from '../../apps/location/placeService';
+
+
+
+
 const INITIAL_VISIBLE_MESSAGE_COUNT = 200;
 const LOAD_MORE_MESSAGE_BATCH = 200;
 const LOAD_MORE_SCROLL_THRESHOLD_PX = 150;

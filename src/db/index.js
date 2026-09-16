@@ -4041,6 +4041,32 @@ db.version(43).stores({
 });
 
 
+db.version(44).stores({
+  places: `
+    ++id,
+    chatId,
+    name,
+    lat,
+    lng,
+    radius,
+    isNamed,
+    firstVisitAt,
+    lastVisitAt,
+    visitCount,
+    createdAt,
+    [chatId+isNamed]
+  `,
+  locationSettings: `
+    &chatId,
+    enabled,
+    currentPlaceId,
+    pendingNamingPlaceId,
+    lastCheckAt,
+    updatedAt
+  `,
+});
+
+
 
 export default db;
 

@@ -14,6 +14,8 @@ import {
   generateCompanionProactiveDiary as generateStandaloneDiary
 } from '../apps/diaries/diaryGenerationService';
 
+import { getLocationPromptContext } from '../apps/location/locationPromptContext';
+
 
 
 import { runAiToolOrchestrator } from './aiToolOrchestrator';
@@ -180,8 +182,8 @@ export const parseAiResponseToMessages = async (text = '') => {
   const result = [];
 
   // 支持的 AI 卡片标签，加入 STICKER
-  const pattern =
-    /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER):\s*([^\]]+)\]/g;
+ const pattern =
+  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION):\s*([^\]]+)\]/g;
 
   // 一次性读取本地表情包库，建立「名称 -> URL」映射
   const allStickers = await db.stickers.toArray();
@@ -287,25 +289,38 @@ export const parseAiResponseToMessages = async (text = '') => {
           note: (parts[3] || '记得按时吃饭。').trim()
         }
       });
-    } else if (cardType === 'kinship') {
-      // 亲属卡：[KINSHIP: 额度数字 | 周期 | 赠言]
-      const parts = rawPayload.split('|');
+   } else if (cardType === 'kinship') {
+  // 亲属卡：[KINSHIP: 额度数字 | 周期 | 赠言]
+  const parts = rawPayload.split('|');
 
-      result.push({
-        type: 'kinship',
-        content: (parts[2] || '专属亲属卡').trim(),
-        metadata: {
-          amount: (parts[0] || '5200').trim(),
-          cycle: (parts[1] || '月度额度').trim(),
-          quote: (parts[2] || '拿去随便刷，我的就是你的。').trim()
-        }
-      });
-    } else if (cardType === 'sticker') {
-      // 表情包：[STICKER: 表情包名称]
-      // 也兼容：[STICKER: 表情包名称 | 图片URL]
-      const parts = rawPayload.split('|');
+  result.push({
+    type: 'kinship',
+    content: (parts[2] || '专属亲属卡').trim(),
+    metadata: {
+      amount: (parts[0] || '5200').trim(),
+      cycle: (parts[1] || '月度额度').trim(),
+      quote: (parts[2] || '拿去随便刷，我的就是你的。').trim()
+    }
+  });
+} else if (cardType === 'location') {
+  // 位置卡片：[LOCATION: 地点名称 | 附加感想(可选)]
+  const parts = rawPayload.split('|');
 
-      const stickerName = (parts[0] || '表情包').trim();
+  result.push({
+    type: 'location',
+    content: (parts[0] || '未知地点').trim(),
+    metadata: {
+      name: (parts[0] || '未知地点').trim(),
+      note: (parts[1] || '').trim()
+    }
+  });
+} else if (cardType === 'sticker') {
+  // 表情包：[STICKER: 表情包名称]
+  // 也兼容：[STICKER: 表情包名称 | 图片URL]
+  const parts = rawPayload.split('|');
+
+  const stickerName = (parts[0] || '表情包').trim();
+
 
       // 优先使用 AI 显式提供的 URL；
       // 通常 AI 只提供名称，因此从本地 stickerMap 自动匹配 URL。
@@ -380,6 +395,10 @@ const formatMsgContentForPrompt = (msg) => {
       msg.metadata?.amount || ''
     }元额度]`;
   }
+
+  if (msg.type === 'location') {
+  return `[分享了位置: ${msg.metadata?.name || msg.content || ''}]`;
+}
 
   return msg.content || '';
 };
@@ -940,6 +959,7 @@ ${stickerInstruction}
 - 代点温馨外卖：[FOOD: 餐饮名称 | 商家名称 | 预计送达时间 | 叮嘱留言]
 - 开通亲属额度卡：[KINSHIP: 额度数字 | 周期(如:每月) | 卡片寄语]
 - 发送本地表情包：[STICKER: 表情包名称]
+- 分享位置卡片：[LOCATION: 地点名称 | 一句附加感想(可选)]
 
 【不可逾越的输出格式终极规则（最高优先级）】：
 1. 卡片指令必须严格遵循上面 [] 的规定，括号内用 "|" 分割参数。不要杜撰任何未注册的卡片语法。
@@ -1883,6 +1903,9 @@ const characterEmotionContext = await getSafeCharacterEmotionContext({
 const almanacPromptContext =
   await getSafeAlmanacPromptContext(chatId);
 
+  const locationPromptContext =
+  await getLocationPromptContext(chatId); 
+
 const innerWorldPasswordContext =
   await getSafeInnerWorldPasswordContext({
     chatId,
@@ -1892,7 +1915,7 @@ const innerWorldPasswordContext =
 
 const finalSystemPrompt = `${
   systemPrompt
-}${memoryContext}${characterEmotionContext}${almanacPromptContext}${userReturnContext}${innerWorldPasswordContext}`;
+}${memoryContext}${characterEmotionContext}${almanacPromptContext}${locationPromptContext}${userReturnContext}${innerWorldPasswordContext}`;
 
 
 

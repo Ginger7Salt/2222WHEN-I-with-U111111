@@ -16,6 +16,8 @@ import ConfirmModal from '../../../components/ConfirmModal';
 import db from '../../../db';
 
 import { triggerGlobalToast } from '../../../components/NotificationToast';
+import { getLocationSettings, setLocationEnabled } from '../../../apps/location/placeService';
+
 
 export const ChatSettingsModal = ({
   chat,
@@ -83,9 +85,26 @@ export const ChatSettingsModal = ({
   const [editingText, setEditingText] = useState('');
   const [newSummaryText, setNewSummaryText] = useState('');
   const [showAddBox, setShowAddBox] = useState(false);
+  
 
   const bgImage = chat?.bgImage || '';
   const keepAlive = chat?.keepAlive ?? false;
+
+  // 组件内部，state区域加：
+const [locationEnabled, setLocationEnabledState] = useState(false);
+
+useEffect(() => {
+  if (!chat?.id) return;
+  getLocationSettings(chat.id).then((settings) => {
+    setLocationEnabledState(settings.enabled);
+  });
+}, [chat?.id]);
+
+const handleToggleLocation = async () => {
+  const next = !locationEnabled;
+  setLocationEnabledState(next);
+  await setLocationEnabled(chat.id, next);
+};
 
   const handleToggleKeepAliveChange = (nextValue) => {
     onToggleKeepAlive(nextValue);
@@ -686,6 +705,38 @@ export const ChatSettingsModal = ({
           </div>
         </div>
 
+ {/* 地理位置 */}
+<div
+  className="flex items-center justify-between gap-4 rounded-2xl border p-3"
+  style={{
+    background: 'var(--control-soft-bg)',
+    borderColor: 'var(--card-border)',
+  }}
+>
+  <div className="min-w-0">
+    <p className="text-xs font-medium">位置感知（地点归类）</p>
+    <p className="mt-1 text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+      开启后，{character?.name || '角色'} 会定期感知你的位置并逐渐记住你去过的地方。默认关闭。
+    </p>
+  </div>
+
+  <button
+    type="button"
+    role="switch"
+    aria-checked={locationEnabled}
+    onClick={handleToggleLocation}
+    className="relative h-5 w-10 shrink-0 rounded-full transition-colors"
+    style={{ background: locationEnabled ? 'var(--accent-color)' : 'var(--divider)' }}
+  >
+    <span
+      className="absolute top-0.5 h-4 w-4 rounded-full transition-transform"
+      style={{
+        background: 'var(--bg-main)',
+        transform: locationEnabled ? 'translateX(20px)' : 'translateX(2px)',
+      }}
+    />
+  </button>
+</div>
 
         {/* 阶段性多条目事实总结 */}
         <div

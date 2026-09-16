@@ -15,6 +15,8 @@ import {
 import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
 import RealVoiceCard from '../../../features/real-voice/components/RealVoiceCard';
 
+import LocationCard from './cards/LocationCard';
+
 import TextCard from './cards/TextCard';
 import ImageCard from './cards/ImageCard';
 import VoiceCard from './cards/VoiceCard';
@@ -241,6 +243,15 @@ const MessageRow = ({
                   isUser={isUser}
                 />
               )}
+              
+{msg.type === 'location' && (
+  <LocationCard
+    metadata={msg.metadata}
+    isUser={isUser}
+  />
+)}
+
+
             </div>
           )}
 
