@@ -142,6 +142,19 @@ const sparklesIconRef = useRef(null);
 const sendIconResetTimerRef = useRef(null);
 const sparklesIconResetTimerRef = useRef(null);
 
+useEffect(() => {
+  return () => {
+    if (sendIconResetTimerRef.current) {
+      window.clearTimeout(sendIconResetTimerRef.current);
+    }
+
+    if (sparklesIconResetTimerRef.current) {
+      window.clearTimeout(sparklesIconResetTimerRef.current);
+    }
+  };
+}, []);
+
+
 
 
 
@@ -160,6 +173,8 @@ const [showPlaceBooklet, setShowPlaceBooklet] = useState(false);
 const [pendingNamePlace, setPendingNamePlace] = useState(null);
 const [showTopMenu, setShowTopMenu] = useState(false);
 const [showInputMenu, setShowInputMenu] = useState(false);
+
+
 
 
   const defaultCss = useMemo(() => `
@@ -370,17 +385,6 @@ await db.chats.update(chat.id, {
       source: 'chat-room',
     },
   });
-
-  useEffect(() => () => {
-  if (sendIconResetTimerRef.current) {
-    window.clearTimeout(sendIconResetTimerRef.current);
-  }
-
-  if (sparklesIconResetTimerRef.current) {
-    window.clearTimeout(sparklesIconResetTimerRef.current);
-  }
-}, []);
-
 
   const unsubscribe = subscribeAiEvents((event) => {
       if (String(event.chatId) !== String(chatId)) return;
@@ -817,6 +821,7 @@ useLayoutEffect(() => {
   const bgOpacity = chat?.bgOpacity ?? 0.3;
   const isBgDimmed = chat?.isBgDimmed ?? true;
   const currentCss = chat?.customCss || defaultCss;
+
 
   if (showParallelOrbit) {
     return (
