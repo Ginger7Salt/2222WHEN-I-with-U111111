@@ -1927,7 +1927,8 @@ const finalSystemPrompt = `${
   systemPrompt
 }${memoryContext}${characterEmotionContext}${almanacPromptContext}${locationPromptContext}${userReturnContext}${innerWorldPasswordContext}`;
 
-
+console.log('[DEBUG] finalSystemPrompt 长度:', finalSystemPrompt.length);
+console.log('[DEBUG] 是否包含密码文本:', finalSystemPrompt.includes(innerWorldPasswordContext.match(/是：(.+)/)?.[1] || '__NOT_FOUND__'));
 
 const mcpTraceSession = createMcpChatTraceSession({
   chatId,
