@@ -59,6 +59,8 @@ import { INTERACTION_TYPES } from './interactions/interactionRules';
 import CheckInNotice from './check-in/CheckInNotice';
 import { checkForCrossChatCheckIn } from './check-in/checkInService';
 
+import PhotoCaptureButton from './components/PhotoCaptureButton';
+
 import './check-in/check-in.css';
 import './interactions/chat-interactions.css';
 
@@ -1380,7 +1382,7 @@ useLayoutEffect(() => {
                     <span>模拟语音</span>
                   </button>
 
-                  <button
+                                    <button
                     type="button"
                     onClick={() => {
                       setShowInputMenu(false);
@@ -1391,6 +1393,11 @@ useLayoutEffect(() => {
                     <DollarSign className="h-4 w-4" />
                     <span>心意转账</span>
                   </button>
+
+                  <PhotoCaptureButton
+                    chatId={chatId}
+                    characterId={character?.id}
+                  />
                 </div>
               </>
             )}

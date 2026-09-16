@@ -396,9 +396,21 @@ const formatMsgContentForPrompt = (msg) => {
     }元额度]`;
   }
 
-  if (msg.type === 'location') {
+    if (msg.type === 'location') {
   return `[分享了位置: ${msg.metadata?.name || msg.content || ''}]`;
 }
+
+  if (msg.type === 'photo') {
+    if (msg.metadata?.visionStatus === 'done' && msg.metadata?.visionDescription) {
+      return `[发送了一张真实照片，画面内容: ${msg.metadata.visionDescription}]`;
+    }
+
+    if (msg.metadata?.visionStatus === 'pending') {
+      return '[发送了一张真实照片，正在识别画面内容]';
+    }
+
+    return '[发送了一张真实照片，但未能识别画面内容]';
+  }
 
   return msg.content || '';
 };

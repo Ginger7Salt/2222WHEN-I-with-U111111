@@ -39,6 +39,9 @@ import { Send, Cloud, Radio } from 'lucide-react'; // 补上图标
 import { registerCloudPush } from '../../services/cloudPushService';
 import soundService from '../../services/soundService';
 
+import VisionApiSettings from '../components/settings/VisionApiSettings';
+
+
 import {
   DEFAULT_PRELOADER_QUOTE_CONFIG,
   createPreloaderQuoteCategory,
@@ -1717,9 +1720,11 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
                 ))}
               </select>
             </div>
-          )}
+                   )}
         </div>
       </GlassCard>
+
+      <VisionApiSettings />
 
       {/* 5. 今日留物设置组件（已装配） */}
       <DailyOfferingSettings />

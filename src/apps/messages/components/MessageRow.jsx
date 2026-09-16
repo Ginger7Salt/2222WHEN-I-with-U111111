@@ -26,7 +26,9 @@ import GiftCard from './cards/GiftCard';
 import FoodDeliveryCard from './cards/FoodDeliveryCard';
 import KinshipCard from './cards/KinshipCard';
 import StickerCard from './cards/StickerCard';
+import PhotoCard from './cards/PhotoCard';
 import McpUsageTraceCard from './cards/McpUsageTraceCard';
+
 import McdOrderCard from './cards/McdOrderCard';
 import AppleHealthCard from './cards/AppleHealthCard';
 import RobotActionCard from './cards/RobotActionCard';
@@ -249,6 +251,14 @@ const MessageRow = ({
 {msg.type === 'location' && (
   <LocationCard
     metadata={msg.metadata}
+    isUser={isUser}
+  />
+)}
+
+{msg.type === 'photo' && (
+  <PhotoCard
+    metadata={msg.metadata}
+    messageId={msg.id}
     isUser={isUser}
   />
 )}
