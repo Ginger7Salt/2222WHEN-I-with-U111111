@@ -379,7 +379,46 @@ await db.chats.update(chat.id, {
   hasScrolledToLatestRef.current = false;
    isLoadingMoreRef.current = false;
 
-  void loadChatData();
+  const openChatAndMarkMessagesAsRead = async () => {
+  try {
+    // 将当前聊天中角色发送的未读消息标记为已读
+    await db.messages
+      .where('chatId')
+      .equals(chatId)
+      .filter(
+        (message) =>
+          message.sender !== 'user' && message.isRead === false,
+      )
+      .modify({
+        isRead: true,
+      });
+
+    // 计算其他聊天是否仍然有未读消息
+    const unreadCount = await db.messages
+      .filter((message) => message.isRead === false)
+      .count();
+
+    // 更新桌面 PWA 角标
+    if (typeof navigator.setAppBadge === 'function') {
+      if (unreadCount > 0) {
+        await navigator.setAppBadge(unreadCount);
+      } else if (typeof navigator.clearAppBadge === 'function') {
+        await navigator.clearAppBadge();
+      }
+    }
+
+    // 重新加载聊天内容
+    await loadChatData();
+  } catch (error) {
+    console.warn('[ChatRoom] 标记消息已读失败：', error);
+
+    // 即使标记已读失败，也继续加载聊天
+    await loadChatData();
+  }
+};
+
+void openChatAndMarkMessagesAsRead();
+
 
   void recordAlmanacEvent({
     chatId,

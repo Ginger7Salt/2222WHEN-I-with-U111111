@@ -1,7 +1,7 @@
 // public/sw.js
 
 // 每次发布一个需要用户更新的版本时，递增此版本号以激活新 SW
-const CACHE_NAME = 'when-i-with-u-v13';
+const CACHE_NAME = 'when-i-with-u-v14';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径
 const APP_SCOPE = self.registration.scope;
@@ -135,10 +135,29 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// 页面确认更新后，向 waiting 状态的 SW 发送此消息
+// 页面确认更新或更新角标时，向 SW 发送此消息
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+
+  // 支持前端页面主动通知清除角标
+  if (event.data?.type === 'CLEAR_BADGE') {
+    if ('clearAppBadge' in navigator) {
+      navigator.clearAppBadge().catch(() => {});
+    }
+  }
+
+  // 支持前端页面主动通知设置角标
+  if (event.data?.type === 'SET_BADGE') {
+    const count = Number(event.data?.count) || 0;
+    if ('setAppBadge' in navigator) {
+      if (count > 0) {
+        navigator.setAppBadge(count).catch(() => {});
+      } else if ('clearAppBadge' in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
+    }
   }
 });
 
@@ -281,6 +300,50 @@ function savePushMessageToIndexedDB(payload) {
   });
 }
 
+// 辅助函数：从 IndexedDB 查询当前未读消息总数
+function getUnreadMessageCount() {
+  return new Promise((resolve) => {
+    const DB_NAME = 'WhenIWithUDatabase';
+    const request = indexedDB.open(DB_NAME, 39);
+
+    request.onerror = () => resolve(1);
+    request.onsuccess = (event) => {
+      const idb = event.target.result;
+      try {
+        if (!idb.objectStoreNames.contains('messages')) {
+          idb.close();
+          return resolve(1);
+        }
+        const tx = idb.transaction(['messages'], 'readonly');
+        const store = tx.objectStore('messages');
+        const cursorReq = store.openCursor();
+        let unreadCount = 0;
+
+        cursorReq.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            if (cursor.value && cursor.value.isRead === false) {
+              unreadCount++;
+            }
+            cursor.continue();
+          } else {
+            idb.close();
+            resolve(unreadCount || 1);
+          }
+        };
+
+        cursorReq.onerror = () => {
+          idb.close();
+          resolve(1);
+        };
+      } catch (err) {
+        idb.close();
+        resolve(1);
+      }
+    };
+  });
+}
+
 // ==========================================================
 // 监听苹果 APNs / Web Push 远程主动唤醒推送
 // ==========================================================
@@ -328,7 +391,23 @@ self.addEventListener('push', (event) => {
       })
     : Promise.resolve();
 
-  // 2. 确定显示标题
+  // 2. 更新桌面图标角标（iOS 16.4+ 支持）
+  const updateBadgeTask = (async () => {
+    if (!('setAppBadge' in navigator)) return;
+    try {
+      // 优先取服务端下发的未读数；若无，则等待消息写入完成后查 IndexedDB
+      let count = Number(payload.badgeCount || payload.badge);
+      if (!count || isNaN(count)) {
+        await saveTask;
+        count = await getUnreadMessageCount();
+      }
+      await navigator.setAppBadge(count);
+    } catch (err) {
+      console.warn('[SW-Badge] 设置桌面角标失败:', err);
+    }
+  })();
+
+  // 3. 确定显示标题
   let displayTitle = payload.characterName || payload.title;
   if (payload.type === 'diary') {
     displayTitle = `${payload.characterName || '伴侣'} · 写了新日记`;
@@ -336,7 +415,7 @@ self.addEventListener('push', (event) => {
     displayTitle = `${payload.characterName || '伴侣'} · 发布了新动态`;
   }
 
-  // 3. 锁屏通知参数补齐（开启系统通知音与震动请求）
+  // 4. 锁屏通知参数补齐（开启系统通知音与震动请求）
   const options = {
     body: payload.body || payload.messageEntity?.content || '',
     icon: 'https://s1.eisite.cn/autoupload/amqnh/20260821/dHbf/1280X1280/00-d55fd7352057ecab338faca8.png/webp',
@@ -359,6 +438,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     Promise.all([
       saveTask,
+      updateBadgeTask,
       self.registration.showNotification(displayTitle, options),
     ]),
   );
@@ -367,6 +447,11 @@ self.addEventListener('push', (event) => {
 // 点击系统通知时的处理
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // 点击通知进入应用时，尝试自动清除桌面角标
+  if ('clearAppBadge' in navigator) {
+    navigator.clearAppBadge().catch(() => {});
+  }
 
   const targetUrl = event.notification.data?.url || APP_INDEX_URL;
   const targetChatId = event.notification.data?.chatId;
@@ -397,3 +482,4 @@ self.addEventListener('notificationclick', (event) => {
       }),
   );
 });
+
