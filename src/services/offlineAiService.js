@@ -5,7 +5,7 @@ import {
   parseAiResponseToMessages,
   playMessageSound,
 } from './aiService';
-import { buildOfflineSystemPrompt } from '../../offlineSystemPrompt';
+import { buildOfflineSystemPrompt } from './offlineSystemPrompt';
 import { getChatMemoryContext } from '../apps/memory/memoryRetrieval';
 import {
   getCharacterEmotionContext,
