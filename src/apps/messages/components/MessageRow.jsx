@@ -34,6 +34,8 @@ import AppleCalendarCard from './cards/AppleCalendarCard';
 import LuckinCoffeeCard from './cards/LuckinCoffeeCard';
 import NeteaseMusicCard from './cards/NeteaseMusicCard';
 import { DidiRideCard } from './cards/DidiRideCard';
+import WeatherCard from './cards/WeatherCard';
+
 
 const MessageRow = ({
   msg,
@@ -243,7 +245,7 @@ const MessageRow = ({
                   isUser={isUser}
                 />
               )}
-              
+
 {msg.type === 'location' && (
   <LocationCard
     metadata={msg.metadata}
@@ -307,6 +309,12 @@ const MessageRow = ({
 {!isUser && messageOrderCard?.kind === 'didi_ride' && (
   <DidiRideCard card={messageOrderCard} />
 )}
+
+{/* 天气与天文环境专属卡片 */}
+{!isUser && messageOrderCard?.kind === 'weather' && (
+  <WeatherCard card={messageOrderCard} />
+)}
+
 
 
         </div>

@@ -4,6 +4,8 @@
 // 负责在工具执行完毕时，将真实返回提取为 UI 渲染用的结构化卡片数据
 
 import { parseHealthMarkdown } from './healthCardParser';
+import { parseWeatherCard } from './weatherCardParser';
+
 import {
   parseNeteaseMusicCard,
   normalizeNeteaseToolName,
@@ -783,6 +785,13 @@ if (NETEASE_TOOLS.has(normalizedToolName)) {
     const rawText = toolResult?.content?.[0]?.text || (typeof toolResult === 'string' ? toolResult : '');
     const healthCard = parseHealthMarkdown(rawText);
     if (healthCard) return healthCard;
+  }
+
+
+    // 4. 天气与天文环境匹配
+  if (/^get_weather_and_astronomy$/i.test(toolName)) {
+    const weatherCard = parseWeatherCard(toolName, toolResult);
+    if (weatherCard) return weatherCard;
   }
 
   // 4. 瑞幸匹配
