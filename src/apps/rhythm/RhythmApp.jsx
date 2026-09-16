@@ -545,98 +545,73 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
 
   html,
   body,
-  #root {
-    width: 100% !important;
-    min-width: 100% !important;
-    min-height: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
+  :root {
+    var(--rhythm-bg: #e8e8ec);
+    var(--rhythm-surface: rgba(255, 255, 255, .68));
+    var(--rhythm-surface-solid: #fbfbfc);
+    var(--rhythm-text: #171719);
+    var(--rhythm-sub: #77777d);
+    var(--rhythm-muted: #b2b2b8);
+    var(--rhythm-line: rgba(0, 0, 0, .075));
+    var(--rhythm-line-strong: rgba(0, 0, 0, .14));
+
+    var(--rhythm-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif);
+    var(--rhythm-sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif);
+    var(--rhythm-mono: "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Monaco, monospace);
+
+    var(--rhythm-spring: cubic-bezier(.16, 1, .3, 1));
+    var(--rhythm-elastic: cubic-bezier(.34, 1.56, .64, 1));
   }
 
-  html {
-    background: var(--rhythm-bg) !important;
-  }
-
-  body {
-    overflow-x: hidden !important;
-    background: var(--rhythm-bg) !important;
-    color: var(--rhythm-text);
-    font-family: var(--rhythm-sans) !important;
-  }
-
-  #root {
-    display: block !important;
-    width: 100% !important;
-    min-height: 100vh !important;
-    background: transparent !important;
-  }
-
-  #root > * {
-    width: 100% !important;
-    max-width: none !important;
-  }
-
-  *,
-  *::before,
-  *::after {
+  /* 移除了 html, body, #root 的强制锁定，防止冻结网页和污染全局 */
+  *, *::before, *::after {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
   }
 
-  button,
-  input,
-  textarea,
-  select {
+  button, input, textarea, select {
     font: inherit;
   }
-
+  
   button {
     cursor: pointer;
   }
 
+  /* 核心修复：挣脱外部框架限制，充当全屏滚动视口 */
   .rhythm-shell {
-    position: relative;
-    isolation: isolate;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9999 !important; /* 保证悬浮于原外框之上 */
 
     width: 100vw !important;
     max-width: none !important;
-    min-width: 100% !important;
+    height: 100dvh !important;
     min-height: 100dvh !important;
-    height: auto !important;
 
     margin: 0 !important;
-    padding:
-      30px
-      clamp(20px, 4vw, 64px)
-      64px !important;
+    padding: 30px clamp(20px, 4vw, 64px) 64px !important;
 
-    overflow: hidden;
+    overflow-x: hidden !important;
+    overflow-y: auto !important; /* 开启上下丝滑滚动 */
+    -webkit-overflow-scrolling: touch;
 
-    border-radius: 0 !important;
-    box-shadow: none !important;
+    background:
+      radial-gradient(circle at 12% 0%, rgba(224, 224, 231, .8), transparent 34%),
+      radial-gradient(circle at 96% 20%, rgba(207, 207, 216, .55), transparent 32%),
+      linear-gradient(135deg, #e9e9ed 0%, #f7f7f8 48%, #e5e5ea 100%) !important;
 
     color: var(--rhythm-text) !important;
-    background:
-      radial-gradient(
-        circle at 12% 0%,
-        rgba(224, 224, 231, .8),
-        transparent 34%
-      ),
-      radial-gradient(
-        circle at 96% 20%,
-        rgba(207, 207, 216, .55),
-        transparent 32%
-      ),
-      linear-gradient(
-        135deg,
-        #e9e9ed 0%,
-        #f7f7f8 48%,
-        #e5e5ea 100%
-      ) !important;
-
     font-family: var(--rhythm-sans) !important;
     font-size: 12px !important;
     line-height: 1.5 !important;
+  }
+
+  .rhythm-shell > *:not(style) {
+    position: relative;
+    z-index: 1;
+    /* 可选：如果你在PC大屏上不希望内容也无限拉长，可以取消下面两行的注释 */
+    /* max-width: 640px !important; */
+    /* margin-inline: auto !important; */
   }
 
   .rhythm-shell::before {
@@ -1396,127 +1371,7 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
       transition-duration: .01ms !important;
     }
   }
-  html,
-  body {
-    width: 100% !important;
-    min-width: 100% !important;
-    height: 100% !important;
-    min-height: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  html {
-    overflow: hidden !important;
-    background: #e8e8ec !important;
-  }
-
-  body {
-    display: block !important;
-    overflow: hidden !important;
-    background: #e8e8ec !important;
-  }
-
-  /*
-   * 关键修正：
-   * 不再让 root 参与外部 flex 居中或宽度计算，
-   * 直接占满当前视口。
-   */
-  #root {
-    position: fixed !important;
-    inset: 0 !important;
-
-    display: block !important;
-    width: auto !important;
-    max-width: none !important;
-    min-width: 0 !important;
-
-    height: 100dvh !important;
-    min-height: 100dvh !important;
-    max-height: none !important;
-
-    margin: 0 !important;
-    padding: 0 !important;
-
-    overflow: hidden !important;
-    background: transparent !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    transform: none !important;
-  }
-
-  /*
-   * 如果项目外面还有一层 App 容器，
-   * 同时清除它可能存在的 max-width、padding、圆角和阴影。
-   */
-  #root:has(.rhythm-shell) > div {
-    width: 100% !important;
-    max-width: none !important;
-    min-width: 0 !important;
-    height: 100% !important;
-    min-height: 100% !important;
-
-    margin: 0 !important;
-    padding: 0 !important;
-
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    transform: none !important;
-  }
-
-  /*
-   * 页面本体不能使用 100vw。
-   * 100vw 在存在滚动条或外部容器时容易造成横向偏移，
-   * 这里使用 100% 配合 root 的 fixed 全屏。
-   */
-  .rhythm-shell {
-    position: relative !important;
-    left: 0 !important;
-    top: 0 !important;
-
-    display: flex !important;
-    flex-direction: column !important;
-
-    width: 100% !important;
-    max-width: none !important;
-    min-width: 0 !important;
-
-    height: 100% !important;
-    min-height: 100% !important;
-    max-height: none !important;
-
-    margin: 0 !important;
-    padding:
-      28px
-      clamp(18px, 4vw, 64px)
-      56px !important;
-
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-
-    transform: none !important;
-    translate: none !important;
-  }
-
-  /*
-   * 避免任何旧的 mx-auto / max-w / transform 影响页面位置。
-   */
-  .rhythm-shell.mx-auto,
-  .rhythm-shell[class*="max-w-"],
-  .rhythm-shell[class*="translate-"],
-  .rhythm-shell[class*="scale-"] {
-    width: 100% !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    transform: none !important;
-  }
+ 
 
   /*
    * 关闭标题区域额外横线。
