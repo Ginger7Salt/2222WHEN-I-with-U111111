@@ -34,6 +34,8 @@ import NewspaperApp from './apps/newspaper/NewspaperApp';
 import MarginNotesApp from './apps/margin-notes/MarginNotesApp';
 import AlmanacApp from './apps/almanac/AlmanacApp';
 
+import { startOfflineSessionScheduler, stopOfflineSessionScheduler } from './apps/offline/offlineSessionScheduler';
+
 import { syncWorkflowsToServer } from './services/workflow/workflowSyncService';
 import { syncAllChatContextsToCloud } from './services/cloudPushService';
 
@@ -455,12 +457,10 @@ const [hubBackground, setHubBackground] = useState('');
     };
   }, []);
 
-  useEffect(() => {
+ useEffect(() => {
   let cancelled = false;
 
   (async () => {
-    // 🆕 先问服务器：这些 workflow 有没有在 App 关闭期间被代跑过，
-    // 合并结果落地后再启动本地调度器，避免重复触发。
     await pullServerWorkflowRunStatus();
 
     if (cancelled) return;
@@ -470,6 +470,7 @@ const [hubBackground, setHubBackground] = useState('');
     startScheduledMessageScheduler();
     startParallelOrbitScheduler();
     startWorkflowScheduler();
+    startOfflineSessionScheduler();
 
     void syncWorkflowsToServer();
   })();
@@ -481,8 +482,10 @@ const [hubBackground, setHubBackground] = useState('');
     stopScheduledMessageScheduler();
     stopParallelOrbitScheduler();
     stopWorkflowScheduler();
+    stopOfflineSessionScheduler();
   };
 }, []);
+
 
   useEffect(() => {
     let cancelled = false;

@@ -4079,6 +4079,28 @@ db.version(45).stores({
   `
 });
 
+db.version(46).stores({
+  messages:
+    '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex, mode, offlineSessionId, [chatId+timestamp], [chatId+mode]',
+
+  offlineSessions: `
+    ++id,
+    chatId,
+    characterId,
+    status,
+    proposedBy,
+    scheduledFor,
+    createdAt,
+    updatedAt,
+    [chatId+status]
+  `,
+
+  archivedMessages:
+    '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex, mode, offlineSessionId, archivedAt, [chatId+timestamp]',
+
+  archiveStats:
+    '&chatId, totalArchivedDays, totalArchivedMessages, lastArchivedAt, updatedAt',
+});
 
 
 export default db;

@@ -413,7 +413,7 @@ const formatMsgContentForPrompt = (msg) => {
   return msg.content || '';
 };
 
-const buildHistoryContext = (messages) => {
+export const buildHistoryContext = (messages) => {
   const historyContext = [];
 
   for (const message of messages) {
@@ -570,7 +570,7 @@ export const generateText = generateResponse;
 export const chat = generateResponse;
 
 
-const fetchAiCompletionWithTools = async ({
+export const fetchAiCompletionWithTools = async ({
   systemPrompt = '',
   messages = [],
   apiConfig: configOverride = null,
@@ -1588,10 +1588,10 @@ export const triggerCompanionshipResponse = async ({
   const apiSettings = await db.settings.get('apiConfig');
   const apiConfig = apiSettings?.value || {};
 
-  const recentMsgs = await db.messages
+    const recentMsgs = (await db.messages
     .where('chatId')
     .equals(chatId)
-    .sortBy('timestamp');
+    .sortBy('timestamp')).filter((m) => m.mode !== 'offline');
 
   const historyContext = buildHistoryContext(
     recentMsgs
@@ -1884,10 +1884,10 @@ if (character.voiceProfile?.enabled && character.voiceProfile?.aiMaySendVoice) {
 }
 
 
-    const recentMsgs = await db.messages
+    const recentMsgs = (await db.messages
   .where('chatId')
   .equals(chatId)
-  .sortBy('timestamp');
+  .sortBy('timestamp')).filter((m) => m.mode !== 'offline');
 const userReturnContext = buildUserReturnContext(recentMsgs);
 
 const historyContext = buildHistoryContext(
@@ -2226,10 +2226,10 @@ export const rerollAiResponse = async (chatId, messageId) => {
 
     const systemPrompt = await buildChatSystemPrompt(chatId, chat, character);
 
-    const allMessages = await db.messages
+        const allMessages = (await db.messages
       .where('chatId')
       .equals(chatId)
-      .sortBy('timestamp');
+      .sortBy('timestamp')).filter((m) => m.mode !== 'offline');
 
     const targetIndex = allMessages.findIndex((message) => message.id === messageId);
 
@@ -2540,7 +2540,7 @@ export const generateCompanionProactiveMessage = async (chatId) => {
     const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
 
     // 1. 获取近期聊天记录上下文（获取最后 15 条消息作为短期记忆）
-    const msgs = await db.messages.where('chatId').equals(chatId).sortBy('timestamp');
+      const msgs = (await db.messages.where('chatId').equals(chatId).sortBy('timestamp')).filter((m) => m.mode !== 'offline');
     const recentMessages = msgs.slice(-15);
     
     // 如果最后一条消息已经是 AI 刚才发的，或者距离最后一条消息发送还没有过去 5 分钟，

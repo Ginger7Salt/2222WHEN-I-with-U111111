@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
+import OfflineInviteCard from '../../offline/OfflineInviteCard';
 import RealVoiceCard from '../../../features/real-voice/components/RealVoiceCard';
 
 import LocationCard from './cards/LocationCard';
@@ -51,6 +52,7 @@ const MessageRow = ({
   onQuote,
   onSwitchVersion,
   onResolvedInteraction,
+  onEnterOfflineScene,
 }) => {
   const isUser = msg.sender === 'user';
   const versions = msg.versions || [];
@@ -168,11 +170,17 @@ const MessageRow = ({
                 <span>重新尝试 (Re-roll)</span>
               </button>
             </div>
-          ) : msg.type === 'interaction' ? (
+                    ) : msg.type === 'interaction' ? (
             <ChatInteractionMessage
               message={msg}
               character={character}
               onResolved={onResolvedInteraction}
+            />
+          ) : msg.type === 'offline_invite' ? (
+            <OfflineInviteCard
+              message={msg}
+              onEnterScene={onEnterOfflineScene}
+              onRefresh={onResolvedInteraction}
             />
           ) : (
             <div

@@ -18,8 +18,9 @@ const MessageList = ({
   onReroll,
   onDelete,
   onQuote,
-  onSwitchVersion,
+    onSwitchVersion,
   onResolvedInteraction,
+  onEnterOfflineScene,
 }) => (
   <div className="space-y-4 pb-2">
     {visibleMessages.length === 0 && (
@@ -53,8 +54,9 @@ const MessageList = ({
           onReroll={onReroll}
           onDelete={onDelete}
           onQuote={onQuote}
-          onSwitchVersion={onSwitchVersion}
+                    onSwitchVersion={onSwitchVersion}
           onResolvedInteraction={onResolvedInteraction}
+          onEnterOfflineScene={onEnterOfflineScene}
         />
       );
     })}

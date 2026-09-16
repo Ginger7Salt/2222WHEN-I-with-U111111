@@ -81,7 +81,9 @@ import {
 } from './scheduledMessageService';
 
 import ParallelOrbit from './components/ParallelOrbit';
+
 import InnerWorldApp from '../innerworld/InnerWorldApp';
+import OfflineChatRoom from '../offline/OfflineChatRoom';
 
 import { MapPinned } from 'lucide-react';
 import PlaceBooklet from '../location/PlaceBooklet';
@@ -175,6 +177,8 @@ const [showInnerWorld, setShowInnerWorld] = useState(false);
 const [showPlaceBooklet, setShowPlaceBooklet] = useState(false);
 const [pendingNamePlace, setPendingNamePlace] = useState(null);
 const [showTopMenu, setShowTopMenu] = useState(false);
+const [activeOfflineSessionId, setActiveOfflineSessionId] = useState(null);
+
 const [showInputMenu, setShowInputMenu] = useState(false);
 
 
@@ -875,12 +879,25 @@ useLayoutEffect(() => {
     );
   }
 
-    if (showInnerWorld) {
+        if (showInnerWorld) {
     return (
       <InnerWorldApp
         chatId={chatId}
         characterId={character?.id}
         onClose={() => setShowInnerWorld(false)}
+      />
+    );
+  }
+
+  if (activeOfflineSessionId) {
+    return (
+      <OfflineChatRoom
+        chatId={chatId}
+        offlineSessionId={activeOfflineSessionId}
+        onBack={() => {
+          setActiveOfflineSessionId(null);
+          void loadChatData();
+        }}
       />
     );
   }
@@ -1093,7 +1110,8 @@ useLayoutEffect(() => {
           onDelete={handleDeleteMessage}
           onQuote={setQuotedMsg}
           onSwitchVersion={handleSwitchVersion}
-          onResolvedInteraction={loadChatData}
+                   onResolvedInteraction={loadChatData}
+          onEnterOfflineScene={(sessionId) => setActiveOfflineSessionId(sessionId)}
         />
       </section>
 
