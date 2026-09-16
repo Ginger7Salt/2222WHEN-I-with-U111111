@@ -12,6 +12,8 @@ import {
   NETEASE_TOOLS,
 } from './neteaseMusicParser';
 import { parseLuckinCard } from './luckinCardParser';
+import { parseToolRawData } from './mcpRawData';
+import { parseDidiTaxiCard } from './didiTaxiCardParser';
 
 
 
@@ -383,171 +385,6 @@ const parseMcdonaldsCard = (toolName, toolResult) => {
 };
 
 
-// 滴滴出行专用解析器
-// 适配：taxi_estimate / taxi_create_order / taxi_query_order / taxi_cancel_order / taxi_get_driver_location
-// 滴滴出行专用解析器
-// 完整覆盖 5 个工具阶段：taxi_estimate / taxi_create_order / taxi_query_order / taxi_get_driver_location / taxi_cancel_order
-// 滴滴出行专用解析器（对照滴滴官方 didi-ride-skill MCP 规范）
-const parseDidiTaxiCard = (toolName, toolResult) => {
-  // 滴滴官方优先在 structuredContent 返回结构体
-  const data = toolResult?.structuredContent || parseToolRawData(toolResult);
-  if (!data || data.error || data.success === false) return null;
-
-  // 提取文本正文以兜底提取地址
-  const rawText = Array.isArray(toolResult?.content)
-    ? toolResult.content.find((part) => part?.type === 'text')?.text || ''
-    : (typeof toolResult === 'string' ? toolResult : '');
-
-  // 尝试从自然语言文本中提取起终点：“从[A]到[B]”
-  const routeMatch = rawText.match(/(?:从|起点[：:]\s*)(.+?)\s*(?:到|终点[：:]\s*)([^，,。\n：:（(]+)/);
-  const fromAddr = data.from?.name || data.from || routeMatch?.[1]?.trim() || '';
-  const toAddr = data.to?.name || data.to || routeMatch?.[2]?.trim() || '';
-
-  // -------------------------------------------------------------
-  // 1. 车型与价格预估 (taxi_estimate)
-  // -------------------------------------------------------------
-  if (/estimate/i.test(toolName)) {
-    const rawItems = Array.isArray(data.items) ? data.items : [];
-    if (rawItems.length === 0) return null;
-
-    // 官方规范：productName, productCategory, priceText
-    const items = rawItems.map((item) => {
-      // 提取纯数字以防 priceText 带"元"或货币符号
-      const priceNum = typeof item.priceText === 'number'
-        ? item.priceText
-        : parseFloat(String(item.priceText ?? item.price ?? '').replace(/[^\d.]/g, '')) || 0;
-
-      return {
-        category: item.productCategory || item.category || '',
-        productCategory: item.productCategory || '',
-        name: item.productName || item.name || '可选车型',
-        productName: item.productName || '可选车型',
-        price: priceNum,
-        priceText: String(item.priceText ?? priceNum),
-      };
-    });
-
-    return {
-      kind: 'didi_taxi',
-      subType: 'estimate',       // 供给卡片判断
-      phase: 'estimate',         // 双向兼容
-      statusText: '预计费用',
-      traceId: data.traceId || '',
-      from: fromAddr,
-      to: toAddr,
-      items,
-      summary: rawText,
-    };
-  }
-
-  // -------------------------------------------------------------
-  // 2. 创建打车订单 (taxi_create_order)
-  // -------------------------------------------------------------
-  if (/create_order/i.test(toolName)) {
-    const orderId = data.orderId || '';
-    if (!orderId && !rawText) return null;
-
-    return {
-      kind: 'didi_taxi',
-      subType: 'matching',
-      phase: 'matching',
-      orderId: String(orderId),
-      statusCode: 0, // 官方码：0 为匹配中
-      statusText: '正在为您寻找司机...',
-      from: fromAddr,
-      to: toAddr,
-      driver: null,
-      summary: rawText,
-    };
-  }
-
-  // -------------------------------------------------------------
-  // 3. 查询订单状态 (taxi_query_order)
-  // -------------------------------------------------------------
-  if (/query_order/i.test(toolName)) {
-    const statusCode = Number(data.statusCode ?? -1);
-    if (statusCode < 0 && !data.statusText && !data.orderId) return null;
-
-    // 官方状态分类
-    const isCancelled = [6, 7, 11, 12].includes(statusCode);
-    const isCompleted = statusCode === 5;
-    const phaseName = isCancelled ? 'cancelled' : isCompleted ? 'completed' : 'ride';
-
-    return {
-      kind: 'didi_taxi',
-      subType: phaseName,
-      phase: phaseName,
-      orderId: String(data.orderId || ''),
-      statusCode,
-      statusText: data.statusText || (
-        statusCode === 0 ? '正在为您寻找司机...' :
-        statusCode === 1 ? '司机已接单，赶往上车点' :
-        statusCode === 2 ? '司机已到达上车点' :
-        statusCode === 4 ? '行程中' :
-        isCompleted ? '行程已完成' :
-        isCancelled ? '订单已取消' : '行程处理中'
-      ),
-      from: fromAddr,
-      to: toAddr,
-      driver: data.driver ? {
-        name: data.driver.name || '司机师傅',
-        phone: data.driver.phone || '',
-        carPlate: data.driver.carPlate || '',
-        carModel: data.driver.carModel || '',
-      } : null,
-      // 官方文档：在 map.distanceKm 与 map.eta 下
-      distanceKm: String(data.map?.distanceKm ?? data.distanceKm ?? ''),
-      eta: String(data.map?.eta ?? data.eta ?? ''),
-      summary: rawText,
-    };
-  }
-
-  // -------------------------------------------------------------
-  // 4. 司机实时位置 (taxi_get_driver_location)
-  // -------------------------------------------------------------
-  if (/get_driver_location/i.test(toolName)) {
-    return {
-      kind: 'didi_taxi',
-      subType: 'driver_location',
-      phase: 'driver_location',
-      orderId: String(data.orderId || ''),
-      statusCode: 1,
-      statusText: data.statusText || '司机正在赶往上车点',
-      from: fromAddr,
-      to: toAddr,
-      driver: data.driver ? {
-        name: data.driver.name || '司机师傅',
-        phone: data.driver.phone || '',
-        carPlate: data.driver.carPlate || '',
-        carModel: data.driver.carModel || '',
-      } : null,
-      distanceKm: String(data.distanceKm ?? data.map?.distanceKm ?? ''),
-      eta: String(data.eta ?? data.map?.eta ?? ''),
-      summary: rawText,
-    };
-  }
-
-  // -------------------------------------------------------------
-  // 5. 取消订单 (taxi_cancel_order)
-  // -------------------------------------------------------------
-  if (/cancel_order/i.test(toolName)) {
-    return {
-      kind: 'didi_taxi',
-      subType: 'cancelled',
-      phase: 'cancelled',
-      orderId: String(data.orderId || ''),
-      statusCode: 7,
-      statusText: data.statusText || '订单已取消',
-      from: fromAddr,
-      to: toAddr,
-      driver: null,
-      summary: rawText,
-    };
-  }
-
-  return null;
-};
-
 
 
 // 全局卡片提取入口
@@ -601,11 +438,16 @@ if (NETEASE_TOOLS.has(normalizedToolName)) {
   }
 
   // 5. 滴滴出行匹配
-  // 必须放在麦当劳通用 order / store 匹配之前，避免 taxi_create_order 等工具被误拦截
-if (/taxi|didi/i.test(toolName) && /(estimate|order|location)/i.test(toolName)) {
+// 必须放在麦当劳通用 order / store 匹配之前
+if (
+  /taxi_(?:estimate|create_order|query_order|cancel_order|get_driver_location)\b/i.test(
+    toolName
+  )
+) {
   const didiTaxiCard = parseDidiTaxiCard(toolName, toolResult);
   if (didiTaxiCard) return didiTaxiCard;
 }
+
 
 
   // 6. 麦当劳匹配

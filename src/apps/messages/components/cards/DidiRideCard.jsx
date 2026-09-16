@@ -1,7 +1,17 @@
 import React from 'react';
 
 const getDisplayPrice = (item) => {
-  const rawPrice = item?.price ?? item?.priceText ?? item?.estimatePrice ?? '';
+  const rawPrice = [
+    item?.priceText,
+    item?.price,
+    item?.estimatePrice,
+  ].find(
+    (value) =>
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ''
+  ) ?? '';
+
 
   if (typeof rawPrice === 'number' && Number.isFinite(rawPrice)) {
     return Math.round(rawPrice);
@@ -27,10 +37,11 @@ export const DidiRideCard = ({ card }) => {
   // 滴滴官方终态：
   // 5 行程完成
   // 6、7、8、9、10、11、12 均属于订单终止或服务未完成
-  const isCancelled =
-    card.phase === 'cancelled' ||
-    card.subType === 'cancelled' ||
-    [6, 7, 8, 9, 10, 11, 12].includes(statusCode);
+ const isCancelled =
+  card.phase === 'cancelled' ||
+  card.subType === 'cancelled' ||
+  [3, 6, 7, 8, 9, 10, 11, 12].includes(statusCode);
+
 
   const isCompleted =
     card.phase === 'completed' ||
@@ -46,17 +57,26 @@ export const DidiRideCard = ({ card }) => {
     card.distance ||
     '';
 
-  // 避免 driver 为非对象或空对象时误判为已有司机
-  const driver =
-    card.driver && typeof card.driver === 'object'
-      ? card.driver
-      : null;
+const driver =
+  card.driver &&
+  typeof card.driver === 'object' &&
+  Object.values(card.driver).some(
+    (value) =>
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ''
+  )
+    ? card.driver
+    : null;
+
 
   const isWaitingForDriver =
-    !isEstimate &&
-    !isCancelled &&
-    !isCompleted &&
-    !driver;
+  !isEstimate &&
+  !isCancelled &&
+  !isCompleted &&
+  !driver &&
+  (statusCode === 0 || card.phase === 'matching');
+
 
   const statusText =
     card.statusText ||
