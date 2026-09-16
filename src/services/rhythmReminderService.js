@@ -58,10 +58,8 @@ export async function triggerRhythmActiveReminder(
   const cooldownMs = 4 * 60 * 60 * 1000;
 
   try {
-    const lastTimeSetting = await db.settings.get(
-      'lastRhythmReminderTime'
-    );
-
+       const cooldownKey = `lastRhythmReminderTime_${character.id}`;
+    const lastTimeSetting = await db.settings.get(cooldownKey);
     const lastTime = Number(lastTimeSetting?.value || 0);
 
     if (!force && now - lastTime < cooldownMs) {
@@ -69,6 +67,7 @@ export async function triggerRhythmActiveReminder(
         status: 'cooldown'
       };
     }
+
 
     const apiSettings = await db.settings.get('apiConfig');
     const apiConfig = apiSettings?.value || {};
@@ -79,32 +78,23 @@ export async function triggerRhythmActiveReminder(
       };
     }
 
-    const overdueTodos = await db.todos
-      .where('isCompleted')
-      .equals(0)
-      .toArray();
-
-    const pendingTodos = overdueTodos.filter((todo) => {
-      if (!todo?.dueDate) {
-        return false;
-      }
-
+        // 兼容 isCompleted 为 0 或 false 的情况
+    const allTodos = await db.todos.toArray();
+    const pendingTodos = allTodos.filter((todo) => {
+      const isDone = todo?.isCompleted === true || todo?.isCompleted === 1;
+      if (isDone || !todo?.dueDate) return false;
       const dueDate = new Date(todo.dueDate);
-
-      return !Number.isNaN(dueDate.getTime()) && dueDate <= now;
+      return !Number.isNaN(dueDate.getTime()) && dueDate.getTime() <= now;
     });
 
     const currentDate = new Date();
     const todayDayOfWeek = currentDate.getDay() || 7;
     const currentWeek = await getCurrentWeekNum();
 
-    const currentHHMM = currentDate.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-
-    const todayDateStr = currentDate.toISOString().split('T')[0];
+    const pad = (n) => String(n).padStart(2, '0');
+    // 本地安全 YYYY-MM-DD
+    const todayDateStr = `${currentDate.getFullYear()}-${pad(currentDate.getMonth() + 1)}-${pad(currentDate.getDate())}`;
+    const currentHHMM = `${pad(currentDate.getHours())}:${pad(currentDate.getMinutes())}`;
 
     const allSchedules = await db.schedules
       .where('characterId')
@@ -112,27 +102,24 @@ export async function triggerRhythmActiveReminder(
       .toArray();
 
     const activeSchedules = allSchedules.filter((schedule) => {
-      if (!schedule) {
-        return false;
-      }
+      if (!schedule) return false;
 
+      // 1. 每周重复日程
       if (schedule.isRepeating) {
-        const dayMatches =
-          Number(schedule.dayOfWeek) === todayDayOfWeek;
+        const dayMatches = Number(schedule.dayOfWeek) === todayDayOfWeek;
+        if (!dayMatches) return false;
 
+        // 如果是学生课程，必须同时满足当前学周匹配
         if (schedule.category === 'course') {
-          return (
-            dayMatches &&
-            Array.isArray(schedule.weeks) &&
-            schedule.weeks.includes(currentWeek)
-          );
+          return Array.isArray(schedule.weeks) && schedule.weeks.includes(currentWeek);
         }
-
-        return dayMatches;
+        return true;
       }
 
+      // 2. 单次日程：必须严格等于今天的本地自然日，绝不允许跨周或过期提醒
       return schedule.date === todayDateStr;
     });
+
 
     let currentSchedule = null;
     let upcomingSchedule = null;
@@ -338,10 +325,11 @@ ${todoContext ? `【用户待办提醒】：${todoContext}` : ''}
       async () => {
         messageId = await db.messages.add(messagePayload);
 
-        await db.settings.put({
-          key: 'lastRhythmReminderTime',
+               await db.settings.put({
+          key: `lastRhythmReminderTime_${character.id}`,
           value: String(now)
         });
+
 
         await db.chats.update(chatId, {
           updatedAt: nowIso

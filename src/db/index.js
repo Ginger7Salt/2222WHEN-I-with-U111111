@@ -4066,6 +4066,19 @@ db.version(44).stores({
   `,
 });
 
+db.version(45).stores({
+  rhythmNotes: `
+    ++id,
+    scheduleId,
+    characterId,
+    date,
+    content,
+    createdAt,
+    [scheduleId+date],
+    [characterId+date]
+  `
+});
+
 
 
 export default db;
