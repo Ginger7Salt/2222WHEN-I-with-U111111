@@ -20,6 +20,7 @@ import {
   ReceiptText,
   Moon,
   Compass,
+  Plus,
 } from 'lucide-react';
 
 import db from '../../db';
