@@ -19,6 +19,7 @@ import {
   BookOpen,
   ReceiptText,
   Moon,
+  Menu,
 } from 'lucide-react';
 
 import db from '../../db';
@@ -140,6 +141,8 @@ const isLoadingMoreRef = useRef(false);
 const [showInnerWorld, setShowInnerWorld] = useState(false);
 const [showPlaceBooklet, setShowPlaceBooklet] = useState(false);
 const [pendingNamePlace, setPendingNamePlace] = useState(null);
+const [showTopMenu, setShowTopMenu] = useState(false);
+const [showInputMenu, setShowInputMenu] = useState(false);
 
 
   const defaultCss = useMemo(() => `
@@ -839,18 +842,20 @@ useLayoutEffect(() => {
 
       <header className="z-20 shrink-0 px-4 pb-1 pt-3">
         <div className="flex items-center justify-between pb-1">
-          <div className="flex items-center gap-2">
+          
+          <div className="relative flex items-center gap-2">
             <button
               type="button"
               onClick={onBack}
-              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold opacity-85 transition-opacity hover:opacity-100"
+              className="flex items-center justify-center rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
               style={{
                 background: 'var(--control-soft-bg)',
                 color: 'var(--text-main)',
               }}
+              title="返回列表"
+              aria-label="返回列表"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>返回列表</span>
             </button>
 
             <button
@@ -867,36 +872,62 @@ useLayoutEffect(() => {
               <BookOpen className="h-4 w-4" />
             </button>
 
-                        <button
+            <button
               type="button"
-              onClick={() => setShowInnerWorld(true)}
+              onClick={() => setShowTopMenu((previous) => !previous)}
               className="flex items-center justify-center rounded-full p-2 opacity-80 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
               style={{
                 color: 'var(--text-main)',
                 border: '1px solid var(--card-border)',
                 background: 'var(--control-soft-bg)',
               }}
-              title="内心主页"
+              title="更多入口"
+              aria-label="更多入口"
             >
-              <Moon className="h-4 w-4" />
+              <Menu className="h-4 w-4" />
             </button>
 
-<button
-  type="button"
-  onClick={() => setShowPlaceBooklet(true)}
-  className="flex items-center justify-center rounded-full p-2 opacity-80 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
-  style={{
-    color: 'var(--text-main)',
-    border: '1px solid var(--card-border)',
-    background: 'var(--control-soft-bg)',
-  }}
-  title="地点小册子"
-  aria-label="地点小册子"
->
-  <MapPinned className="h-4 w-4" />
-</button>
+            {showTopMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setShowTopMenu(false)}
+                />
 
+                <div
+                  className="absolute left-0 top-full z-40 mt-1 w-36 overflow-hidden rounded-2xl py-1 shadow-xl"
+                  style={{
+                    background: 'var(--card-bg-gradient)',
+                    color: 'var(--text-main)',
+                    border: '1px solid var(--card-border)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTopMenu(false);
+                      setShowInnerWorld(true);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <Moon className="h-4 w-4" />
+                    <span>内心主页</span>
+                  </button>
 
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTopMenu(false);
+                      setShowPlaceBooklet(true);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <MapPinned className="h-4 w-4" />
+                    <span>地点小册子</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
                  <div className="flex items-center gap-2">
@@ -1193,7 +1224,7 @@ useLayoutEffect(() => {
             boxShadow: '0 16px 40px rgba(0, 0, 0, 0.15)',
           }}
         >
-          <div className="flex items-center gap-1 opacity-80">
+          <div className="relative flex items-center gap-1 opacity-80">
             <InteractiveMenuPopover
               onSelectAction={(type) => {
                 if (type === 'sticker') {
@@ -1222,42 +1253,71 @@ useLayoutEffect(() => {
 
             <button
               type="button"
-              onClick={() => setSelectedType('image')}
+              onClick={() => setShowInputMenu((previous) => !previous)}
               className={`rounded-full p-2 transition-all active:scale-90 ${
-                selectedType === 'image'
+                selectedType === 'image' || selectedType === 'voice' || selectedType === 'transfer'
                   ? 'bg-[var(--control-soft-bg)] opacity-100'
                   : 'hover:opacity-100'
               }`}
-              title="画面描述"
+              title="更多输入方式"
+              aria-label="更多输入方式"
             >
-              <Image className="h-4 w-4" />
+              <Menu className="h-4 w-4" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => setSelectedType('voice')}
-              className={`rounded-full p-2 transition-all active:scale-90 ${
-                selectedType === 'voice'
-                  ? 'bg-[var(--control-soft-bg)] opacity-100'
-                  : 'hover:opacity-100'
-              }`}
-              title="模拟语音"
-            >
-              <Volume2 className="h-4 w-4" />
-            </button>
+            {showInputMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setShowInputMenu(false)}
+                />
 
-            <button
-              type="button"
-              onClick={() => setSelectedType('transfer')}
-              className={`rounded-full p-2 transition-all active:scale-90 ${
-                selectedType === 'transfer'
-                  ? 'bg-[var(--control-soft-bg)] opacity-100'
-                  : 'hover:opacity-100'
-              }`}
-              title="心意转账"
-            >
-              <DollarSign className="h-4 w-4" />
-            </button>
+                <div
+                  className="absolute bottom-full left-0 z-40 mb-2 w-36 overflow-hidden rounded-2xl py-1 shadow-xl"
+                  style={{
+                    background: 'var(--card-bg-gradient)',
+                    color: 'var(--text-main)',
+                    border: '1px solid var(--card-border)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowInputMenu(false);
+                      setSelectedType('image');
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <Image className="h-4 w-4" />
+                    <span>画面描述</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowInputMenu(false);
+                      setSelectedType('voice');
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                    <span>模拟语音</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowInputMenu(false);
+                      setSelectedType('transfer');
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <DollarSign className="h-4 w-4" />
+                    <span>心意转账</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           <textarea
