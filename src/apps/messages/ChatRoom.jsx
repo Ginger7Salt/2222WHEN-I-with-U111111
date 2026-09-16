@@ -139,6 +139,9 @@ export const ChatRoom = ({
 
 const sendIconRef = useRef(null);
 const sparklesIconRef = useRef(null);
+const sendIconResetTimerRef = useRef(null);
+const sparklesIconResetTimerRef = useRef(null);
+
 
 
 
@@ -367,6 +370,17 @@ await db.chats.update(chat.id, {
       source: 'chat-room',
     },
   });
+
+  useEffect(() => () => {
+  if (sendIconResetTimerRef.current) {
+    window.clearTimeout(sendIconResetTimerRef.current);
+  }
+
+  if (sparklesIconResetTimerRef.current) {
+    window.clearTimeout(sparklesIconResetTimerRef.current);
+  }
+}, []);
+
 
   const unsubscribe = subscribeAiEvents((event) => {
       if (String(event.chatId) !== String(chatId)) return;
@@ -648,12 +662,26 @@ useLayoutEffect(() => {
     });
   };
 
+  const playIconOnce = (iconRef, resetTimerRef) => {
+  if (resetTimerRef.current) {
+    window.clearTimeout(resetTimerRef.current);
+  }
+
+  iconRef.current?.startAnimation();
+
+  resetTimerRef.current = window.setTimeout(() => {
+    iconRef.current?.stopAnimation();
+    resetTimerRef.current = null;
+  }, 1000);
+};
+
   const handleSendButtonClick = () => {
   if (!inputText.trim() && selectedType === 'text') return;
 
-  sendIconRef.current?.startAnimation();
+  playIconOnce(sendIconRef, sendIconResetTimerRef);
   void handleSendMessage();
 };
+
 
 
   const handleTriggerAi = () => {
@@ -666,9 +694,10 @@ useLayoutEffect(() => {
   const handleTriggerAiButtonClick = () => {
   if (!character || isAiTyping) return;
 
-  sparklesIconRef.current?.startAnimation();
+  playIconOnce(sparklesIconRef, sparklesIconResetTimerRef);
   handleTriggerAi();
 };
+
 
 
   const handleRerollMessage = useCallback((messageId) => {
