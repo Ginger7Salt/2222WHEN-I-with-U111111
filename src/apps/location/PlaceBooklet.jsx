@@ -3,6 +3,29 @@ import { ArrowLeft, MapPin, Trash2 } from 'lucide-react';
 
 import { listPlaces, deletePlace } from './placeService';
 
+const MAP_POINTS = [
+  [58, 76],
+  [142, 54],
+  [224, 108],
+  [310, 62],
+  [352, 154],
+  [278, 224],
+  [174, 202],
+  [78, 236],
+  [126, 142],
+  [238, 178],
+];
+
+const getMapPoint = (index) => {
+  if (index < MAP_POINTS.length) return MAP_POINTS[index];
+
+  const angle = index * 1.7;
+  return [
+    200 + Math.cos(angle) * 135,
+    145 + Math.sin(angle) * 92,
+  ];
+};
+
 const PlaceBooklet = ({ chatId, character, onBack }) => {
   const [places, setPlaces] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -27,31 +50,19 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
     await reload();
   };
 
-  const mapPoints = useMemo(() => {
-    const positions = [
-      { x: 112, y: 156 },
-      { x: 248, y: 92 },
-      { x: 390, y: 196 },
-      { x: 530, y: 128 },
-      { x: 675, y: 224 },
-      { x: 742, y: 108 },
-      { x: 610, y: 358 },
-      { x: 438, y: 326 },
-      { x: 260, y: 378 },
-      { x: 92, y: 324 },
-    ];
+  const mapPoints = useMemo(
+    () => places.map((_, index) => getMapPoint(index)),
+    [places],
+  );
 
-    return places.map((place, index) => ({
-      ...place,
-      ...(positions[index % positions.length]),
-    }));
-  }, [places]);
+  const activePoint = mapPoints[activeIndex] || [200, 145];
+  const mapScale = 1.34;
+  const mapTranslateX = 200 - activePoint[0] * mapScale;
+  const mapTranslateY = 145 - activePoint[1] * mapScale;
 
-  const activePoint = mapPoints[activeIndex];
-
-  const mapTransform = activePoint
-    ? `translate(${400 - activePoint.x * 1.42} ${240 - activePoint.y * 1.42}) scale(1.42)`
-    : 'translate(0 0) scale(1)';
+  const routePath = mapPoints
+    .map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${x} ${y}`)
+    .join(' ');
 
   return (
     <div
@@ -63,10 +74,10 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
     >
       <style>{`
         .place-booklet {
-          --map-ink: rgba(30,32,38,.72);
-          --map-muted: rgba(40,44,52,.34);
-          --map-faint: rgba(40,44,52,.12);
-          --map-accent: var(--accent-color);
+          --map-ink: var(--text-main);
+          --map-muted: rgba(100,100,110,.36);
+          --map-line: rgba(100,100,110,.14);
+          --map-glow: var(--accent-color);
           overflow: hidden;
         }
         .place-booklet-header {
@@ -75,23 +86,23 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           display: flex;
           align-items: center;
           gap: 14px;
-          padding: 20px 22px 13px;
+          padding: 22px 22px 15px;
         }
         .place-booklet-header::after {
           content: "";
           position: absolute;
-          left: 22px;
           right: 22px;
           bottom: 0;
+          left: 22px;
           height: 1px;
-          background: linear-gradient(90deg, transparent, var(--divider), transparent);
+          background: linear-gradient(90deg, transparent, var(--map-line), transparent);
         }
         .place-back-button {
           display: flex;
           align-items: center;
           gap: 6px;
-          padding: 5px 0;
           border: 0;
+          padding: 5px 0;
           background: transparent;
           color: var(--text-main);
           opacity: .58;
@@ -102,351 +113,347 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           opacity: 1;
           transform: translateX(-3px);
         }
-        .place-title {
+        .place-booklet-title {
           font-size: 15px;
           font-weight: 700;
           letter-spacing: -.35px;
         }
-        .place-title-sub {
-          margin-top: 3px;
-          color: var(--text-main);
+        .place-booklet-title small {
+          display: block;
+          margin-top: 4px;
           font-size: 9px;
-          letter-spacing: 1.2px;
-          opacity: .35;
+          font-weight: 600;
+          letter-spacing: 1.8px;
+          opacity: .34;
           text-transform: uppercase;
         }
-        .place-content {
+        .place-booklet-content {
           min-height: 0;
           flex: 1;
           overflow-y: auto;
-          padding: 18px 0 108px;
+          padding: 13px 22px 110px;
           scrollbar-width: none;
         }
-        .place-content::-webkit-scrollbar {
+        .place-booklet-content::-webkit-scrollbar {
           display: none;
         }
-        .map-stage {
-          position: relative;
-          height: min(54vw, 330px);
-          min-height: 245px;
-          overflow: hidden;
-          background:
-            radial-gradient(circle at 50% 45%, rgba(255,255,255,.4), transparent 65%),
-            linear-gradient(135deg, rgba(0,0,0,.035), transparent 55%);
-          border-top: 1px solid var(--map-faint);
-          border-bottom: 1px solid var(--map-faint);
-        }
-        .map-stage::before,
-        .map-stage::after {
-          content: "";
-          position: absolute;
-          pointer-events: none;
-          z-index: 2;
-        }
-        .map-stage::before {
-          inset: 0;
-          background:
-            linear-gradient(90deg, transparent 49.8%, var(--map-faint) 50%, transparent 50.2%),
-            linear-gradient(0deg, transparent 49.8%, var(--map-faint) 50%, transparent 50.2%);
-          opacity: .55;
-        }
-        .map-stage::after {
-          left: 50%;
-          top: 50%;
-          width: 1px;
-          height: 78%;
-          background: linear-gradient(transparent, var(--map-muted), transparent);
-          transform: translate(-50%, -50%);
-          opacity: .35;
-        }
         .virtual-map {
-          width: 100%;
-          height: 100%;
-          display: block;
-        }
-        .map-world {
-          transform-box: fill-box;
-          transform-origin: center;
-          transition: transform .9s cubic-bezier(.16,1,.3,1);
-        }
-        .map-terrain {
-          fill: none;
-          stroke: var(--map-ink);
-          stroke-width: 1.2;
-          opacity: .16;
-        }
-        .map-terrain-light {
-          fill: none;
-          stroke: var(--map-ink);
-          stroke-width: .8;
-          opacity: .1;
-        }
-        .map-road {
-          fill: none;
-          stroke: rgba(255,255,255,.82);
-          stroke-width: 7;
-          stroke-linecap: round;
-          opacity: .8;
-        }
-        .map-road-thin {
-          fill: none;
-          stroke: var(--map-muted);
-          stroke-width: 1;
-          stroke-dasharray: 3 7;
-          opacity: .36;
-        }
-        .map-river {
-          fill: none;
-          stroke: var(--map-accent);
-          stroke-width: 4;
-          stroke-linecap: round;
-          opacity: .28;
-        }
-        .map-route {
-          fill: none;
-          stroke: var(--map-ink);
-          stroke-width: 2.5;
-          stroke-linecap: round;
-          stroke-dasharray: 7 8;
-          animation: map-route-flow 18s linear infinite;
-        }
-        @keyframes map-route-flow {
-          to {
-            stroke-dashoffset: -300;
-          }
-        }
-        .map-point {
-          cursor: pointer;
-        }
-        .map-point-core {
-          fill: var(--map-accent);
-          stroke: var(--bg-main);
-          stroke-width: 5;
-          transition: r .45s cubic-bezier(.16,1,.3,1), stroke-width .45s ease;
-        }
-        .map-point-ring {
-          fill: none;
-          stroke: var(--map-accent);
-          stroke-width: 1.5;
-          opacity: .28;
-          transition: r .5s cubic-bezier(.16,1,.3,1), opacity .4s ease;
-        }
-        .map-point[data-active="true"] .map-point-core {
-          r: 10;
-          stroke-width: 4;
-        }
-        .map-point[data-active="true"] .map-point-ring {
-          r: 23;
-          opacity: .65;
-          animation: point-pulse 2s ease-out infinite;
-        }
-        @keyframes point-pulse {
-          0% {
-            opacity: .7;
-            stroke-width: 2;
-          }
-          100% {
-            opacity: 0;
-            stroke-width: .5;
-            r: 38;
-          }
-        }
-        .map-point-label {
-          pointer-events: none;
-          fill: var(--text-main);
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: -.2px;
-          opacity: 0;
-          transform: translateY(5px);
-          transition: opacity .4s ease, transform .4s ease;
-        }
-        .map-point[data-active="true"] .map-point-label {
-          opacity: .88;
-          transform: translateY(0);
-        }
-        .map-heading {
-          position: absolute;
-          z-index: 3;
-          top: 17px;
-          left: 22px;
-          color: var(--text-main);
-          pointer-events: none;
-        }
-        .map-heading strong {
-          display: block;
-          font-size: 12px;
-          letter-spacing: .2px;
-        }
-        .map-heading span {
-          display: block;
-          margin-top: 3px;
-          font-size: 9px;
-          letter-spacing: 1.3px;
-          opacity: .38;
-        }
-        .map-route-caption {
-          position: absolute;
-          z-index: 3;
-          right: 22px;
-          bottom: 18px;
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          color: var(--text-main);
-          font-size: 10px;
-          opacity: .52;
-          pointer-events: none;
-        }
-        .map-route-caption i {
-          display: block;
-          width: 18px;
-          height: 1px;
-          background: var(--text-main);
-          opacity: .6;
-        }
-        .active-place-info {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 18px;
-          padding: 19px 22px 11px;
-        }
-        .active-place-name {
+          position: relative;
+          height: 310px;
+          margin: 0 -22px 25px;
           overflow: hidden;
-          font-size: 20px;
-          font-weight: 750;
-          letter-spacing: -.7px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          background:
+            radial-gradient(circle at 50% 48%, rgba(255,255,255,.6), transparent 60%),
+            linear-gradient(145deg, rgba(0,0,0,.025), rgba(255,255,255,.18));
+          mask-image: linear-gradient(180deg, transparent 0, #000 10%, #000 88%, transparent 100%);
         }
-        .active-place-meta {
+        .map-caption {
+          position: absolute;
+          top: 25px;
+          left: 23px;
+          z-index: 3;
+          pointer-events: none;
+        }
+        .map-caption-label {
+          color: var(--text-main);
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 2px;
+          opacity: .34;
+          text-transform: uppercase;
+        }
+        .map-caption-title {
           margin-top: 5px;
           color: var(--text-main);
-          font-size: 10px;
-          opacity: .46;
+          font-family: Georgia, serif;
+          font-size: 21px;
+          font-style: italic;
+          letter-spacing: -.7px;
+          opacity: .8;
         }
-        .active-place-index {
-          flex-shrink: 0;
+        .map-svg {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
+        .map-world {
+          transition: transform .85s cubic-bezier(.16,1,.3,1);
+          transform-origin: 200px 145px;
+        }
+        .map-grid {
+          stroke: var(--map-line);
+          stroke-width: .8;
+          fill: none;
+        }
+        .map-contour {
+          stroke: var(--map-muted);
+          stroke-width: 1;
+          fill: none;
+          opacity: .68;
+        }
+        .map-river {
+          stroke: rgba(100,125,145,.26);
+          stroke-width: 10;
+          fill: none;
+          stroke-linecap: round;
+        }
+        .map-river-inner {
+          stroke: rgba(255,255,255,.55);
+          stroke-width: 2;
+          fill: none;
+          stroke-linecap: round;
+        }
+        .map-route-shadow {
+          stroke: var(--map-glow);
+          stroke-width: 5;
+          opacity: .12;
+          fill: none;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        .map-route {
+          stroke: var(--map-ink);
+          stroke-width: 1.8;
+          stroke-dasharray: 3 5;
+          fill: none;
+          opacity: .7;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          animation: mapRouteFlow 18s linear infinite;
+        }
+        @keyframes mapRouteFlow {
+          to {
+            stroke-dashoffset: -160;
+          }
+        }
+        .map-marker {
+          cursor: pointer;
+          transition: opacity .3s ease;
+        }
+        .map-marker-core {
+          fill: var(--text-main);
+          stroke: var(--bg-main);
+          stroke-width: 2;
+          transition: fill .45s ease, transform .45s cubic-bezier(.16,1,.3,1);
+          transform-box: fill-box;
+          transform-origin: center;
+        }
+        .map-marker-ring {
+          fill: none;
+          stroke: var(--text-main);
+          stroke-width: 1;
+          opacity: .22;
+          transition: opacity .4s ease, stroke .4s ease, transform .5s ease;
+          transform-box: fill-box;
+          transform-origin: center;
+        }
+        .map-marker-active .map-marker-core {
+          fill: var(--map-glow);
+          transform: scale(1.7);
+        }
+        .map-marker-active .map-marker-ring {
+          stroke: var(--map-glow);
+          opacity: .8;
+          animation: markerPulse 1.8s ease-out infinite;
+        }
+        .map-marker-active .map-marker-label {
+          opacity: 1;
+          transform: translateY(-3px);
+        }
+        @keyframes markerPulse {
+          0% {
+            transform: scale(.8);
+            opacity: .9;
+          }
+          100% {
+            transform: scale(2.2);
+            opacity: 0;
+          }
+        }
+        .map-marker-label {
+          fill: var(--text-main);
+          font-size: 8px;
+          font-weight: 700;
+          opacity: .38;
+          transform-box: fill-box;
+          transform-origin: center;
+          transition: opacity .4s ease, transform .4s ease;
+        }
+        .map-compass {
+          position: absolute;
+          right: 24px;
+          bottom: 30px;
+          display: flex;
+          width: 32px;
+          height: 32px;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--map-line);
+          border-radius: 50%;
           color: var(--text-main);
+          font-size: 9px;
+          opacity: .42;
+        }
+        .map-compass::after {
+          content: "";
+          position: absolute;
+          width: 1px;
+          height: 10px;
+          background: var(--text-main);
+          transform: translateY(-7px);
+        }
+        .place-section-heading {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+        .place-section-heading h2 {
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: .2px;
+        }
+        .place-section-heading span {
           font-size: 10px;
-          letter-spacing: 1px;
-          opacity: .4;
+          opacity: .35;
         }
         .place-list {
           display: flex;
-          gap: 7px;
-          overflow-x: auto;
-          padding: 7px 22px 20px;
-          scrollbar-width: none;
-          scroll-snap-type: x proximity;
+          flex-direction: column;
         }
-        .place-list::-webkit-scrollbar {
-          display: none;
-        }
-        .place-item {
+        .place-entry {
           position: relative;
           display: flex;
-          min-width: 168px;
+          width: 100%;
           align-items: center;
-          gap: 10px;
-          padding: 11px 12px;
+          gap: 13px;
           border: 0;
-          border-bottom: 1px solid var(--divider);
+          border-bottom: 1px solid var(--map-line);
+          padding: 14px 0;
           background: transparent;
           color: var(--text-main);
           text-align: left;
           cursor: pointer;
-          scroll-snap-align: start;
-          opacity: .46;
-          transition: opacity .35s ease, transform .45s cubic-bezier(.16,1,.3,1), background .35s ease;
+          transition: opacity .3s ease, transform .35s ease;
         }
-        .place-item:hover {
-          opacity: .78;
-          transform: translateY(-3px);
+        .place-entry:hover {
+          transform: translateX(4px);
         }
-        .place-item[data-active="true"] {
-          border-radius: 16px;
-          background: var(--control-soft-bg);
+        .place-entry::before {
+          content: "";
+          position: absolute;
+          left: -22px;
+          width: 3px;
+          height: 24px;
+          border-radius: 0 4px 4px 0;
+          background: var(--accent-color);
+          opacity: 0;
+          transform: scaleY(.4);
+          transition: opacity .35s ease, transform .35s ease;
+        }
+        .place-entry[data-active="true"]::before {
           opacity: 1;
-          box-shadow: 0 12px 28px -20px rgba(0,0,0,.35);
+          transform: scaleY(1);
         }
-        .place-item-mark {
+        .place-entry-mark {
           display: flex;
-          width: 26px;
-          height: 26px;
+          width: 38px;
+          height: 38px;
           flex-shrink: 0;
           align-items: center;
           justify-content: center;
           border-radius: 50%;
-          background: var(--booklet-mark-bg, rgba(0,0,0,.06));
+          background: rgba(0,0,0,.045);
           color: var(--text-main);
-          transition: background .35s ease, color .35s ease, transform .45s cubic-bezier(.16,1,.3,1);
+          transition: background .4s ease, color .4s ease, transform .4s ease;
         }
-        .place-item[data-active="true"] .place-item-mark {
+        .place-entry[data-active="true"] .place-entry-mark {
           background: var(--accent-color);
           color: var(--accent-foreground);
-          transform: scale(1.15);
+          transform: scale(1.12);
+          box-shadow: 0 8px 24px -9px var(--accent-color);
         }
-        .place-item-text {
+        .place-entry-info {
           min-width: 0;
+          flex: 1;
         }
-        .place-item-name {
+        .place-entry-name {
           overflow: hidden;
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 700;
+          letter-spacing: -.2px;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .place-item-date {
-          margin-top: 3px;
-          font-size: 9px;
-          opacity: .48;
+        .place-entry-meta {
+          margin-top: 4px;
+          overflow: hidden;
+          font-size: 10px;
+          opacity: .43;
+          text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .place-delete {
-          position: absolute;
-          top: 4px;
-          right: 4px;
+        .place-delete-button {
           display: flex;
-          width: 21px;
-          height: 21px;
+          width: 28px;
+          height: 28px;
+          flex-shrink: 0;
           align-items: center;
           justify-content: center;
           border: 0;
           border-radius: 50%;
           background: transparent;
           color: var(--text-main);
-          opacity: 0;
+          opacity: .24;
           cursor: pointer;
-          transition: opacity .25s ease, color .25s ease, background .25s ease;
+          transition: color .25s ease, background .25s ease, opacity .25s ease;
         }
-        .place-item:hover .place-delete,
-        .place-item[data-active="true"] .place-delete {
-          opacity: .42;
-        }
-        .place-delete:hover {
-          background: rgba(180,40,40,.12);
+        .place-delete-button:hover {
+          background: rgba(180,45,45,.1);
           color: #a52e36;
-          opacity: 1 !important;
+          opacity: 1;
         }
-        .empty-state {
+        .place-empty-state {
           display: flex;
-          min-height: 52vh;
+          min-height: 60vh;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           gap: 12px;
           text-align: center;
-          opacity: .42;
+          opacity: .4;
         }
-        .empty-state p {
+        .place-empty-state p {
           max-width: 240px;
           line-height: 1.7;
         }
+        .place-booklet-footer {
+          position: relative;
+          z-index: 4;
+          flex-shrink: 0;
+          padding: 13px 22px 22px;
+          background: linear-gradient(180deg, transparent, var(--bg-main) 32%);
+        }
+        .place-booklet-footer::before {
+          content: "";
+          display: block;
+          width: 30px;
+          height: 2px;
+          margin-bottom: 9px;
+          border-radius: 2px;
+          background: var(--accent-color);
+          opacity: .7;
+        }
+        .place-booklet-footer p {
+          font-size: 10px;
+          font-style: italic;
+          opacity: .45;
+        }
       `}</style>
 
-      <header className="place-booklet-header">
+      <header className="place-booklet-header shrink-0">
         <button
           type="button"
           onClick={onBack}
@@ -456,17 +463,13 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           <span>返回</span>
         </button>
 
-        <div>
-          <div className="place-title">
-            {character?.name || '伴侣'} 认识的地方
-          </div>
-          <div className="place-title-sub">
-            Memory atlas · shared places
-          </div>
+        <div className="place-booklet-title">
+          {character?.name || '伴侣'} 认识的地方
+          <small>Places remembered together</small>
         </div>
       </header>
 
-      <section className="place-content">
+      <section className="place-booklet-content">
         {isLoading && (
           <p className="py-16 text-center text-xs opacity-40">
             正在翻找记忆里的地点...
@@ -474,7 +477,7 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         )}
 
         {!isLoading && places.length === 0 && (
-          <div className="empty-state">
+          <div className="place-empty-state">
             <MapPin className="h-7 w-7" />
             <p className="font-serif text-xs italic">
               还没有留下足迹，等你们一起走过更多地方吧。
@@ -484,164 +487,133 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
         {!isLoading && places.length > 0 && (
           <>
-            <div className="map-stage">
-              <div className="map-heading">
-                <strong>SHARED TERRITORY</strong>
-                <span>PLACES WE HAVE KNOWN</span>
-              </div>
-
-              <div className="map-route-caption">
-                <i />
-                <span>memory route</span>
+            <div className="virtual-map">
+              <div className="map-caption">
+                <div className="map-caption-label">Memory Atlas</div>
+                <div className="map-caption-title">
+                  {activePlace?.name || 'Places'}
+                </div>
               </div>
 
               <svg
-                className="virtual-map"
-                viewBox="0 0 800 480"
-                preserveAspectRatio="xMidYMid slice"
-                aria-label="地点记忆地图"
+                className="map-svg"
+                viewBox="0 0 400 290"
+                fill="none"
+                preserveAspectRatio="xMidYMid meet"
               >
-                <g className="map-world" transform={mapTransform}>
+                <g
+                  className="map-world"
+                  transform={`translate(${mapTranslateX} ${mapTranslateY}) scale(${mapScale})`}
+                >
+                  <path
+                    className="map-grid"
+                    d="M18 36C82 12 122 62 188 38S304 18 382 48
+                       M8 112C76 87 124 142 194 116S316 92 392 128
+                       M14 188C80 160 132 216 204 188S314 170 386 204
+                       M48 12C36 76 78 124 54 274
+                       M132 5C116 76 158 126 138 286
+                       M228 5C208 76 256 138 232 286
+                       M322 4C298 70 350 142 326 286"
+                  />
+
+                  <path
+                    className="map-contour"
+                    d="M24 76C74 51 114 80 156 70S248 38 302 67S354 88 388 72"
+                  />
+                  <path
+                    className="map-contour"
+                    d="M18 154C74 130 112 165 164 151S258 123 306 148S352 170 389 151"
+                  />
+                  <path
+                    className="map-contour"
+                    d="M34 242C87 215 132 250 186 234S278 207 334 235S365 252 390 244"
+                  />
+
                   <path
                     className="map-river"
-                    d="M-40 350 C80 280 120 350 205 286 S340 178 416 232 S560 330 835 105"
+                    d="M-15 240C62 210 76 148 130 143S188 181 232 143S292 53 421 76"
+                  />
+                  <path
+                    className="map-river-inner"
+                    d="M-15 240C62 210 76 148 130 143S188 181 232 143S292 53 421 76"
                   />
 
-                  <path
-                    className="map-road"
-                    d="M-40 120 C115 178 182 82 315 140 S510 315 850 270"
-                  />
-                  <path
-                    className="map-road"
-                    d="M70 490 C178 390 218 270 344 244 S580 148 810 -20"
-                  />
+                  {mapPoints.length > 1 && (
+                    <>
+                      <path className="map-route-shadow" d={routePath} />
+                      <path className="map-route" d={routePath} />
+                    </>
+                  )}
 
-                  <path
-                    className="map-road-thin"
-                    d="M0 226 C120 190 188 210 310 188 S550 210 800 150"
-                  />
-                  <path
-                    className="map-road-thin"
-                    d="M82 20 C198 100 215 210 274 480"
-                  />
-                  <path
-                    className="map-road-thin"
-                    d="M580 0 C522 115 586 224 758 480"
-                  />
+                  {places.map((place, index) => {
+                    const [x, y] = mapPoints[index];
+                    const isActive = index === activeIndex;
 
-                  <path
-                    className="map-terrain"
-                    d="M-30 90 C70 30 170 62 242 30 S382 22 472 64 S672 44 835 92"
-                  />
-                  <path
-                    className="map-terrain"
-                    d="M-30 115 C74 55 175 88 250 56 S388 50 478 88 S676 72 835 117"
-                  />
-                  <path
-                    className="map-terrain"
-                    d="M-30 145 C80 83 180 118 260 84 S398 80 488 112 S680 104 835 144"
-                  />
-                  <path
-                    className="map-terrain-light"
-                    d="M20 386 C108 328 165 370 242 332 S402 290 510 342 S685 385 820 330"
-                  />
-                  <path
-                    className="map-terrain-light"
-                    d="M-10 414 C105 355 167 398 250 357 S405 320 520 370 S690 416 840 355"
-                  />
-
-                  <path
-                    className="map-route"
-                    d={mapPoints.length > 1
-                      ? mapPoints
-                        .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-                        .join(' ')
-                      : 'M80 300 L220 170 L400 220 L640 120'}
-                  />
-
-                  {mapPoints.map((point, index) => (
-                    <g
-                      key={point.id}
-                      className="map-point"
-                      data-active={index === activeIndex}
-                      onClick={() => setActiveIndex(index)}
-                    >
-                      <circle
-                        className="map-point-ring"
-                        cx={point.x}
-                        cy={point.y}
-                        r={index === activeIndex ? 23 : 13}
-                      />
-                      <circle
-                        className="map-point-core"
-                        cx={point.x}
-                        cy={point.y}
-                        r={index === activeIndex ? 10 : 6}
-                      />
-                      <text
-                        className="map-point-label"
-                        x={point.x + 17}
-                        y={point.y - 15}
+                    return (
+                      <g
+                        key={place.id}
+                        className={`map-marker ${isActive ? 'map-marker-active' : ''}`}
+                        onClick={() => setActiveIndex(index)}
+                        transform={`translate(${x} ${y})`}
                       >
-                        {point.name}
-                      </text>
-                    </g>
-                  ))}
+                        <circle className="map-marker-ring" r="8" />
+                        <circle className="map-marker-core" r="3.4" />
+                        <text
+                          className="map-marker-label"
+                          x="0"
+                          y="-11"
+                          textAnchor="middle"
+                        >
+                          {place.name?.length > 10
+                            ? `${place.name.slice(0, 10)}…`
+                            : place.name}
+                        </text>
+                      </g>
+                    );
+                  })}
                 </g>
               </svg>
+
+              <div className="map-compass">N</div>
             </div>
 
-            {activePlace && (
-              <div className="active-place-info">
-                <div className="min-w-0">
-                  <div className="active-place-name">
-                    {activePlace.name}
-                  </div>
-                  <div className="active-place-meta">
-                    到访 {activePlace.visitCount || 1} 次 · 初次到访{' '}
-                    {new Date(activePlace.firstVisitAt).toLocaleDateString('zh-CN')}
-                  </div>
-                </div>
-
-                <div className="active-place-index">
-                  {String(activeIndex + 1).padStart(2, '0')} /{' '}
-                  {String(places.length).padStart(2, '0')}
-                </div>
-              </div>
-            )}
+            <div className="place-section-heading">
+              <h2>已留下的地点</h2>
+              <span>{places.length} PLACES</span>
+            </div>
 
             <div className="place-list">
-              {mapPoints.map((place, index) => (
+              {places.map((place, index) => (
                 <button
                   key={place.id}
                   type="button"
                   onClick={() => setActiveIndex(index)}
-                  className="place-item"
+                  className="place-entry"
                   data-active={index === activeIndex}
                 >
-                  <div className="place-item-mark">
-                    <MapPin className="h-3.5 w-3.5" />
+                  <div className="place-entry-mark">
+                    <MapPin className="h-[16px] w-[16px]" />
                   </div>
 
-                  <div className="place-item-text">
-                    <div className="place-item-name">{place.name}</div>
-                    <div className="place-item-date">
-                      最近一次{' '}
+                  <div className="place-entry-info">
+                    <p className="place-entry-name">{place.name}</p>
+                    <p className="place-entry-meta">
+                      到访 {place.visitCount || 1} 次 · 最近一次{' '}
                       {new Date(place.lastVisitAt).toLocaleDateString('zh-CN')}
-                    </div>
+                    </p>
                   </div>
 
                   <span
                     role="button"
                     tabIndex={-1}
-                    className="place-delete"
-                    title="忘记这个地方"
                     onClick={(event) => {
                       event.stopPropagation();
                       void handleDelete(place.id);
                     }}
+                    className="place-delete-button"
+                    title="忘记这个地方"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </span>
                 </button>
               ))}
@@ -649,6 +621,15 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           </>
         )}
       </section>
+
+      {activePlace && (
+        <footer className="place-booklet-footer">
+          <p>
+            初次到访：
+            {new Date(activePlace.firstVisitAt).toLocaleDateString('zh-CN')}
+          </p>
+        </footer>
+      )}
     </div>
   );
 };
