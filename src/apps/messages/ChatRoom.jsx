@@ -21,6 +21,7 @@ import {
   Moon,
   Compass,
   Plus,
+  PawPrint,
 } from 'lucide-react';
 
 import db from '../../db';
@@ -876,22 +877,21 @@ useLayoutEffect(() => {
             <button
   type="button"
   onClick={() => setShowTopMenu((previous) => !previous)}
-  className="flex items-center justify-center rounded-full p-2 opacity-75 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
+  className="flex items-center justify-center rounded-full p-2 opacity-85 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
   style={{
+    background: 'var(--control-soft-bg)',
     color: 'var(--text-main)',
-    background: showTopMenu
-      ? 'var(--control-soft-bg)'
-      : 'transparent',
   }}
   title="更多入口"
   aria-label="更多入口"
 >
-  <Compass
-    className={`h-[17px] w-[17px] transition-transform duration-500 ${
-      showTopMenu ? 'rotate-45' : ''
+  <PawPrint
+    className={`h-4 w-4 transition-transform duration-300 ${
+      showTopMenu ? 'scale-110' : ''
     }`}
   />
 </button>
+
 
 
             {showTopMenu && (
