@@ -128,12 +128,18 @@ export const ChatRoom = ({
   const inputRef = useRef(null);
   const previousScrollHeightRef = useRef(null);
   const hasScrolledToLatestRef = useRef(false);
+const locationCheckIntervalRef = useRef(getRandomCheckIntervalMs());
+
+
   // 1. 新增一个 ref，紧挨着其他 ref 声明
 const forceScrollMessageIdRef = useRef(null);
 const isLoadingMoreRef = useRef(false);
 
-   const [showParallelOrbit, setShowParallelOrbit] = useState(false);
-  const [showInnerWorld, setShowInnerWorld] = useState(false);
+ const [showParallelOrbit, setShowParallelOrbit] = useState(false);
+const [showInnerWorld, setShowInnerWorld] = useState(false);
+const [showPlaceBooklet, setShowPlaceBooklet] = useState(false);
+const [pendingNamePlace, setPendingNamePlace] = useState(null);
+
 
   const defaultCss = useMemo(() => `
     .user-bubble {
@@ -389,6 +395,59 @@ await db.chats.update(chat.id, {
       );
     };
   }, [chatId, loadChatData]);
+
+  useEffect(() => {
+  if (!chatId) return undefined;
+
+  setPendingNamePlace(null);
+
+  const runLocationCheck = async () => {
+    try {
+      const settings = await getLocationSettings(chatId);
+
+      if (
+        !shouldCheckLocation(
+          settings,
+          locationCheckIntervalRef.current,
+        )
+      ) {
+        return;
+      }
+
+      const coords = await getCurrentPosition();
+
+      const {
+        place,
+        isNewUnnamedPlace,
+      } = await checkLocationAndDetectTransition(
+        chatId,
+        coords,
+      );
+
+      // 每次检查后重新随机一个 1～2 小时的下次间隔，避免产生规律感
+      locationCheckIntervalRef.current = getRandomCheckIntervalMs();
+
+      if (isNewUnnamedPlace) {
+        setPendingNamePlace(place);
+      }
+    } catch (error) {
+      // 权限拒绝或定位失败时静默跳过，不影响正常聊天
+      console.warn('[Location] 本次检查跳过：', error);
+    }
+  };
+
+  void runLocationCheck();
+
+  // 每 5 分钟检查一次是否已经到了实际定位检查时间
+  const timer = setInterval(
+    runLocationCheck,
+    5 * 60 * 1000,
+  );
+
+  return () => clearInterval(timer);
+}, [chatId]);
+
+
 
   useEffect(() => {
     const handleLocalMessageNotification = (event) => {
@@ -716,6 +775,18 @@ useLayoutEffect(() => {
     );
   }
 
+  if (showPlaceBooklet) {
+  return (
+    <PlaceBooklet
+      chatId={chatId}
+      character={character}
+      onBack={() => setShowPlaceBooklet(false)}
+    />
+  );
+}
+
+
+
   return (
     <div
       className="chat-room-container fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden text-left text-xs animate-fade-in-up"
@@ -809,6 +880,22 @@ useLayoutEffect(() => {
               <Moon className="h-4 w-4" />
             </button>
 
+<button
+  type="button"
+  onClick={() => setShowPlaceBooklet(true)}
+  className="flex items-center justify-center rounded-full p-2 opacity-80 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
+  style={{
+    color: 'var(--text-main)',
+    border: '1px solid var(--card-border)',
+    background: 'var(--control-soft-bg)',
+  }}
+  title="地点小册子"
+  aria-label="地点小册子"
+>
+  <MapPinned className="h-4 w-4" />
+</button>
+
+
           </div>
 
                  <div className="flex items-center gap-2">
@@ -873,6 +960,27 @@ useLayoutEffect(() => {
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)',
         }}
       >
+
+<footer
+  className="z-20 shrink-0 px-4 pt-1"
+  style={{
+    paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)',
+  }}
+>
+  {pendingNamePlace && (
+    <PendingPlaceBanner
+      onConfirm={async (name) => {
+        try {
+          await namePlace(pendingNamePlace.id, name);
+          setPendingNamePlace(null);
+        } catch (error) {
+          console.warn('[Location] 地点命名失败：', error);
+        }
+      }}
+      onDismiss={() => setPendingNamePlace(null)}
+    />
+  )}
+
         {quotedMsg && (
           <div
             className="mb-2 flex items-center justify-between rounded-2xl p-2 px-3 text-[10px] shadow-md"
