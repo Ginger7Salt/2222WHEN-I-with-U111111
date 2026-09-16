@@ -16,6 +16,9 @@ import {
 
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
 
+import { getAlmanacPromptContext } from './almanac/almanacService';
+import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptContext';
+
 
 
 import { runAiToolOrchestrator } from './aiToolOrchestrator';
