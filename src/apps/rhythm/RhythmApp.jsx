@@ -1514,6 +1514,74 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
       min-height: 104px !important;
     }
   }
+    /* ==========================================
+     🌟 日期栏优化 (更大、更丝滑) - 覆盖旧规则
+     ========================================== */
+  .rhythm-date-strip {
+    height: 124px !important;
+    min-height: 124px !important;
+    gap: 6px !important; /* 增大卡片之间的呼吸感 */
+    padding: 8px !important;
+    border-radius: 32px !important;
+    margin-bottom: 32px !important;
+  }
+
+  .rhythm-date-strip > button {
+    border-radius: 24px !important;
+    /* 核心丝滑改动：更细腻的缓动曲线（带一点柔和的弹性），并增加 opacity 渐变 */
+    transition:
+      color .4s ease,
+      background .5s cubic-bezier(.2, .8, .2, 1),
+      transform .5s cubic-bezier(.34, 1.6, .64, 1),
+      box-shadow .5s cubic-bezier(.2, .8, .2, 1),
+      opacity .4s ease !important;
+  }
+
+  /* 加入手指按下的丝滑微缩回弹反馈 */
+  .rhythm-date-strip > button:active {
+    transform: scale(0.92) !important;
+  }
+
+  /* 悬浮时的轻微跃出 */
+  .rhythm-date-strip > button:hover {
+    background: rgba(255, 255, 255, .8) !important;
+    transform: translateY(-2px) scale(1.02);
+  }
+
+  /* 选中状态：弹起更高、阴影更深、卡片轻微放大 */
+  .rhythm-date-strip > button[style*="opacity: 1"] {
+    background: var(--rhythm-text) !important;
+    color: #fff !important;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, .24) !important;
+    transform: translateY(-6px) scale(1.05) !important;
+  }
+
+  /* 字体调大：中文星期几 */
+  .rhythm-date-strip > button span:first-child {
+    font-size: 13px !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* 字体调大：日期数字 */
+  .rhythm-date-strip > button span:nth-child(2) {
+    font-size: 19px !important;
+    margin-top: 4px !important;
+  }
+
+  /* 移动端小屏自适应高度，但也比以前大 */
+  @media (max-width: 600px) {
+    .rhythm-date-strip {
+      height: 116px !important;
+      min-height: 116px !important;
+      padding: 6px !important;
+    }
+    .rhythm-date-strip > button span:first-child {
+      font-size: 12px !important;
+    }
+    .rhythm-date-strip > button span:nth-child(2) {
+      font-size: 17px !important;
+    }
+  }
 `}</style>
 
 
