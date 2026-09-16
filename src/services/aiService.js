@@ -932,6 +932,12 @@ const buildChatSystemPrompt = async (chatId, chat, character) => {
     ? `【核心总提示词（用户自定义指导方针）】:\n${userCustomPrompt}`
     : `【核心总提示词（默认方针）】:\n${chat.mode === 'rp' ? defaultRpPrompt : defaultRealPrompt}`;
 
+    const innerWorldPasswordContext = await getSafeInnerWorldPasswordContext({
+    chatId,
+    characterId: character.id,
+    character,
+  });
+
   return `${finalBasePrompt}
 
 【当前真实时间/环境感知】：
@@ -940,7 +946,7 @@ const buildChatSystemPrompt = async (chatId, chat, character) => {
 【你的设定 (Character Notes)】：
 - 角色姓名：${character.name}
 - 角色人设/简介：${character.bio || '无'}
-- 补充设定/偏好限制：${character.extraNotes || '无'}
+- 补充设定/偏好限制：${character.extraNotes || '无'}${innerWorldPasswordContext}
 
 【用户设定 (User Notes)】：
 - 用户称呼：${userName}
@@ -1923,12 +1929,10 @@ const innerWorldPasswordContext =
     character,
   });
 
-const finalSystemPrompt = `${
+  const finalSystemPrompt = `${
   systemPrompt
-}${memoryContext}${characterEmotionContext}${almanacPromptContext}${locationPromptContext}${userReturnContext}${innerWorldPasswordContext}`;
+}${memoryContext}${characterEmotionContext}${almanacPromptContext}${locationPromptContext}${userReturnContext}`;
 
-console.log('[DEBUG] finalSystemPrompt 长度:', finalSystemPrompt.length);
-console.log('[DEBUG] 是否包含密码文本:', finalSystemPrompt.includes(innerWorldPasswordContext.match(/是：(.+)/)?.[1] || '__NOT_FOUND__'));
 
 const mcpTraceSession = createMcpChatTraceSession({
   chatId,
