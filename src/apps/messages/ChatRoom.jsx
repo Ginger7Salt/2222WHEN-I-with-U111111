@@ -19,7 +19,7 @@ import {
   BookOpen,
   ReceiptText,
   Moon,
-  Menu,
+  Compass,
 } from 'lucide-react';
 
 import db from '../../db';
@@ -873,19 +873,25 @@ useLayoutEffect(() => {
             </button>
 
             <button
-              type="button"
-              onClick={() => setShowTopMenu((previous) => !previous)}
-              className="flex items-center justify-center rounded-full p-2 opacity-80 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
-              style={{
-                color: 'var(--text-main)',
-                border: '1px solid var(--card-border)',
-                background: 'var(--control-soft-bg)',
-              }}
-              title="更多入口"
-              aria-label="更多入口"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
+  type="button"
+  onClick={() => setShowTopMenu((previous) => !previous)}
+  className="flex items-center justify-center rounded-full p-2 opacity-75 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
+  style={{
+    color: 'var(--text-main)',
+    background: showTopMenu
+      ? 'var(--control-soft-bg)'
+      : 'transparent',
+  }}
+  title="更多入口"
+  aria-label="更多入口"
+>
+  <Compass
+    className={`h-[17px] w-[17px] transition-transform duration-500 ${
+      showTopMenu ? 'rotate-45' : ''
+    }`}
+  />
+</button>
+
 
             {showTopMenu && (
               <>
@@ -1251,19 +1257,26 @@ useLayoutEffect(() => {
               }}
             />
 
-            <button
-              type="button"
-              onClick={() => setShowInputMenu((previous) => !previous)}
-              className={`rounded-full p-2 transition-all active:scale-90 ${
-                selectedType === 'image' || selectedType === 'voice' || selectedType === 'transfer'
-                  ? 'bg-[var(--control-soft-bg)] opacity-100'
-                  : 'hover:opacity-100'
-              }`}
-              title="更多输入方式"
-              aria-label="更多输入方式"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
+           <button
+  type="button"
+  onClick={() => setShowInputMenu((previous) => !previous)}
+  className={`rounded-full p-2 transition-all active:scale-90 ${
+    showInputMenu ||
+    selectedType === 'image' ||
+    selectedType === 'voice' ||
+    selectedType === 'transfer'
+      ? 'bg-[var(--control-soft-bg)] opacity-100'
+      : 'opacity-75 hover:opacity-100'
+  }`}
+  title="更多输入方式"
+  aria-label="更多输入方式"
+>
+  <Plus
+    className={`h-[17px] w-[17px] transition-transform duration-300 ${
+      showInputMenu ? 'rotate-45' : ''
+    }`}
+  />
+</button>
 
             {showInputMenu && (
               <>
