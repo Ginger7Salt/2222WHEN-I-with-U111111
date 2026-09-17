@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from
 import { ArrowLeft, Send, Sparkles, LogOut, Heart } from 'lucide-react';
 
 import db from '../../db';
-import MessageList from '../../components/chat/components/MessageList';
+import MessageList from '../messages/components/MessageList'
 import { triggerOfflineAiResponse, subscribeOfflineAiEvents } from '../../services/offlineAiService';
 import { getOfflineSession, completeOfflineSession } from './offlineSessionService';
 
