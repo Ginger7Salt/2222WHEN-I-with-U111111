@@ -64,6 +64,37 @@ const formatDate = (value) => {
   return date.toLocaleDateString('zh-CN');
 };
 
+const formatCoordinate = (value, positive, negative) => {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) return '';
+
+  const direction = number >= 0 ? positive : negative;
+
+  return `${Math.abs(number).toFixed(3)}° ${direction}`;
+};
+
+const getPlaceCoordinate = (place, index) => {
+  const latitude = Number(place?.latitude ?? place?.lat);
+  const longitude = Number(
+    place?.longitude
+    ?? place?.lng
+    ?? place?.lon,
+  );
+
+  if (
+    Number.isFinite(latitude)
+    && Number.isFinite(longitude)
+  ) {
+    return [
+      formatCoordinate(latitude, 'N', 'S'),
+      formatCoordinate(longitude, 'E', 'W'),
+    ].join('  ·  ');
+  }
+
+  return `POINT ${String(index + 1).padStart(2, '0')}`;
+};
+
 const PlaceBooklet = ({ chatId, character, onBack }) => {
   const [places, setPlaces] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -181,14 +212,6 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
     point: getMapPoint(place, index),
   }));
 
-  const activePoint = mapPlaces[activeIndex]?.point || {
-    x: 500,
-    y: 310,
-  };
-
-  const mapOffsetX = 500 - activePoint.x * 1.34;
-  const mapOffsetY = 310 - activePoint.y * 1.34;
-
   const routePoints = mapPlaces
     .map(({ point }) => `${point.x},${point.y}`)
     .join(' ');
@@ -197,28 +220,80 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
   return (
     <div
-      className="place-booklet fixed inset-0 z-50 flex h-[100dvh] w-full flex-col"
+      className="place-booklet"
       style={{
         background: '#fbfbf8',
         color: '#11110f',
       }}
     >
       <style>{`
+        html:has(.place-booklet),
+        body:has(.place-booklet) {
+          width: 100%;
+          min-width: 100%;
+          height: 100%;
+          min-height: 100%;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+          background: #fbfbf8 !important;
+        }
+
+        #root:has(.place-booklet) {
+          position: fixed !important;
+          z-index: 2147483000 !important;
+          inset: 0 !important;
+          width: 100vw !important;
+          max-width: none !important;
+          height: 100dvh !important;
+          min-height: 100dvh !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+          background: #fbfbf8 !important;
+        }
+
         .place-booklet {
           --place-ink: #11110f;
-          --place-black: #0c0c0b;
+          --place-black: #0b0b0a;
           --place-white: #fff;
+          --place-paper: #fbfbf8;
           --place-muted: #77766f;
-          --place-soft: #aaa8a0;
-          --place-line: rgba(17,17,15,.12);
+          --place-soft: #a5a39c;
+          --place-line: rgba(17,17,15,.13);
           --place-wash: rgba(17,17,15,.055);
           --place-ease: cubic-bezier(.16,1,.3,1);
           --place-smooth: cubic-bezier(.4,0,.2,1);
-          --accent-color: #11110f;
-          --accent-foreground: #fff;
-          position: relative;
-          isolation: isolate;
+
+          position: fixed !important;
+          z-index: 2147483000 !important;
+          top: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          left: 0 !important;
+          display: flex;
+          width: 100vw !important;
+          max-width: none !important;
+          height: 100dvh !important;
+          min-height: 100dvh !important;
+          flex-direction: column;
+          margin: 0 !important;
+          padding: 0 !important;
           overflow: hidden;
+          isolation: isolate;
+          background:
+            radial-gradient(
+              circle at 85% 2%,
+              rgba(255,255,255,.98),
+              transparent 28%
+            ),
+            radial-gradient(
+              circle at 8% 72%,
+              rgba(226,226,219,.22),
+              transparent 29%
+            ),
+            var(--place-paper) !important;
+          color: var(--place-ink) !important;
           font-family:
             -apple-system,
             BlinkMacSystemFont,
@@ -234,14 +309,14 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         .place-booklet::before {
           content: "";
           position: absolute;
-          z-index: -3;
+          z-index: -2;
           top: -180px;
           right: -130px;
-          width: 450px;
-          height: 450px;
+          width: 460px;
+          height: 460px;
           border-radius: 50%;
-          background: rgba(255,255,255,.95);
-          filter: blur(35px);
+          background: rgba(255,255,255,.82);
+          filter: blur(38px);
           pointer-events: none;
         }
 
@@ -251,7 +326,7 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           z-index: 30;
           inset: 0;
           pointer-events: none;
-          opacity: .055;
+          opacity: .045;
           mix-blend-mode: multiply;
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='placeNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23placeNoise)' opacity='.2'/%3E%3C/svg%3E");
         }
@@ -282,47 +357,52 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         .place-back-float {
           position: absolute;
           z-index: 20;
-          top: max(18px, env(safe-area-inset-top));
-          left: 20px;
+          top: max(17px, env(safe-area-inset-top));
+          left: max(18px, env(safe-area-inset-left));
           display: inline-flex;
-          min-height: 40px;
+          min-height: 39px;
           align-items: center;
           gap: 7px;
-          padding: 0 15px 0 11px;
+          padding: 0 14px 0 10px;
           border-radius: 999px;
           color: var(--place-white);
           background: var(--place-black);
           box-shadow:
-            0 14px 32px rgba(0,0,0,.16),
-            0 3px 8px rgba(0,0,0,.08);
+            0 15px 32px -16px rgba(0,0,0,.74),
+            0 4px 10px rgba(0,0,0,.12);
           font-size: 11px;
           font-weight: 700;
-          letter-spacing: .1px;
           cursor: pointer;
           transition:
-            transform .5s var(--place-ease),
             background .3s ease,
-            box-shadow .5s var(--place-ease);
+            transform .55s var(--place-ease),
+            box-shadow .55s var(--place-ease);
         }
 
         .place-back-float:hover {
-          background: #292926;
+          background: #30302c;
           box-shadow:
-            0 19px 38px rgba(0,0,0,.22),
-            0 5px 12px rgba(0,0,0,.1);
-          transform: translateX(-4px) translateY(-2px);
+            0 21px 38px -16px rgba(0,0,0,.82),
+            0 5px 13px rgba(0,0,0,.14);
+          transform: translateX(-3px) translateY(-2px);
         }
 
         .place-back-float:active {
-          transform: translateX(-2px) scale(.94);
+          transform: scale(.93);
         }
 
         .place-scroll {
+          position: relative;
+          z-index: 1;
           min-height: 0;
           flex: 1;
-          overflow-y: auto;
           overflow-x: hidden;
-          padding: 0 22px 105px;
+          overflow-y: auto;
+          padding:
+            82px
+            max(19px, env(safe-area-inset-right))
+            105px
+            max(19px, env(safe-area-inset-left));
           scrollbar-width: none;
           overscroll-behavior: contain;
           scroll-behavior: smooth;
@@ -334,46 +414,46 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
         .place-intro {
           position: relative;
-          padding: 104px 3px 40px;
-          animation: placeIntroIn .85s var(--place-ease) both;
+          padding: 19px 4px 31px;
+          animation: placeIntroIn .8s var(--place-ease) both;
+        }
+
+        @keyframes placeIntroIn {
+          from {
+            opacity: 0;
+            transform: translateY(14px);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         .place-intro::before {
           content: "";
           position: absolute;
-          top: 76px;
-          right: -42px;
-          width: 170px;
-          height: 170px;
+          top: 0;
+          right: 1px;
+          width: 142px;
+          height: 142px;
           border: 1px solid rgba(17,17,15,.1);
           border-radius: 50%;
-          opacity: .75;
           pointer-events: none;
         }
 
         .place-intro::after {
           content: "MEMORY / 01";
           position: absolute;
-          top: 143px;
-          right: -4px;
+          top: 59px;
+          right: -10px;
           color: var(--place-muted);
           font-family: Georgia, "Times New Roman", serif;
-          font-size: 8px;
-          letter-spacing: 1.5px;
+          font-size: 7px;
+          letter-spacing: 1.3px;
+          opacity: .62;
           transform: rotate(90deg);
-          opacity: .7;
           pointer-events: none;
-        }
-
-        @keyframes placeIntroIn {
-          from {
-            opacity: 0;
-            transform: translateY(18px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
         }
 
         .place-kicker {
@@ -381,29 +461,31 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           align-items: center;
           gap: 9px;
           color: var(--place-muted);
-          font-size: 9px;
+          font-size: 8px;
           font-weight: 800;
-          letter-spacing: 2px;
+          letter-spacing: 1.7px;
+          line-height: 1;
           text-transform: uppercase;
         }
 
         .place-kicker::before {
           content: "";
-          width: 25px;
+          width: 27px;
           height: 1px;
+          flex: 0 0 27px;
           background: var(--place-ink);
-          opacity: .8;
+          opacity: .72;
         }
 
         .place-main-title {
-          max-width: 420px;
-          margin-top: 19px;
+          max-width: 380px;
+          margin: 19px 0 0;
           color: var(--place-ink);
           font-family: Georgia, "Times New Roman", serif;
-          font-size: clamp(43px, 12vw, 76px);
+          font-size: clamp(34px, 8.9vw, 51px);
           font-weight: 400;
-          letter-spacing: -4px;
-          line-height: .92;
+          letter-spacing: -2.7px;
+          line-height: .99;
         }
 
         .place-main-title span,
@@ -418,25 +500,26 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
         .place-intro-meta {
           display: flex;
-          max-width: calc(100% - 80px);
+          max-width: calc(100% - 52px);
           align-items: center;
           flex-wrap: wrap;
-          gap: 10px 15px;
-          margin-top: 27px;
+          gap: 8px 13px;
+          margin-top: 23px;
           color: var(--place-muted);
-          font-size: 10px;
+          font-size: 9px;
+          line-height: 1.3;
         }
 
         .place-intro-meta strong {
           color: var(--place-ink);
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 750;
         }
 
         .place-meta-dot {
-          width: 4px;
-          height: 4px;
-          flex: 0 0 4px;
+          width: 3px;
+          height: 3px;
+          flex: 0 0 3px;
           border-radius: 50%;
           background: var(--place-ink);
           opacity: .42;
@@ -444,30 +527,30 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
         .place-stamp {
           position: absolute;
-          right: 3px;
-          bottom: 34px;
+          right: 0;
+          bottom: 23px;
           display: flex;
-          width: 62px;
-          height: 62px;
+          width: 52px;
+          height: 52px;
           align-items: center;
           justify-content: center;
-          border: 1px solid rgba(17,17,15,.34);
+          border: 1px solid rgba(17,17,15,.27);
           border-radius: 50%;
           color: var(--place-muted);
           font-family: Georgia, serif;
-          font-size: 8px;
-          letter-spacing: 1px;
-          line-height: 1.4;
+          font-size: 6.5px;
+          letter-spacing: .8px;
+          line-height: 1.35;
           text-align: center;
-          transform: rotate(11deg);
-          opacity: .7;
+          transform: rotate(10deg);
+          opacity: .68;
         }
 
         .place-stamp::before {
           content: "";
           position: absolute;
           inset: 5px;
-          border: 1px dashed rgba(17,17,15,.28);
+          border: 1px dashed rgba(17,17,15,.24);
           border-radius: 50%;
         }
 
@@ -475,16 +558,17 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           display: flex;
           align-items: flex-end;
           justify-content: space-between;
-          gap: 15px;
-          margin: 1px 2px 12px;
-          animation: sectionIn .8s .1s var(--place-ease) both;
+          gap: 14px;
+          margin: 0 2px 10px;
+          animation: placeSectionIn .75s .08s var(--place-ease) both;
         }
 
-        @keyframes sectionIn {
+        @keyframes placeSectionIn {
           from {
             opacity: 0;
-            transform: translateY(12px);
+            transform: translateY(10px);
           }
+
           to {
             opacity: 1;
             transform: translateY(0);
@@ -493,51 +577,54 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
         .map-heading-label {
           color: var(--place-muted);
-          font-size: 9px;
+          font-size: 8px;
           font-weight: 800;
-          letter-spacing: 1.8px;
+          letter-spacing: 1.7px;
           text-transform: uppercase;
         }
 
         .map-heading-place {
-          max-width: 60%;
+          max-width: 55%;
           overflow: hidden;
-          color: var(--place-ink);
+          color: var(--place-muted);
           font-family: Georgia, serif;
-          font-size: 12px;
+          font-size: 11px;
           font-style: italic;
-          opacity: .62;
-          text-align: right;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
         .map-frame {
           position: relative;
-          height: min(64vw, 430px);
-          min-height: 300px;
+          height: clamp(275px, 58vw, 415px);
+          min-height: 275px;
           overflow: hidden;
           isolation: isolate;
           background:
-            radial-gradient(circle at 25% 20%, #f4f4ef, transparent 28%),
-            linear-gradient(135deg, #d7dad4, #929790);
+            radial-gradient(
+              circle at 28% 20%,
+              rgba(255,255,255,.78),
+              transparent 30%
+            ),
+            #e1e3dd;
+          box-shadow:
+            0 25px 48px -32px rgba(0,0,0,.68),
+            inset 0 1px 0 rgba(255,255,255,.8);
           clip-path: polygon(
             0 1%,
-            99.4% 0,
-            100% 98.8%,
-            .5% 100%
+            99.6% 0,
+            100% 99%,
+            .4% 100%
           );
-          box-shadow:
-            0 28px 48px -30px rgba(0,0,0,.58),
-            inset 0 1px 0 rgba(255,255,255,.65);
-          animation: mapReveal 1s .12s var(--place-ease) both;
+          animation: mapReveal .9s .12s var(--place-ease) both;
         }
 
         @keyframes mapReveal {
           from {
             opacity: 0;
-            transform: translateY(18px) scale(.985);
+            transform: translateY(13px) scale(.985);
           }
+
           to {
             opacity: 1;
             transform: translateY(0) scale(1);
@@ -548,13 +635,23 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           content: "";
           position: absolute;
           z-index: 4;
-          top: -12px;
-          left: 50%;
-          width: 112px;
-          height: 30px;
-          background: rgba(248,245,231,.62);
-          box-shadow: 0 2px 5px rgba(0,0,0,.08);
-          transform: translateX(-50%) rotate(-2deg);
+          inset: 0;
+          background:
+            linear-gradient(
+              135deg,
+              rgba(255,255,255,.27),
+              transparent 37%
+            ),
+            linear-gradient(
+              0deg,
+              rgba(17,17,15,.23),
+              transparent 30%
+            ),
+            radial-gradient(
+              ellipse at center,
+              transparent 45%,
+              rgba(17,17,15,.14)
+            );
           pointer-events: none;
         }
 
@@ -562,23 +659,11 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           content: "";
           position: absolute;
           z-index: 5;
-          inset: 0;
-          background:
-            linear-gradient(
-              135deg,
-              rgba(255,255,255,.2),
-              transparent 38%
-            ),
-            linear-gradient(
-              0deg,
-              rgba(9,9,8,.3),
-              transparent 34%
-            ),
-            radial-gradient(
-              ellipse at center,
-              transparent 42%,
-              rgba(8,8,7,.24)
-            );
+          top: 10px;
+          right: 11px;
+          bottom: 10px;
+          left: 11px;
+          border: 1px solid rgba(255,255,255,.34);
           pointer-events: none;
         }
 
@@ -589,43 +674,88 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         }
 
         .map-world {
-          transform-origin: 0 0;
-          transform:
-            translate(var(--map-offset-x), var(--map-offset-y))
-            scale(1.34);
-          transition: transform 1.1s var(--place-ease);
-          will-change: transform;
+          transform: translate(0, 0) scale(1);
+          transform-origin: center;
+          transition: transform 1s var(--place-ease);
         }
 
         .map-image {
           display: block;
           width: 1000px;
           height: 620px;
-          opacity: .92;
-          filter: grayscale(1) contrast(.93) brightness(1.08);
+          opacity: .95;
+          filter: grayscale(1) contrast(.97) brightness(1.06);
+          transform: translate(0, 0);
           transition:
-            opacity .6s ease,
-            filter .8s ease;
+            opacity .5s ease,
+            filter .7s ease;
         }
 
         .map-frame:hover .map-image {
-          opacity: .98;
-          filter: grayscale(1) contrast(1) brightness(1.04);
+          opacity: 1;
+          filter: grayscale(1) contrast(1.02) brightness(1.03);
         }
 
         .map-grid {
-          opacity: .12;
+          opacity: .15;
+        }
+
+        .map-coordinate-grid {
+          fill: none;
+          stroke: #11110f;
+          stroke-width: 1;
+          stroke-dasharray: 2 13;
+          opacity: .17;
+          vector-effect: non-scaling-stroke;
+          pointer-events: none;
+        }
+
+        .map-coordinate-axis {
+          fill: #11110f;
+          font-family:
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 1px;
+          opacity: .42;
+        }
+
+        .map-coordinate-corner {
+          fill: #fff;
+          font-family:
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 1.3px;
+          paint-order: stroke;
+          stroke: rgba(17,17,15,.35);
+          stroke-width: 4px;
+          stroke-linejoin: round;
         }
 
         .map-route-line {
-          animation: mapRouteMove 24s linear infinite;
-          opacity: .78;
+          fill: none;
+          stroke: #11110f;
+          stroke-width: 3;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          stroke-dasharray: 8 8;
+          opacity: .72;
+          animation: mapRouteMove 22s linear infinite;
+          vector-effect: non-scaling-stroke;
         }
 
         @keyframes mapRouteMove {
           from {
-            stroke-dashoffset: 380;
+            stroke-dashoffset: 360;
           }
+
           to {
             stroke-dashoffset: 0;
           }
@@ -635,15 +765,15 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           cursor: pointer;
           transform-box: fill-box;
           transform-origin: center;
-          transition: transform .65s var(--place-ease);
+          transition: transform .55s var(--place-ease);
         }
 
         .map-marker:hover {
-          transform: scale(1.18);
+          transform: scale(1.12);
         }
 
         .map-marker.active {
-          transform: scale(1.5);
+          transform: scale(1.25);
         }
 
         .map-marker-pulse {
@@ -654,37 +784,65 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
         @keyframes mapPulse {
           0% {
-            opacity: .48;
+            opacity: .52;
             transform: scale(.65);
           }
+
           70%,
           100% {
             opacity: 0;
-            transform: scale(1.85);
+            transform: scale(1.75);
           }
         }
 
         .map-location-label {
           pointer-events: none;
           fill: #fff;
+          font-family: Georgia, "Times New Roman", serif;
+          font-size: 14px;
+          font-style: italic;
+          font-weight: 400;
+          paint-order: stroke;
+          stroke: rgba(17,17,15,.52);
+          stroke-width: 5px;
+          stroke-linejoin: round;
+        }
+
+        .map-location-coordinate {
+          pointer-events: none;
+          fill: rgba(255,255,255,.86);
           font-family:
             -apple-system,
             BlinkMacSystemFont,
             "Segoe UI",
             sans-serif;
-          font-size: 15px;
-          font-weight: 750;
-          letter-spacing: -.2px;
+          font-size: 7px;
+          font-weight: 700;
+          letter-spacing: .6px;
           paint-order: stroke;
-          stroke: rgba(0,0,0,.5);
-          stroke-width: 5px;
+          stroke: rgba(17,17,15,.42);
+          stroke-width: 3px;
           stroke-linejoin: round;
+        }
+
+        .map-marker-number {
+          pointer-events: none;
+          fill: #11110f;
+          font-family:
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+          font-size: 7px;
+          font-weight: 900;
+          text-anchor: middle;
         }
 
         .map-scale {
           position: absolute;
-          right: 15px;
-          bottom: 15px;
+          right: 17px;
+          bottom: 17px;
+          z-index: 8;
           display: flex;
           align-items: center;
           gap: 7px;
@@ -692,14 +850,14 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           font-size: 8px;
           font-weight: 800;
           letter-spacing: 1px;
-          opacity: .7;
-          text-shadow: 0 1px 5px rgba(0,0,0,.45);
+          opacity: .82;
+          text-shadow: 0 1px 6px rgba(0,0,0,.55);
         }
 
         .map-scale::before {
           content: "";
           display: block;
-          width: 34px;
+          width: 35px;
           height: 5px;
           border-top: 1px solid currentColor;
           border-right: 1px solid currentColor;
@@ -708,7 +866,8 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
         .map-compass {
           position: absolute;
-          top: 17px;
+          z-index: 8;
+          top: 16px;
           right: 17px;
           display: flex;
           width: 34px;
@@ -717,19 +876,19 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           justify-content: center;
           border-radius: 50%;
           color: #fff;
-          background: rgba(12,12,11,.55);
-          box-shadow: 0 5px 14px rgba(0,0,0,.16);
+          background: rgba(11,11,10,.52);
+          box-shadow: 0 9px 18px -10px rgba(0,0,0,.8);
           font-family: Georgia, serif;
           font-size: 10px;
           font-weight: 700;
-          opacity: .8;
+          opacity: .84;
         }
 
         .map-compass::after {
           content: "";
           position: absolute;
           width: 1px;
-          height: 13px;
+          height: 14px;
           background: #fff;
           transform: rotate(42deg);
         }
@@ -737,13 +896,13 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         .place-map-caption {
           position: absolute;
           z-index: 8;
-          right: 16px;
+          right: 17px;
           bottom: 16px;
-          left: 16px;
+          left: 17px;
           display: flex;
           align-items: flex-end;
           justify-content: space-between;
-          gap: 16px;
+          gap: 15px;
           color: #fff;
           pointer-events: none;
         }
@@ -751,115 +910,124 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         .place-map-caption small {
           display: block;
           margin-bottom: 5px;
-          color: rgba(255,255,255,.7);
-          font-size: 8px;
+          color: rgba(255,255,255,.76);
+          font-size: 7px;
           font-weight: 800;
-          letter-spacing: 1.5px;
+          letter-spacing: 1.3px;
         }
 
         .place-map-caption strong {
           display: block;
-          max-width: 230px;
+          max-width: 225px;
           overflow: hidden;
+          color: #fff;
           font-family: Georgia, serif;
-          font-size: 21px;
+          font-size: 20px;
           font-style: italic;
           font-weight: 400;
           text-overflow: ellipsis;
-          text-shadow: 0 2px 12px rgba(0,0,0,.3);
+          text-shadow: 0 2px 11px rgba(0,0,0,.38);
           white-space: nowrap;
         }
 
+        .place-map-caption-coordinate {
+          margin-top: 5px;
+          color: rgba(255,255,255,.74);
+          font-size: 7px;
+          font-weight: 700;
+          letter-spacing: .7px;
+        }
+
         .place-map-counter {
-          color: rgba(255,255,255,.82);
+          color: rgba(255,255,255,.84);
           font-family: Georgia, serif;
-          font-size: 11px;
+          font-size: 10px;
           white-space: nowrap;
         }
 
         .map-note {
           display: flex;
           align-items: center;
-          gap: 13px;
-          padding: 13px 3px 0;
+          gap: 11px;
+          padding: 12px 4px 0;
           color: var(--place-muted);
           font-family: Georgia, serif;
-          font-size: 10px;
+          font-size: 9px;
           font-style: italic;
-          line-height: 1.5;
-          animation: sectionIn .8s .25s var(--place-ease) both;
+          line-height: 1.55;
+          animation: placeSectionIn .75s .25s var(--place-ease) both;
         }
 
         .map-note::before {
           content: "";
-          width: 29px;
+          width: 27px;
           height: 1px;
-          flex: 0 0 29px;
+          flex: 0 0 27px;
           background: var(--place-ink);
-          opacity: .5;
+          opacity: .55;
         }
 
         .place-list-heading {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 16px;
-          margin: 48px 2px 9px;
-          animation: sectionIn .8s .3s var(--place-ease) both;
+          gap: 14px;
+          margin: 40px 3px 6px;
+          animation: placeSectionIn .75s .3s var(--place-ease) both;
         }
 
         .place-list-heading span:first-child {
           color: var(--place-ink);
           font-family: Georgia, "Times New Roman", serif;
-          font-size: 27px;
+          font-size: 23px;
           font-weight: 400;
-          letter-spacing: -1.1px;
+          letter-spacing: -1px;
         }
 
         .place-list-heading span:last-child {
           color: var(--place-muted);
-          font-size: 9px;
+          font-size: 8px;
           font-weight: 800;
-          letter-spacing: 1.3px;
-          opacity: .72;
+          letter-spacing: 1.2px;
+          opacity: .7;
         }
 
         .place-list {
           position: relative;
           padding-bottom: 8px;
-          animation: sectionIn .8s .38s var(--place-ease) both;
+          animation: placeSectionIn .75s .38s var(--place-ease) both;
         }
 
         .place-list::before {
           content: "";
           position: absolute;
-          top: 13px;
+          top: 14px;
           bottom: 17px;
-          left: 17px;
+          left: 16px;
           width: 1px;
           background: linear-gradient(
             var(--place-ink),
-            rgba(17,17,15,.08)
+            rgba(17,17,15,.06)
           );
-          opacity: .28;
+          opacity: .25;
         }
 
         .place-row {
           position: relative;
           display: grid;
           width: 100%;
-          grid-template-columns: 35px minmax(0,1fr) 29px;
+          grid-template-columns: 34px minmax(0, 1fr) 28px;
           align-items: center;
-          gap: 13px;
-          padding: 17px 2px 18px;
+          gap: 11px;
+          padding: 14px 2px 15px;
           border-bottom: 1px solid var(--place-line);
           color: var(--place-ink);
           text-align: left;
           cursor: pointer;
           transition:
-            padding .6s var(--place-ease),
-            transform .45s var(--place-ease),
-            background .45s ease;
+            padding .55s var(--place-ease),
+            transform .4s var(--place-ease),
+            background .4s ease;
         }
 
         .place-row::before {
@@ -867,19 +1035,19 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           position: absolute;
           top: 9px;
           bottom: 9px;
-          left: -22px;
+          left: -21px;
           width: 3px;
-          border-radius: 0 4px 4px 0;
+          border-radius: 0 3px 3px 0;
           background: var(--place-black);
           opacity: 0;
-          transform: scaleY(.35);
+          transform: scaleY(.3);
           transition:
-            opacity .4s ease,
-            transform .6s var(--place-ease);
+            opacity .35s ease,
+            transform .55s var(--place-ease);
         }
 
         .place-row:hover {
-          transform: translateX(4px);
+          transform: translateX(3px);
         }
 
         .place-row:focus-visible {
@@ -888,14 +1056,13 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         }
 
         .place-row.active {
-          padding-top: 23px;
-          padding-bottom: 23px;
-          background:
-            linear-gradient(
-              90deg,
-              rgba(17,17,15,.055),
-              transparent 72%
-            );
+          padding-top: 18px;
+          padding-bottom: 18px;
+          background: linear-gradient(
+            90deg,
+            rgba(17,17,15,.055),
+            transparent 75%
+          );
         }
 
         .place-row.active::before {
@@ -907,14 +1074,14 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           position: relative;
           z-index: 2;
           display: flex;
-          width: 34px;
-          height: 34px;
+          width: 33px;
+          height: 33px;
           align-items: center;
           justify-content: center;
           border-radius: 50%;
           color: var(--place-muted);
-          background: #fbfbf8;
-          box-shadow: 0 0 0 5px #fbfbf8;
+          background: var(--place-paper);
+          box-shadow: 0 0 0 5px var(--place-paper);
           transition:
             color .35s ease,
             background .35s ease,
@@ -925,9 +1092,9 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           color: var(--place-white);
           background: var(--place-black);
           box-shadow:
-            0 0 0 5px #fbfbf8,
-            0 10px 22px -12px rgba(0,0,0,.7);
-          transform: scale(1.12) rotate(-7deg);
+            0 0 0 5px var(--place-paper),
+            0 10px 20px -12px rgba(0,0,0,.7);
+          transform: scale(1.1) rotate(-6deg);
         }
 
         .place-row-info {
@@ -938,31 +1105,31 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           overflow: hidden;
           color: var(--place-ink);
           font-family: Georgia, "Times New Roman", serif;
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 400;
-          letter-spacing: -.45px;
+          letter-spacing: -.35px;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
         .place-row-meta {
-          margin-top: 5px;
+          margin-top: 4px;
           overflow: hidden;
           color: var(--place-muted);
-          font-size: 9px;
+          font-size: 8px;
           font-weight: 700;
-          letter-spacing: .55px;
+          letter-spacing: .3px;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
         .place-row-note {
           max-width: 92%;
-          margin-top: 8px;
+          margin-top: 7px;
           overflow: hidden;
-          color: #68665f;
+          color: #69675f;
           font-family: Georgia, serif;
-          font-size: 11px;
+          font-size: 10px;
           font-style: italic;
           line-height: 1.45;
           text-overflow: ellipsis;
@@ -971,14 +1138,14 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
         .place-delete {
           display: inline-flex;
-          width: 29px;
-          height: 29px;
+          width: 28px;
+          height: 28px;
           align-items: center;
           justify-content: center;
           border-radius: 50%;
           color: var(--place-muted);
           background: rgba(17,17,15,.055);
-          opacity: .42;
+          opacity: .43;
           cursor: pointer;
           transition:
             opacity .3s ease,
@@ -991,7 +1158,7 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           color: #fff;
           background: #9c3434;
           opacity: 1;
-          transform: scale(1.1) rotate(7deg);
+          transform: scale(1.08) rotate(7deg);
         }
 
         .place-delete:active {
@@ -1010,65 +1177,62 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 15px;
+          gap: 13px;
           color: var(--place-muted);
           text-align: center;
           animation: placeIntroIn .8s var(--place-ease) both;
         }
 
-        .place-empty-state::before {
-          content: "⌁";
-          display: block;
-          color: var(--place-ink);
-          font-family: Georgia, serif;
-          font-size: 48px;
-          line-height: .7;
-          opacity: .7;
-        }
-
         .place-empty-state svg {
-          display: none;
+          width: 27px;
+          height: 27px;
+          color: var(--place-ink);
+          opacity: .65;
         }
 
         .place-empty-state p {
           max-width: 230px;
           font-family: Georgia, serif;
-          font-size: 11px;
+          font-size: 10px;
           font-style: italic;
           line-height: 1.7;
-          opacity: .75;
+          opacity: .72;
         }
 
         .place-footer {
           position: relative;
           z-index: 10;
           flex-shrink: 0;
-          padding: 17px 22px calc(23px + env(safe-area-inset-bottom));
+          padding:
+            14px
+            max(19px, env(safe-area-inset-right))
+            calc(22px + env(safe-area-inset-bottom))
+            max(19px, env(safe-area-inset-left));
           background:
             linear-gradient(
               180deg,
               rgba(251,251,248,0),
-              rgba(251,251,248,.94) 25%,
-              #fbfbf8 57%
+              rgba(251,251,248,.95) 28%,
+              #fbfbf8 58%
             );
         }
 
         .place-footer::before {
           content: "";
           display: block;
-          width: 36px;
+          width: 34px;
           height: 2px;
-          margin-bottom: 13px;
+          margin-bottom: 11px;
           border-radius: 999px;
           background: var(--place-black);
-          opacity: .78;
+          opacity: .72;
         }
 
         .place-footer-display {
           display: flex;
           align-items: flex-end;
           justify-content: space-between;
-          gap: 17px;
+          gap: 15px;
         }
 
         .place-footer-summary {
@@ -1078,18 +1242,18 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
         .place-footer-summary > p {
           color: var(--place-muted);
-          font-size: 9px;
-          font-weight: 750;
-          letter-spacing: .7px;
+          font-size: 8px;
+          font-weight: 700;
+          letter-spacing: .3px;
         }
 
         .place-footer-note {
           max-width: 100%;
-          margin-top: 7px;
+          margin-top: 6px;
           overflow: hidden;
           color: var(--place-ink);
           font-family: Georgia, serif;
-          font-size: 13px;
+          font-size: 11px;
           font-style: italic;
           line-height: 1.5;
           text-overflow: ellipsis;
@@ -1098,16 +1262,16 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
         .place-edit-button {
           display: inline-flex;
-          min-height: 39px;
+          min-height: 38px;
           align-items: center;
-          gap: 7px;
+          gap: 6px;
           flex-shrink: 0;
-          padding: 0 15px;
+          padding: 0 14px;
           border-radius: 999px;
           color: var(--place-white);
           background: var(--place-black);
-          box-shadow: 0 10px 23px -13px rgba(0,0,0,.7);
-          font-size: 11px;
+          box-shadow: 0 13px 25px -15px rgba(0,0,0,.8);
+          font-size: 10px;
           font-weight: 750;
           cursor: pointer;
           transition:
@@ -1117,34 +1281,35 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         }
 
         .place-edit-button:hover {
-          background: #292926;
-          box-shadow: 0 15px 27px -12px rgba(0,0,0,.75);
+          background: #2d2d29;
+          box-shadow: 0 18px 29px -13px rgba(0,0,0,.82);
           transform: translateY(-3px);
         }
 
         .place-edit-button:active {
-          transform: scale(.94);
+          transform: scale(.93);
         }
 
         .place-edit-panel {
           display: flex;
           flex-direction: column;
-          gap: 11px;
-          padding: 19px 19px 18px;
-          border-radius: 22px;
+          gap: 10px;
+          padding: 17px 17px 16px;
+          border-radius: 19px;
           color: var(--place-white);
           background: var(--place-black);
           box-shadow:
-            0 21px 50px -26px rgba(0,0,0,.7),
-            0 4px 16px rgba(0,0,0,.12);
-          animation: editPanelIn .65s var(--place-ease) both;
+            0 24px 48px -27px rgba(0,0,0,.8),
+            0 5px 16px rgba(0,0,0,.12);
+          animation: placeEditIn .55s var(--place-ease) both;
         }
 
-        @keyframes editPanelIn {
+        @keyframes placeEditIn {
           from {
             opacity: 0;
-            transform: translateY(18px) scale(.98);
+            transform: translateY(13px) scale(.985);
           }
+
           to {
             opacity: 1;
             transform: translateY(0) scale(1);
@@ -1154,7 +1319,7 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         .place-edit-label {
           display: block;
           color: rgba(255,255,255,.48);
-          font-size: 9px;
+          font-size: 8px;
           font-weight: 800;
           letter-spacing: 1.2px;
           text-transform: uppercase;
@@ -1170,24 +1335,22 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           color: var(--place-white);
           background: transparent;
           font-family: inherit;
-          font-size: 14px;
+          font-size: 13px;
           line-height: 1.5;
-          transition:
-            border-color .35s ease,
-            background .35s ease;
+          transition: border-color .3s ease;
         }
 
         .place-edit-input {
-          padding: 7px 0 9px;
+          padding: 5px 0 8px;
           font-weight: 700;
         }
 
         .place-edit-textarea {
-          min-height: 48px;
-          padding: 7px 0 9px;
+          min-height: 45px;
+          padding: 5px 0 8px;
           resize: vertical;
           font-family: Georgia, serif;
-          font-size: 12px;
+          font-size: 11px;
         }
 
         .place-edit-input:focus,
@@ -1204,20 +1367,20 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           display: flex;
           align-items: center;
           justify-content: flex-end;
-          gap: 9px;
-          padding-top: 3px;
+          gap: 8px;
+          padding-top: 2px;
         }
 
         .place-edit-action {
           display: inline-flex;
-          min-height: 35px;
+          min-height: 34px;
           align-items: center;
           gap: 5px;
-          padding: 0 12px;
+          padding: 0 11px;
           border-radius: 999px;
           color: rgba(255,255,255,.72);
           background: rgba(255,255,255,.1);
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 650;
           cursor: pointer;
           transition:
@@ -1243,7 +1406,7 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         }
 
         .place-edit-action.save:hover {
-          background: #e8e8e3;
+          background: #e9e9e4;
         }
 
         .place-edit-action.save:disabled {
@@ -1253,99 +1416,88 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         }
 
         @media (min-width: 700px) {
-          .place-booklet {
-            width: min(100%, 700px);
-            min-height: calc(100dvh - 36px);
-            max-height: calc(100dvh - 36px);
-            margin: 18px auto;
-            box-shadow:
-              0 32px 90px rgba(0,0,0,.2),
-              0 0 0 1px rgba(17,17,15,.04);
-          }
-
           .place-scroll {
-            padding-right: 28px;
-            padding-left: 28px;
-          }
-
-          .place-back-float {
-            left: 25px;
+            padding-right: 30px;
+            padding-left: 30px;
           }
 
           .place-intro {
-            padding-right: 5px;
-            padding-left: 5px;
+            padding-right: 6px;
+            padding-left: 6px;
           }
 
           .place-footer {
-            padding-right: 28px;
-            padding-left: 28px;
+            padding-right: 30px;
+            padding-left: 30px;
+          }
+
+          .place-main-title {
+            font-size: 51px;
           }
         }
 
         @media (max-width: 420px) {
           .place-scroll {
-            padding-right: 18px;
-            padding-left: 18px;
+            padding-right: 17px;
+            padding-left: 17px;
           }
 
           .place-back-float {
-            left: 17px;
-          }
-
-          .place-intro {
-            padding-top: 98px;
-            padding-bottom: 35px;
+            left: 16px;
           }
 
           .place-main-title {
-            font-size: clamp(42px, 13vw, 62px);
+            font-size: clamp(32px, 9.5vw, 43px);
+            letter-spacing: -2.2px;
           }
 
-          .place-intro-meta {
-            max-width: calc(100% - 58px);
+          .place-intro {
+            padding-top: 15px;
           }
 
-          .place-stamp {
-            right: 0;
-            width: 53px;
-            height: 53px;
-            font-size: 7px;
+          .place-intro::before {
+            width: 126px;
+            height: 126px;
+          }
+
+          .place-intro::after {
+            top: 52px;
           }
 
           .map-frame {
-            min-height: 315px;
+            height: clamp(265px, 61vw, 350px);
+            min-height: 265px;
           }
 
           .place-list-heading {
-            margin-top: 41px;
+            margin-top: 34px;
           }
 
           .place-list-heading span:first-child {
-            font-size: 24px;
+            font-size: 21px;
           }
 
           .place-row {
-            grid-template-columns: 32px minmax(0,1fr) 28px;
-            gap: 11px;
+            grid-template-columns: 32px minmax(0, 1fr) 27px;
+            gap: 10px;
           }
 
           .place-row-name {
-            font-size: 17px;
+            font-size: 15px;
           }
 
           .place-footer {
-            padding-right: 18px;
-            padding-left: 18px;
+            padding-right: 17px;
+            padding-left: 17px;
           }
 
           .place-footer-note {
-            font-size: 12px;
+            font-size: 10px;
           }
 
           .place-edit-panel {
-            padding-right: 16px;
-            padding-left: 16px;
+            padding-right: 15px;
+            padding-left: 15px;
           }
         }
 
@@ -1416,6 +1568,7 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         {!isLoading && places.length === 0 && (
           <div className="place-empty-state">
             <MapPin className="h-7 w-7" />
+
             <p>
               还没有留下足迹，等你们一起走过更多地方吧。
             </p>
@@ -1438,11 +1591,7 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
               <svg
                 className="map-svg"
                 viewBox="0 0 1000 620"
-                preserveAspectRatio="xMidYMid slice"
-                style={{
-                  '--map-offset-x': `${mapOffsetX}px`,
-                  '--map-offset-y': `${mapOffsetY}px`,
-                }}
+                preserveAspectRatio="xMidYMid meet"
                 aria-label="地点记忆地图"
                 role="img"
               >
@@ -1456,7 +1605,7 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                     <path
                       d="M 48 0 L 0 0 0 48"
                       fill="none"
-                      stroke="#6f746d"
+                      stroke="#70756f"
                       strokeWidth="1"
                     />
                   </pattern>
@@ -1464,8 +1613,8 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                   <filter id="markerShadow">
                     <feDropShadow
                       dx="0"
-                      dy="5"
-                      stdDeviation="5"
+                      dy="4"
+                      stdDeviation="4"
                       floodColor="#11110f"
                       floodOpacity=".32"
                     />
@@ -1480,8 +1629,8 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                     y="0"
                     width="1000"
                     height="620"
-                    preserveAspectRatio="xMidYMid slice"
-                    aria-label="记忆地图底图"
+                    preserveAspectRatio="xMidYMid meet"
+                    aria-label="完整地图底图"
                   />
 
                   <rect
@@ -1493,17 +1642,46 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                     fill="url(#mapGrid)"
                   />
 
+                  <g
+                    className="map-coordinate-grid"
+                    aria-hidden="true"
+                  >
+                    <line x1="166" y1="44" x2="166" y2="576" />
+                    <line x1="333" y1="44" x2="333" y2="576" />
+                    <line x1="500" y1="44" x2="500" y2="576" />
+                    <line x1="667" y1="44" x2="667" y2="576" />
+                    <line x1="834" y1="44" x2="834" y2="576" />
+
+                    <line x1="54" y1="150" x2="946" y2="150" />
+                    <line x1="54" y1="310" x2="946" y2="310" />
+                    <line x1="54" y1="470" x2="946" y2="470" />
+                  </g>
+
+                  <g
+                    className="map-coordinate-axis"
+                    aria-hidden="true"
+                  >
+                    <text x="58" y="38">
+                      90°N
+                    </text>
+
+                    <text x="914" y="38">
+                      180°E
+                    </text>
+
+                    <text x="58" y="602">
+                      90°S
+                    </text>
+
+                    <text x="882" y="602">
+                      180°W
+                    </text>
+                  </g>
+
                   {routePoints && (
                     <polyline
                       className="map-route-line"
                       points={routePoints}
-                      fill="none"
-                      stroke="#11110f"
-                      strokeWidth="5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeDasharray="10 9"
-                      opacity=".78"
                     />
                   )}
 
@@ -1513,7 +1691,9 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                     return (
                       <g
                         key={place.id}
-                        className={`map-marker ${isActive ? 'active' : ''}`}
+                        className={`map-marker ${
+                          isActive ? 'active' : ''
+                        }`}
                         transform={`translate(${point.x} ${point.y})`}
                         onClick={() => selectPlace(index)}
                         onKeyDown={(event) => {
@@ -1532,14 +1712,14 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                         {isActive && (
                           <circle
                             className="map-marker-pulse"
-                            r="27"
+                            r="25"
                             fill="#fff"
                             opacity=".35"
                           />
                         )}
 
                         <circle
-                          r={isActive ? 18 : 13}
+                          r={isActive ? 17 : 13}
                           fill="#11110f"
                           opacity=".2"
                         />
@@ -1558,14 +1738,32 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                           fill="#fff"
                         />
 
+                        <text
+                          className="map-marker-number"
+                          x="0"
+                          y="3.5"
+                        >
+                          {String(index + 1).padStart(2, '0')}
+                        </text>
+
                         {isActive && (
-                          <text
-                            className="map-location-label"
-                            x="25"
-                            y="-19"
-                          >
-                            {place.name}
-                          </text>
+                          <>
+                            <text
+                              className="map-location-label"
+                              x="24"
+                              y="-20"
+                            >
+                              {place.name || '未命名地点'}
+                            </text>
+
+                            <text
+                              className="map-location-coordinate"
+                              x="25"
+                              y="-6"
+                            >
+                              {getPlaceCoordinate(place, index)}
+                            </text>
+                          </>
                         )}
                       </g>
                     );
@@ -1590,6 +1788,10 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                   <strong>
                     {activePlace?.name || '记忆地图'}
                   </strong>
+
+                  <div className="place-map-caption-coordinate">
+                    {getPlaceCoordinate(activePlace, activeIndex)}
+                  </div>
                 </div>
 
                 <span className="place-map-counter">
@@ -1772,3 +1974,4 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 };
 
 export default PlaceBooklet;
+
