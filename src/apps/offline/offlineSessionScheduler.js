@@ -14,11 +14,20 @@ const checkAndActivateDueSessions = async () => {
 
     const now = Date.now();
 
-    for (const session of scheduledSessions) {
+        for (const session of scheduledSessions) {
       const scheduledTime = new Date(session.scheduledFor).getTime();
       if (!Number.isFinite(scheduledTime) || scheduledTime > now) continue;
 
       await activateOfflineSession(session.id);
+
+      // 通知正在打开的 ChatRoom 刷新，让邀约卡片切换到"点这里赴约"状态。
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('new-local-message-inserted', {
+            detail: { chatId: session.chatId },
+          }),
+        );
+      }
 
       const character = await db.characters.get(session.characterId);
 

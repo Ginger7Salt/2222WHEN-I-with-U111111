@@ -104,11 +104,20 @@ export const evaluateUserProposedOfflineSession = async (sessionId) => {
     await declineOfflineSessionProposal(sessionId);
   }
 
-  await postCharacterReplyMessage({
+    await postCharacterReplyMessage({
     chatId: session.chatId,
     characterId: session.characterId,
     content: replyText,
   });
+
+  // 通知正在打开的 ChatRoom 刷新，让邀约卡片状态和角色回复消息同时显示出来。
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('new-local-message-inserted', {
+        detail: { chatId: session.chatId },
+      }),
+    );
+  }
 
   return { decision, replyText };
 };

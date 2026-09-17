@@ -1,11 +1,11 @@
 import db from '../../db';
 
 export const OFFLINE_SESSION_STATUSES = {
-  PENDING_REVIEW: 'pending_review', // 用户提议了时间，等待角色（AI）决定是否同意
+  PENDING_REVIEW: 'pending_review', // 一方提议了时间，等待对方决定是否同意
   SCHEDULED: 'scheduled',           // 时间已确定，倒计时进行中
   ACTIVE: 'active',                 // 时间已到，可以进入线下场景对话
   COMPLETED: 'completed',           // 这次线下见面已经结束
-  DECLINED: 'declined',             // 角色拒绝了用户提议的时间
+  DECLINED: 'declined',             // 对方拒绝了提议的时间
   CANCELLED: 'cancelled',           // 邀约被取消（尚未到时间前，任意一方取消）
 };
 
@@ -18,7 +18,27 @@ const assertChatId = (chatId) => {
 };
 
 /**
- * 角色主动发起邀约：角色自己提议的时间视为直接生效，不需要自我审批。
+ * 查询某个聊天窗当前"进行中/等待中"的线下会话（非 completed/declined/cancelled）。
+ * 放在文件前面，供 propose* 函数在创建新邀约前做互斥检查，
+ * 也供 ChatRoom 判断要不要显示"有一场线下邀约待处理"之类的提示。
+ */
+export const getPendingOfflineSession = async (chatId) => {
+  assertChatId(chatId);
+
+  const sessions = await db.offlineSessions
+    .where('chatId')
+    .equals(chatId)
+    .toArray();
+
+  return sessions.find((session) => (
+    session.status === OFFLINE_SESSION_STATUSES.PENDING_REVIEW ||
+    session.status === OFFLINE_SESSION_STATUSES.SCHEDULED ||
+    session.status === OFFLINE_SESSION_STATUSES.ACTIVE
+  )) || null;
+};
+
+/**
+ * 角色主动发起邀约：现在也需要用户确认（对称设计），不再直接进入 SCHEDULED。
  * 会同时在 messages 表插入一张邀约卡片消息（mode 仍是 'online'，
  * 因为这张卡片本身出现在线上聊天室里）。
  */
@@ -31,12 +51,16 @@ export const proposeOfflineSessionByCharacter = async ({
 }) => {
   assertChatId(chatId);
 
+  const existingSession = await getPendingOfflineSession(chatId);
+  if (existingSession) {
+    throw new Error('已经有一场进行中/待处理的线下邀约，不能重复发起。');
+  }
+
   const now = nowIso();
 
   let sessionId;
 
   await db.transaction('rw', db.offlineSessions, db.messages, db.chats, async () => {
-    // 角色提议同样需要用户确认，不再直接进入 SCHEDULED。
     sessionId = await db.offlineSessions.add({
       chatId,
       characterId,
@@ -73,6 +97,7 @@ export const proposeOfflineSessionByCharacter = async ({
 
   return sessionId;
 };
+
 /**
  * 用户主动发起邀约：进入"待角色审核"状态。
  * 角色是否同意这个时间，由后续一次独立的 AI 判断调用决定
@@ -86,6 +111,11 @@ export const proposeOfflineSessionByUser = async ({
   scheduledFor,
 }) => {
   assertChatId(chatId);
+
+  const existingSession = await getPendingOfflineSession(chatId);
+  if (existingSession) {
+    throw new Error('已经有一场进行中/待处理的线下邀约，不能重复发起。');
+  }
 
   const now = nowIso();
 
@@ -142,7 +172,6 @@ const updateSessionAndCardStatus = async (sessionId, nextStatus, extraSessionFie
       ...extraSessionFields,
     });
 
-    // 同步更新这张邀约卡片消息的 metadata.status，让卡片UI能感知状态变化。
     const cardMessage = await db.messages
       .where('type')
       .equals('offline_invite')
@@ -163,41 +192,24 @@ const updateSessionAndCardStatus = async (sessionId, nextStatus, extraSessionFie
   return db.offlineSessions.get(sessionId);
 };
 
-/**
- * 角色同意用户提议的时间。
- */
 export const acceptOfflineSessionProposal = (sessionId) => (
   updateSessionAndCardStatus(sessionId, OFFLINE_SESSION_STATUSES.SCHEDULED)
 );
 
-/**
- * 角色拒绝用户提议的时间。
- */
 export const declineOfflineSessionProposal = (sessionId) => (
   updateSessionAndCardStatus(sessionId, OFFLINE_SESSION_STATUSES.DECLINED)
 );
 
-/**
- * 倒计时结束、时间已到，解锁进入线下场景对话。
- * 由谁在什么时机调用这个函数（例如打开 OfflineChatRoom 时检查一次），
- * 还没有实现，属于下一步。
- */
 export const activateOfflineSession = (sessionId) => (
   updateSessionAndCardStatus(sessionId, OFFLINE_SESSION_STATUSES.ACTIVE)
 );
 
-/**
- * 用户手动结束这次线下见面。
- */
 export const completeOfflineSession = (sessionId) => (
   updateSessionAndCardStatus(sessionId, OFFLINE_SESSION_STATUSES.COMPLETED, {
     completedAt: nowIso(),
   })
 );
 
-/**
- * 时间到之前，任意一方取消这次邀约。
- */
 export const cancelOfflineSession = (sessionId) => (
   updateSessionAndCardStatus(sessionId, OFFLINE_SESSION_STATUSES.CANCELLED)
 );
@@ -205,25 +217,6 @@ export const cancelOfflineSession = (sessionId) => (
 export const getOfflineSession = (sessionId) => (
   db.offlineSessions.get(sessionId)
 );
-
-/**
- * 查询某个聊天窗当前"进行中/等待中"的线下会话（非 completed/declined/cancelled）。
- * 用于 ChatRoom 判断要不要显示"有一场线下邀约待处理"之类的提示。
- */
-export const getPendingOfflineSession = async (chatId) => {
-  assertChatId(chatId);
-
-  const sessions = await db.offlineSessions
-    .where('chatId')
-    .equals(chatId)
-    .toArray();
-
-  return sessions.find((session) => (
-    session.status === OFFLINE_SESSION_STATUSES.PENDING_REVIEW ||
-    session.status === OFFLINE_SESSION_STATUSES.SCHEDULED ||
-    session.status === OFFLINE_SESSION_STATUSES.ACTIVE
-  )) || null;
-};
 
 /**
  * 供存档室/线下历史回看使用：某个聊天窗的全部线下会话（含已完成/已取消）。
