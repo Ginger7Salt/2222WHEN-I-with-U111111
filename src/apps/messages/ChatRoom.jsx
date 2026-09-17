@@ -583,7 +583,15 @@ void openChatAndMarkMessagesAsRead();
   });
 
   hasScrolledToLatestRef.current = true;
-}, [messages, isAiTyping, mcpTrace]);
+}, [
+  messages,
+  isAiTyping,
+  mcpTrace,
+  showParallelOrbit,
+  showInnerWorld,
+  showPlaceBooklet,
+  activeOfflineSessionId,
+]);
 
   const messagesById = useMemo(() => {
     const map = new Map();
@@ -884,7 +892,10 @@ useLayoutEffect(() => {
       <InnerWorldApp
         chatId={chatId}
         characterId={character?.id}
-        onClose={() => setShowInnerWorld(false)}
+        onClose={() => {
+  hasScrolledToLatestRef.current = false;
+  setShowInnerWorld(false);
+}}
       />
     );
   }
@@ -895,9 +906,10 @@ useLayoutEffect(() => {
         chatId={chatId}
         offlineSessionId={activeOfflineSessionId}
         onBack={() => {
-          setActiveOfflineSessionId(null);
-          void loadChatData();
-        }}
+  hasScrolledToLatestRef.current = false;
+  setActiveOfflineSessionId(null);
+  void loadChatData();
+}}
       />
     );
   }
@@ -907,7 +919,10 @@ useLayoutEffect(() => {
     <PlaceBooklet
       chatId={chatId}
       character={character}
-      onBack={() => setShowPlaceBooklet(false)}
+      onBack={() => {
+  hasScrolledToLatestRef.current = false;
+  setShowPlaceBooklet(false);
+}}
     />
   );
 }
