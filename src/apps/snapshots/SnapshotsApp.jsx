@@ -1,20 +1,21 @@
 // src/apps/snapshots/SnapshotsApp.jsx
 //
-// 【整体替换说明】相对上一轮的改动（本次是美化，不改数据逻辑）：
-// 1. Header 从"整条 sticky 通栏"改为 4 个独立悬浮圆形图标按钮平铺
-//    （返回 / 世界线切换胶囊 / 让大家发点什么 / 设置），按钮之间完全透明，
-//    不再有一整条的底色和底部分割线。
-// 2. 世界线切换胶囊抽成 WorldlineSwitcher 组件，默认收起，点击才展开选择器。
-// 3. "让大家发点什么"从空状态区域和 feed 顶部的两处内联按钮，
-//    统一收进 header，成为一个图标按钮，减少重复和视觉噪音。
-// 4. 底部 Dock 做了细节上的视觉打磨（间距、阴影层次），交互逻辑不变。
-// 数据逻辑（cleanup、scheduler、随机发帖）完全沿用上一轮，未做任何改动。
+// 【整体替换说明】这轮新增的是 feed 顶部的"故事条 + 筛选chip"：
+// 1. 故事条：User（点击发帖）+ 官配角色 + 该世界线的 NPC，头像下方显示名字，
+//    右上角小圆点徽章显示这个人在本世界线发过的动态数。点击角色头像打开
+//    角色主页（之前只能从已发布的动态点进去，现在有了专门入口）；
+//    点击某个 NPC 头像直接把 feed 筛选到这个 NPC 的动态。
+// 2. 筛选 chip：全部 / 伴侣 / NPC / 我的动态，纯前端过滤，不改数据库查询。
+// 3. Feed 卡片改为错位淡入（每张卡片延迟一点点再淡入），配合 SnapshotCard
+//    自身的 animate-fade-in，让列表刷新时有真实 App 常见的那种轻微动感。
+// 其余（cleanup、scheduler、随机发帖、header悬浮按钮、Dock）沿用上一轮不变。
 //
 import React, { useState, useEffect, useCallback } from 'react';
 import db from '../../db';
 import { snapshotScheduler } from './services/snapshotSchedulerService';
 import { runSnapshotCleanup } from './services/snapshotCleanupService';
 import { triggerRandomDailyPosts } from './services/snapshotRandomPostService';
+import { getNpcsByChatId } from './services/snapshotNpcService';
 import SnapshotCard from './SnapshotCard';
 import UserProfileSheet from './components/UserProfileSheet';
 import CharacterProfileSheet from './components/CharacterProfileSheet';
@@ -22,7 +23,6 @@ import WorldlineSwitcher from './components/WorldlineSwitcher';
 import CreateSnapshotModal from './CreateSnapshotModal';
 import SnapshotSettingsModal from './SnapshotSettingsModal';
 
-// 通用的悬浮圆形图标按钮，用于顶栏
 const FloatingIconButton = ({ onClick, title, disabled, children, spinning }) => (
   <button
     type="button"
@@ -35,10 +35,25 @@ const FloatingIconButton = ({ onClick, title, disabled, children, spinning }) =>
   </button>
 );
 
+const FILTER_CHIPS = [
+  { key: 'all', label: '全部' },
+  { key: 'character', label: '伴侣' },
+  { key: 'npc', label: 'NPC' },
+  { key: 'user', label: '我的动态' }
+];
+
 export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(defaultChatId);
   const [snapshots, setSnapshots] = useState([]);
+
+  // 故事条数据
+  const [storyChar, setStoryChar] = useState(null);
+  const [storyNpcs, setStoryNpcs] = useState([]);
+  const [userStoryInfo, setUserStoryInfo] = useState({ name: '我', avatar: '' });
+
+  // 筛选：{ type: 'all'|'character'|'npc'|'user', npcId: number|null }
+  const [activeFilter, setActiveFilter] = useState({ type: 'all', npcId: null });
 
   // Sheets & Modals
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
@@ -46,7 +61,6 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // "让大家发点什么" 的进行中状态
   const [isRandomPosting, setIsRandomPosting] = useState(false);
 
   const loadChats = useCallback(async () => {
@@ -75,6 +89,32 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
     }
   }, [currentChatId]);
 
+  const loadStoryBar = useCallback(async () => {
+    if (!currentChatId) return;
+    try {
+      const chat = await db.chats.get(Number(currentChatId));
+
+      if (chat?.characterId) {
+        const char = await db.characters.get(Number(chat.characterId));
+        setStoryChar(char || null);
+      } else {
+        setStoryChar(null);
+      }
+
+      const npcs = await getNpcsByChatId(Number(currentChatId));
+      setStoryNpcs(npcs);
+
+      const profileKey = `user_${currentChatId}`;
+      const customProfile = await db.snapshotProfiles.get(profileKey);
+      setUserStoryInfo({
+        name: customProfile?.name || chat?.userName || '我',
+        avatar: customProfile?.avatar || chat?.userAvatar || ''
+      });
+    } catch (err) {
+      console.error('加载故事条数据失败:', err);
+    }
+  }, [currentChatId]);
+
   useEffect(() => {
     loadChats();
   }, [loadChats]);
@@ -82,24 +122,26 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
   useEffect(() => {
     if (!currentChatId) return;
 
-    // 每次进入/切换到某个世界线，先做一次过期清理检查（内部有 24 小时节流）
     runSnapshotCleanup(currentChatId).then((result) => {
       if (result && !result.skipped && result.deletedCount > 0) {
         loadSnapshots();
       }
     });
 
+    setActiveFilter({ type: 'all', npcId: null });
     loadSnapshots();
+    loadStoryBar();
 
     snapshotScheduler.start(currentChatId);
     const unsubscribe = snapshotScheduler.subscribe(() => {
       loadSnapshots();
+      loadStoryBar();
     });
 
     return () => {
       unsubscribe();
     };
-  }, [currentChatId, loadSnapshots]);
+  }, [currentChatId, loadSnapshots, loadStoryBar]);
 
   const handleDeleteSnapshot = async (id) => {
     try {
@@ -111,7 +153,6 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
     }
   };
 
-  // "让大家发点什么"：随机 2~3 位候选人（当前角色 + 该世界线的 NPC）各自生成一条动态
   const handleRandomPost = async () => {
     if (isRandomPosting || !currentChatId) return;
     setIsRandomPosting(true);
@@ -129,11 +170,32 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
 
   const currentCharTitle = chats.find((c) => c.id === currentChatId)?.title || '当前世界线';
 
+  // 各故事条头像的发帖数徽章
+  const charPostCount = snapshots.filter((s) => s.authorType === 'character').length;
+  const npcPostCount = (npcId) =>
+    snapshots.filter((s) => s.authorType === 'npc' && Number(s.npcId) === Number(npcId)).length;
+
+  const filteredSnapshots = snapshots.filter((s) => {
+    if (activeFilter.type === 'all') return true;
+    if (activeFilter.type === 'user') return s.authorType === 'user';
+    if (activeFilter.type === 'character') return s.authorType === 'character';
+    if (activeFilter.type === 'npc') {
+      if (!activeFilter.npcId) return s.authorType === 'npc';
+      return s.authorType === 'npc' && Number(s.npcId) === Number(activeFilter.npcId);
+    }
+    return true;
+  });
+
+  const isFilterActive = (chipKey) => {
+    if (chipKey === 'npc') return activeFilter.type === 'npc' && !activeFilter.npcId;
+    return activeFilter.type === chipKey;
+  };
+
   return (
     <div className="fixed inset-0 z-30 w-full h-[100dvh] bg-[#f7f8fa] text-neutral-900 flex flex-col overflow-y-auto overflow-x-hidden selection:bg-neutral-900 selection:text-white">
 
-      {/* 顶部：4 个独立悬浮图标按钮，彼此透明，不再是一整条通栏 */}
-      <header className="sticky top-0 z-40 w-full px-4 pt-4 pb-2 flex items-center justify-between">
+      {/* 顶部：4 个独立悬浮图标按钮 */}
+      <header className="sticky top-0 z-40 w-full px-4 pt-4 pb-2 flex items-center justify-between bg-[#f7f8fa]/0">
         <div className="flex items-center gap-2">
           <FloatingIconButton onClick={onBackHub} title="返回中心">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -172,9 +234,110 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
         </div>
       </header>
 
+      {/* 故事条：User + 官配角色 + NPC */}
+      <div className="w-full px-4 pb-2 flex items-center gap-4 overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setIsCreateOpen(true)}
+          className="flex flex-col items-center gap-1 flex-shrink-0 active:scale-90 transition-transform"
+        >
+          <div className="relative w-14 h-14 rounded-full bg-white shadow-sm border border-neutral-200/60 flex items-center justify-center overflow-hidden">
+            {userStoryInfo.avatar ? (
+              <img src={userStoryInfo.avatar} alt="You" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-sm font-bold text-neutral-400">{userStoryInfo.name[0]}</span>
+            )}
+            <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-neutral-900 border-2 border-white flex items-center justify-center">
+              <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </div>
+          </div>
+          <span className="text-[10px] font-semibold text-neutral-500">You</span>
+        </button>
+
+        {storyChar && (
+          <button
+            type="button"
+            onClick={() => setSelectedCharId(storyChar.id)}
+            className="flex flex-col items-center gap-1 flex-shrink-0 active:scale-90 transition-transform"
+          >
+            <div className="relative w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-neutral-300 to-neutral-400 shadow-sm">
+              <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
+                {storyChar.avatar ? (
+                  <img src={storyChar.avatar} alt={storyChar.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-sm font-bold text-neutral-400">{storyChar.name[0]}</span>
+                )}
+              </div>
+              {charPostCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-neutral-900 text-white text-[9px] font-bold flex items-center justify-center border-2 border-[#f7f8fa]">
+                  {charPostCount > 9 ? '9+' : charPostCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-semibold text-neutral-500 max-w-[56px] truncate">@{storyChar.name}</span>
+          </button>
+        )}
+
+        {storyNpcs.map((npc) => {
+          const count = npcPostCount(npc.id);
+          const active = activeFilter.type === 'npc' && Number(activeFilter.npcId) === Number(npc.id);
+          return (
+            <button
+              key={npc.id}
+              type="button"
+              onClick={() => setActiveFilter(
+                active ? { type: 'all', npcId: null } : { type: 'npc', npcId: npc.id }
+              )}
+              className="flex flex-col items-center gap-1 flex-shrink-0 active:scale-90 transition-transform"
+            >
+              <div className={`relative w-14 h-14 rounded-full p-[2px] shadow-sm transition-all ${
+                active ? 'bg-neutral-900' : 'bg-gradient-to-tr from-neutral-200 to-neutral-300'
+              }`}>
+                <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
+                  {npc.avatar ? (
+                    <img src={npc.avatar} alt={npc.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm font-bold text-neutral-400">{npc.name[0]}</span>
+                  )}
+                </div>
+                {count > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-neutral-900 text-white text-[9px] font-bold flex items-center justify-center border-2 border-[#f7f8fa]">
+                    {count > 9 ? '9+' : count}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-semibold text-neutral-500 max-w-[56px] truncate">@{npc.name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 筛选 chip */}
+      <div className="w-full px-4 pb-3 flex items-center gap-2 overflow-x-auto">
+        {FILTER_CHIPS.map((chip) => {
+          const active = isFilterActive(chip.key);
+          return (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => setActiveFilter({ type: chip.key, npcId: null })}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 transition-all active:scale-95 ${
+                active
+                  ? 'bg-neutral-900 text-white shadow-sm'
+                  : 'bg-white text-neutral-500 border border-neutral-200/60 hover:bg-neutral-50'
+              }`}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* 核心视区 */}
-      <main className="flex-1 w-full px-4 pt-4 pb-32 flex flex-col">
-        {snapshots.length === 0 ? (
+      <main className="flex-1 w-full px-4 pt-1 pb-32 flex flex-col">
+        {filteredSnapshots.length === 0 ? (
           <div className="my-auto flex flex-col items-center justify-center text-center px-4">
             <div className="w-16 h-16 rounded-3xl bg-white shadow-sm border border-neutral-200/60 flex items-center justify-center text-neutral-400 mb-4">
               <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -184,7 +347,7 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
               </svg>
             </div>
             <h3 className="text-sm font-bold text-neutral-800 tracking-tight mb-1.5">
-              该世界线尚未定格片羽
+              {snapshots.length === 0 ? '该世界线尚未定格片羽' : '这个筛选下还没有动态'}
             </h3>
             <p className="text-xs text-neutral-400 max-w-xs leading-relaxed mb-6">
               在「{currentCharTitle}」的时空里，点击下方按钮记录，或点击右上角让大家先热闹起来。
@@ -203,15 +366,16 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
           </div>
         ) : (
           <div className="space-y-4 w-full">
-            {snapshots.map((item) => (
-              <SnapshotCard
-                key={item.id}
-                snapshot={item}
-                currentChatId={currentChatId}
-                onDelete={handleDeleteSnapshot}
-                onOpenUserProfile={() => setIsUserProfileOpen(true)}
-                onOpenCharProfile={(charId) => setSelectedCharId(charId)}
-              />
+            {filteredSnapshots.map((item, idx) => (
+              <div key={item.id} className="animate-fade-in" style={{ animationDelay: `${Math.min(idx, 8) * 40}ms` }}>
+                <SnapshotCard
+                  snapshot={item}
+                  currentChatId={currentChatId}
+                  onDelete={handleDeleteSnapshot}
+                  onOpenUserProfile={() => setIsUserProfileOpen(true)}
+                  onOpenCharProfile={(charId) => setSelectedCharId(charId)}
+                />
+              </div>
             ))}
           </div>
         )}
