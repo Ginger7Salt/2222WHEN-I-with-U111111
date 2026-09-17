@@ -4103,6 +4103,47 @@ db.version(46).stores({
 });
 
 
+// 追加在 src/db/index.js 的最后（在 db.version(46)... 之后）
+
+db.version(47).stores({
+  // snapshots 升级：增加 chatId, authorType, npcId 索引，便于按消息框沙盒快速筛选
+  snapshots:
+    '++id, chatId, characterId, authorType, npcId, createdAt, timestamp',
+
+  // snapshotComments 升级：增加 chatId, senderType 索引
+  snapshotComments:
+    '++id, snapshotId, chatId, senderType, characterId, npcId, createdAt',
+
+  // 独立主页表：每个 chatId 独立的 User 或 Char 资料
+  // profileKey 格式: `user_${chatId}` 或 `char_${chatId}_${characterId}`
+  snapshotProfiles:
+    '&profileKey, chatId, targetType, targetId, updatedAt'
+}).upgrade(async (tx) => {
+  // 平滑迁移旧动态：如果有 linkedChatId 则写入 chatId，补齐 authorType
+  await tx.table('snapshots').toCollection().modify((snapshot) => {
+    if (!snapshot.chatId && snapshot.linkedChatId) {
+      snapshot.chatId = Number(snapshot.linkedChatId);
+    }
+    if (!snapshot.authorType) {
+      snapshot.authorType = snapshot.characterId ? 'character' : 'user';
+    }
+    if (!snapshot.createdAt) {
+      snapshot.createdAt = snapshot.timestamp || Date.now();
+    }
+  });
+
+  // 平滑迁移旧评论：补齐 createdAt 与 senderType
+  await tx.table('snapshotComments').toCollection().modify((comment) => {
+    if (!comment.senderType) {
+      comment.senderType = comment.characterId ? 'character' : (comment.npcId ? 'npc' : 'user');
+    }
+    if (!comment.createdAt) {
+      comment.createdAt = comment.timestamp || Date.now();
+    }
+  });
+});
+
+
 export default db;
 
 

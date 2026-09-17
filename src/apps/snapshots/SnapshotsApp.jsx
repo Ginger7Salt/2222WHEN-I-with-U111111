@@ -1,73 +1,71 @@
+// src/apps/snapshots/SnapshotsApp.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Plus, SlidersHorizontal, Camera } from 'lucide-react';
 import db from '../../db';
-import { generateSnapshotPostByAi } from '../../services/aiService';
-import { generateSnapshotCommentByAi } from './snapshotAiService';
-import { triggerGlobalToast } from '../../components/NotificationToast';
+import { snapshotScheduler } from './services/snapshotSchedulerService';
 import SnapshotCard from './SnapshotCard';
+import UserProfileSheet from './components/UserProfileSheet';
+import CharacterProfileSheet from './components/CharacterProfileSheet';
 import CreateSnapshotModal from './CreateSnapshotModal';
 import SnapshotSettingsModal from './SnapshotSettingsModal';
 
-export const SnapshotsApp = ({ onBackHub }) => {
+export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
+  const [chats, setChats] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(defaultChatId);
   const [snapshots, setSnapshots] = useState([]);
+
+  // Sheets & Modals
+  const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
+  const [selectedCharId, setSelectedCharId] = useState(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [aiError, setAiError] = useState('');
 
-
-  const loadSnapshots = useCallback(async () => {
+  // 初始化加载所有 Chat 并选定当前 Chat
+  const loadChats = useCallback(async () => {
     try {
-      const list = await db.snapshots.orderBy('timestamp').reverse().toArray();
+      const list = await db.chats.toArray();
+      setChats(list);
+      if (!currentChatId && list.length > 0) {
+        setCurrentChatId(list[0].id);
+      }
+    } catch (err) {
+      console.error('加载对话列表失败:', err);
+    }
+  }, [currentChatId]);
+
+  // 加载当前 Chat 对应的 Feed 广场动态
+  const loadSnapshots = useCallback(async () => {
+    if (!currentChatId) return;
+    try {
+      const list = await db.snapshots
+        .where('chatId')
+        .equals(Number(currentChatId))
+        .reverse()
+        .sortBy('timestamp');
       setSnapshots(list);
     } catch (err) {
-      console.error('Failed to load snapshots:', err);
+      console.error('加载动态失败:', err);
     }
-  }, []);
+  }, [currentChatId]);
 
   useEffect(() => {
+    loadChats();
+  }, [loadChats]);
+
+  // 当 currentChatId 改变时，切换调度器世界线并加载动态
+  useEffect(() => {
+    if (!currentChatId) return;
     loadSnapshots();
 
-    // 启动 AI 自主主动发动态的后台轮询调度器 (支持 isAutoMessageActive 互通)
-    const interval = setInterval(async () => {
-      try {
-        const activeChars = await db.characters
-          .filter((c) => c.isAutoMessageActive === true)
-          .toArray();
+    // 启动当前世界线的后台主动发帖调度
+    snapshotScheduler.start(currentChatId);
+    const unsubscribe = snapshotScheduler.subscribe(() => {
+      loadSnapshots();
+    });
 
-        if (!activeChars || activeChars.length === 0) return;
-
-        // 随机挑选一位开启了主动消息的角色
-        const randomChar = activeChars[Math.floor(Math.random() * activeChars.length)];
-        const lastPost = await db.snapshots.where('characterId').equals(randomChar.id).last();
-
-        // 如果距离上一次发帖超过 4 小时
-        const now = Date.now();
-        if (!lastPost || now - lastPost.timestamp > 4 * 60 * 60 * 1000) {
-          const generatedPost = await generateSnapshotPostByAi(randomChar.id);
-
-          await db.snapshots.add({
-            authorType: 'character',
-            characterId: randomChar.id,
-            authorName: randomChar.name,
-            authorAvatar: randomChar.avatar || '',
-            mediaUrl: '',
-            imagePrompt: generatedPost.imagePrompt,
-            content: generatedPost.content,
-            location: generatedPost.location,
-            likes: 1,
-            isLiked: false,
-            timestamp: now
-          });
-
-          loadSnapshots();
-        }
-      } catch (err) {
-        console.error('Auto snapshot generation failed:', err);
-      }
-    }, 60000); // 每 1 分钟检测一次触发条件
-
-    return () => clearInterval(interval);
-  }, [loadSnapshots]);
+    return () => {
+      unsubscribe();
+    };
+  }, [currentChatId, loadSnapshots]);
 
   // 删除动态
   const handleDeleteSnapshot = async (id) => {
@@ -76,293 +74,150 @@ export const SnapshotsApp = ({ onBackHub }) => {
       await db.snapshotComments.where('snapshotId').equals(id).delete();
       loadSnapshots();
     } catch (err) {
-      console.error('Failed to delete snapshot:', err);
+      console.error('删除动态失败:', err);
     }
   };
 
-  // 智能无门槛召唤评论：根据角色库与关系矩阵匹配评论者，并调用 AI 生成评论。
-  const handleAutoSummonComment = async (snapshot) => {
-  try {
-    setAiError('');
-
-    const characters = await db.characters.toArray();
-    const savedNpcs = await db.snapshotSettings.get('npcs');
-    const npcs = savedNpcs?.value || [];
-
-    const candidateChars = characters.filter(
-      (character) => String(character.id) !== String(snapshot.characterId)
-    );
-
-    const candidatePool = [
-      ...candidateChars.map((character) => ({
-        type: 'character',
-        data: character
-      })),
-      ...npcs.map((npc) => ({
-        type: 'npc',
-        data: npc
-      }))
-    ];
-
-    const picked =
-      candidatePool.length > 0
-        ? candidatePool[Math.floor(Math.random() * candidatePool.length)]
-        : {
-            type: 'npc',
-            data: {
-              id: null,
-              name: '街角光影客',
-              roleTag: '路人'
-            }
-          };
-
-    const commentText = await generateSnapshotCommentByAi(
-      snapshot,
-      picked
-    );
-
-    await db.snapshotComments.add({
-      snapshotId: snapshot.id,
-      senderType: picked.type,
-      characterId: picked.type === 'character' ? picked.data.id : null,
-      npcId: picked.type === 'npc' ? picked.data.id || null : null,
-      senderName: picked.data.name || '匿名访客',
-      senderAvatar:
-        picked.type === 'character' ? picked.data.avatar || '' : '',
-      content: commentText,
-      timestamp: Date.now()
-    });
-
-    await loadSnapshots();
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Snapshots 评论生成失败。';
-
-    setAiError(message);
-
-    triggerGlobalToast({
-      title: '评论生成失败',
-      content: message,
-      iconType: 'bell',
-      duration: 6000
-    });
-
-    throw err;
-  }
-};
-
-
-  // 追评多轮机制
- const handleReplyComment = async (
-  snapshot,
-  replyTarget,
-  userReplyText
-) => {
-  if (!replyTarget.characterId) return;
-
-  try {
-    setAiError('');
-
-    const char = await db.characters.get(replyTarget.characterId);
-    if (!char) {
-      throw new Error('找不到需要回复的角色。');
-    }
-
-    const aiReplyText = await generateSnapshotCommentByAi(
-      snapshot,
-      {
-        type: 'character',
-        data: char
-      },
-      `用户正在回复你的评论。用户回复内容是：${
-        userReplyText || '用户没有填写文字，请自然接续上一条评论。'
-      }`
-    );
-
-    await db.snapshotComments.add({
-      snapshotId: snapshot.id,
-      replyToCommentId: replyTarget.id,
-      replyToName: replyTarget.name,
-      senderType: 'character',
-      characterId: char.id,
-      senderName: char.name,
-      senderAvatar: char.avatar || '',
-      content: aiReplyText,
-      timestamp: Date.now()
-    });
-
-    await loadSnapshots();
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : '追评生成失败。';
-
-    setAiError(message);
-
-    triggerGlobalToast({
-      title: '追评生成失败',
-      content: message,
-      iconType: 'bell',
-      duration: 6000
-    });
-
-    throw err;
-  }
-};
-
-
-  // 邀约 AI 主动发布动态：调用真实 AI API 生成动态正文、图片提示词及地点。
-  const handleInviteAiPost = async (characterId, topicHint, linkedChatId) => {
-    try {
-      const char = await db.characters.get(characterId);
-      if (!char) return;
-
-      const generatedPost = await generateSnapshotPostByAi(
-        characterId,
-        topicHint,
-        linkedChatId
-      );
-
-      await db.snapshots.add({
-        authorType: 'character',
-        characterId: char.id,
-        authorName: char.name,
-        authorAvatar: char.avatar || '',
-        mediaUrl: '',
-        imagePrompt: generatedPost.imagePrompt,
-        content: generatedPost.content,
-        location: generatedPost.location,
-        likes: 1,
-        isLiked: false,
-        linkedChatId,
-        timestamp: Date.now()
-      });
-
-      loadSnapshots();
-    } catch (err) {
-      console.error('Failed to generate AI snapshot:', err);
-    }
-  };
+  const currentCharTitle = chats.find((c) => c.id === currentChatId)?.title || '当前世界线';
 
   return (
-    <div className="space-y-4 pb-12 animate-fade-in text-left">
-      {/* 顶部导航控制条 */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-3">
+    <div className="w-full min-h-screen bg-[#f7f8fa] text-neutral-900 flex flex-col relative overflow-x-hidden selection:bg-neutral-900 selection:text-white">
+      {/* 弥散柔和环境光底纹 */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-gradient-to-b from-neutral-200/40 via-neutral-100/20 to-transparent rounded-full blur-3xl pointer-events-none z-0" />
+
+      {/* 顶部悬浮控制栏（无彩色长条 Bar，清透通透微按钮） */}
+      <div className="sticky top-0 z-40 px-5 pt-4 pb-2 flex items-center justify-between backdrop-blur-md bg-[#f7f8fa]/60">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={onBackHub}
-            className="p-2 rounded-full border transition-transform active:scale-95"
-            style={{
-              backgroundColor: 'var(--card-bg)',
-              borderColor: 'var(--card-border)',
-              color: 'var(--text-main)'
-            }}
+            className="w-10 h-10 rounded-2xl bg-white/80 backdrop-blur-lg border border-white/60 shadow-sm flex items-center justify-center text-neutral-800 hover:bg-white active:scale-95 transition-all"
+            title="返回中心"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
 
-          <div>
-            <h2 className="text-base font-bold tracking-tight" style={{ color: 'var(--text-main)' }}>
-              Snapshots 朋友圈
-            </h2>
-            <p className="text-[10px] opacity-50 uppercase tracking-widest">
-              Polaroid Moments Feed
-            </p>
+          {/* 时空世界线切换下拉 */}
+          <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white/80 backdrop-blur-lg border border-white/60 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-neutral-900" />
+            <select
+              value={currentChatId || ''}
+              onChange={(e) => setCurrentChatId(Number(e.target.value))}
+              className="bg-transparent text-xs font-black text-neutral-800 outline-none cursor-pointer tracking-tight"
+            >
+              {chats.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-2 rounded-full border opacity-80 hover:opacity-100"
-            style={{
-              backgroundColor: 'var(--card-bg)',
-              borderColor: 'var(--card-border)',
-              color: 'var(--text-main)'
-            }}
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsCreateOpen(true)}
-            className="px-3 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95 shadow-sm"
-            style={{
-              backgroundColor: 'var(--accent-color)',
-              color: 'var(--accent-foreground)'
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            <span>发动态</span>
-          </button>
-        </div>
+        {/* 右侧关系与 NPC 设置 */}
+        <button
+          type="button"
+          onClick={() => setIsSettingsOpen(true)}
+          className="w-10 h-10 rounded-2xl bg-white/80 backdrop-blur-lg border border-white/60 shadow-sm flex items-center justify-center text-neutral-700 hover:bg-white active:scale-95 transition-all"
+          title="社交关系与 NPC 设置"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        </button>
       </div>
 
-      {aiError && (
-  <div
-    role="alert"
-    className="px-3 py-2 rounded-xl text-xs leading-relaxed"
-    style={{
-      backgroundColor: 'var(--control-soft-bg)',
-      color: 'var(--text-main)'
-    }}
-  >
-    {aiError}
-  </div>
-)}
-
-
-      {/* 动态 Feed 流 */}
-      {snapshots.length === 0 ? (
-        <div
-          className="rounded-[2.5rem] p-10 text-center space-y-3 border"
-          style={{
-            backgroundColor: 'var(--card-bg)',
-            borderColor: 'var(--card-border)',
-            color: 'var(--text-main)'
-          }}
-        >
-          <Camera className="w-10 h-10 mx-auto opacity-30" />
-          <h3 className="text-sm font-bold">还没有拍立得动态</h3>
-          <p className="text-xs opacity-50 max-w-xs mx-auto leading-relaxed">
-            点击右上角发动态，或开启伴侣主动发帖自动分享即时生活的温情时刻。
-          </p>
-          <button
-            type="button"
-            onClick={() => setIsCreateOpen(true)}
-            className="px-4 py-2 rounded-full text-xs font-bold mt-2"
-            style={{
-              backgroundColor: 'var(--accent-color)',
-              color: 'var(--accent-foreground)'
-            }}
-          >
-            发布第一条动态
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {snapshots.map((item) => (
+      {/* Feed 流主视区 */}
+      <main className="flex-1 w-full max-w-md mx-auto px-4 pt-2 pb-28 relative z-10 space-y-4">
+        {snapshots.length === 0 ? (
+          <div className="rounded-[36px] bg-white/70 backdrop-blur-xl p-12 text-center space-y-3 border border-white/60 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] mt-8">
+            <div className="w-12 h-12 rounded-2xl bg-neutral-100 mx-auto flex items-center justify-center text-neutral-400">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </div>
+            <h3 className="text-sm font-bold text-neutral-800">该世界线尚未定格片羽</h3>
+            <p className="text-xs text-neutral-400 max-w-xs mx-auto leading-relaxed">
+              在 {currentCharTitle} 的时空里，点击下方拍摄记录，或邀约伴侣写下一抹即时心境。
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsCreateOpen(true)}
+              className="px-5 py-2.5 rounded-full bg-neutral-900 text-white text-xs font-bold shadow-md hover:bg-neutral-800 active:scale-95 transition-all mt-2"
+            >
+              留下第一条生活动态
+            </button>
+          </div>
+        ) : (
+          snapshots.map((item) => (
             <SnapshotCard
               key={item.id}
               snapshot={item}
+              currentChatId={currentChatId}
               onDelete={handleDeleteSnapshot}
-              onAutoSummonComment={handleAutoSummonComment}
-              onReplyComment={handleReplyComment}
+              onOpenUserProfile={() => setIsUserProfileOpen(true)}
+              onOpenCharProfile={(charId) => setSelectedCharId(charId)}
             />
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </main>
 
-      {/* Modals */}
+      {/* 底部悬浮白色/微黑液态毛玻璃 Dock */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-neutral-900/90 backdrop-blur-2xl border border-white/20 rounded-full px-3 py-2 flex items-center gap-4 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)]">
+        {/* Feed 广场 */}
+        <button
+          type="button"
+          onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-colors"
+          title="Feed 流"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        </button>
+
+        {/* 发帖按钮 (高亮灵动中心) */}
+        <button
+          type="button"
+          onClick={() => setIsCreateOpen(true)}
+          className="w-11 h-11 rounded-full bg-white text-neutral-900 flex items-center justify-center shadow-lg active:scale-90 transition-transform font-bold"
+          title="记录 / 发帖"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+
+        {/* User 个人主页 */}
+        <button
+          type="button"
+          onClick={() => setIsUserProfileOpen(true)}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-colors"
+          title="User 个人主页"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </button>
+      </div>
+
+      {/* User 个人主页 Sheet */}
+      <UserProfileSheet
+        isOpen={isUserProfileOpen}
+        onClose={() => setIsUserProfileOpen(false)}
+        currentChatId={currentChatId}
+        chats={chats}
+        onChangeChat={(newId) => setCurrentChatId(newId)}
+      />
+
+      {/* Character 个人主页 Sheet */}
+      <CharacterProfileSheet
+        isOpen={Boolean(selectedCharId)}
+        onClose={() => setSelectedCharId(null)}
+        currentChatId={currentChatId}
+        characterId={selectedCharId}
+        onInvitePost={() => setIsCreateOpen(true)}
+      />
+
+      {/* 发帖 Modal */}
       <CreateSnapshotModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
+        currentChatId={currentChatId}
         onPostCreated={loadSnapshots}
-        onInviteAiPost={handleInviteAiPost}
       />
 
+      {/* 社交设置 Modal */}
       <SnapshotSettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
@@ -372,3 +227,4 @@ export const SnapshotsApp = ({ onBackHub }) => {
 };
 
 export default SnapshotsApp;
+
