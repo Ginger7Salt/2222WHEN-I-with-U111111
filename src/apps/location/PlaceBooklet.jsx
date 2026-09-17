@@ -1,24 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, MapPin, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  Edit3,
+  MapPin,
+  Trash2,
+  X,
+} from 'lucide-react';
 
-import { listPlaces, deletePlace } from './placeService';
+import {
+  deletePlace,
+  listPlaces,
+  renamePlace,
+  updatePlaceNote,
+} from './placeService';
+
+const MAP_IMAGE_URL = 'https://u2.fukit.cn/yYmWOHrYc';
 
 const hashString = (value) => {
   let hash = 0;
+
   String(value || '').split('').forEach((char) => {
     hash = (hash << 5) - hash + char.charCodeAt(0);
     hash |= 0;
   });
+
   return Math.abs(hash);
 };
 
 const getMapPoint = (place, index) => {
   const latitude = Number(place?.latitude ?? place?.lat);
-  const longitude = Number(place?.longitude ?? place?.lng ?? place?.lon);
+  const longitude = Number(
+    place?.longitude
+    ?? place?.lng
+    ?? place?.lon,
+  );
 
   if (
-    Number.isFinite(latitude) &&
-    Number.isFinite(longitude)
+    Number.isFinite(latitude)
+    && Number.isFinite(longitude)
   ) {
     return {
       x: 120 + ((longitude + 180) / 360) * 760,
@@ -34,28 +54,125 @@ const getMapPoint = (place, index) => {
   };
 };
 
+const formatDate = (value) => {
+  if (!value) return '未知日期';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return '未知日期';
+
+  return date.toLocaleDateString('zh-CN');
+};
+
 const PlaceBooklet = ({ chatId, character, onBack }) => {
   const [places, setPlaces] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [draftNote, setDraftNote] = useState('');
 
   const reload = async () => {
-    const list = await listPlaces(chatId);
-    setPlaces(list);
-    setActiveIndex((previous) => Math.min(previous, Math.max(list.length - 1, 0)));
-    setIsLoading(false);
+    try {
+      const list = await listPlaces(chatId);
+
+      setPlaces(list);
+      setActiveIndex((previous) => (
+        Math.min(previous, Math.max(list.length - 1, 0))
+      ));
+    } catch (error) {
+      console.warn('[Location] Failed to load places:', error);
+      setPlaces([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
     void reload();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
   const activePlace = places[activeIndex];
 
+  useEffect(() => {
+    if (!activePlace) {
+      setDraftName('');
+      setDraftNote('');
+      setIsEditing(false);
+      return;
+    }
+
+    setDraftName(activePlace.name || '');
+    setDraftNote(activePlace.note || '');
+    setIsEditing(false);
+  }, [activePlace?.id]);
+
+  const selectPlace = (index) => {
+    const place = places[index];
+
+    if (!place) return;
+
+    setActiveIndex(index);
+    setDraftName(place.name || '');
+    setDraftNote(place.note || '');
+    setIsEditing(true);
+  };
+
+  const handleStartEditing = () => {
+    if (!activePlace) return;
+
+    setDraftName(activePlace.name || '');
+    setDraftNote(activePlace.note || '');
+    setIsEditing(true);
+  };
+
+  const handleCancelEditing = () => {
+    if (!activePlace) return;
+
+    setDraftName(activePlace.name || '');
+    setDraftNote(activePlace.note || '');
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    if (!activePlace || isSaving) return;
+
+    const trimmedName = String(draftName || '').trim();
+
+    if (!trimmedName) return;
+
+    setIsSaving(true);
+
+    try {
+      await renamePlace(activePlace.id, trimmedName);
+      await updatePlaceNote(activePlace.id, draftNote);
+      await reload();
+      setIsEditing(false);
+    } catch (error) {
+      console.warn('[Location] Failed to save place:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleDelete = async (placeId) => {
-    await deletePlace(chatId, placeId);
-    await reload();
+    try {
+      await deletePlace(chatId, placeId);
+      setIsEditing(false);
+      await reload();
+    } catch (error) {
+      console.warn('[Location] Failed to delete place:', error);
+    }
+  };
+
+  const handleRowKeyDown = (event, index) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      selectPlace(index);
+    }
   };
 
   const mapPlaces = places.map((place, index) => ({
@@ -64,7 +181,10 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
     point: getMapPoint(place, index),
   }));
 
-  const activePoint = mapPlaces[activeIndex]?.point || { x: 500, y: 310 };
+  const activePoint = mapPlaces[activeIndex]?.point || {
+    x: 500,
+    y: 310,
+  };
 
   const mapOffsetX = 500 - activePoint.x * 1.34;
   const mapOffsetY = 310 - activePoint.y * 1.34;
@@ -72,6 +192,8 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
   const routePoints = mapPlaces
     .map(({ point }) => `${point.x},${point.y}`)
     .join(' ');
+
+  const canSave = Boolean(String(draftName || '').trim()) && !isSaving;
 
   return (
     <div
@@ -86,11 +208,8 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           --map-ink: #17181d;
           --map-muted: #777982;
           --map-road: #ffffff;
-          --map-land: #e8e9e5;
-          --map-land-dark: #d7d9d3;
-          --map-water: #cbdce0;
-          --map-accent: var(--accent-color);
           --map-line: rgba(20,22,28,.13);
+          --map-accent: var(--accent-color);
           overflow: hidden;
         }
         .place-booklet-header {
@@ -185,9 +304,9 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           height: min(58vw, 390px);
           min-height: 285px;
           overflow: hidden;
-          background: var(--map-land);
+          background: #d8e3e2;
           box-shadow:
-            inset 0 0 0 1px rgba(255,255,255,.65),
+            inset 0 0 0 1px rgba(255,255,255,.45),
             0 24px 50px -32px rgba(0,0,0,.42);
           isolation: isolate;
         }
@@ -197,7 +316,21 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           z-index: 3;
           inset: 0;
           pointer-events: none;
-          box-shadow: inset 0 0 60px rgba(25,28,30,.12);
+          box-shadow: inset 0 0 60px rgba(25,28,30,.18);
+        }
+        .map-frame::after {
+          content: "";
+          position: absolute;
+          z-index: 2;
+          inset: 0;
+          pointer-events: none;
+          background: linear-gradient(
+            135deg,
+            rgba(255,255,255,.12),
+            transparent 42%,
+            rgba(18,28,30,.08)
+          );
+          mix-blend-mode: multiply;
         }
         .map-svg {
           display: block;
@@ -212,26 +345,14 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           ) scale(1.34);
           transition: transform .9s cubic-bezier(.16,1,.3,1);
         }
+        .map-image {
+          display: block;
+          width: 1000px;
+          height: 620px;
+          opacity: .94;
+        }
         .map-grid {
-          opacity: .32;
-        }
-        .map-road {
-          fill: none;
-          stroke: var(--map-road);
-          stroke-linecap: round;
-          stroke-linejoin: round;
-        }
-        .map-road.main {
-          stroke-width: 10;
-          opacity: .86;
-        }
-        .map-road.secondary {
-          stroke-width: 4;
-          opacity: .7;
-        }
-        .map-road.small {
-          stroke-width: 2;
-          opacity: .58;
+          opacity: .16;
         }
         .map-marker {
           cursor: pointer;
@@ -251,8 +372,14 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           transform-origin: center;
         }
         @keyframes mapPulse {
-          0% { opacity: .55; transform: scale(.65); }
-          70%, 100% { opacity: 0; transform: scale(1.8); }
+          0% {
+            opacity: .55;
+            transform: scale(.65);
+          }
+          70%, 100% {
+            opacity: 0;
+            transform: scale(1.8);
+          }
         }
         .map-location-label {
           pointer-events: none;
@@ -367,6 +494,10 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         .place-row:hover {
           transform: translateX(3px);
         }
+        .place-row:focus-visible {
+          outline: 2px solid var(--accent-color);
+          outline-offset: 3px;
+        }
         .place-row.active {
           padding-top: 18px;
           padding-bottom: 18px;
@@ -413,10 +544,22 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
+        .place-row-note {
+          max-width: 90%;
+          margin-top: 4px;
+          overflow: hidden;
+          font-family: Georgia, serif;
+          font-size: 10px;
+          font-style: italic;
+          opacity: .5;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
         .place-delete {
           display: flex;
           width: 28px;
           height: 28px;
+          flex-shrink: 0;
           align-items: center;
           justify-content: center;
           border: 0;
@@ -430,6 +573,11 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
         .place-delete:hover {
           background: rgba(170,45,45,.1);
           color: #a52e36;
+          opacity: 1;
+        }
+        .place-delete:focus-visible {
+          outline: 2px solid #a52e36;
+          outline-offset: 2px;
           opacity: 1;
         }
         .place-empty-state {
@@ -464,6 +612,128 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
           font-size: 10px;
           font-style: italic;
           opacity: .48;
+        }
+        .place-footer-display {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 18px;
+        }
+        .place-footer-summary {
+          min-width: 0;
+          flex: 1;
+        }
+        .place-footer-note {
+          max-width: 100%;
+          margin-top: 6px;
+          overflow: hidden;
+          color: var(--text-main);
+          font-family: Georgia, serif;
+          font-size: 11px;
+          font-style: italic;
+          line-height: 1.55;
+          opacity: .58;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .place-edit-button {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          flex-shrink: 0;
+          border: 0;
+          padding: 5px 0;
+          background: transparent;
+          color: var(--text-main);
+          font-size: 11px;
+          font-weight: 650;
+          opacity: .52;
+          cursor: pointer;
+          transition: color .25s ease, opacity .25s ease;
+        }
+        .place-edit-button:hover {
+          color: var(--accent-color);
+          opacity: 1;
+        }
+        .place-edit-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .place-edit-label {
+          display: block;
+          color: var(--text-main);
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 1.2px;
+          opacity: .44;
+          text-transform: uppercase;
+        }
+        .place-edit-input,
+        .place-edit-textarea {
+          display: block;
+          width: 100%;
+          border: 0;
+          border-bottom: 1px solid var(--map-line);
+          outline: 0;
+          background: transparent;
+          color: var(--text-main);
+          font-family: inherit;
+          font-size: 13px;
+          line-height: 1.5;
+          transition: border-color .25s ease;
+        }
+        .place-edit-input {
+          padding: 5px 0 7px;
+          font-weight: 700;
+        }
+        .place-edit-textarea {
+          min-height: 42px;
+          resize: vertical;
+          padding: 5px 0 7px;
+          font-family: Georgia, serif;
+          font-size: 12px;
+        }
+        .place-edit-input:focus,
+        .place-edit-textarea:focus {
+          border-bottom-color: var(--accent-color);
+        }
+        .place-edit-input::placeholder,
+        .place-edit-textarea::placeholder {
+          color: var(--text-main);
+          opacity: .32;
+        }
+        .place-edit-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 14px;
+          padding-top: 2px;
+        }
+        .place-edit-action {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          border: 0;
+          padding: 5px 0;
+          background: transparent;
+          color: var(--text-main);
+          font-size: 11px;
+          font-weight: 650;
+          opacity: .58;
+          cursor: pointer;
+          transition: color .25s ease, opacity .25s ease;
+        }
+        .place-edit-action:hover {
+          opacity: 1;
+        }
+        .place-edit-action.save {
+          color: var(--accent-color);
+          opacity: 1;
+        }
+        .place-edit-action.save:disabled {
+          cursor: not-allowed;
+          opacity: .3;
         }
       `}</style>
 
@@ -517,6 +787,8 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                   '--map-offset-x': `${mapOffsetX}px`,
                   '--map-offset-y': `${mapOffsetY}px`,
                 }}
+                aria-label="地点记忆地图"
+                role="img"
               >
                 <defs>
                   <pattern
@@ -542,21 +814,20 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                       floodOpacity=".28"
                     />
                   </filter>
-
-                  <filter id="softShadow">
-                    <feDropShadow
-                      dx="0"
-                      dy="8"
-                      stdDeviation="10"
-                      floodColor="#5e6e70"
-                      floodOpacity=".18"
-                    />
-                  </filter>
                 </defs>
 
-                <rect width="1000" height="620" fill="#e7e8e3" />
-
                 <g className="map-world">
+                  <image
+                    className="map-image"
+                    href={MAP_IMAGE_URL}
+                    x="0"
+                    y="0"
+                    width="1000"
+                    height="620"
+                    preserveAspectRatio="xMidYMid slice"
+                    aria-label="记忆地图底图"
+                  />
+
                   <rect
                     className="map-grid"
                     x="0"
@@ -565,63 +836,6 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                     height="620"
                     fill="url(#mapGrid)"
                   />
-
-                  <path
-                    d="M-80 110 C100 35 205 130 330 80 S570 30 690 120 S865 170 1090 70 L1090 0 L-80 0Z"
-                    fill="#c9dce0"
-                  />
-                  <path
-                    d="M-80 110 C100 35 205 130 330 80 S570 30 690 120 S865 170 1090 70"
-                    fill="none"
-                    stroke="#a9c8cd"
-                    strokeWidth="7"
-                    opacity=".7"
-                  />
-
-                  <path
-                    d="M-50 505 C110 430 215 540 355 490 S590 430 720 520 S890 560 1060 470 L1060 650 L-50 650Z"
-                    fill="#d4dccd"
-                  />
-
-                  <path
-                    d="M90 30 C170 150 100 250 190 355 S235 545 155 680"
-                    fill="none"
-                    stroke="#c0c9ba"
-                    strokeWidth="48"
-                    opacity=".7"
-                  />
-                  <path
-                    d="M770 -30 C700 95 820 205 730 315 S665 510 770 660"
-                    fill="none"
-                    stroke="#d2d7cd"
-                    strokeWidth="65"
-                    opacity=".9"
-                  />
-
-                  <g opacity=".9">
-                    <path className="map-road main" d="M-30 180 C180 210 280 165 430 230 S735 305 1030 230" />
-                    <path className="map-road main" d="M35 -30 C180 125 250 250 335 650" />
-                    <path className="map-road main" d="M960 -30 C820 115 790 270 930 650" />
-
-                    <path className="map-road secondary" d="M-20 285 C160 245 330 290 490 335 S810 410 1035 345" />
-                    <path className="map-road secondary" d="M150 -20 C220 130 420 185 580 245 S820 520 870 660" />
-                    <path className="map-road secondary" d="M-30 430 C180 355 260 380 430 470 S760 550 1040 450" />
-                    <path className="map-road secondary" d="M520 -30 C465 100 505 220 470 340 S510 525 470 660" />
-
-                    <path className="map-road small" d="M20 110 L330 155 L450 105 L700 155 L980 105" />
-                    <path className="map-road small" d="M50 245 L220 205 L360 275 L520 250 L700 300 L950 260" />
-                    <path className="map-road small" d="M35 350 L180 315 L300 365 L470 320 L650 390 L900 355" />
-                    <path className="map-road small" d="M120 530 L260 440 L410 510 L590 430 L770 485 L960 400" />
-                    <path className="map-road small" d="M270 0 L320 180 L290 330 L350 620" />
-                    <path className="map-road small" d="M620 0 L590 150 L650 280 L605 450 L650 620" />
-                  </g>
-
-                  <g opacity=".38" fill="none" stroke="#8f9a90" strokeWidth="2">
-                    <path d="M80 130 C170 105 235 120 300 160 S430 205 520 170" />
-                    <path d="M110 145 C190 125 250 140 310 178 S420 220 500 190" />
-                    <path d="M590 430 C690 385 800 400 890 445" />
-                    <path d="M570 450 C680 410 790 425 900 470" />
-                  </g>
 
                   {routePoints && (
                     <polyline
@@ -632,7 +846,7 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeDasharray="10 9"
-                      opacity=".8"
+                      opacity=".78"
                     />
                   )}
 
@@ -644,7 +858,16 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                         key={place.id}
                         className={`map-marker ${isActive ? 'active' : ''}`}
                         transform={`translate(${point.x} ${point.y})`}
-                        onClick={() => setActiveIndex(index)}
+                        onClick={() => selectPlace(index)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            selectPlace(index);
+                          }
+                        }}
+                        role="button"
+                        tabIndex="0"
+                        aria-label={`选择地点：${place.name}`}
                       >
                         {isActive && (
                           <circle
@@ -701,37 +924,51 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
             <div className="place-list">
               {places.map((place, index) => (
-                <button
+                <div
                   key={place.id}
-                  type="button"
-                  onClick={() => setActiveIndex(index)}
-                  className={`place-row ${index === activeIndex ? 'active' : ''}`}
+                  className={`place-row ${
+                    index === activeIndex ? 'active' : ''
+                  }`}
+                  onClick={() => selectPlace(index)}
+                  onKeyDown={(event) => handleRowKeyDown(event, index)}
+                  role="button"
+                  tabIndex="0"
+                  aria-pressed={index === activeIndex}
                 >
                   <div className="place-row-marker">
                     <MapPin className="h-4 w-4" />
                   </div>
 
                   <div className="place-row-info">
-                    <p className="place-row-name">{place.name}</p>
+                    <p className="place-row-name">
+                      {place.name || '未命名地点'}
+                    </p>
+
                     <p className="place-row-meta">
                       到访 {place.visitCount || 1} 次 · 最近一次{' '}
-                      {new Date(place.lastVisitAt).toLocaleDateString('zh-CN')}
+                      {formatDate(place.lastVisitAt)}
                     </p>
+
+                    {place.note && (
+                      <p className="place-row-note">
+                        {place.note}
+                      </p>
+                    )}
                   </div>
 
-                  <span
-                    role="button"
-                    tabIndex={-1}
+                  <button
+                    type="button"
                     onClick={(event) => {
                       event.stopPropagation();
                       void handleDelete(place.id);
                     }}
                     className="place-delete"
                     title="忘记这个地方"
+                    aria-label={`删除地点：${place.name}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </span>
-                </button>
+                  </button>
+                </div>
               ))}
             </div>
           </>
@@ -740,10 +977,90 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
       {activePlace && (
         <footer className="place-footer">
-          <p>
-            初次到访：
-            {new Date(activePlace.firstVisitAt).toLocaleDateString('zh-CN')}
-          </p>
+          {isEditing ? (
+            <div className="place-edit-panel">
+              <label
+                className="place-edit-label"
+                htmlFor="place-name-input"
+              >
+                地点名称
+              </label>
+
+              <input
+                id="place-name-input"
+                className="place-edit-input"
+                type="text"
+                value={draftName}
+                onChange={(event) => setDraftName(event.target.value)}
+                placeholder="给这个地方取个名字"
+                maxLength={100}
+                autoFocus
+              />
+
+              <label
+                className="place-edit-label"
+                htmlFor="place-note-input"
+              >
+                共同备注
+              </label>
+
+              <textarea
+                id="place-note-input"
+                className="place-edit-textarea"
+                value={draftNote}
+                onChange={(event) => setDraftNote(event.target.value)}
+                placeholder="留一句只有你们知道的话..."
+                maxLength={1000}
+                rows={2}
+              />
+
+              <div className="place-edit-actions">
+                <button
+                  type="button"
+                  className="place-edit-action"
+                  onClick={handleCancelEditing}
+                  disabled={isSaving}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>取消</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="place-edit-action save"
+                  onClick={() => void handleSave()}
+                  disabled={!canSave}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  <span>{isSaving ? '保存中...' : '保存'}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="place-footer-display">
+              <div className="place-footer-summary">
+                <p>
+                  初次到访：
+                  {formatDate(activePlace.firstVisitAt)}
+                </p>
+
+                {activePlace.note && (
+                  <div className="place-footer-note">
+                    {activePlace.note}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="place-edit-button"
+                onClick={handleStartEditing}
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                <span>编辑</span>
+              </button>
+            </div>
+          )}
         </footer>
       )}
     </div>
@@ -751,3 +1068,4 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 };
 
 export default PlaceBooklet;
+

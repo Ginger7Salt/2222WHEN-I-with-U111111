@@ -19,7 +19,6 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // 初始化加载所有 Chat 并选定当前 Chat
   const loadChats = useCallback(async () => {
     try {
       const list = await db.chats.toArray();
@@ -32,7 +31,6 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
     }
   }, [currentChatId]);
 
-  // 加载当前 Chat 对应的 Feed 广场动态
   const loadSnapshots = useCallback(async () => {
     if (!currentChatId) return;
     try {
@@ -51,7 +49,6 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
     loadChats();
   }, [loadChats]);
 
-  // 当 currentChatId 改变时，切换调度器世界线并加载动态
   useEffect(() => {
     if (!currentChatId) return;
     loadSnapshots();
@@ -66,7 +63,6 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
     };
   }, [currentChatId, loadSnapshots]);
 
-  // 删除动态
   const handleDeleteSnapshot = async (id) => {
     try {
       await db.snapshots.delete(id);
@@ -80,32 +76,30 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
   const currentCharTitle = chats.find((c) => c.id === currentChatId)?.title || '当前世界线';
 
   return (
-    // 外层容器：使用 100dvh 全屏占满，消除外侧缝隙
-    <div className="w-full min-h-[100dvh] bg-[#f5f7fa] text-neutral-900 flex flex-col relative overflow-x-hidden selection:bg-neutral-900 selection:text-white">
-      {/* 顶部柔和环境弥散光 */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-64 bg-gradient-to-b from-blue-100/40 via-purple-50/20 to-transparent rounded-full blur-3xl pointer-events-none z-0" />
-
-      {/* 顶部导航栏：全宽通透贴合 */}
-      <header className="sticky top-0 z-40 w-full px-4 pt-3 pb-2.5 flex items-center justify-between backdrop-blur-xl bg-[#f5f7fa]/75 border-b border-black/[0.03]">
+    // 关键改动：使用 fixed inset-0 强制占满整个手机屏幕视口，击穿任何父级的 max-w 或居中限制
+    <div className="fixed inset-0 z-30 w-full h-[100dvh] bg-[#f7f8fa] text-neutral-900 flex flex-col overflow-y-auto overflow-x-hidden selection:bg-neutral-900 selection:text-white">
+      
+      {/* 顶部通栏导航 */}
+      <header className="sticky top-0 z-40 w-full px-4 pt-3 pb-3 flex items-center justify-between backdrop-blur-xl bg-[#f7f8fa]/80 border-b border-black/[0.04]">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onBackHub}
-            className="w-9 h-9 rounded-2xl bg-white/90 shadow-sm border border-neutral-200/50 flex items-center justify-center text-neutral-700 active:scale-95 transition-all"
-            title="返回"
+            className="w-9 h-9 rounded-2xl bg-white shadow-sm border border-neutral-200/60 flex items-center justify-center text-neutral-700 active:scale-95 transition-all"
+            title="返回中心"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
 
-          {/* 世界线切换胶囊 */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/90 shadow-sm border border-neutral-200/50 max-w-[200px]">
+          {/* 时空世界线胶囊 */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white shadow-sm border border-neutral-200/60">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
             <select
               value={currentChatId || ''}
               onChange={(e) => setCurrentChatId(Number(e.target.value))}
-              className="bg-transparent text-xs font-semibold text-neutral-800 outline-none cursor-pointer truncate pr-1"
+              className="bg-transparent text-xs font-bold text-neutral-800 outline-none cursor-pointer tracking-tight"
             >
               {chats.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -116,11 +110,11 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
           </div>
         </div>
 
-        {/* 右侧设置按钮 */}
+        {/* 社交设置 */}
         <button
           type="button"
           onClick={() => setIsSettingsOpen(true)}
-          className="w-9 h-9 rounded-2xl bg-white/90 shadow-sm border border-neutral-200/50 flex items-center justify-center text-neutral-700 active:scale-95 transition-all"
+          className="w-9 h-9 rounded-2xl bg-white shadow-sm border border-neutral-200/60 flex items-center justify-center text-neutral-700 active:scale-95 transition-all"
           title="设置"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -132,23 +126,23 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
         </button>
       </header>
 
-      {/* Feed 流主视区：占满宽度，桌面端才限制宽度 */}
-      <main className="flex-1 w-full sm:max-w-lg sm:mx-auto px-3.5 pt-3 pb-28 relative z-10 flex flex-col">
+      {/* 核心视区：彻底去掉 max-w 和 mx-auto，保证 100% 全屏铺满 */}
+      <main className="flex-1 w-full px-4 pt-4 pb-32 flex flex-col">
         {snapshots.length === 0 ? (
-          // 空状态居中，不再是浮动的壳子
-          <div className="my-auto flex flex-col items-center justify-center py-12 px-4 text-center">
-            <div className="w-16 h-16 rounded-3xl bg-white/80 shadow-sm border border-neutral-200/50 flex items-center justify-center text-neutral-400 mb-4">
+          // 空状态居中自然展现
+          <div className="my-auto flex flex-col items-center justify-center text-center px-4">
+            <div className="w-16 h-16 rounded-3xl bg-white shadow-sm border border-neutral-200/60 flex items-center justify-center text-neutral-400 mb-4">
               <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
                 <rect x="3" y="3" width="18" height="18" rx="3" ry="3" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
                 <polyline points="21 15 16 10 5 21" />
               </svg>
             </div>
-            <h3 className="text-base font-bold text-neutral-800 tracking-tight mb-1">
+            <h3 className="text-sm font-bold text-neutral-800 tracking-tight mb-1.5">
               该世界线尚未定格片羽
             </h3>
             <p className="text-xs text-neutral-400 max-w-xs leading-relaxed mb-6">
-              在「{currentCharTitle}」的时空里，点击下方按钮记录生活，或邀约伴侣留下即时心境。
+              在「{currentCharTitle}」的时空里，点击下方按钮记录，或邀约伴侣写下一抹即时心境。
             </p>
             <button
               type="button"
@@ -159,7 +153,7 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              <span>记录第一条瞬间</span>
+              <span>记录第一条生活动态</span>
             </button>
           </div>
         ) : (
@@ -179,12 +173,11 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
       </main>
 
       {/* 底部悬浮控制栏 Dock */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-neutral-900/90 backdrop-blur-2xl border border-white/20 rounded-full px-3 py-2 flex items-center gap-3 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.35)]">
-        {/* 回到顶部/Feed */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-neutral-900/90 backdrop-blur-2xl border border-white/20 rounded-full px-3 py-2 flex items-center gap-4 shadow-2xl">
         <button
           type="button"
           onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white/75 hover:text-white active:scale-95 transition-all"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-colors"
           title="广场"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -192,12 +185,11 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
           </svg>
         </button>
 
-        {/* 发布瞬间 */}
         <button
           type="button"
           onClick={() => setIsCreateOpen(true)}
           className="w-11 h-11 rounded-full bg-white text-neutral-950 flex items-center justify-center shadow-lg active:scale-90 transition-transform font-bold"
-          title="记录瞬间"
+          title="发布"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -205,11 +197,10 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
           </svg>
         </button>
 
-        {/* 个人主页 */}
         <button
           type="button"
           onClick={() => setIsUserProfileOpen(true)}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white/75 hover:text-white active:scale-95 transition-all"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-colors"
           title="个人中心"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -219,7 +210,7 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
         </button>
       </div>
 
-      {/* Sheets & Modals */}
+      {/* 弹窗及抽屉 */}
       <UserProfileSheet
         isOpen={isUserProfileOpen}
         onClose={() => setIsUserProfileOpen(false)}
@@ -252,4 +243,3 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
 };
 
 export default SnapshotsApp;
-

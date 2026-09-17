@@ -15,11 +15,16 @@ const toRad = (deg) => (deg * Math.PI) / 180;
 export const haversineDistanceMeters = (lat1, lng1, lat2, lng2) => {
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
+
   const a = (
     Math.sin(dLat / 2) ** 2
-    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+    + Math.cos(toRad(lat1))
+    * Math.cos(toRad(lat2))
+    * Math.sin(dLng / 2) ** 2
   );
+
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
   return EARTH_RADIUS_METERS * c;
 };
 
@@ -33,6 +38,7 @@ export const getLocationSettings = async (chatId) => {
     enabled: false,
     currentPlaceId: null,
     pendingNamingPlaceId: null,
+    currentStayStartedAt: null,
     lastCheckAt: 0,
     updatedAt: null,
   };
@@ -46,6 +52,7 @@ export const setLocationEnabled = async (chatId, enabled) => {
     enabled: Boolean(enabled),
     currentPlaceId: existing?.currentPlaceId ?? null,
     pendingNamingPlaceId: existing?.pendingNamingPlaceId ?? null,
+    currentStayStartedAt: existing?.currentStayStartedAt ?? null,
     lastCheckAt: existing?.lastCheckAt ?? 0,
     updatedAt: nowIso(),
   });
@@ -72,7 +79,13 @@ export const findMatchingPlace = async (chatId, lat, lng) => {
   let closestDistance = Infinity;
 
   for (const place of places) {
-    const distance = haversineDistanceMeters(lat, lng, place.lat, place.lng);
+    const distance = haversineDistanceMeters(
+      lat,
+      lng,
+      place.lat,
+      place.lng,
+    );
+
     const radius = place.radius || DEFAULT_RADIUS_METERS;
 
     if (distance <= radius && distance < closestDistance) {
@@ -98,15 +111,22 @@ export const checkLocationAndDetectTransition = async (chatId, coords) => {
   const timestamp = nowIso();
 
   const matchedPlace = await findMatchingPlace(chatId, lat, lng);
+
   let resultPlaceId = null;
   let isNewUnnamedPlace = false;
 
   if (matchedPlace) {
     resultPlaceId = matchedPlace.id;
 
+    // 只有"从别处到达这里"才算一次新到访。
+    // 上次检查时已经在这个地点、只是继续停留，不重复计数。
+    const isArrivingNow = settings.currentPlaceId !== matchedPlace.id;
+
     await db.places.update(matchedPlace.id, {
       lastVisitAt: timestamp,
-      visitCount: (matchedPlace.visitCount || 0) + 1,
+      visitCount: isArrivingNow
+        ? (matchedPlace.visitCount || 0) + 1
+        : (matchedPlace.visitCount || 0),
     });
   } else {
     // 没命中任何已命名地点。看看是否离"上一条待命名记录"很近，
@@ -116,8 +136,12 @@ export const checkLocationAndDetectTransition = async (chatId, coords) => {
       : null;
 
     const isNearPending = pendingPlace && (
-      haversineDistanceMeters(lat, lng, pendingPlace.lat, pendingPlace.lng)
-      <= DEFAULT_RADIUS_METERS
+      haversineDistanceMeters(
+        lat,
+        lng,
+        pendingPlace.lat,
+        pendingPlace.lng,
+      ) <= DEFAULT_RADIUS_METERS
     );
 
     if (isNearPending) {
@@ -126,6 +150,7 @@ export const checkLocationAndDetectTransition = async (chatId, coords) => {
       resultPlaceId = await db.places.add({
         chatId,
         name: '',
+        note: '',
         lat,
         lng,
         radius: DEFAULT_RADIUS_METERS,
@@ -148,18 +173,30 @@ export const checkLocationAndDetectTransition = async (chatId, coords) => {
     pendingNamingPlaceId: isNewUnnamedPlace
       ? resultPlaceId
       : (matchedPlace ? null : settings.pendingNamingPlaceId),
+
+    // 只有真正发生地点转移时，才重置本次停留开始时间。
+    // 如果仍在同一个地点，则保留原来的时间，用于计算当前已停留时长。
+    currentStayStartedAt: hasTransitioned
+      ? timestamp
+      : (settings.currentStayStartedAt || timestamp),
+
     lastCheckAt: Date.now(),
     updatedAt: timestamp,
   });
 
   const place = matchedPlace || await db.places.get(resultPlaceId);
 
-  return { place, hasTransitioned, isNewUnnamedPlace };
+  return {
+    place,
+    hasTransitioned,
+    isNewUnnamedPlace,
+  };
 };
 
 // 用户为一个待命名地点起名字，命名后它才会参与后续匹配。
 export const namePlace = async (placeId, name) => {
   const trimmed = String(name || '').trim();
+
   if (!trimmed) return;
 
   await db.places.update(placeId, {
@@ -168,11 +205,32 @@ export const namePlace = async (placeId, name) => {
   });
 };
 
+// 编辑已经存在的地点名称。
+export const renamePlace = async (placeId, name) => {
+  const trimmed = String(name || '').trim();
+
+  if (!trimmed) return;
+
+  await db.places.update(placeId, {
+    name: trimmed,
+  });
+};
+
+// 更新地点备注。
+export const updatePlaceNote = async (placeId, note) => {
+  await db.places.update(placeId, {
+    note: String(note || '').trim(),
+  });
+};
+
 export const updatePlaceRadius = async (placeId, radiusMeters) => {
   const radius = Number(radiusMeters);
+
   if (!Number.isFinite(radius) || radius <= 0) return;
 
-  await db.places.update(placeId, { radius });
+  await db.places.update(placeId, {
+    radius,
+  });
 };
 
 export const deletePlace = async (chatId, placeId) => {
@@ -180,28 +238,51 @@ export const deletePlace = async (chatId, placeId) => {
 
   const settings = await getLocationSettings(chatId);
 
-  if (settings.currentPlaceId === placeId || settings.pendingNamingPlaceId === placeId) {
+  const isCurrentPlace = settings.currentPlaceId === placeId;
+  const isPendingNamingPlace = settings.pendingNamingPlaceId === placeId;
+
+  if (isCurrentPlace || isPendingNamingPlace) {
     await db.locationSettings.put({
       ...settings,
-      currentPlaceId: settings.currentPlaceId === placeId ? null : settings.currentPlaceId,
-      pendingNamingPlaceId: settings.pendingNamingPlaceId === placeId
+      currentPlaceId: isCurrentPlace
+        ? null
+        : settings.currentPlaceId,
+      pendingNamingPlaceId: isPendingNamingPlace
         ? null
         : settings.pendingNamingPlaceId,
+
+      // 当前地点被删除后，原来的停留计时也应失效。
+      currentStayStartedAt: isCurrentPlace
+        ? null
+        : settings.currentStayStartedAt,
+
       updatedAt: nowIso(),
     });
   }
 };
 
-// 判断距离上次检查是否已经超过给定的轮询间隔（默认 1.5 小时，带随机浮动）。
+// 获取当前地点已经连续停留的时长，单位为毫秒。
+export const getCurrentStayDurationMs = (settings) => {
+  if (!settings?.currentStayStartedAt) return 0;
+
+  return Date.now() - new Date(
+    settings.currentStayStartedAt,
+  ).getTime();
+};
+
+// 判断距离上次检查是否已经超过给定的轮询间隔。
 export const shouldCheckLocation = (settings, intervalMs) => {
   if (!settings?.enabled) return false;
+
   const last = settings.lastCheckAt || 0;
+
   return Date.now() - last >= intervalMs;
 };
 
 export const getRandomCheckIntervalMs = () => {
   const oneHour = 60 * 60 * 1000;
-  return oneHour + Math.random() * oneHour; // 1~2小时之间随机
+
+  return oneHour + Math.random() * oneHour;
 };
 
 export default {
@@ -212,8 +293,11 @@ export default {
   findMatchingPlace,
   checkLocationAndDetectTransition,
   namePlace,
+  renamePlace,
+  updatePlaceNote,
   updatePlaceRadius,
   deletePlace,
+  getCurrentStayDurationMs,
   shouldCheckLocation,
   getRandomCheckIntervalMs,
 };

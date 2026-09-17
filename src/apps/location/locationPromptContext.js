@@ -5,7 +5,10 @@
 // 任何失败都安全降级为空字符串，绝不能因为定位数据阻断正常聊天。
 
 import db from '../../db';
-import { getLocationSettings } from './placeService';
+import {
+  getLocationSettings,
+  getCurrentStayDurationMs,
+} from './placeService';
 
 export const getLocationPromptContext = async (chatId) => {
   try {
@@ -19,14 +22,39 @@ export const getLocationPromptContext = async (chatId) => {
 
     if (!currentPlace) return '';
 
+    const stayMs = getCurrentStayDurationMs(settings);
+    const stayHours = Math.floor(stayMs / (60 * 60 * 1000));
+    const stayMinutes = Math.floor(
+      (stayMs % (60 * 60 * 1000)) / (60 * 1000),
+    );
+
+    let stayText = '';
+
+    if (stayHours > 0) {
+      stayText = `${stayHours}小时${
+        stayMinutes > 0 ? `${stayMinutes}分钟` : ''
+      }`;
+    } else if (stayMinutes > 0) {
+      stayText = `${stayMinutes}分钟`;
+    }
+
     let block = '\n【用户当前位置感知——真实定位信息，仅在自然贴切时使用，不要每次都提】：\n';
 
     if (currentPlace.isNamed) {
-      block += `- 用户此刻所在地点：${currentPlace.name}（已到访 ${currentPlace.visitCount || 1} 次）。\n`;
+      block += `- 用户此刻所在地点：${currentPlace.name}（第 ${
+        currentPlace.visitCount || 1
+      } 次到访${
+        stayText ? `，这次已经待了约${stayText}` : ''
+      }）。\n`;
+
+      if (currentPlace.note) {
+        block += `- 你对这个地方的印象/备注：${currentPlace.note}\n`;
+      }
+
       block += '- 如果你想主动跟用户提起ta现在的位置、或分享一张位置卡片，使用格式：[LOCATION: 地点名称 | 一句附加感想(可选)]。\n';
       block += '- 不要每次都提位置，只在自然、贴合当下语境时才用；也不要让用户感觉被持续监控。\n';
     } else {
-      block += '- 用户出现在一个你还不认识的新地方。你可以自然地表现出好奇，问一句"这是哪里呀？"或类似的话，但不要生硬追问，也不必每次都问。\n';
+      block += '- 用户出现在一个你还不认识的新地方。你可以自然地表现出好奇，问一句"这是哪里呀？"，但不要生硬追问，也不必每次都问。\n';
     }
 
     return block;
@@ -36,4 +64,6 @@ export const getLocationPromptContext = async (chatId) => {
   }
 };
 
-export default { getLocationPromptContext };
+export default {
+  getLocationPromptContext,
+};
