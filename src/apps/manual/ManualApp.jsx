@@ -22,7 +22,7 @@ export const MANUAL_SECTIONS = [
     content: (
       <>
         <div className="manual-note">
-          <p>现在在想更好记的名字！</p>
+          <p>现在的正式中文名叫！熔巧机</p>
         </div>
 
         <p>
@@ -40,6 +40,7 @@ export const MANUAL_SECTIONS = [
           请注意，这个网站是完全不商业化的，并且之后也没有商业化的想法。
           网站地址可以二次分享，感谢您的分享。
           网站还在更新新的子app和部分页面美化。修改过程中可能会出现bug，都会尽快解决。
+          小红薯的repo tag 就是 熔巧机~ 欢迎老师们repo！
           感谢老师们的谅解
         </p>
 
@@ -189,7 +190,7 @@ export const MANUAL_SECTIONS = [
           <span>
             在这里选择主题、调整首页标题，并完成基础配置。
             可以接入 MCP，目前 MCP 只有在 Messages 的一对一沟通中才可以使用。
-            在角色界面可以为角色配置 MiniMax 声音生成。
+            在角色界面可以为角色配置 MiniMax 声音生成。需要部署跨域哦！
           </span>
         </li>
 
