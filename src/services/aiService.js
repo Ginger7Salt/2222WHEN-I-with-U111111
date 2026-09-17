@@ -15,6 +15,8 @@ import {
 } from '../apps/diaries/diaryGenerationService';
 
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
+import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDirective';
+import { proposeOfflineSessionByCharacter } from '../apps/offline/offlineSessionService';
 
 import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptContext';
 
@@ -1039,6 +1041,21 @@ ${stickerInstruction}
 8. 不得输出任何未注册的方括号指令。
 
 
+【线下邀约机制】
+
+如果你判断此刻适合主动邀请用户进行一次线下面对面见面，可以在回复的最后一行单独输出：
+
+[OFFLINE_INVITE: 场景名称 | 场景细节描述(可选) | 距现在的分钟数]
+
+严格规则：
+1. 场景名称简短且有画面感，例如"傍晚的河边散步""巷子口的深夜食堂"。
+2. 距现在的分钟数必须是 30 到 10080（7天）之间的整数。
+3. 一次回复最多使用一次该指令，且不能与 SCHEDULE_MESSAGE 同时使用。
+4. 不是每次回复都需要触发，只有在情境自然、符合角色性格与当前关系进展时才使用，绝大多数回复不应使用该指令。
+5. 该指令不会出现在用户可见的正文中。
+6. 用户是否同意这个时间由用户自行决定，你只负责提出邀约。
+
+
 `;
 };
 
@@ -1973,11 +1990,15 @@ const result = await runAiToolOrchestrator({
         errorCode: result.code
       });
     } else {
-      const {
+const {
+  content: contentAfterInvite,
+  invite: offlineInvite,
+} = extractOfflineInviteDirective(result.content);
+
+const {
   content: visibleReplyContent,
   schedule: scheduledMessage,
-} = extractScheduledMessageDirective(result.content);
-
+} = extractScheduledMessageDirective(contentAfterInvite);
 const mcpTrace = getMcpChatTraceSummary(
   mcpTraceSession,
 );
@@ -2109,6 +2130,20 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
 
             // AI 仅在本次正常回复中明确留下有效预约指令时，
       // 才创建稍后联系计划。该指令不会出现在用户可见气泡中。
+            if (offlineInvite && messageIds.length > 0) {
+        try {
+          await proposeOfflineSessionByCharacter({
+            chatId,
+            characterId: character.id,
+            sceneLabel: offlineInvite.sceneLabel,
+            sceneDescription: offlineInvite.sceneDescription,
+            scheduledFor: offlineInvite.scheduledFor,
+          });
+        } catch (error) {
+          console.warn('[OfflineInvite] 创建角色邀约失败：', error);
+        }
+      }
+
       if (scheduledMessage && messageIds.length > 0) {
         try {
           await createScheduledMessage({

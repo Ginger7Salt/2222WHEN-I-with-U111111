@@ -1,15 +1,21 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
-import { ArrowLeft, Send, Sparkles, LogOut } from 'lucide-react';
+import { ArrowLeft, Send, Sparkles, LogOut, Heart } from 'lucide-react';
 
 import db from '../../db';
-import MessageList from '../messages/components/MessageList';
+import MessageList from '../../components/chat/components/MessageList';
 import { triggerOfflineAiResponse, subscribeOfflineAiEvents } from '../../services/offlineAiService';
 import { getOfflineSession, completeOfflineSession } from './offlineSessionService';
+
+const EMOTION_LABELS = {
+  warmth: '暖意', calm: '平静', joy: '愉悦',
+  concern: '牵挂', longing: '想念', hurt: '低落', fatigue: '疲惫',
+};
 
 const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false }) => {
   const [session, setSession] = useState(null);
   const [chat, setChat] = useState(null);
   const [character, setCharacter] = useState(null);
+  const [characterState, setCharacterState] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
@@ -28,10 +34,12 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
     if (!sessionRecord || !chatRecord) return;
 
     const charRecord = await db.characters.get(chatRecord.characterId);
+    const stateRecord = await db.characterStates.get(chatId).catch(() => null);
 
     setSession(sessionRecord);
     setChat(chatRecord);
     if (charRecord) setCharacter(charRecord);
+    setCharacterState(stateRecord || null);
 
     const allMsgs = await db.messages.where('chatId').equals(chatId).sortBy('timestamp');
 
@@ -131,6 +139,14 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
     );
   }
 
+  const dominantEmotionLabel = characterState?.dominantEmotion
+    ? (EMOTION_LABELS[characterState.dominantEmotion] || characterState.dominantEmotion)
+    : null;
+
+  const intensityPercent = Number.isFinite(characterState?.intensity)
+    ? Math.round(Math.max(0, Math.min(1, characterState.intensity)) * 100)
+    : null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden text-left text-xs animate-fade-in-up"
@@ -169,6 +185,29 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
             <div className="w-9" />
           )}
         </div>
+
+        {/* 状态栏：场景细节 + 角色此刻的心情 */}
+        {(session.sceneDescription || dominantEmotionLabel) && (
+          <div
+            className="mt-2 flex items-center justify-between gap-2 rounded-full px-3 py-1.5"
+            style={{ background: 'var(--control-soft-bg)' }}
+          >
+            <span className="truncate text-[10px] opacity-70">
+              {session.sceneDescription || ' '}
+            </span>
+
+            {dominantEmotionLabel && (
+              <span
+                className="flex shrink-0 items-center gap-1 text-[10px] font-semibold"
+                style={{ color: 'var(--accent-color)' }}
+              >
+                <Heart className="h-3 w-3" />
+                {dominantEmotionLabel}
+                {intensityPercent !== null ? ` · ${intensityPercent}%` : ''}
+              </span>
+            )}
+          </div>
+        )}
       </header>
 
       <section

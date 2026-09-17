@@ -83,7 +83,9 @@ import {
 import ParallelOrbit from './components/ParallelOrbit';
 
 import InnerWorldApp from '../innerworld/InnerWorldApp';
+
 import OfflineChatRoom from '../offline/OfflineChatRoom';
+import OfflineInviteComposer from '../offline/OfflineInviteComposer';
 
 import { MapPinned } from 'lucide-react';
 import PlaceBooklet from '../location/PlaceBooklet';
@@ -177,7 +179,9 @@ const [showInnerWorld, setShowInnerWorld] = useState(false);
 const [showPlaceBooklet, setShowPlaceBooklet] = useState(false);
 const [pendingNamePlace, setPendingNamePlace] = useState(null);
 const [showTopMenu, setShowTopMenu] = useState(false);
+
 const [activeOfflineSessionId, setActiveOfflineSessionId] = useState(null);
+const [showOfflineComposer, setShowOfflineComposer] = useState(false);
 
 const [showInputMenu, setShowInputMenu] = useState(false);
 
@@ -1057,7 +1061,7 @@ useLayoutEffect(() => {
                     <span>内心主页</span>
                   </button>
 
-                  <button
+                                    <button
                     type="button"
                     onClick={() => {
                       setShowTopMenu(false);
@@ -1067,6 +1071,18 @@ useLayoutEffect(() => {
                   >
                     <MapPinned className="h-4 w-4" />
                     <span>地点小册子</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTopMenu(false);
+                      setShowOfflineComposer(true);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <Compass className="h-4 w-4" />
+                    <span>邀请线下见面</span>
                   </button>
                 </div>
               </>
@@ -1592,6 +1608,15 @@ useLayoutEffect(() => {
           chatId={chatId}
           character={character}
           onClose={() => setShowScheduledArchive(false)}
+        />
+      )}
+
+           {showOfflineComposer && (
+        <OfflineInviteComposer
+          chatId={chatId}
+          characterId={character?.id}
+          onClose={() => setShowOfflineComposer(false)}
+          onCreated={loadChatData}
         />
       )}
 
