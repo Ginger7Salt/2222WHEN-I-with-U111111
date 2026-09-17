@@ -1,12 +1,21 @@
 // src/apps/snapshots/services/snapshotProfileService.js
 //
-// 【整体替换说明】（文件不大，直接整体替换比局部 diff 更清晰）
-// 唯一改动：删除 getUserSnapshotProfile 里对 globalPersona/globalAvatar 的
-// fallback 读取。因为现在每个消息框都是独立世界线，不再需要"全局 User 人设"
-// 这层兜底；fallback 链变为: per-chat 自定义资料 -> chat 自身信息 -> 硬编码默认值。
-// saveUserSnapshotProfile / getCharSnapshotProfile / saveCharSnapshotProfile 不变。
+// 【整体替换说明】相对上一轮的改动：
+// 新增 `handle`（类似 @用户名 的短标识）与 `tags`（个性标签数组）两个字段，
+// 供主页美化时展示。这两个字段都是 Dexie 表里的非索引普通字段，
+// 不需要 db 迁移，读取时做兜底即可。
 //
 import db from '../../../db';
+
+const normalizeTags = (tags) => {
+  if (Array.isArray(tags)) {
+    return tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 8);
+  }
+  if (typeof tags === 'string') {
+    return tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean).slice(0, 8);
+  }
+  return [];
+};
 
 /**
  * 获取某个 Chat 对应的 User 在 Snapshots 中的专有主页资料
@@ -18,7 +27,6 @@ export const getUserSnapshotProfile = async (chatId) => {
   const profileKey = `user_${numericChatId}`;
   const customProfile = await db.snapshotProfiles.get(profileKey);
 
-  // 获取该 Chat 的基础设定作为 Fallback（不再回退到全局 User 人设）
   const chat = await db.chats.get(numericChatId);
 
   const defaultName = chat?.userName || '我';
@@ -30,9 +38,11 @@ export const getUserSnapshotProfile = async (chatId) => {
     chatId: numericChatId,
     targetType: 'user',
     name: customProfile?.name || defaultName,
+    handle: customProfile?.handle || '',
     avatar: customProfile?.avatar || defaultAvatar,
     bio: customProfile?.bio || defaultBio,
     banner: customProfile?.banner || '',
+    tags: normalizeTags(customProfile?.tags),
     updatedAt: customProfile?.updatedAt || 0
   };
 };
@@ -40,7 +50,7 @@ export const getUserSnapshotProfile = async (chatId) => {
 /**
  * 保存 User 的专有主页资料
  */
-export const saveUserSnapshotProfile = async (chatId, { name, avatar, bio, banner }) => {
+export const saveUserSnapshotProfile = async (chatId, { name, handle, avatar, bio, banner, tags }) => {
   if (!chatId) return;
   const numericChatId = Number(chatId);
   const profileKey = `user_${numericChatId}`;
@@ -51,9 +61,11 @@ export const saveUserSnapshotProfile = async (chatId, { name, avatar, bio, banne
     targetType: 'user',
     targetId: null,
     name: (name || '').trim() || '我',
+    handle: (handle || '').trim(),
     avatar: avatar || '',
     bio: (bio || '').trim(),
     banner: banner || '',
+    tags: normalizeTags(tags),
     updatedAt: Date.now()
   });
 };
@@ -76,9 +88,11 @@ export const getCharSnapshotProfile = async (chatId, characterId) => {
     characterId: numericCharId,
     targetType: 'character',
     name: customProfile?.name || char?.name || '未知伴侣',
+    handle: customProfile?.handle || '',
     avatar: customProfile?.avatar || char?.avatar || '',
     bio: customProfile?.bio || char?.bio || '生活里的吉光片羽。',
     banner: customProfile?.banner || '',
+    tags: normalizeTags(customProfile?.tags),
     updatedAt: customProfile?.updatedAt || 0
   };
 };
@@ -86,7 +100,7 @@ export const getCharSnapshotProfile = async (chatId, characterId) => {
 /**
  * 保存 Character 的专有主页资料
  */
-export const saveCharSnapshotProfile = async (chatId, characterId, { name, avatar, bio, banner }) => {
+export const saveCharSnapshotProfile = async (chatId, characterId, { name, handle, avatar, bio, banner, tags }) => {
   if (!chatId || !characterId) return;
   const numericChatId = Number(chatId);
   const numericCharId = Number(characterId);
@@ -98,9 +112,11 @@ export const saveCharSnapshotProfile = async (chatId, characterId, { name, avata
     targetType: 'character',
     targetId: numericCharId,
     name: (name || '').trim() || '伴侣',
+    handle: (handle || '').trim(),
     avatar: avatar || '',
     bio: (bio || '').trim(),
     banner: banner || '',
+    tags: normalizeTags(tags),
     updatedAt: Date.now()
   });
 };
