@@ -357,25 +357,18 @@ export const createScheduledMessage = async ({
  // 预约写入本地成功后，将同一条预约托管到云端。
 // 不阻塞本地预约逻辑，云端失败时仍保留本地预约。
 try {
-      // 核心修复：转为数字时间戳，且不 await 阻塞本地预约入库
-    const targetTimestamp = new Date(scheduledFor).getTime();
-    void syncScheduledTaskToCloud({
-      targetTime: targetTimestamp,
-      intent: normalizeText(intent) || '伴侣主动找你',
-      chatId,
-    }).catch((err) => {
-      console.warn('[ScheduledMessage] 云端同步跳过或异常（纯本地模式）:', err?.message || err);
-    });
-
-
-  if (!cloudSyncResult) {
-    console.warn(
-      '[ScheduledMessage] 预约已写入本地，但云端托管未成功。',
-    );
-  }
+  // 核心修复：转为数字时间戳，且不 await 阻塞本地预约入库
+  const targetTimestamp = new Date(scheduledFor).getTime();
+  void syncScheduledTaskToCloud({
+    targetTime: targetTimestamp,
+    intent: normalizeText(intent) || '伴侣主动找你',
+    chatId,
+  }).catch((err) => {
+    console.warn('[ScheduledMessage] 云端同步跳过或异常（纯本地模式）:', err?.message || err);
+  });
 } catch (error) {
   console.warn(
-    '[ScheduledMessage] 云端预约同步异常:',
+    '[ScheduledMessage] 云端预约托管触发异常:',
     error?.message || error,
   );
 }

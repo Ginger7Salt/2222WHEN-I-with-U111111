@@ -142,10 +142,10 @@ export const AudioKeepAlive = ({
     // 保活刚开启时立即报告一次存活
     void sendHeartbeat();
 
-    // 随后每 2 分钟定期上报一次（后端 3.5 分钟超时，留有充足缓冲）
-    const heartbeatInterval = setInterval(() => {
-      void sendHeartbeat();
-    }, 2 * 60 * 1000);
+    // 修改为每 30 秒定期上报一次（后端 60 秒判定离线，留有 30 秒缓冲）
+const heartbeatInterval = setInterval(() => {
+  void sendHeartbeat();
+}, 30 * 1000); // 
 
     return () => {
       clearInterval(heartbeatInterval);
