@@ -1,7 +1,18 @@
 // src/apps/snapshots/SnapshotCard.jsx
+//
+// 【局部替换说明】相对旧版的改动：
+// 1. 修复 handleSubmitComment 里 setTimeout 追评逻辑的历史 bug：
+//    原代码引用了未定义的 `chosen` 变量（那是 handleAutoSummon 里的局部变量），
+//    改为使用正确的 `target`（回复对象）和 `replyText`（AI 生成的回复文本）。
+// 2. handleAutoSummon 的 NPC 来源从全局 `db.snapshotSettings.get('npcs')`
+//    改为按 chatId 专属的 `getNpcsByChatId(currentChatId)`。
+// 3. generateSnapshotComment / generateSnapshotReply 调用都补上 currentChatId 参数，
+//    以接入关系感知（官配/CP识别）。
+//
 import React, { useState, useEffect, useCallback } from 'react';
 import db from '../../db';
 import { generateSnapshotComment, generateSnapshotReply } from './services/snapshotAiService';
+import { getNpcsByChatId } from './services/snapshotNpcService';
 
 export const SnapshotCard = ({
   snapshot,
@@ -74,7 +85,7 @@ export const SnapshotCard = ({
         createdAt: Date.now()
       };
 
-      const addedId = await db.snapshotComments.add(newComment);
+      await db.snapshotComments.add(newComment);
       setCommentInput('');
       const target = replyTarget;
       setReplyTarget(null);
@@ -88,21 +99,22 @@ export const SnapshotCard = ({
               snapshot,
               target,
               { senderName, content: text },
-              text
+              text,
+              Number(currentChatId)
             );
             if (replyText) {
               await db.snapshotComments.add({
-  snapshotId: snapshot.id,
-  chatId: Number(currentChatId),
-  senderType: chosen.type,
-  characterId: chosen.type === 'character' ? chosen.id : null,
-  npcId: chosen.type === 'npc' ? chosen.id : null,
-  senderName: chosen.name,
-  roleTag: chosen.type === 'npc' ? (chosen.roleTag || '街区邻里') : '', // 新增这一行
-  senderAvatar: chosen.avatar || '',
-  content: commentText,
-  createdAt: Date.now()
-});
+                snapshotId: snapshot.id,
+                chatId: Number(currentChatId),
+                senderType: target.type,
+                characterId: target.type === 'character' ? target.id : null,
+                npcId: target.type === 'npc' ? target.id : null,
+                senderName: target.name,
+                roleTag: target.type === 'npc' ? (target.roleTag || '街区邻里') : '',
+                senderAvatar: target.avatar || '',
+                content: replyText,
+                createdAt: Date.now()
+              });
 
               await loadComments();
             }
@@ -121,7 +133,7 @@ export const SnapshotCard = ({
     if (isSummoning) return;
     setIsSummoning(true);
     try {
-      // 构建候选人池：本 Chat 的角色，以及系统预设 NPC
+      // 构建候选人池：本 Chat 的角色，以及本 Chat 专属的 NPC
       const chat = await db.chats.get(Number(currentChatId));
       const pool = [];
 
@@ -132,8 +144,7 @@ export const SnapshotCard = ({
         }
       }
 
-      const savedNpcs = await db.snapshotSettings.get('npcs');
-      const npcs = savedNpcs?.value || [];
+      const npcs = await getNpcsByChatId(Number(currentChatId));
       npcs.forEach((n) => {
         if (String(snapshot.npcId) !== String(n.id)) {
           pool.push({ type: 'npc', id: n.id, name: n.name, roleTag: n.roleTag, avatar: '' });
@@ -144,7 +155,7 @@ export const SnapshotCard = ({
         ? pool[Math.floor(Math.random() * pool.length)]
         : { type: 'npc', id: null, name: '街角常客', roleTag: '路人', avatar: '' };
 
-      const commentText = await generateSnapshotComment(snapshot, chosen);
+      const commentText = await generateSnapshotComment(snapshot, chosen, Number(currentChatId));
 
       if (commentText) {
         await db.snapshotComments.add({
@@ -154,6 +165,7 @@ export const SnapshotCard = ({
           characterId: chosen.type === 'character' ? chosen.id : null,
           npcId: chosen.type === 'npc' ? chosen.id : null,
           senderName: chosen.name,
+          roleTag: chosen.type === 'npc' ? (chosen.roleTag || '街区邻里') : '',
           senderAvatar: chosen.avatar || '',
           content: commentText,
           createdAt: Date.now()
@@ -167,7 +179,7 @@ export const SnapshotCard = ({
     }
   };
 
-  // 点击头像跳转
+  // 点击头像跳转（NPC 没有个人主页，不绑定跳转）
   const handleAuthorClick = () => {
     if (snapshot.authorType === 'user') {
       onOpenUserProfile && onOpenUserProfile();
@@ -321,18 +333,18 @@ export const SnapshotCard = ({
               </div>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 shrink-0">
                 <button
-  type="button"
-  onClick={() => setReplyTarget({
-    id: c.characterId || c.npcId || c.id,
-    name: c.senderName,
-    type: c.senderType,
-    roleTag: c.roleTag || (c.senderType === 'npc' ? '街区邻里' : ''), // 新增这一行
-    avatar: c.senderAvatar
-  })}
-  className="text-[10px] font-bold text-neutral-500 hover:text-neutral-900"
->
-  回复
-</button>
+                  type="button"
+                  onClick={() => setReplyTarget({
+                    id: c.characterId || c.npcId || c.id,
+                    name: c.senderName,
+                    type: c.senderType,
+                    roleTag: c.roleTag || (c.senderType === 'npc' ? '街区邻里' : ''),
+                    avatar: c.senderAvatar
+                  })}
+                  className="text-[10px] font-bold text-neutral-500 hover:text-neutral-900"
+                >
+                  回复
+                </button>
 
                 <button
                   type="button"

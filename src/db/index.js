@@ -4170,6 +4170,85 @@ db.version(48).stores({
   `,
 });
 
+// ============================================================
+// 【局部替换说明】
+// 位置：src/db/index.js
+// 操作：在现有 `db.version(48).stores({...});` 代码块之后、
+//       `export default db;` 之前，插入下面这一整段 `db.version(49)`。
+// 不要动 v48 及之前的任何代码，也不要删除 export default db; 之后的内容。
+// ============================================================
+
+db.version(49).stores({
+  // NPC 改为按 chatId 专属：每个消息框/世界线拥有自己独立的 NPC 列表
+  snapshotNpcs: `
+    ++id,
+    chatId,
+    name,
+    roleTag,
+    avatar,
+    createdAt,
+    [chatId+createdAt]
+  `,
+
+  // snapshotRelations 结构改造：从"仅角色↔角色"扩展为通用的
+  // "角色/NPC 之间任意组合的关系"，且限定在具体某个 chatId（世界线）下。
+  // sourceType / targetType 取值: 'character' | 'npc'
+  // 关系无方向性要求，查询时按需双向匹配。
+  snapshotRelations: `
+    ++id,
+    chatId,
+    sourceType,
+    sourceId,
+    targetType,
+    targetId,
+    relation,
+    createdAt,
+    [chatId+sourceType+sourceId],
+    [chatId+targetType+targetId]
+  `
+}).upgrade(async (tx) => {
+  // ---- 迁移 1：旧的全局 NPC 列表 -> 复制进所有已存在的 chats ----
+  try {
+    const oldNpcsSetting = await tx.table('snapshotSettings').get('npcs');
+    const oldNpcs = oldNpcsSetting?.value || [];
+
+    if (oldNpcs.length > 0) {
+      const allChats = await tx.table('chats').toArray();
+      const now = Date.now();
+
+      for (const chat of allChats) {
+        for (const npc of oldNpcs) {
+          await tx.table('snapshotNpcs').add({
+            chatId: chat.id,
+            name: npc.name || '未命名NPC',
+            roleTag: npc.roleTag || '路人NPC',
+            avatar: npc.avatar || '',
+            createdAt: now
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[db v49 迁移] 复制旧 NPC 数据失败:', err);
+  }
+
+  // ---- 迁移 2：旧的 snapshotRelations（角色↔角色）-> 软废弃，物理保留 ----
+  // 旧数据无法推断归属哪个 chatId，因此保留数据但标记 chatId: null，
+  // 新的按 chatId 查询逻辑不会再读到这些记录，相当于软废弃，不物理删除。
+  try {
+    await tx.table('snapshotRelations').toCollection().modify((rel) => {
+      if (rel.chatId === undefined) {
+        rel.chatId = null;
+        rel.sourceType = 'character';
+        rel.sourceId = rel.characterId;
+        rel.targetType = 'character';
+        rel.targetId = rel.targetCharacterId;
+      }
+    });
+  } catch (err) {
+    console.error('[db v49 迁移] 软废弃旧 snapshotRelations 失败:', err);
+  }
+});
 
 export default db;
 

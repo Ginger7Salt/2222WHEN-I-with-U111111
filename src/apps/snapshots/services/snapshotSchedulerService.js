@@ -1,6 +1,14 @@
 // src/apps/snapshots/services/snapshotSchedulerService.js
+//
+// 【整体替换说明】
+// 相对旧版的改动：NPC 来源从全局 `db.snapshotSettings.get('npcs')`
+// 改为按 chatId 专属的 `getNpcsByChatId(chatId)`；
+// generateNpcPost 调用同步适配新签名 (npc, chatId, charName, userName)。
+// 其余调度/冷却逻辑不变。
+//
 import db from '../../../db';
 import { generateCharacterPost, generateNpcPost } from './snapshotAiService';
+import { getNpcsByChatId } from './snapshotNpcService';
 
 class SnapshotScheduler {
   constructor() {
@@ -93,8 +101,7 @@ class SnapshotScheduler {
       }
 
       // 2. 检查 NPC 是否偶发生活动态 (冷却 8 小时，30% 随机触发)
-      const savedNpcs = await db.snapshotSettings.get('npcs');
-      const npcs = savedNpcs?.value || [];
+      const npcs = await getNpcsByChatId(this.activeChatId);
 
       if (npcs.length > 0 && Math.random() < 0.3) {
         const lastNpcPost = await db.snapshots
@@ -107,6 +114,7 @@ class SnapshotScheduler {
           const pickedNpc = npcs[Math.floor(Math.random() * npcs.length)];
           const postData = await generateNpcPost(
             pickedNpc,
+            this.activeChatId,
             char?.name || '朋友',
             chat.userName || '常客'
           );
@@ -138,4 +146,3 @@ class SnapshotScheduler {
 }
 
 export const snapshotScheduler = new SnapshotScheduler();
-

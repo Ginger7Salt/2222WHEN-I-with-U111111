@@ -1,4 +1,11 @@
 // src/apps/snapshots/services/snapshotProfileService.js
+//
+// 【整体替换说明】（文件不大，直接整体替换比局部 diff 更清晰）
+// 唯一改动：删除 getUserSnapshotProfile 里对 globalPersona/globalAvatar 的
+// fallback 读取。因为现在每个消息框都是独立世界线，不再需要"全局 User 人设"
+// 这层兜底；fallback 链变为: per-chat 自定义资料 -> chat 自身信息 -> 硬编码默认值。
+// saveUserSnapshotProfile / getCharSnapshotProfile / saveCharSnapshotProfile 不变。
+//
 import db from '../../../db';
 
 /**
@@ -11,28 +18,12 @@ export const getUserSnapshotProfile = async (chatId) => {
   const profileKey = `user_${numericChatId}`;
   const customProfile = await db.snapshotProfiles.get(profileKey);
 
-  // 获取该 Chat 的基础设定作为 Fallback
+  // 获取该 Chat 的基础设定作为 Fallback（不再回退到全局 User 人设）
   const chat = await db.chats.get(numericChatId);
-  const char = chat?.characterId ? await db.characters.get(chat.characterId) : null;
-  const globalPersona = await db.snapshotSettings.get('globalPersona');
-  const globalAvatar = await db.snapshotSettings.get('globalAvatar');
 
-  const defaultName =
-    chat?.userName ||
-    char?.userPersona?.split('\n')[0] ||
-    globalPersona?.value?.split('\n')[0] ||
-    '我';
-
-  const defaultAvatar =
-    chat?.userAvatar ||
-    char?.userAvatar ||
-    globalAvatar?.value ||
-    '';
-
-  const defaultBio =
-    chat?.userPersona ||
-    globalPersona?.value ||
-    '在日常的缝隙里，收纳温暖的光影。';
+  const defaultName = chat?.userName || '我';
+  const defaultAvatar = chat?.userAvatar || '';
+  const defaultBio = chat?.userPersona || '在日常的缝隙里，收纳温暖的光影。';
 
   return {
     profileKey,
@@ -112,4 +103,11 @@ export const saveCharSnapshotProfile = async (chatId, characterId, { name, avata
     banner: banner || '',
     updatedAt: Date.now()
   });
+};
+
+export default {
+  getUserSnapshotProfile,
+  saveUserSnapshotProfile,
+  getCharSnapshotProfile,
+  saveCharSnapshotProfile
 };
