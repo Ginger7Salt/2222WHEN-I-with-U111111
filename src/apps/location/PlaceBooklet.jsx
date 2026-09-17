@@ -977,7 +977,7 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
             </div>
 
             <h1 className="place-main-title">
-              <span>一起走过的</span>
+              <span>走过的</span>
               <em>地方。</em>
             </h1>
 
