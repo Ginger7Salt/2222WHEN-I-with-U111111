@@ -4,7 +4,7 @@ import {
   List, User, X, Activity, Shield, ChevronDown, ChevronRight, FoldVertical, UnfoldVertical
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
-import db from "../../../db";
+import db from "../../db";
 import VoiceProfilePanel from '../../features/real-voice/components/VoiceProfilePanel';
 import { normalizeVoiceProfile } from '../../features/real-voice/realVoiceDefaults';
 
