@@ -1,165 +1,16 @@
 import {
-  filterAlmanacRecordsByConfig,
   getAlmanacConfig,
   getAlmanacRecords,
+  filterAlmanacRecordsByConfig,
   getDeviceTimeZone,
   getUserTimeZone,
   isUsingDeviceTimeZone,
 } from './almanacService';
 
 import { getRhythmObservation } from './almanacRhythmService';
-
-import {
-  getAlmanacNaturalReminderData,
-} from './almanacMilestonePromptService';
-
-const DAILY_USER_MESSAGE_EVENT = 'user_message_daily';
-const LEGACY_USER_MESSAGE_EVENT = 'user_message';
+import { getUpcomingImportantDateForPrompt } from './almanacImportantDateService';
 
 const MAX_PROMPT_LENGTH = 2400;
-const MINIMUM_OBSERVATION_DAYS = 3;
-
-const safeNumber = (value, fallback = 0) => {
-  const number = Number(value);
-
-  return Number.isFinite(number)
-    ? number
-    : fallback;
-};
-
-const getUserMessageRecords = (records = []) => {
-  return records
-    .filter((record) => (
-      record?.eventType === DAILY_USER_MESSAGE_EVENT ||
-      record?.eventType === LEGACY_USER_MESSAGE_EVENT
-    ))
-    .sort((a, b) => (
-      new Date(a.timestamp || 0).getTime() -
-      new Date(b.timestamp || 0).getTime()
-    ));
-};
-
-const getRecordCount = (record) => {
-  // 新的每日聚合记录使用 count。
-  if (record?.eventType === DAILY_USER_MESSAGE_EVENT) {
-    return Math.max(0, safeNumber(record.count, 0));
-  }
-
-  // 兼容旧版一条消息一条记录的数据。
-  if (record?.eventType === LEGACY_USER_MESSAGE_EVENT) {
-    return 1;
-  }
-
-  return 0;
-};
-
-const getHourBuckets = (records) => {
-  const buckets = {};
-
-  records.forEach((record) => {
-    if (record?.localHourBuckets) {
-      Object.entries(record.localHourBuckets).forEach(
-        ([hour, count]) => {
-          const normalizedHour = Number(hour);
-
-          if (
-            Number.isInteger(normalizedHour) &&
-            normalizedHour >= 0 &&
-            normalizedHour <= 23
-          ) {
-            buckets[normalizedHour] = (
-              safeNumber(buckets[normalizedHour], 0) +
-              safeNumber(count, 0)
-            );
-          }
-        }
-      );
-
-      return;
-    }
-
-    if (Number.isInteger(record?.localHour)) {
-      buckets[record.localHour] = (
-        safeNumber(buckets[record.localHour], 0) +
-        getRecordCount(record)
-      );
-    }
-  });
-
-  return buckets;
-};
-
-const getTopHour = (hourBuckets) => {
-  const entries = Object.entries(hourBuckets)
-    .map(([hour, count]) => ({
-      hour: Number(hour),
-      count: safeNumber(count),
-    }))
-    .filter((item) => item.count > 0)
-    .sort((a, b) => b.count - a.count);
-
-  return entries[0] || null;
-};
-
-const isLateNightHour = (hour) => (
-  hour >= 22 || hour <= 2
-);
-
-const formatHourRange = (hour) => {
-  const start = `${String(hour).padStart(2, '0')}:00`;
-  const end = `${String((hour + 1) % 24).padStart(2, '0')}:00`;
-
-  return `${start}—${end}`;
-};
-
-const buildUnderstanding = (records) => {
-  const userRecords = getUserMessageRecords(records);
-
-  const activeDates = new Set(
-    userRecords
-      .map((record) => record.dateKey)
-      .filter(Boolean)
-  );
-
-  const totalMessages = userRecords.reduce(
-    (total, record) => total + getRecordCount(record),
-    0
-  );
-
-  if (
-    activeDates.size < MINIMUM_OBSERVATION_DAYS ||
-    totalMessages <= 0
-  ) {
-    return null;
-  }
-
-  const hourBuckets = getHourBuckets(userRecords);
-  const topHour = getTopHour(hourBuckets);
-
-  if (!topHour) {
-    return null;
-  }
-
-  const lateNight = isLateNightHour(topHour.hour);
-
-  if (lateNight) {
-    return {
-      message:
-        '最近 user 比较常在夜里回来。夜晚可能是 user 更愿意慢下来、按照自己的节奏相处的时间。',
-      guidance:
-        '可以陪 user 保持自然的夜间聊天节奏，让对话按照 user 当下的意愿展开。user 没有表达疲惫或困扰时，可以让陪伴自然继续；当 user 主动提到累了或想休息时，再温柔回应。',
-      confidence: 0.68,
-    };
-  }
-
-  return {
-    message:
-      `最近 user 比较常在${formatHourRange(topHour.hour)}之间出现。char 正在慢慢熟悉 user 的相处节奏。`,
-    guidance:
-      '可以顺着 user 当下的时间和交流状态回应，让陪伴自然、轻松，也给 user 足够的选择空间。',
-    confidence: 0.62,
-  };
-};
 
 const formatUserLocalDateTime = (date, timeZone) => {
   try {
@@ -184,51 +35,50 @@ const formatUserLocalDateTime = (date, timeZone) => {
   }
 };
 
-const formatNaturalReminderDistance = (
-  daysRemaining
-) => {
-  if (daysRemaining === 0) {
-    return '就是今天';
-  }
-
-  if (daysRemaining === 1) {
-    return '明天';
-  }
-
+const formatDaysRemaining = (daysRemaining) => {
+  if (daysRemaining === 0) return '就是今天';
+  if (daysRemaining === 1) return '明天';
   return `还有 ${daysRemaining} 天`;
 };
 
-const appendNaturalReminderContext = async ({
-  lines,
-  chatId,
-  config,
-  now,
-}) => {
-  const milestones =
-    await getAlmanacNaturalReminderData({
-      chatId,
-      now,
-      leadDays: config?.milestoneReminderLeadDays,
-    });
+const appendRhythmContext = async ({ lines, chatId, config, records }) => {
+  if (!config?.rhythmInferenceEnabled) {
+    return;
+  }
 
-  const reminder = milestones[0];
+  const observation = await getRhythmObservation({ chatId, records });
 
-  if (!reminder) {
+  if (!observation?.ready || !observation.message) {
     return;
   }
 
   lines.push(
-    '【Almanac：可自然参考的日期】',
-    `用户主动留下的日期主题：${reminder.title}`,
-    `距离该日期：${formatNaturalReminderDistance(
-      reminder.daysRemaining
-    )}`,
-    '这个日期可以作为当前对话中的轻量背景参考。',
-    '当当前话题自然涉及相关内容时，可以顺带、轻柔地提及。',
-    '当当前对话暂未涉及这个日期时，优先围绕用户当前话题展开。',
-    '可以在合适的语境中提及纪念日，并保持提醒自然、适度且不连续。',
-    '可以用自然对话的方式呈现相关信息，不提及 Almanac、数据库、记录或统计来源。',
-    '可以将这个日期作为辅助背景参考，但不据此推断用户的确定身份信息。'
+    '【Almanac：作息观察】',
+    'user 允许观察这个聊天窗口的相处节律。',
+    `近期相处观察：${observation.message}`,
+    '这是一份温和、非确定性的观察素材，可以帮助你更自然地理解和贴近 user 的生活节奏。',
+    '可以用你自己的语气、风格去表达这份理解，不需要照搬上面的措辞，也不需要解释这是怎么统计出来的。',
+    '不要把这份观察说成确定的健康结论、睡眠结论或人格结论。'
+  );
+};
+
+const appendImportantDateContext = async ({ lines, chatId, config, now }) => {
+  const upcoming = await getUpcomingImportantDateForPrompt(chatId, {
+    now,
+    leadDays: config?.importantDateReminderLeadDays,
+  });
+
+  if (!upcoming) {
+    return;
+  }
+
+  lines.push(
+    '【Almanac：可自然参考的重要日期】',
+    `user 记录的重要日子：${upcoming.title}`,
+    `距离这个日子：${formatDaysRemaining(upcoming.daysRemaining)}`,
+    '这个日期可以作为当前对话的轻量背景参考。',
+    '当话题自然涉及时，可以顺带、轻柔地提及；话题不涉及时，优先围绕 user 当前的话题展开。',
+    '可以用自然对话的方式提及，不需要说明这是 Almanac 记录或数据库信息。'
   );
 };
 
@@ -240,6 +90,10 @@ const limitPromptLength = (text) => {
   return `${text.slice(0, MAX_PROMPT_LENGTH)}\n`;
 };
 
+/**
+ * 组装塞进 AI 对话系统提示词里的 Almanac 上下文。
+ * 对外签名保持不变：getAlmanacPromptContext(chatId)
+ */
 export const getAlmanacPromptContext = async (chatId) => {
   if (!chatId) {
     return '';
@@ -248,28 +102,14 @@ export const getAlmanacPromptContext = async (chatId) => {
   try {
     const config = await getAlmanacConfig(chatId);
     const allRecords = await getAlmanacRecords(chatId);
-
-    /*
-     * 统计、作息观察和理解 Prompt 都必须遵循
-     * Almanac 当前配置中的 observationStartedAt。
-     *
-     * all_history 模式会保留全部历史记录；
-     * fresh_start 和 milestones_only 只使用观察起点之后的记录。
-     */
-    const records = filterAlmanacRecordsByConfig(
-      allRecords,
-      config
-    );
+    const records = filterAlmanacRecordsByConfig(allRecords, config);
 
     const timeZone = getUserTimeZone(config);
     const now = new Date();
 
     const lines = [
       '【Almanac：正在了解 user】',
-      `user 所在地时间：${formatUserLocalDateTime(
-        now,
-        timeZone
-      )}`,
+      `user 所在地时间：${formatUserLocalDateTime(now, timeZone)}`,
     ];
 
     if (isUsingDeviceTimeZone(config)) {
@@ -279,65 +119,18 @@ export const getAlmanacPromptContext = async (chatId) => {
       );
     }
 
-    if (config?.rhythmInferenceEnabled) {
-      const observation = await getRhythmObservation({
-        chatId,
-        records,
-      });
-
-      if (observation?.ready && observation.message) {
-        lines.push(
-          'user 允许观察这个聊天窗口的相处节律。',
-          `近期相处观察：${observation.message}`,
-          '可以把这份观察作为温和参考，帮助 char 更自然地理解和尊重 user。'
-        );
-      }
-    }
-
-    const understanding = buildUnderstanding(records);
-
-    if (understanding) {
-      lines.push(
-        '【对 user 的新理解】',
-        understanding.message,
-        `【可以这样陪伴 user】${understanding.guidance}`,
-        `这份理解的参考置信度约为 ${Math.round(
-          understanding.confidence * 100
-        )}%，适合自然参考，也可以随着新的相处逐渐调整。`
-      );
-    }
-
-    /*
-     * 自然提醒只把用户主动允许、且即将到来的
-     * 一个日期加入上下文。
-     *
-     * 这不是主动消息，不会触发通知或新对话。
-     */
-    await appendNaturalReminderContext({
-      lines,
-      chatId,
-      config,
-      now,
-    });
+    await appendRhythmContext({ lines, chatId, config, records });
+    await appendImportantDateContext({ lines, chatId, config, now });
 
     lines.push(
       '可以根据这些相处观察调整语气、回应速度、陪伴节奏和话题展开方式。',
       '可以尊重 user 自己选择的生活节奏，让 user 按舒服的方式相处。',
-      '可以在 user 主动表达需要时提供帮助，在 user 没有表达困扰时保留轻松和自由。',
-      '可以把 Almanac 当作“如何更好地陪伴 user”的轻量参考。',
-      '请自然地使用这些理解，不需要向 user 解释观察来源。',
-      '请不要把相处节奏直接说成健康结论、睡眠结论或人格结论。'
+      '请自然地使用这些理解，不需要向 user 解释观察来源，也不需要提及 Almanac、数据库、统计或记录这类字眼。'
     );
 
-    return limitPromptLength(
-      `\n\n${lines.join('\n')}\n`
-    );
+    return limitPromptLength(`\n\n${lines.join('\n')}\n`);
   } catch (error) {
-    console.warn(
-      '[Almanac] Prompt context skipped safely:',
-      error
-    );
-
+    console.warn('[Almanac] Prompt context skipped safely:', error);
     return '';
   }
 };

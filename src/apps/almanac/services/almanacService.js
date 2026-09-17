@@ -1,10 +1,7 @@
 import db from '../../../db';
 
-const hasAlmanacStores = () => (
-  Boolean(
-    db.almanacConfigs &&
-    db.almanacRecords
-  )
+const hasAlmanacStores = () => Boolean(
+  db.almanacConfigs && db.almanacRecords
 );
 
 export const ALMANAC_EVENT_TYPES = {
@@ -12,8 +9,12 @@ export const ALMANAC_EVENT_TYPES = {
   USER_MESSAGE: 'user_message',
   MORNING_GREETING: 'morning_greeting',
   NIGHT_GREETING: 'night_greeting',
-  MILESTONE_REACHED: 'milestone_reached',
+  LIGHT_REMINDER: 'light_reminder',
 };
+
+// ---------------------------------------------
+// 时间工具
+// ---------------------------------------------
 
 const safeDate = (value) => {
   if (value instanceof Date) {
@@ -35,7 +36,6 @@ const safeDate = (value) => {
 
 export const getSafeTimestamp = (value) => {
   const date = safeDate(value);
-
   return date ? date.getTime() : null;
 };
 
@@ -62,7 +62,7 @@ export const getDateKey = (value = Date.now(), timeZone) => {
       return `${result.year}-${result.month}-${result.day}`;
     }
   } catch {
-    // 使用本地时间降级
+    // 降级为本地时间
   }
 
   const year = date.getFullYear();
@@ -90,7 +90,7 @@ export const getLocalHour = (value = Date.now(), timeZone) => {
       return parsedHour === 24 ? 0 : parsedHour;
     }
   } catch {
-    // 使用本地时间降级
+    // 降级为本地时间
   }
 
   return date.getHours();
@@ -110,10 +110,7 @@ export const isValidTimeZone = (timeZone) => {
   }
 
   try {
-    new Intl.DateTimeFormat('en-US', {
-      timeZone,
-    }).format();
-
+    new Intl.DateTimeFormat('en-US', { timeZone }).format();
     return true;
   } catch {
     return false;
@@ -134,36 +131,23 @@ export const isUsingDeviceTimeZone = (config = null) => {
   return !isValidTimeZone(config?.timezone);
 };
 
+// ---------------------------------------------
+// 配置读写
+// ---------------------------------------------
+
 export const getDefaultAlmanacConfig = (chatId) => ({
   chatId,
 
-  /*
-   * 初始化是否已经完成。
-   * false 表示第一次进入 Almanac 时需要显示初始化界面。
-   */
   initializationCompleted: false,
 
   /*
-   * milestones_only：
-   *   从今天开始记录，但保留纪念日，不分析过去相处记录。
-   *
-   * fresh_start：
-   *   从今天开始记录，不保留过去纪念日。
-   *
-   * all_history：
-   *   使用现有全部记录进行分析。
+   * milestones_only：从今天开始记录，但保留重要日期，不分析过去记录。
+   * fresh_start：从今天开始记录，不保留过去的重要日期。
+   * all_history：使用现有全部记录进行分析。
    */
   dataMode: null,
 
-  /*
-   * 统计和观察的起点。
-   * 只有 timestamp >= observationStartedAt 的记录会参与分析。
-   */
   observationStartedAt: null,
-
-  /*
-   * 最近一次点击“从今天重新开始”的时间。
-   */
   observationResetAt: null,
 
   timezone: null,
@@ -174,14 +158,9 @@ export const getDefaultAlmanacConfig = (chatId) => ({
 
   rhythmInferenceEnabled: false,
 
-  /*
-   * 纪念日允许自然提醒时，最多提前多少天进入 AI 上下文。
-   * 这不是主动消息调度时间。
-   */
-  milestoneReminderLeadDays: 7,
+  importantDateReminderLeadDays: 7,
 
   morningGreetingEnabled: false,
-
   morningGreetingTime: '08:30',
 
   nightGreetingEnabled: false,
@@ -192,8 +171,6 @@ export const getDefaultAlmanacConfig = (chatId) => ({
 
   updatedAt: new Date().toISOString(),
 });
-
-
 
 export const getAlmanacConfig = async (chatId) => {
   if (!chatId || !hasAlmanacStores()) {
@@ -209,7 +186,6 @@ export const getAlmanacConfig = async (chatId) => {
     };
   } catch (error) {
     console.warn('[Almanac] 读取配置失败：', error);
-
     return getDefaultAlmanacConfig(chatId);
   }
 };
@@ -236,24 +212,37 @@ export const saveAlmanacConfig = async (chatId, patch) => {
   return next;
 };
 
+// ---------------------------------------------
+// 事件记录（内部统一为"按天聚合"，对外签名不变）
+// ---------------------------------------------
+
+const getDailyRecord = async ({ chatId, eventType, dateKey }) => {
+  const records = await db.almanacRecords
+    .where('[chatId+eventType+dateKey]')
+    .equals([chatId, eventType, dateKey])
+    .toArray();
+
+  return records[0] || null;
+};
+
+/**
+ * 记录一次 Almanac 事件。
+ *
+ * 对外签名保持不变：
+ *   recordAlmanacEvent({ chatId, characterId, eventType, timestamp, metadata })
+ *
+ * 内部实现：同一天、同一 chatId、同一 eventType 的记录会自动合并成一条，
+ * 累加 count，并按小时分桶记录在 localHourBuckets 里。
+ * 不保存消息正文，只保存时间与次数，保护隐私。
+ */
 export const recordAlmanacEvent = async ({
   chatId,
-  characterId,
+  characterId = null,
   eventType,
   timestamp = Date.now(),
   metadata = {},
-  timeZone = null,
-  count = 1,
-  firstTimestamp = null,
-  lastTimestamp = null,
-  localHourBuckets = null,
 }) => {
-
-  if (
-    !chatId ||
-    !eventType ||
-    !hasAlmanacStores()
-  ) {
+  if (!chatId || !eventType || !hasAlmanacStores()) {
     return null;
   }
 
@@ -263,75 +252,67 @@ export const recordAlmanacEvent = async ({
     return null;
   }
 
-  const resolvedTimeZone = isValidTimeZone(timeZone)
-  ? timeZone
-  : getDeviceTimeZone();
+  const config = await getAlmanacConfig(chatId);
+  const timeZone = getUserTimeZone(config);
 
-
- const record = {
-  chatId,
-  characterId: characterId || null,
-  eventType,
-
-  // 只保存时间，不保存消息正文
-  timestamp: new Date(safeTimestamp).toISOString(),
-
-  dateKey: getDateKey(
-    safeTimestamp,
-    resolvedTimeZone,
-  ),
-
-  localHour: getLocalHour(
-    safeTimestamp,
-    resolvedTimeZone,
-  ),
-
-  timezone: resolvedTimeZone,
-  count: Number.isFinite(count) && count > 0 ? count : 1,
-
-  firstTimestamp: firstTimestamp
-    ? new Date(firstTimestamp).toISOString()
-    : new Date(safeTimestamp).toISOString(),
-
-  lastTimestamp: lastTimestamp
-    ? new Date(lastTimestamp).toISOString()
-    : new Date(safeTimestamp).toISOString(),
-
-  ...(localHourBuckets
-    ? { localHourBuckets }
-    : {}),
-
-  metadata: metadata || {},
-};
-
+  const dateKey = getDateKey(safeTimestamp, timeZone);
+  const localHour = getLocalHour(safeTimestamp, timeZone);
+  const nowIso = new Date(safeTimestamp).toISOString();
 
   try {
-    return await db.almanacRecords.add(record);
+    const current = await getDailyRecord({ chatId, eventType, dateKey });
+
+    const hourBuckets = {
+      ...(current?.localHourBuckets || {}),
+      [localHour]: Number(current?.localHourBuckets?.[localHour] || 0) + 1,
+    };
+
+    const nextRecord = {
+      id: current?.id,
+      chatId,
+      characterId: characterId || current?.characterId || null,
+      eventType,
+      timestamp: nowIso,
+      dateKey,
+      timezone: isValidTimeZone(timeZone) ? timeZone : 'UTC',
+
+      count: Number(current?.count || 0) + 1,
+
+      firstTimestamp: current?.firstTimestamp || nowIso,
+      lastTimestamp: nowIso,
+
+      localHour,
+      localHourBuckets: hourBuckets,
+
+      metadata: {
+        ...(current?.metadata || {}),
+        source: metadata?.source || current?.metadata?.source || 'almanac',
+      },
+    };
+
+    if (current?.id) {
+      await db.almanacRecords.put(nextRecord);
+      return current.id;
+    }
+
+    delete nextRecord.id;
+    return await db.almanacRecords.add(nextRecord);
   } catch (error) {
     console.warn('[Almanac] 记录事件失败：', error);
-
     return null;
   }
 };
 
-export const filterAlmanacRecordsByConfig = (
-  records = [],
-  config = null
-) => {
+export const filterAlmanacRecordsByConfig = (records = [], config = null) => {
   if (!Array.isArray(records)) {
     return [];
   }
 
-  /*
-   * 使用全部数据时，不进行起点过滤。
-   */
   if (config?.dataMode === 'all_history') {
     return records;
   }
 
-  const startedAt = getSafeTimestamp(
-    config?.observationStartedAt
-  );
+  const startedAt = getSafeTimestamp(config?.observationStartedAt);
 
   if (!startedAt) {
     return records;
@@ -339,7 +320,6 @@ export const filterAlmanacRecordsByConfig = (
 
   return records.filter((record) => {
     const timestamp = getSafeTimestamp(record.timestamp);
-
     return timestamp && timestamp >= startedAt;
   });
 };
@@ -356,7 +336,6 @@ export const getAlmanacRecords = async (chatId) => {
       .sortBy('timestamp');
   } catch (error) {
     console.warn('[Almanac] 读取观察记录失败：', error);
-
     return [];
   }
 };
@@ -400,14 +379,15 @@ export const clearAlmanacRecords = async (chatId) => {
   }
 
   await db.almanacRecords.bulkDelete(
-    records
-      .map((record) => record.id)
-      .filter(Boolean)
+    records.map((record) => record.id).filter(Boolean)
   );
 
   return records.length;
 };
 
+// ---------------------------------------------
+// 统计与热力图（基于聚合记录的 count 字段计算）
+// ---------------------------------------------
 
 export const getAlmanacStats = (records = []) => {
   const validRecords = records
@@ -418,67 +398,47 @@ export const getAlmanacStats = (records = []) => {
     .filter((record) => record.timestamp);
 
   const activeDates = new Set(
-    validRecords
-      .map((record) => record.dateKey)
-      .filter(Boolean)
+    validRecords.map((record) => record.dateKey).filter(Boolean)
   );
 
-  const userMessages = validRecords.filter((record) => (
-    record.eventType === ALMANAC_EVENT_TYPES.USER_MESSAGE
-    || record.eventType === 'user_message_daily'
-  ));
-
-  const chatOpens = validRecords.filter((record) => (
-    record.eventType === ALMANAC_EVENT_TYPES.CHAT_OPEN
-    || record.eventType === 'chat_open_daily'
-  ));
-
-  const userMessageCount = userMessages.reduce(
-    (total, record) => (
-      total + (
-        Number.isFinite(Number(record.count))
-          ? Number(record.count)
-          : 1
-      )
-    ),
-    0
+  const userMessages = validRecords.filter(
+    (record) => record.eventType === ALMANAC_EVENT_TYPES.USER_MESSAGE
   );
 
-  const chatOpenCount = chatOpens.reduce(
-    (total, record) => (
-      total + (
-        Number.isFinite(Number(record.count))
-          ? Number(record.count)
-          : 1
-      )
-    ),
-    0
+  const chatOpens = validRecords.filter(
+    (record) => record.eventType === ALMANAC_EVENT_TYPES.CHAT_OPEN
   );
+
+  const sumCount = (list) =>
+    list.reduce(
+      (total, record) =>
+        total + (Number.isFinite(Number(record.count)) ? Number(record.count) : 1),
+      0
+    );
 
   const firstTimestamp = validRecords.length
     ? Math.min(...validRecords.map((record) => record.timestamp))
     : null;
 
+  const latestTimestamp = validRecords.length
+    ? Math.max(...validRecords.map((record) => record.timestamp))
+    : null;
+
   return {
     totalRecords: validRecords.length,
     activeDays: activeDates.size,
-    userMessageCount,
-    chatOpenCount,
+    userMessageCount: sumCount(userMessages),
+    chatOpenCount: sumCount(chatOpens),
     firstTimestamp,
-    latestTimestamp: validRecords.length
-      ? Math.max(...validRecords.map((record) => record.timestamp))
-      : null,
+    latestTimestamp,
   };
 };
-
 
 export const getHeatmapData = (records = []) => {
   const result = new Map();
 
   records.forEach((record) => {
-    if (!record?.dateKey) {
-      return;
-    }
+    if (!record?.dateKey) return;
 
     const current = result.get(record.dateKey) || {
       dateKey: record.dateKey,
@@ -487,12 +447,9 @@ export const getHeatmapData = (records = []) => {
       eventTypes: new Set(),
     };
 
-       current.count += (
-      Number.isFinite(Number(record.count))
-        ? Number(record.count)
-        : 1
-    );
-
+    current.count += Number.isFinite(Number(record.count))
+      ? Number(record.count)
+      : 1;
 
     if (Number.isInteger(record.localHour)) {
       current.hours.add(record.localHour);
@@ -511,4 +468,26 @@ export const getHeatmapData = (records = []) => {
     hours: Array.from(item.hours).sort((a, b) => a - b),
     eventTypes: Array.from(item.eventTypes),
   }));
+};
+
+export default {
+  ALMANAC_EVENT_TYPES,
+  getSafeTimestamp,
+  getDateKey,
+  getLocalHour,
+  getDeviceTimeZone,
+  isValidTimeZone,
+  getUserTimeZone,
+  isUsingDeviceTimeZone,
+  getDefaultAlmanacConfig,
+  getAlmanacConfig,
+  saveAlmanacConfig,
+  recordAlmanacEvent,
+  filterAlmanacRecordsByConfig,
+  getAlmanacRecords,
+  getFilteredAlmanacRecords,
+  restartAlmanacFromToday,
+  clearAlmanacRecords,
+  getAlmanacStats,
+  getHeatmapData,
 };

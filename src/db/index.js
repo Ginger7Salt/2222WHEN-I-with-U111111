@@ -4143,6 +4143,33 @@ db.version(47).stores({
   });
 });
 
+db.version(48).stores({
+  // 轻提醒：用户自定义的生活化提醒（如"中午提醒吃保健品"）
+  almanacReminders: `
+    ++id,
+    chatId,
+    content,
+    time,
+    enabled,
+    lastFiredDateKey,
+    createdAt,
+    updatedAt,
+    [chatId+enabled]
+  `,
+
+  // 重要日期：简化版的生日/纪念日记录
+  almanacImportantDates: `
+    ++id,
+    chatId,
+    title,
+    date,
+    isRecurringYearly,
+    createdAt,
+    updatedAt,
+    [chatId+date]
+  `,
+});
+
 
 export default db;
 

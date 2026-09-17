@@ -1,16 +1,15 @@
 import db from '../../../db';
-import {
-  generateCompanionProactiveMessage,
-} from '../../../services/aiService';
+import { generateCompanionProactiveMessage } from '../../../services/aiService';
 
 import {
   getAlmanacConfig,
   getAlmanacRecords,
   getDateKey,
-  getLocalHour,
   recordAlmanacEvent,
   ALMANAC_EVENT_TYPES,
 } from './almanacService';
+
+import { getDueReminder, markReminderFired } from './almanacReminderService';
 
 const schedulerState = {
   timer: null,
@@ -18,9 +17,7 @@ const schedulerState = {
 };
 
 const parseTime = (value) => {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(
-    String(value || '')
-  );
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || ''));
 
   if (!match) return null;
 
@@ -38,18 +35,10 @@ const parseTime = (value) => {
     return null;
   }
 
-  return {
-    hour,
-    minute,
-    totalMinutes: hour * 60 + minute,
-  };
+  return { hour, minute, totalMinutes: hour * 60 + minute };
 };
 
-const hasSuccessfulGreetingToday = (
-  records,
-  eventType,
-  dateKey
-) =>
+const hasSuccessfulGreetingToday = (records, eventType, dateKey) =>
   records.some(
     (record) =>
       record.eventType === eventType &&
@@ -65,8 +54,7 @@ const hasUserMessageToday = (records, dateKey) =>
   );
 
 const getGreetingType = (config, now) => {
-  const currentMinutes =
-    now.getHours() * 60 + now.getMinutes();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   const morning = config.morningGreetingEnabled
     ? parseTime(config.morningGreetingTime)
@@ -76,66 +64,35 @@ const getGreetingType = (config, now) => {
     ? parseTime(config.nightGreetingTime)
     : null;
 
-  if (
-    morning &&
-    currentMinutes >= morning.totalMinutes
-  ) {
-    return {
-      type: 'morning',
-      eventType: ALMANAC_EVENT_TYPES.MORNING_GREETING,
-    };
+  if (morning && currentMinutes >= morning.totalMinutes) {
+    return { type: 'morning', eventType: ALMANAC_EVENT_TYPES.MORNING_GREETING };
   }
 
-  if (
-    night &&
-    currentMinutes >= night.totalMinutes
-  ) {
-    return {
-      type: 'night',
-      eventType: ALMANAC_EVENT_TYPES.NIGHT_GREETING,
-    };
+  if (night && currentMinutes >= night.totalMinutes) {
+    return { type: 'night', eventType: ALMANAC_EVENT_TYPES.NIGHT_GREETING };
   }
 
   return null;
 };
 
-const processChat = async (chat) => {
-  const config = await getAlmanacConfig(chat.id);
-
-  if (
-    !config?.morningGreetingEnabled &&
-    !config?.nightGreetingEnabled
-  ) {
+const processGreetingForChat = async (chat, config, records, now, dateKey) => {
+  if (!config?.morningGreetingEnabled && !config?.nightGreetingEnabled) {
     return;
   }
 
-  const records = await getAlmanacRecords(chat.id);
-  const now = new Date();
-  const dateKey = getDateKey(now);
   const greeting = getGreetingType(config, now);
 
   if (!greeting) return;
 
-  if (
-    config.skipIfUserChattedToday &&
-    hasUserMessageToday(records, dateKey)
-  ) {
+  if (config.skipIfUserChattedToday && hasUserMessageToday(records, dateKey)) {
     return;
   }
 
-  if (
-    hasSuccessfulGreetingToday(
-      records,
-      greeting.eventType,
-      dateKey
-    )
-  ) {
+  if (hasSuccessfulGreetingToday(records, greeting.eventType, dateKey)) {
     return;
   }
 
-  const generatedId = await generateCompanionProactiveMessage(
-    chat.id
-  );
+  const generatedId = await generateCompanionProactiveMessage(chat.id);
 
   if (!generatedId) return;
 
@@ -153,6 +110,37 @@ const processChat = async (chat) => {
   });
 };
 
+/*
+ * 轻提醒：到点后让角色用自己的语气自然提一句，
+ * 不是机械打卡通知。
+ *
+ * generateCompanionProactiveMessage 的第二个参数 intentHint 是可选的，
+ * 不传时行为和早晚安完全一样；传了则会引导 AI 围绕这个具体意图开口。
+ */
+const processReminderForChat = async (chat) => {
+  const dueReminder = await getDueReminder(chat.id);
+
+  if (!dueReminder) return;
+
+  const generatedId = await generateCompanionProactiveMessage(chat.id, {
+    intentHint: `自然、轻松地提一句关于这件事：${dueReminder.content}`,
+  });
+
+  if (!generatedId) return;
+
+  await markReminderFired(dueReminder.id, dueReminder.dateKey);
+};
+
+const processChat = async (chat) => {
+  const config = await getAlmanacConfig(chat.id);
+  const records = await getAlmanacRecords(chat.id);
+  const now = new Date();
+  const dateKey = getDateKey(now);
+
+  await processGreetingForChat(chat, config, records, now, dateKey);
+  await processReminderForChat(chat);
+};
+
 export const checkAlmanacGreetings = async () => {
   if (schedulerState.processing) return;
 
@@ -165,10 +153,7 @@ export const checkAlmanacGreetings = async () => {
       try {
         await processChat(chat);
       } catch (error) {
-        console.warn(
-          '[Almanac] 问候检查失败：',
-          error
-        );
+        console.warn('[Almanac] 问候/提醒检查失败：', error);
       }
     }
   } finally {
@@ -192,4 +177,10 @@ export const stopAlmanacGreetingScheduler = () => {
     window.clearInterval(schedulerState.timer);
     schedulerState.timer = null;
   }
+};
+
+export default {
+  checkAlmanacGreetings,
+  startAlmanacGreetingScheduler,
+  stopAlmanacGreetingScheduler,
 };

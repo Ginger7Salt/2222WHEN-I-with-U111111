@@ -2519,7 +2519,8 @@ export const generateCompanionReplyForDiary = async (diaryId) => {
  * 伴侣主动在具体的聊天窗口 (chatId) 中发送消息
  * 基于该聊天窗口的特定上下文、专属人设和总提示词 (systemPrompt) 组装
  */
-export const generateCompanionProactiveMessage = async (chatId) => {
+export const generateCompanionProactiveMessage = async (chatId, options = {}) => {
+  const intentHint = String(options?.intentHint || '').trim();
   if (!chatId) return null;
 
   try {
@@ -2607,6 +2608,7 @@ const autoSendGuide = `
 - 回复要轻柔、贴心，不要带有客服味道，更不要使用 Emoji。
 - 只在自然相关时使用共同记忆，不要逐条复述，也不要让用户感到被监控。
 - 字数控制在 100 字以内。
+${intentHint ? `- 这一次，请自然地围绕这件事展开，但不要机械复述，也不要让它听起来像系统提醒：${intentHint}` : ''}
 `;
 
 const characterEmotionContext = await getSafeCharacterEmotionContext({
