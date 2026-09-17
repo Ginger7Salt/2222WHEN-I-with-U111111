@@ -961,15 +961,32 @@ export async function syncScheduledTaskToCloud({ targetTime, intent = '', chatId
       return false;
     }
 
-    // 🎯 核心解决“云端是否知道是哪个消息框”：
-    // 同时注入 targetChatId 和 chatId，做双字段兜底兼容
-    const parsedChatId = (chatId !== null && chatId !== undefined) ? Number(chatId) : undefined;
+        const parsedChatId = (chatId !== null && chatId !== undefined) ? Number(chatId) : undefined;
+
+    // 尝试获取当前聊天的上下文与人设信息，避免云端无目标
+    let currentCharacter = undefined;
+    if (parsedChatId) {
+      try {
+        const chat = await db.chats.get(parsedChatId);
+        if (chat) {
+          const charObj = await db.characters.get(Number(chat.characterId || 1));
+          currentCharacter = {
+            chatId: parsedChatId,
+            characterId: Number(chat.characterId || 1),
+            name: charObj?.name || chat.title || '伴侣',
+            persona: charObj?.bio || charObj?.persona || '',
+            userName: chat.userName || charObj?.userName || '你',
+          };
+        }
+      } catch (_) {}
+    }
     
     const payload = {
       targetTime: targetTimestamp,
       intent: String(intent || '伴侣主动找你'),
       chatId: Number.isFinite(parsedChatId) ? parsedChatId : undefined,
-      targetChatId: Number.isFinite(parsedChatId) ? parsedChatId : undefined
+      targetChatId: Number.isFinite(parsedChatId) ? parsedChatId : undefined,
+      character: currentCharacter,
     };
 
     const res = await fetch(`${cleanServerUrl}/api/sync-push-config`, {
@@ -980,6 +997,7 @@ export async function syncScheduledTaskToCloud({ targetTime, intent = '', chatId
       },
       body: JSON.stringify(payload)
     });
+
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '');

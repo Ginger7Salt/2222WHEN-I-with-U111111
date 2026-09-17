@@ -357,11 +357,16 @@ export const createScheduledMessage = async ({
  // 预约写入本地成功后，将同一条预约托管到云端。
 // 不阻塞本地预约逻辑，云端失败时仍保留本地预约。
 try {
-  const cloudSyncResult = await syncScheduledTaskToCloud({
-    targetTime: scheduledFor,
-    intent: intent || '伴侣主动找你',
-    chatId,
-  });
+      // 核心修复：转为数字时间戳，且不 await 阻塞本地预约入库
+    const targetTimestamp = new Date(scheduledFor).getTime();
+    void syncScheduledTaskToCloud({
+      targetTime: targetTimestamp,
+      intent: normalizeText(intent) || '伴侣主动找你',
+      chatId,
+    }).catch((err) => {
+      console.warn('[ScheduledMessage] 云端同步跳过或异常（纯本地模式）:', err?.message || err);
+    });
+
 
   if (!cloudSyncResult) {
     console.warn(
@@ -1151,20 +1156,29 @@ export const checkAndSendDueScheduledMessages =
        */
       await recoverStaleProcessingScheduledMessages();
 
-      const nowIso = getNowIso();
+           const nowIso = getNowIso();
 
       /*
-       * 走 [status+scheduledFor] 复合索引做 range 查询，
-       * 而不是先按 status 取全部 pending 再在 JS 层用
-       * .and() 逐条比较 scheduledFor。
+       * 优先走 [status+scheduledFor] 复合索引查询。
+       * 如果数据库尚未升级该复合索引，自动降级为 status 过滤兜底，
+       * 防止纯本地用户因为缺少索引导致预约完全无法发送。
        */
-      const dueMessages = await db.scheduledMessages
-        .where('[status+scheduledFor]')
-        .between(
-          ['pending', Dexie.minKey],
-          ['pending', nowIso]
-        )
-        .sortBy('scheduledFor');
+      let dueMessages = [];
+      try {
+        dueMessages = await db.scheduledMessages
+          .where('[status+scheduledFor]')
+          .between(
+            ['pending', Dexie.minKey],
+            ['pending', nowIso]
+          )
+          .sortBy('scheduledFor');
+      } catch (indexError) {
+        dueMessages = await db.scheduledMessages
+          .where('status')
+          .equals('pending')
+          .filter((item) => item.scheduledFor && item.scheduledFor <= nowIso)
+          .sortBy('scheduledFor');
+      }
 
       /*
        * 一轮最多处理两条，避免重新打开应用时突发发送大量消息。
@@ -1270,3 +1284,8 @@ export const stopScheduledMessageScheduler = () => {
     '[ScheduledMessage] 对话预约调度器已停止。'
   );
 };
+
+// 核心修复：自动在浏览器端自启动调度器，确保没有配置云端的用户也能在本地准时发送
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  startScheduledMessageScheduler();
+}
