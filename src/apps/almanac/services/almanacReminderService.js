@@ -3,7 +3,7 @@ import { getDateKey, getUserTimeZone, getAlmanacConfig } from './almanacService'
 
 const hasStore = () => Boolean(db.almanacReminders);
 
-const MAX_REMINDERS = 10;
+export const MAX_REMINDERS = 10;
 
 const parseTime = (value) => {
   const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || ''));
