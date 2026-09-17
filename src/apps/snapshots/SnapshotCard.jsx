@@ -500,7 +500,7 @@ export const SnapshotCard = ({
             className="px-3 py-1.5 rounded-full text-[10px] font-bold bg-neutral-100/80 hover:bg-neutral-200/80 text-neutral-700 flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
           >
             <svg className={`w-3 h-3 ${isSummoning ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span>{isSummoning ? '呼唤中...' : '邀约邻里留笔'}</span>
+            <span>{isSummoning ? '呼唤中...' : '邀约评论'}</span>
           </button>
         </div>
       )}
