@@ -56,7 +56,6 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
     if (!currentChatId) return;
     loadSnapshots();
 
-    // 启动当前世界线的后台主动发帖调度
     snapshotScheduler.start(currentChatId);
     const unsubscribe = snapshotScheduler.subscribe(() => {
       loadSnapshots();
@@ -81,29 +80,32 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
   const currentCharTitle = chats.find((c) => c.id === currentChatId)?.title || '当前世界线';
 
   return (
-    <div className="w-full min-h-screen bg-[#f7f8fa] text-neutral-900 flex flex-col relative overflow-x-hidden selection:bg-neutral-900 selection:text-white">
-      {/* 弥散柔和环境光底纹 */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-gradient-to-b from-neutral-200/40 via-neutral-100/20 to-transparent rounded-full blur-3xl pointer-events-none z-0" />
+    // 外层容器：使用 100dvh 全屏占满，消除外侧缝隙
+    <div className="w-full min-h-[100dvh] bg-[#f5f7fa] text-neutral-900 flex flex-col relative overflow-x-hidden selection:bg-neutral-900 selection:text-white">
+      {/* 顶部柔和环境弥散光 */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-64 bg-gradient-to-b from-blue-100/40 via-purple-50/20 to-transparent rounded-full blur-3xl pointer-events-none z-0" />
 
-      {/* 顶部悬浮控制栏（无彩色长条 Bar，清透通透微按钮） */}
-      <div className="sticky top-0 z-40 px-5 pt-4 pb-2 flex items-center justify-between backdrop-blur-md bg-[#f7f8fa]/60">
-        <div className="flex items-center gap-2.5">
+      {/* 顶部导航栏：全宽通透贴合 */}
+      <header className="sticky top-0 z-40 w-full px-4 pt-3 pb-2.5 flex items-center justify-between backdrop-blur-xl bg-[#f5f7fa]/75 border-b border-black/[0.03]">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onBackHub}
-            className="w-10 h-10 rounded-2xl bg-white/80 backdrop-blur-lg border border-white/60 shadow-sm flex items-center justify-center text-neutral-800 hover:bg-white active:scale-95 transition-all"
-            title="返回中心"
+            className="w-9 h-9 rounded-2xl bg-white/90 shadow-sm border border-neutral-200/50 flex items-center justify-center text-neutral-700 active:scale-95 transition-all"
+            title="返回"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
           </button>
 
-          {/* 时空世界线切换下拉 */}
-          <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white/80 backdrop-blur-lg border border-white/60 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-neutral-900" />
+          {/* 世界线切换胶囊 */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/90 shadow-sm border border-neutral-200/50 max-w-[200px]">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
             <select
               value={currentChatId || ''}
               onChange={(e) => setCurrentChatId(Number(e.target.value))}
-              className="bg-transparent text-xs font-black text-neutral-800 outline-none cursor-pointer tracking-tight"
+              className="bg-transparent text-xs font-semibold text-neutral-800 outline-none cursor-pointer truncate pr-1"
             >
               {chats.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -114,84 +116,110 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
           </div>
         </div>
 
-        {/* 右侧关系与 NPC 设置 */}
+        {/* 右侧设置按钮 */}
         <button
           type="button"
           onClick={() => setIsSettingsOpen(true)}
-          className="w-10 h-10 rounded-2xl bg-white/80 backdrop-blur-lg border border-white/60 shadow-sm flex items-center justify-center text-neutral-700 hover:bg-white active:scale-95 transition-all"
-          title="社交关系与 NPC 设置"
+          className="w-9 h-9 rounded-2xl bg-white/90 shadow-sm border border-neutral-200/50 flex items-center justify-center text-neutral-700 active:scale-95 transition-all"
+          title="设置"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
+            <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
+            <line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" />
+          </svg>
         </button>
-      </div>
+      </header>
 
-      {/* Feed 流主视区 */}
-      <main className="flex-1 w-full max-w-md mx-auto px-4 pt-2 pb-28 relative z-10 space-y-4">
+      {/* Feed 流主视区：占满宽度，桌面端才限制宽度 */}
+      <main className="flex-1 w-full sm:max-w-lg sm:mx-auto px-3.5 pt-3 pb-28 relative z-10 flex flex-col">
         {snapshots.length === 0 ? (
-          <div className="rounded-[36px] bg-white/70 backdrop-blur-xl p-12 text-center space-y-3 border border-white/60 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] mt-8">
-            <div className="w-12 h-12 rounded-2xl bg-neutral-100 mx-auto flex items-center justify-center text-neutral-400">
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          // 空状态居中，不再是浮动的壳子
+          <div className="my-auto flex flex-col items-center justify-center py-12 px-4 text-center">
+            <div className="w-16 h-16 rounded-3xl bg-white/80 shadow-sm border border-neutral-200/50 flex items-center justify-center text-neutral-400 mb-4">
+              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                <rect x="3" y="3" width="18" height="18" rx="3" ry="3" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
             </div>
-            <h3 className="text-sm font-bold text-neutral-800">该世界线尚未定格片羽</h3>
-            <p className="text-xs text-neutral-400 max-w-xs mx-auto leading-relaxed">
-              在 {currentCharTitle} 的时空里，点击下方拍摄记录，或邀约伴侣写下一抹即时心境。
+            <h3 className="text-base font-bold text-neutral-800 tracking-tight mb-1">
+              该世界线尚未定格片羽
+            </h3>
+            <p className="text-xs text-neutral-400 max-w-xs leading-relaxed mb-6">
+              在「{currentCharTitle}」的时空里，点击下方按钮记录生活，或邀约伴侣留下即时心境。
             </p>
             <button
               type="button"
               onClick={() => setIsCreateOpen(true)}
-              className="px-5 py-2.5 rounded-full bg-neutral-900 text-white text-xs font-bold shadow-md hover:bg-neutral-800 active:scale-95 transition-all mt-2"
+              className="px-6 py-2.5 rounded-full bg-neutral-900 text-white text-xs font-semibold shadow-md active:scale-95 transition-all flex items-center gap-1.5"
             >
-              留下第一条生活动态
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>记录第一条瞬间</span>
             </button>
           </div>
         ) : (
-          snapshots.map((item) => (
-            <SnapshotCard
-              key={item.id}
-              snapshot={item}
-              currentChatId={currentChatId}
-              onDelete={handleDeleteSnapshot}
-              onOpenUserProfile={() => setIsUserProfileOpen(true)}
-              onOpenCharProfile={(charId) => setSelectedCharId(charId)}
-            />
-          ))
+          <div className="space-y-4 w-full">
+            {snapshots.map((item) => (
+              <SnapshotCard
+                key={item.id}
+                snapshot={item}
+                currentChatId={currentChatId}
+                onDelete={handleDeleteSnapshot}
+                onOpenUserProfile={() => setIsUserProfileOpen(true)}
+                onOpenCharProfile={(charId) => setSelectedCharId(charId)}
+              />
+            ))}
+          </div>
         )}
       </main>
 
-      {/* 底部悬浮白色/微黑液态毛玻璃 Dock */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-neutral-900/90 backdrop-blur-2xl border border-white/20 rounded-full px-3 py-2 flex items-center gap-4 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)]">
-        {/* Feed 广场 */}
+      {/* 底部悬浮控制栏 Dock */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-neutral-900/90 backdrop-blur-2xl border border-white/20 rounded-full px-3 py-2 flex items-center gap-3 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.35)]">
+        {/* 回到顶部/Feed */}
         <button
           type="button"
           onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-colors"
-          title="Feed 流"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white/75 hover:text-white active:scale-95 transition-all"
+          title="广场"
         >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          </svg>
         </button>
 
-        {/* 发帖按钮 (高亮灵动中心) */}
+        {/* 发布瞬间 */}
         <button
           type="button"
           onClick={() => setIsCreateOpen(true)}
-          className="w-11 h-11 rounded-full bg-white text-neutral-900 flex items-center justify-center shadow-lg active:scale-90 transition-transform font-bold"
-          title="记录 / 发帖"
+          className="w-11 h-11 rounded-full bg-white text-neutral-950 flex items-center justify-center shadow-lg active:scale-90 transition-transform font-bold"
+          title="记录瞬间"
         >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
         </button>
 
-        {/* User 个人主页 */}
+        {/* 个人主页 */}
         <button
           type="button"
           onClick={() => setIsUserProfileOpen(true)}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-colors"
-          title="User 个人主页"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white/75 hover:text-white active:scale-95 transition-all"
+          title="个人中心"
         >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
         </button>
       </div>
 
-      {/* User 个人主页 Sheet */}
+      {/* Sheets & Modals */}
       <UserProfileSheet
         isOpen={isUserProfileOpen}
         onClose={() => setIsUserProfileOpen(false)}
@@ -200,7 +228,6 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
         onChangeChat={(newId) => setCurrentChatId(newId)}
       />
 
-      {/* Character 个人主页 Sheet */}
       <CharacterProfileSheet
         isOpen={Boolean(selectedCharId)}
         onClose={() => setSelectedCharId(null)}
@@ -209,7 +236,6 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
         onInvitePost={() => setIsCreateOpen(true)}
       />
 
-      {/* 发帖 Modal */}
       <CreateSnapshotModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
@@ -217,7 +243,6 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
         onPostCreated={loadSnapshots}
       />
 
-      {/* 社交设置 Modal */}
       <SnapshotSettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
