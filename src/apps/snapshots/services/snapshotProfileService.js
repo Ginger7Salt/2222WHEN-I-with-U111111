@@ -1,9 +1,10 @@
 // src/apps/snapshots/services/snapshotProfileService.js
 //
 // 【整体替换说明】相对上一轮的改动：
-// 新增 `handle`（类似 @用户名 的短标识）与 `tags`（个性标签数组）两个字段，
-// 供主页美化时展示。这两个字段都是 Dexie 表里的非索引普通字段，
-// 不需要 db 迁移，读取时做兜底即可。
+// 新增 `showcaseImages`（主页第二段"精选/展示图"用的图片数组，最多 8 张，
+// 与下方自动生成的动态流完全无关，是 user/char 自己手动挑选、可随时增删的
+// 一组图，用来在主页上做一条可以左右滑动的小图带）。
+// 其余字段（handle / tags）与上一轮保持一致。
 //
 import db from '../../../db';
 
@@ -15,6 +16,11 @@ const normalizeTags = (tags) => {
     return tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean).slice(0, 8);
   }
   return [];
+};
+
+const normalizeShowcaseImages = (images) => {
+  if (!Array.isArray(images)) return [];
+  return images.filter((img) => typeof img === 'string' && img.length > 0).slice(0, 8);
 };
 
 /**
@@ -43,6 +49,7 @@ export const getUserSnapshotProfile = async (chatId) => {
     bio: customProfile?.bio || defaultBio,
     banner: customProfile?.banner || '',
     tags: normalizeTags(customProfile?.tags),
+    showcaseImages: normalizeShowcaseImages(customProfile?.showcaseImages),
     updatedAt: customProfile?.updatedAt || 0
   };
 };
@@ -50,7 +57,7 @@ export const getUserSnapshotProfile = async (chatId) => {
 /**
  * 保存 User 的专有主页资料
  */
-export const saveUserSnapshotProfile = async (chatId, { name, handle, avatar, bio, banner, tags }) => {
+export const saveUserSnapshotProfile = async (chatId, { name, handle, avatar, bio, banner, tags, showcaseImages }) => {
   if (!chatId) return;
   const numericChatId = Number(chatId);
   const profileKey = `user_${numericChatId}`;
@@ -66,6 +73,7 @@ export const saveUserSnapshotProfile = async (chatId, { name, handle, avatar, bi
     bio: (bio || '').trim(),
     banner: banner || '',
     tags: normalizeTags(tags),
+    showcaseImages: normalizeShowcaseImages(showcaseImages),
     updatedAt: Date.now()
   });
 };
@@ -93,6 +101,7 @@ export const getCharSnapshotProfile = async (chatId, characterId) => {
     bio: customProfile?.bio || char?.bio || '生活里的吉光片羽。',
     banner: customProfile?.banner || '',
     tags: normalizeTags(customProfile?.tags),
+    showcaseImages: normalizeShowcaseImages(customProfile?.showcaseImages),
     updatedAt: customProfile?.updatedAt || 0
   };
 };
@@ -100,7 +109,7 @@ export const getCharSnapshotProfile = async (chatId, characterId) => {
 /**
  * 保存 Character 的专有主页资料
  */
-export const saveCharSnapshotProfile = async (chatId, characterId, { name, handle, avatar, bio, banner, tags }) => {
+export const saveCharSnapshotProfile = async (chatId, characterId, { name, handle, avatar, bio, banner, tags, showcaseImages }) => {
   if (!chatId || !characterId) return;
   const numericChatId = Number(chatId);
   const numericCharId = Number(characterId);
@@ -117,6 +126,7 @@ export const saveCharSnapshotProfile = async (chatId, characterId, { name, handl
     bio: (bio || '').trim(),
     banner: banner || '',
     tags: normalizeTags(tags),
+    showcaseImages: normalizeShowcaseImages(showcaseImages),
     updatedAt: Date.now()
   });
 };

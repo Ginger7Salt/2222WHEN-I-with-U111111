@@ -1,19 +1,19 @@
 // src/apps/snapshots/components/CharacterProfileSheet.jsx
 //
-// 【整体替换说明】与 UserProfileSheet 同步的改动：
-// 1. 从"底部弹出的模态浮层"改为真正的整页（fixed inset-0，占满整个视口，
-//    没有外层的半透明遮罩、没有圆角顶部、没有 92vh 高度限制）。
-// 2. 背景大图改为固定层（fixed inset-0），滚动内容浮在它上方——图片在整个
-//    滚动过程中都持续可见。
-// 3. "由角色定格的瞬间"从竖直时间线列表改成 IG 主页风格的 3 列正方形网格
-//    （角色动态目前没有 mediaUrl，仍按纯文字引文卡的样式铺进网格格子里，
-//    保持与 UserProfileSheet 一致的视觉语言）。
+// 【整体替换说明】相对上一版的改动（与 UserProfileSheet 同步）：
+// 1. 新增"精选/展示图"小图带：与下方自动生成的动态流完全无关，是可以手动
+//    挑选、增删的一组图（最多 8 张），展示时是一条支持左右滑动 + 箭头翻页的
+//    横向小图带，插在"个人简介"和"动态展示(IG网格)"之间，构成三段式结构：
+//    ① 个人简介（头像/名字/签名/统计/标签）② 精选展示图 ③ 动态(IG网格)。
+// 2. 心境签名在展示模式下也可以直接点击进入编辑。
 //
 import React, { useState, useEffect, useRef } from 'react';
 import db from '../../../db';
 import { getCharSnapshotProfile, saveCharSnapshotProfile } from '../services/snapshotProfileService';
 import { compressImageFile } from '../services/snapshotMediaService';
 import { generateCharacterPost } from '../services/snapshotAiService';
+
+const MAX_SHOWCASE_IMAGES = 8;
 
 export const CharacterProfileSheet = ({
   isOpen,
@@ -28,10 +28,13 @@ export const CharacterProfileSheet = ({
   const [editHandle, setEditHandle] = useState('');
   const [editBanner, setEditBanner] = useState('');
   const [editTagsText, setEditTagsText] = useState('');
+  const [editShowcase, setEditShowcase] = useState([]);
   const [isGeneratingPost, setIsGeneratingPost] = useState(false);
   const [openPost, setOpenPost] = useState(null);
 
   const bannerInputRef = useRef(null);
+  const showcaseInputRef = useRef(null);
+  const showcaseCarouselRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen || !characterId || !currentChatId) return;
@@ -46,6 +49,7 @@ export const CharacterProfileSheet = ({
       setEditHandle(p.handle);
       setEditBanner(p.banner);
       setEditTagsText(p.tags.join(', '));
+      setEditShowcase(p.showcaseImages || []);
 
       const list = await db.snapshots
         .where('chatId')
@@ -67,7 +71,8 @@ export const CharacterProfileSheet = ({
         bio: editBio,
         handle: editHandle,
         banner: editBanner,
-        tags: editTagsText
+        tags: editTagsText,
+        showcaseImages: editShowcase
       });
       setIsEditing(false);
       loadData();
@@ -85,6 +90,31 @@ export const CharacterProfileSheet = ({
     } catch (err) {
       console.error('封面压缩失败:', err);
     }
+  };
+
+  const handleShowcaseUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const remaining = MAX_SHOWCASE_IMAGES - editShowcase.length;
+    const toProcess = files.slice(0, Math.max(remaining, 0));
+    try {
+      const dataUrls = await Promise.all(
+        toProcess.map((file) => compressImageFile(file, 800, 800, 0.82))
+      );
+      setEditShowcase((prev) => [...prev, ...dataUrls].slice(0, MAX_SHOWCASE_IMAGES));
+    } catch (err) {
+      console.error('精选图压缩失败:', err);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const removeShowcaseImage = (idx) => {
+    setEditShowcase((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const scrollShowcase = (dir) => {
+    showcaseCarouselRef.current?.scrollBy({ left: dir * 200, behavior: 'smooth' });
   };
 
   const handleGeneratePost = async () => {
@@ -119,6 +149,7 @@ export const CharacterProfileSheet = ({
   if (!isOpen || !profile) return null;
 
   const displayBanner = isEditing ? editBanner : profile.banner;
+  const displayShowcase = isEditing ? editShowcase : profile.showcaseImages || [];
 
   return (
     <div className="fixed inset-0 z-50 bg-neutral-50 text-left animate-fade-in">
@@ -220,6 +251,38 @@ export const CharacterProfileSheet = ({
               />
             </div>
 
+            {/* 精选/展示图：与下方自动生成的动态流无关，自己手动挑选、可增删 */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] font-semibold text-neutral-500">精选展示图（最多 {MAX_SHOWCASE_IMAGES} 张，可左右滑动）</label>
+                <span className="text-[10px] text-neutral-400">{editShowcase.length}/{MAX_SHOWCASE_IMAGES}</span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {editShowcase.map((img, idx) => (
+                  <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-neutral-100 border border-neutral-200/70">
+                    <img src={img} alt={`Showcase ${idx + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeShowcaseImage(idx)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center"
+                    >
+                      <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                ))}
+                {editShowcase.length < MAX_SHOWCASE_IMAGES && (
+                  <button
+                    type="button"
+                    onClick={() => showcaseInputRef.current?.click()}
+                    className="w-20 h-20 rounded-xl flex-shrink-0 bg-neutral-100 border border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 hover:text-neutral-600 hover:border-neutral-400 transition-colors"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
+                )}
+              </div>
+              <input ref={showcaseInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleShowcaseUpload} />
+            </div>
+
             <button
               type="button"
               onClick={handleSave}
@@ -229,7 +292,7 @@ export const CharacterProfileSheet = ({
             </button>
           </div>
         ) : (
-          /* ============ 展示模式：浅色液态玻璃 Hero 卡片 ============ */
+          /* ============ 展示模式：浅色液态玻璃 Hero 卡片（第①段：个人简介） ============ */
           <div className="bg-white/75 backdrop-blur-2xl border border-white/70 rounded-3xl p-5 space-y-4 shadow-xl">
             <div className="flex items-center gap-3">
               <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 bg-neutral-100 border border-neutral-200/70">
@@ -247,9 +310,12 @@ export const CharacterProfileSheet = ({
               </div>
             </div>
 
-            <p className="text-xs text-neutral-600 leading-relaxed font-serif italic">
-              "{profile.bio}"
-            </p>
+            {/* 心境签名：点击直接进入编辑模式 */}
+            <button type="button" onClick={() => setIsEditing(true)} className="w-full text-left">
+              <p className="text-xs text-neutral-600 leading-relaxed font-serif italic hover:text-neutral-900 transition-colors">
+                "{profile.bio}"
+              </p>
+            </button>
 
             {/* 统计数字，与 UserProfileSheet 保持一致的视觉语言 */}
             <div className="flex items-center gap-6">
@@ -293,7 +359,42 @@ export const CharacterProfileSheet = ({
           </div>
         )}
 
-        {/* IG 风格：3 列正方形网格，取代原来的竖直时间线列表 */}
+        {/* 第②段：精选展示图，可左右滑动 + 箭头翻页，与下方真实动态流无关 */}
+        {!isEditing && displayShowcase.length > 0 && (
+          <div className="space-y-2">
+            <div ref={showcaseCarouselRef} className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory pb-1 scrollbar-none">
+              {displayShowcase.map((img, idx) => (
+                <div
+                  key={idx}
+                  className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 snap-start bg-white/70 border border-white/60 shadow-sm"
+                >
+                  <img src={img} alt={`Showcase ${idx + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+
+            {displayShowcase.length > 3 && (
+              <div className="flex items-center justify-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => scrollShowcase(-1)}
+                  className="w-8 h-8 rounded-full bg-white/80 backdrop-blur-md border border-white/60 shadow-sm flex items-center justify-center text-neutral-600 hover:text-neutral-900 active:scale-90 transition-all"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollShowcase(1)}
+                  className="w-8 h-8 rounded-full bg-white/80 backdrop-blur-md border border-white/60 shadow-sm flex items-center justify-center text-neutral-600 hover:text-neutral-900 active:scale-90 transition-all"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 第③段：动态展示，IG 风格 3 列正方形网格 */}
         {!isEditing && (
           <div className="space-y-2 pt-1">
             <h4 className="text-xs font-bold text-neutral-400 px-1 uppercase tracking-widest">由 {profile.name} 定格的瞬间</h4>

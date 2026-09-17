@@ -1,19 +1,20 @@
 // src/apps/snapshots/components/UserProfileSheet.jsx
 //
 // 【整体替换说明】相对上一版的改动：
-// 1. 从"底部弹出的模态浮层"改为真正的整页（fixed inset-0，占满整个视口，
-//    没有外层的半透明遮罩、没有圆角顶部、没有 94vh 高度限制）。
-// 2. 背景大图改为固定层（fixed inset-0），滚动内容浮在它上方——图片在整个
-//    滚动过程中都持续可见，不会像之前那样很快被纯白背景盖住。
-// 3. "动态"的展示从"横向胶片轮播 + 竖直时间线"两套并存，改成经典的 IG 主页
-//    风格：3 列正方形网格、缝隙极窄，点击进入详情。取消了原来的横向轮播
-//    （及其左右箭头）和竖直时间线列表。
+// 1. 展示模式的 Hero 卡片里补上了头像（之前编辑模式能上传，但展示时从没渡染出来）。
+// 2. 新增"精选/展示图"小图带：与下方自动生成的动态流完全无关，是用户自己手动
+//    挑选、可增删的一组图（最多 8 张），展示时是一条支持左右滑动 + 箭头翻页的
+//    横向小图带，正好插在"个人简介"和"动态展示(IG网格)"两段之间，让页面呈现
+//    三段式结构：① 个人简介（头像/名字/签名/统计/标签）② 精选展示图 ③ 动态(IG网格)。
+// 3. 个性签名在展示模式下也可以直接点击进入编辑，不用先摸到右上角的编辑按钮。
 //
 import React, { useState, useEffect, useRef } from 'react';
 import db from '../../../db';
 import { getUserSnapshotProfile, saveUserSnapshotProfile } from '../services/snapshotProfileService';
 import { compressImageFile } from '../services/snapshotMediaService';
 import WorldlineSwitcher from './WorldlineSwitcher';
+
+const MAX_SHOWCASE_IMAGES = 8;
 
 export const UserProfileSheet = ({
   isOpen,
@@ -36,9 +37,12 @@ export const UserProfileSheet = ({
   const [editAvatar, setEditAvatar] = useState('');
   const [editBanner, setEditBanner] = useState('');
   const [editTagsText, setEditTagsText] = useState('');
+  const [editShowcase, setEditShowcase] = useState([]);
 
   const avatarInputRef = useRef(null);
   const bannerInputRef = useRef(null);
+  const showcaseInputRef = useRef(null);
+  const showcaseCarouselRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen || !currentChatId) return;
@@ -55,6 +59,7 @@ export const UserProfileSheet = ({
       setEditAvatar(p.avatar);
       setEditBanner(p.banner);
       setEditTagsText(p.tags.join(', '));
+      setEditShowcase(p.showcaseImages || []);
 
       const chat = await db.chats.get(Number(currentChatId));
       if (chat?.characterId) {
@@ -98,7 +103,8 @@ export const UserProfileSheet = ({
         avatar: editAvatar,
         bio: editBio,
         banner: editBanner,
-        tags: editTagsText
+        tags: editTagsText,
+        showcaseImages: editShowcase
       });
       setIsEditing(false);
       loadData();
@@ -129,9 +135,35 @@ export const UserProfileSheet = ({
     }
   };
 
+  const handleShowcaseUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const remaining = MAX_SHOWCASE_IMAGES - editShowcase.length;
+    const toProcess = files.slice(0, Math.max(remaining, 0));
+    try {
+      const dataUrls = await Promise.all(
+        toProcess.map((file) => compressImageFile(file, 800, 800, 0.82))
+      );
+      setEditShowcase((prev) => [...prev, ...dataUrls].slice(0, MAX_SHOWCASE_IMAGES));
+    } catch (err) {
+      console.error('精选图压缩失败:', err);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const removeShowcaseImage = (idx) => {
+    setEditShowcase((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const scrollShowcase = (dir) => {
+    showcaseCarouselRef.current?.scrollBy({ left: dir * 200, behavior: 'smooth' });
+  };
+
   if (!isOpen) return null;
 
   const displayBanner = isEditing ? editBanner : profile?.banner;
+  const displayShowcase = isEditing ? editShowcase : profile?.showcaseImages || [];
 
   return (
     <div className="fixed inset-0 z-50 bg-neutral-50 text-left animate-fade-in">
@@ -262,6 +294,38 @@ export const UserProfileSheet = ({
               />
             </div>
 
+            {/* 精选/展示图：与下方自动生成的动态流无关，自己手动挑选、可增删 */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] font-semibold text-neutral-500">精选展示图（最多 {MAX_SHOWCASE_IMAGES} 张，可左右滑动）</label>
+                <span className="text-[10px] text-neutral-400">{editShowcase.length}/{MAX_SHOWCASE_IMAGES}</span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {editShowcase.map((img, idx) => (
+                  <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-neutral-100 border border-neutral-200/70">
+                    <img src={img} alt={`Showcase ${idx + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeShowcaseImage(idx)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center"
+                    >
+                      <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                ))}
+                {editShowcase.length < MAX_SHOWCASE_IMAGES && (
+                  <button
+                    type="button"
+                    onClick={() => showcaseInputRef.current?.click()}
+                    className="w-20 h-20 rounded-xl flex-shrink-0 bg-neutral-100 border border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 hover:text-neutral-600 hover:border-neutral-400 transition-colors"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
+                )}
+              </div>
+              <input ref={showcaseInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleShowcaseUpload} />
+            </div>
+
             <button
               type="button"
               onClick={handleSaveProfile}
@@ -271,26 +335,44 @@ export const UserProfileSheet = ({
             </button>
           </div>
         ) : (
-          /* ============ 展示模式：浅色液态玻璃 Hero 卡片 ============ */
+          /* ============ 展示模式：浅色液态玻璃 Hero 卡片（第①段：个人简介） ============ */
           <div className="bg-white/75 backdrop-blur-2xl border border-white/70 rounded-3xl p-5 space-y-4 shadow-xl">
-            <div>
-              <h2 className="text-2xl font-black text-neutral-900 tracking-tight leading-tight">
-                {profile?.name}
-              </h2>
-              {profile?.handle && (
-                <p className="text-xs text-neutral-400 font-medium mt-0.5">@{profile.handle}</p>
-              )}
-              {currentChar && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mt-2 rounded-full bg-neutral-100 text-[10px] text-neutral-500 font-medium">
-                  <span>with</span>
-                  <span className="font-bold text-neutral-800">{currentChar.name}</span>
-                </div>
-              )}
+            <div className="flex items-center gap-3">
+              <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 bg-neutral-100 border border-neutral-200/70">
+                {profile?.avatar ? (
+                  <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center font-bold text-neutral-500 text-lg">
+                    {(profile?.name || 'U')[0]}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-2xl font-black text-neutral-900 tracking-tight leading-tight truncate">
+                  {profile?.name}
+                </h2>
+                {profile?.handle && (
+                  <p className="text-xs text-neutral-400 font-medium mt-0.5">@{profile.handle}</p>
+                )}
+                {currentChar && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mt-2 rounded-full bg-neutral-100 text-[10px] text-neutral-500 font-medium">
+                    <span>with</span>
+                    <span className="font-bold text-neutral-800">{currentChar.name}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <p className="text-xs text-neutral-600 leading-relaxed font-serif italic">
-              "{profile?.bio || '在日常的光影里，定格温存。'}"
-            </p>
+            {/* 个性签名：点击直接进入编辑模式 */}
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="w-full text-left"
+            >
+              <p className="text-xs text-neutral-600 leading-relaxed font-serif italic hover:text-neutral-900 transition-colors">
+                "{profile?.bio || '在日常的光影里，定格温存。'}"
+              </p>
+            </button>
 
             {/* 统计数字 */}
             <div className="flex items-center gap-6">
@@ -323,7 +405,42 @@ export const UserProfileSheet = ({
           </div>
         )}
 
-        {/* IG 风格：3 列正方形网格，取代原来的横向胶片轮播 + 竖直时间线 */}
+        {/* 第②段：精选展示图，可左右滑动 + 箭头翻页，与下方真实动态流无关 */}
+        {!isEditing && displayShowcase.length > 0 && (
+          <div className="space-y-2">
+            <div ref={showcaseCarouselRef} className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory pb-1 scrollbar-none">
+              {displayShowcase.map((img, idx) => (
+                <div
+                  key={idx}
+                  className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 snap-start bg-white/70 border border-white/60 shadow-sm"
+                >
+                  <img src={img} alt={`Showcase ${idx + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+
+            {displayShowcase.length > 3 && (
+              <div className="flex items-center justify-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => scrollShowcase(-1)}
+                  className="w-8 h-8 rounded-full bg-white/80 backdrop-blur-md border border-white/60 shadow-sm flex items-center justify-center text-neutral-600 hover:text-neutral-900 active:scale-90 transition-all"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollShowcase(1)}
+                  className="w-8 h-8 rounded-full bg-white/80 backdrop-blur-md border border-white/60 shadow-sm flex items-center justify-center text-neutral-600 hover:text-neutral-900 active:scale-90 transition-all"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 第③段：动态展示，IG 风格 3 列正方形网格 */}
         {!isEditing && (
           <div className="space-y-2 pt-1">
             <h4 className="text-xs font-bold text-neutral-400 px-1 uppercase tracking-widest">动态</h4>
