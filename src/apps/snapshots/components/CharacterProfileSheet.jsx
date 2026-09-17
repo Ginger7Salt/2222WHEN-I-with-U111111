@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import db from  "../../../db";
 import { getCharSnapshotProfile, saveCharSnapshotProfile } from "../services/snapshotProfileService";
-import { compressImageFile } from './services/snapshotMediaService';
+import { compressImageFile } from "../services/snapshotMediaService";
 
 export const CharacterProfileSheet = ({
   isOpen,
