@@ -2,8 +2,11 @@ import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Check,
+  Compass,
+  Crosshair,
   Edit3,
   MapPin,
+  Navigation,
   Trash2,
   X,
 } from 'lucide-react';
@@ -19,80 +22,54 @@ const MAP_IMAGE_URL = 'https://u2.fukit.cn/yYmWOHrYc';
 
 const hashString = (value) => {
   let hash = 0;
-
   String(value || '').split('').forEach((char) => {
     hash = (hash << 5) - hash + char.charCodeAt(0);
     hash |= 0;
   });
-
   return Math.abs(hash);
 };
 
+// 坐标映射：在 1000 x 620 的地图安全区域内映射点位
 const getMapPoint = (place, index) => {
   const latitude = Number(place?.latitude ?? place?.lat);
-  const longitude = Number(
-    place?.longitude
-    ?? place?.lng
-    ?? place?.lon,
-  );
+  const longitude = Number(place?.longitude ?? place?.lng ?? place?.lon);
 
-  if (
-    Number.isFinite(latitude)
-    && Number.isFinite(longitude)
-  ) {
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
     return {
-      x: 120 + ((longitude + 180) / 360) * 760,
-      y: 80 + ((90 - latitude) / 180) * 460,
+      x: 100 + ((longitude + 180) / 360) * 800,
+      y: 70 + ((90 - latitude) / 180) * 480,
     };
   }
 
   const seed = hashString(place?.id || place?.name || index);
-
   return {
-    x: 115 + ((seed * 37 + index * 113) % 770),
-    y: 90 + ((seed * 19 + index * 71) % 390),
+    x: 130 + ((seed * 47 + index * 137) % 740),
+    y: 90 + ((seed * 29 + index * 89) % 430),
   };
+};
+
+// 格式化经纬度坐标文字（用于坐标美化展示）
+const formatCoordinates = (place, index) => {
+  const latitude = Number(place?.latitude ?? place?.lat);
+  const longitude = Number(place?.longitude ?? place?.lng ?? place?.lon);
+
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    const latDir = latitude >= 0 ? 'N' : 'S';
+    const lonDir = longitude >= 0 ? 'E' : 'W';
+    return `${Math.abs(latitude).toFixed(2)}° ${latDir}, ${Math.abs(longitude).toFixed(2)}° ${lonDir}`;
+  }
+
+  const seed = hashString(place?.id || place?.name || index);
+  const pseudoLat = (22 + (seed % 300) / 10).toFixed(2);
+  const pseudoLon = (105 + ((seed * 7) % 240) / 10).toFixed(2);
+  return `${pseudoLat}° N, ${pseudoLon}° E`;
 };
 
 const formatDate = (value) => {
   if (!value) return '未知日期';
-
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return '未知日期';
-
   return date.toLocaleDateString('zh-CN');
-};
-
-const formatCoordinate = (value, positive, negative) => {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) return '';
-
-  const direction = number >= 0 ? positive : negative;
-
-  return `${Math.abs(number).toFixed(3)}° ${direction}`;
-};
-
-const getPlaceCoordinate = (place, index) => {
-  const latitude = Number(place?.latitude ?? place?.lat);
-  const longitude = Number(
-    place?.longitude
-    ?? place?.lng
-    ?? place?.lon,
-  );
-
-  if (
-    Number.isFinite(latitude)
-    && Number.isFinite(longitude)
-  ) {
-    return [
-      formatCoordinate(latitude, 'N', 'S'),
-      formatCoordinate(longitude, 'E', 'W'),
-    ].join('  ·  ');
-  }
-
-  return `POINT ${String(index + 1).padStart(2, '0')}`;
 };
 
 const PlaceBooklet = ({ chatId, character, onBack }) => {
@@ -107,11 +84,10 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
   const reload = async () => {
     try {
       const list = await listPlaces(chatId);
-
       setPlaces(list);
-      setActiveIndex((previous) => (
-        Math.min(previous, Math.max(list.length - 1, 0))
-      ));
+      setActiveIndex((previous) =>
+        Math.min(previous, Math.max(list.length - 1, 0)),
+      );
     } catch (error) {
       console.warn('[Location] Failed to load places:', error);
       setPlaces([]);
@@ -122,7 +98,6 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
   useEffect(() => {
     void reload();
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
@@ -135,7 +110,6 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
       setIsEditing(false);
       return;
     }
-
     setDraftName(activePlace.name || '');
     setDraftNote(activePlace.note || '');
     setIsEditing(false);
@@ -143,18 +117,14 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
   const selectPlace = (index) => {
     const place = places[index];
-
     if (!place) return;
-
     setActiveIndex(index);
     setDraftName(place.name || '');
     setDraftNote(place.note || '');
-    setIsEditing(true);
   };
 
   const handleStartEditing = () => {
     if (!activePlace) return;
-
     setDraftName(activePlace.name || '');
     setDraftNote(activePlace.note || '');
     setIsEditing(true);
@@ -162,7 +132,6 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
   const handleCancelEditing = () => {
     if (!activePlace) return;
-
     setDraftName(activePlace.name || '');
     setDraftNote(activePlace.note || '');
     setIsEditing(false);
@@ -170,13 +139,10 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 
   const handleSave = async () => {
     if (!activePlace || isSaving) return;
-
     const trimmedName = String(draftName || '').trim();
-
     if (!trimmedName) return;
 
     setIsSaving(true);
-
     try {
       await renamePlace(activePlace.id, trimmedName);
       await updatePlaceNote(activePlace.id, draftNote);
@@ -199,18 +165,14 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
     }
   };
 
-  const handleRowKeyDown = (event, index) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      selectPlace(index);
-    }
-  };
-
   const mapPlaces = places.map((place, index) => ({
     place,
     index,
     point: getMapPoint(place, index),
+    coordsText: formatCoordinates(place, index),
   }));
+
+  const activeMapItem = mapPlaces[activeIndex] || mapPlaces[0];
 
   const routePoints = mapPlaces
     .map(({ point }) => `${point.x},${point.y}`)
@@ -219,1754 +181,533 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
   const canSave = Boolean(String(draftName || '').trim()) && !isSaving;
 
   return (
-    <div
-      className="place-booklet"
-      style={{
-        background: '#fbfbf8',
-        color: '#11110f',
-      }}
-    >
+    <div className="place-booklet-root fixed inset-0 z-[999] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#fbfbf8] text-[#11110f] select-none">
       <style>{`
-        html:has(.place-booklet),
-        body:has(.place-booklet) {
-          width: 100%;
-          min-width: 100%;
-          height: 100%;
-          min-height: 100%;
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: hidden !important;
-          background: #fbfbf8 !important;
-        }
-
-        #root:has(.place-booklet) {
-          position: fixed !important;
-          z-index: 2147483000 !important;
-          inset: 0 !important;
-          width: 100vw !important;
-          max-width: none !important;
-          height: 100dvh !important;
-          min-height: 100dvh !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: hidden !important;
-          background: #fbfbf8 !important;
-        }
-
-        .place-booklet {
+        /* 根部样式保证绝对填满全屏 */
+        .place-booklet-root {
           --place-ink: #11110f;
-          --place-black: #0b0b0a;
-          --place-white: #fff;
-          --place-paper: #fbfbf8;
+          --place-black: #0c0c0b;
+          --place-white: #ffffff;
           --place-muted: #77766f;
-          --place-soft: #a5a39c;
-          --place-line: rgba(17,17,15,.13);
-          --place-wash: rgba(17,17,15,.055);
+          --place-line: rgba(17,17,15,.1);
           --place-ease: cubic-bezier(.16,1,.3,1);
-          --place-smooth: cubic-bezier(.4,0,.2,1);
-
-          position: fixed !important;
-          z-index: 2147483000 !important;
-          top: 0 !important;
-          right: 0 !important;
-          bottom: 0 !important;
-          left: 0 !important;
-          display: flex;
-          width: 100vw !important;
-          max-width: none !important;
-          height: 100dvh !important;
-          min-height: 100dvh !important;
-          flex-direction: column;
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: hidden;
-          isolation: isolate;
-          background:
-            radial-gradient(
-              circle at 85% 2%,
-              rgba(255,255,255,.98),
-              transparent 28%
-            ),
-            radial-gradient(
-              circle at 8% 72%,
-              rgba(226,226,219,.22),
-              transparent 29%
-            ),
-            var(--place-paper) !important;
-          color: var(--place-ink) !important;
-          font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            "SF Pro Display",
-            "SF Pro Text",
-            "Segoe UI",
-            Roboto,
-            "Noto Sans SC",
-            sans-serif;
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
           -webkit-font-smoothing: antialiased;
         }
 
-        .place-booklet::before {
-          content: "";
-          position: absolute;
-          z-index: -2;
-          top: -180px;
-          right: -130px;
-          width: 460px;
-          height: 460px;
-          border-radius: 50%;
-          background: rgba(255,255,255,.82);
-          filter: blur(38px);
-          pointer-events: none;
-        }
-
-        .place-booklet::after {
-          content: "";
-          position: absolute;
-          z-index: 30;
-          inset: 0;
-          pointer-events: none;
-          opacity: .045;
-          mix-blend-mode: multiply;
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='placeNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23placeNoise)' opacity='.2'/%3E%3C/svg%3E");
-        }
-
-        .place-booklet *,
-        .place-booklet *::before,
-        .place-booklet *::after {
-          box-sizing: border-box;
-        }
-
-        .place-booklet button,
-        .place-booklet input,
-        .place-booklet textarea {
-          font: inherit;
-        }
-
-        .place-booklet button {
+        /* 强制修复按钮字体过大、未吃到美化的问题 */
+        .place-booklet-root button {
           border: 0;
-        }
-
-        .place-booklet button:focus-visible,
-        .place-booklet input:focus-visible,
-        .place-booklet textarea:focus-visible {
-          outline: 2px solid var(--place-ink);
-          outline-offset: 3px;
-        }
-
-        .place-back-float {
-          position: absolute;
-          z-index: 20;
-          top: max(17px, env(safe-area-inset-top));
-          left: max(18px, env(safe-area-inset-left));
-          display: inline-flex;
-          min-height: 39px;
-          align-items: center;
-          gap: 7px;
-          padding: 0 14px 0 10px;
-          border-radius: 999px;
-          color: var(--place-white);
-          background: var(--place-black);
-          box-shadow:
-            0 15px 32px -16px rgba(0,0,0,.74),
-            0 4px 10px rgba(0,0,0,.12);
-          font-size: 11px;
-          font-weight: 700;
+          outline: none;
           cursor: pointer;
-          transition:
-            background .3s ease,
-            transform .55s var(--place-ease),
-            box-shadow .55s var(--place-ease);
         }
 
-        .place-back-float:hover {
-          background: #30302c;
-          box-shadow:
-            0 21px 38px -16px rgba(0,0,0,.82),
-            0 5px 13px rgba(0,0,0,.14);
-          transform: translateX(-3px) translateY(-2px);
+        .place-booklet-root .place-btn-pill {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+          font-size: 12px !important;
+          font-weight: 600 !important;
+          line-height: 1 !important;
+          letter-spacing: 0.3px !important;
+          box-sizing: border-box !important;
         }
 
-        .place-back-float:active {
-          transform: scale(.93);
+        .place-booklet-root .place-btn-pill span {
+          font-size: 12px !important;
+          font-weight: 600 !important;
+          line-height: 1 !important;
+          white-space: nowrap !important;
         }
 
-        .place-scroll {
+        /* 地图外框：保证严格填满留给地图的区域并有柔和质感 */
+        .map-frame-box {
           position: relative;
-          z-index: 1;
-          min-height: 0;
-          flex: 1;
-          overflow-x: hidden;
-          overflow-y: auto;
-          padding:
-            82px
-            max(19px, env(safe-area-inset-right))
-            105px
-            max(19px, env(safe-area-inset-left));
-          scrollbar-width: none;
-          overscroll-behavior: contain;
-          scroll-behavior: smooth;
-        }
-
-        .place-scroll::-webkit-scrollbar {
-          display: none;
-        }
-
-        .place-intro {
-          position: relative;
-          padding: 19px 4px 31px;
-          animation: placeIntroIn .8s var(--place-ease) both;
-        }
-
-        @keyframes placeIntroIn {
-          from {
-            opacity: 0;
-            transform: translateY(14px);
-          }
-
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .place-intro::before {
-          content: "";
-          position: absolute;
-          top: 0;
-          right: 1px;
-          width: 142px;
-          height: 142px;
-          border: 1px solid rgba(17,17,15,.1);
-          border-radius: 50%;
-          pointer-events: none;
-        }
-
-        .place-intro::after {
-          content: "MEMORY / 01";
-          position: absolute;
-          top: 59px;
-          right: -10px;
-          color: var(--place-muted);
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 7px;
-          letter-spacing: 1.3px;
-          opacity: .62;
-          transform: rotate(90deg);
-          pointer-events: none;
-        }
-
-        .place-kicker {
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          color: var(--place-muted);
-          font-size: 8px;
-          font-weight: 800;
-          letter-spacing: 1.7px;
-          line-height: 1;
-          text-transform: uppercase;
-        }
-
-        .place-kicker::before {
-          content: "";
-          width: 27px;
-          height: 1px;
-          flex: 0 0 27px;
-          background: var(--place-ink);
-          opacity: .72;
-        }
-
-        .place-main-title {
-          max-width: 380px;
-          margin: 19px 0 0;
-          color: var(--place-ink);
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: clamp(34px, 8.9vw, 51px);
-          font-weight: 400;
-          letter-spacing: -2.7px;
-          line-height: .99;
-        }
-
-        .place-main-title span,
-        .place-main-title em {
-          display: block;
-        }
-
-        .place-main-title em {
-          padding-left: 22px;
-          font-style: italic;
-        }
-
-        .place-intro-meta {
-          display: flex;
-          max-width: calc(100% - 52px);
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 8px 13px;
-          margin-top: 23px;
-          color: var(--place-muted);
-          font-size: 9px;
-          line-height: 1.3;
-        }
-
-        .place-intro-meta strong {
-          color: var(--place-ink);
-          font-size: 11px;
-          font-weight: 750;
-        }
-
-        .place-meta-dot {
-          width: 3px;
-          height: 3px;
-          flex: 0 0 3px;
-          border-radius: 50%;
-          background: var(--place-ink);
-          opacity: .42;
-        }
-
-        .place-stamp {
-          position: absolute;
-          right: 0;
-          bottom: 23px;
-          display: flex;
-          width: 52px;
-          height: 52px;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid rgba(17,17,15,.27);
-          border-radius: 50%;
-          color: var(--place-muted);
-          font-family: Georgia, serif;
-          font-size: 6.5px;
-          letter-spacing: .8px;
-          line-height: 1.35;
-          text-align: center;
-          transform: rotate(10deg);
-          opacity: .68;
-        }
-
-        .place-stamp::before {
-          content: "";
-          position: absolute;
-          inset: 5px;
-          border: 1px dashed rgba(17,17,15,.24);
-          border-radius: 50%;
-        }
-
-        .map-heading {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 14px;
-          margin: 0 2px 10px;
-          animation: placeSectionIn .75s .08s var(--place-ease) both;
-        }
-
-        @keyframes placeSectionIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .map-heading-label {
-          color: var(--place-muted);
-          font-size: 8px;
-          font-weight: 800;
-          letter-spacing: 1.7px;
-          text-transform: uppercase;
-        }
-
-        .map-heading-place {
-          max-width: 55%;
+          width: 100%;
+          height: min(60vw, 380px);
+          min-height: 280px;
+          border-radius: 18px;
           overflow: hidden;
-          color: var(--place-muted);
-          font-family: Georgia, serif;
-          font-size: 11px;
-          font-style: italic;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          background: #e6e7e2;
+          box-shadow: 
+            0 16px 36px -12px rgba(17,17,15,0.18),
+            0 0 0 1px rgba(17,17,15,0.08);
         }
 
-        .map-frame {
-          position: relative;
-          height: clamp(275px, 58vw, 415px);
-          min-height: 275px;
-          overflow: hidden;
-          isolation: isolate;
-          background:
-            radial-gradient(
-              circle at 28% 20%,
-              rgba(255,255,255,.78),
-              transparent 30%
-            ),
-            #e1e3dd;
-          box-shadow:
-            0 25px 48px -32px rgba(0,0,0,.68),
-            inset 0 1px 0 rgba(255,255,255,.8);
-          clip-path: polygon(
-            0 1%,
-            99.6% 0,
-            100% 99%,
-            .4% 100%
-          );
-          animation: mapReveal .9s .12s var(--place-ease) both;
-        }
-
-        @keyframes mapReveal {
-          from {
-            opacity: 0;
-            transform: translateY(13px) scale(.985);
-          }
-
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        .map-frame::before {
-          content: "";
+        /* 满铺地图底图 */
+        .map-bg-image {
           position: absolute;
-          z-index: 4;
           inset: 0;
-          background:
-            linear-gradient(
-              135deg,
-              rgba(255,255,255,.27),
-              transparent 37%
-            ),
-            linear-gradient(
-              0deg,
-              rgba(17,17,15,.23),
-              transparent 30%
-            ),
-            radial-gradient(
-              ellipse at center,
-              transparent 45%,
-              rgba(17,17,15,.14)
-            );
-          pointer-events: none;
-        }
-
-        .map-frame::after {
-          content: "";
-          position: absolute;
-          z-index: 5;
-          top: 10px;
-          right: 11px;
-          bottom: 10px;
-          left: 11px;
-          border: 1px solid rgba(255,255,255,.34);
-          pointer-events: none;
-        }
-
-        .map-svg {
-          display: block;
           width: 100%;
           height: 100%;
-        }
-
-        .map-world {
-          transform: translate(0, 0) scale(1);
-          transform-origin: center;
-          transition: transform 1s var(--place-ease);
-        }
-
-        .map-image {
-          display: block;
-          width: 1000px;
-          height: 620px;
-          opacity: .95;
-          filter: grayscale(1) contrast(.97) brightness(1.06);
-          transform: translate(0, 0);
-          transition:
-            opacity .5s ease,
-            filter .7s ease;
-        }
-
-        .map-frame:hover .map-image {
-          opacity: 1;
-          filter: grayscale(1) contrast(1.02) brightness(1.03);
-        }
-
-        .map-grid {
-          opacity: .15;
-        }
-
-        .map-coordinate-grid {
-          fill: none;
-          stroke: #11110f;
-          stroke-width: 1;
-          stroke-dasharray: 2 13;
-          opacity: .17;
-          vector-effect: non-scaling-stroke;
+          object-fit: cover;
+          object-position: center;
+          filter: grayscale(1) contrast(0.92) brightness(1.04);
+          opacity: 0.95;
           pointer-events: none;
         }
 
-        .map-coordinate-axis {
-          fill: #11110f;
-          font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 1px;
-          opacity: .42;
-        }
-
-        .map-coordinate-corner {
-          fill: #fff;
-          font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: 1.3px;
-          paint-order: stroke;
-          stroke: rgba(17,17,15,.35);
-          stroke-width: 4px;
-          stroke-linejoin: round;
-        }
-
-        .map-route-line {
-          fill: none;
-          stroke: #11110f;
-          stroke-width: 3;
-          stroke-linecap: round;
-          stroke-linejoin: round;
-          stroke-dasharray: 8 8;
-          opacity: .72;
-          animation: mapRouteMove 22s linear infinite;
-          vector-effect: non-scaling-stroke;
-        }
-
-        @keyframes mapRouteMove {
-          from {
-            stroke-dashoffset: 360;
+        /* 坐标脉冲波纹动画 */
+        @keyframes markerPulse {
+          0% {
+            transform: scale(0.6);
+            opacity: 0.9;
           }
+          70% {
+            transform: scale(2.6);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(2.8);
+            opacity: 0;
+          }
+        }
 
+        .anim-pulse-ring {
+          animation: markerPulse 2.4s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+          transform-origin: center;
+          transform-box: fill-box;
+        }
+
+        .anim-pulse-ring-delayed {
+          animation: markerPulse 2.4s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+          animation-delay: 0.8s;
+          transform-origin: center;
+          transform-box: fill-box;
+        }
+
+        /* 路线流动发光效果 */
+        @keyframes routeFlow {
+          from {
+            stroke-dashoffset: 60;
+          }
           to {
             stroke-dashoffset: 0;
           }
         }
 
-        .map-marker {
-          cursor: pointer;
-          transform-box: fill-box;
-          transform-origin: center;
-          transition: transform .55s var(--place-ease);
+        .anim-route-flow {
+          animation: routeFlow 2.5s linear infinite;
         }
 
-        .map-marker:hover {
-          transform: scale(1.12);
-        }
-
-        .map-marker.active {
-          transform: scale(1.25);
-        }
-
-        .map-marker-pulse {
-          animation: mapPulse 2.8s ease-out infinite;
-          transform-box: fill-box;
-          transform-origin: center;
-        }
-
-        @keyframes mapPulse {
-          0% {
-            opacity: .52;
-            transform: scale(.65);
-          }
-
-          70%,
-          100% {
-            opacity: 0;
-            transform: scale(1.75);
-          }
-        }
-
-        .map-location-label {
-          pointer-events: none;
-          fill: #fff;
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 14px;
-          font-style: italic;
-          font-weight: 400;
-          paint-order: stroke;
-          stroke: rgba(17,17,15,.52);
-          stroke-width: 5px;
-          stroke-linejoin: round;
-        }
-
-        .map-location-coordinate {
-          pointer-events: none;
-          fill: rgba(255,255,255,.86);
-          font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-          font-size: 7px;
-          font-weight: 700;
-          letter-spacing: .6px;
-          paint-order: stroke;
-          stroke: rgba(17,17,15,.42);
-          stroke-width: 3px;
-          stroke-linejoin: round;
-        }
-
-        .map-marker-number {
-          pointer-events: none;
-          fill: #11110f;
-          font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-          font-size: 7px;
-          font-weight: 900;
-          text-anchor: middle;
-        }
-
-        .map-scale {
-          position: absolute;
-          right: 17px;
-          bottom: 17px;
-          z-index: 8;
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          color: #fff;
-          font-size: 8px;
-          font-weight: 800;
-          letter-spacing: 1px;
-          opacity: .82;
-          text-shadow: 0 1px 6px rgba(0,0,0,.55);
-        }
-
-        .map-scale::before {
-          content: "";
-          display: block;
-          width: 35px;
-          height: 5px;
-          border-top: 1px solid currentColor;
-          border-right: 1px solid currentColor;
-          border-left: 1px solid currentColor;
-        }
-
-        .map-compass {
-          position: absolute;
-          z-index: 8;
-          top: 16px;
-          right: 17px;
-          display: flex;
-          width: 34px;
-          height: 34px;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          color: #fff;
-          background: rgba(11,11,10,.52);
-          box-shadow: 0 9px 18px -10px rgba(0,0,0,.8);
-          font-family: Georgia, serif;
-          font-size: 10px;
-          font-weight: 700;
-          opacity: .84;
-        }
-
-        .map-compass::after {
-          content: "";
-          position: absolute;
-          width: 1px;
-          height: 14px;
-          background: #fff;
-          transform: rotate(42deg);
-        }
-
-        .place-map-caption {
-          position: absolute;
-          z-index: 8;
-          right: 17px;
-          bottom: 16px;
-          left: 17px;
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 15px;
-          color: #fff;
-          pointer-events: none;
-        }
-
-        .place-map-caption small {
-          display: block;
-          margin-bottom: 5px;
-          color: rgba(255,255,255,.76);
-          font-size: 7px;
-          font-weight: 800;
-          letter-spacing: 1.3px;
-        }
-
-        .place-map-caption strong {
-          display: block;
-          max-width: 225px;
-          overflow: hidden;
-          color: #fff;
-          font-family: Georgia, serif;
-          font-size: 20px;
-          font-style: italic;
-          font-weight: 400;
-          text-overflow: ellipsis;
-          text-shadow: 0 2px 11px rgba(0,0,0,.38);
-          white-space: nowrap;
-        }
-
-        .place-map-caption-coordinate {
-          margin-top: 5px;
-          color: rgba(255,255,255,.74);
-          font-size: 7px;
-          font-weight: 700;
-          letter-spacing: .7px;
-        }
-
-        .place-map-counter {
-          color: rgba(255,255,255,.84);
-          font-family: Georgia, serif;
-          font-size: 10px;
-          white-space: nowrap;
-        }
-
-        .map-note {
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          padding: 12px 4px 0;
-          color: var(--place-muted);
-          font-family: Georgia, serif;
-          font-size: 9px;
-          font-style: italic;
-          line-height: 1.55;
-          animation: placeSectionIn .75s .25s var(--place-ease) both;
-        }
-
-        .map-note::before {
-          content: "";
-          width: 27px;
-          height: 1px;
-          flex: 0 0 27px;
-          background: var(--place-ink);
-          opacity: .55;
-        }
-
-        .place-list-heading {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 14px;
-          margin: 40px 3px 6px;
-          animation: placeSectionIn .75s .3s var(--place-ease) both;
-        }
-
-        .place-list-heading span:first-child {
-          color: var(--place-ink);
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 23px;
-          font-weight: 400;
-          letter-spacing: -1px;
-        }
-
-        .place-list-heading span:last-child {
-          color: var(--place-muted);
-          font-size: 8px;
-          font-weight: 800;
-          letter-spacing: 1.2px;
-          opacity: .7;
-        }
-
-        .place-list {
-          position: relative;
-          padding-bottom: 8px;
-          animation: placeSectionIn .75s .38s var(--place-ease) both;
-        }
-
-        .place-list::before {
-          content: "";
-          position: absolute;
-          top: 14px;
-          bottom: 17px;
-          left: 16px;
-          width: 1px;
-          background: linear-gradient(
-            var(--place-ink),
-            rgba(17,17,15,.06)
-          );
-          opacity: .25;
-        }
-
-        .place-row {
-          position: relative;
-          display: grid;
-          width: 100%;
-          grid-template-columns: 34px minmax(0, 1fr) 28px;
-          align-items: center;
-          gap: 11px;
-          padding: 14px 2px 15px;
-          border-bottom: 1px solid var(--place-line);
-          color: var(--place-ink);
-          text-align: left;
-          cursor: pointer;
-          transition:
-            padding .55s var(--place-ease),
-            transform .4s var(--place-ease),
-            background .4s ease;
-        }
-
-        .place-row::before {
-          content: "";
-          position: absolute;
-          top: 9px;
-          bottom: 9px;
-          left: -21px;
-          width: 3px;
-          border-radius: 0 3px 3px 0;
-          background: var(--place-black);
-          opacity: 0;
-          transform: scaleY(.3);
-          transition:
-            opacity .35s ease,
-            transform .55s var(--place-ease);
-        }
-
-        .place-row:hover {
-          transform: translateX(3px);
-        }
-
-        .place-row:focus-visible {
-          outline: 2px solid var(--place-ink);
-          outline-offset: 3px;
-        }
-
-        .place-row.active {
-          padding-top: 18px;
-          padding-bottom: 18px;
-          background: linear-gradient(
-            90deg,
-            rgba(17,17,15,.055),
-            transparent 75%
-          );
-        }
-
-        .place-row.active::before {
-          opacity: 1;
-          transform: scaleY(1);
-        }
-
-        .place-row-marker {
-          position: relative;
-          z-index: 2;
-          display: flex;
-          width: 33px;
-          height: 33px;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          color: var(--place-muted);
-          background: var(--place-paper);
-          box-shadow: 0 0 0 5px var(--place-paper);
-          transition:
-            color .35s ease,
-            background .35s ease,
-            transform .5s var(--place-ease);
-        }
-
-        .place-row.active .place-row-marker {
-          color: var(--place-white);
-          background: var(--place-black);
-          box-shadow:
-            0 0 0 5px var(--place-paper),
-            0 10px 20px -12px rgba(0,0,0,.7);
-          transform: scale(1.1) rotate(-6deg);
-        }
-
-        .place-row-info {
-          min-width: 0;
-        }
-
-        .place-row-name {
-          overflow: hidden;
-          color: var(--place-ink);
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 16px;
-          font-weight: 400;
-          letter-spacing: -.35px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .place-row-meta {
-          margin-top: 4px;
-          overflow: hidden;
-          color: var(--place-muted);
-          font-size: 8px;
-          font-weight: 700;
-          letter-spacing: .3px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .place-row-note {
-          max-width: 92%;
-          margin-top: 7px;
-          overflow: hidden;
-          color: #69675f;
-          font-family: Georgia, serif;
-          font-size: 10px;
-          font-style: italic;
-          line-height: 1.45;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .place-delete {
-          display: inline-flex;
-          width: 28px;
-          height: 28px;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          color: var(--place-muted);
-          background: rgba(17,17,15,.055);
-          opacity: .43;
-          cursor: pointer;
-          transition:
-            opacity .3s ease,
-            color .3s ease,
-            background .3s ease,
-            transform .4s var(--place-ease);
-        }
-
-        .place-delete:hover {
-          color: #fff;
-          background: #9c3434;
-          opacity: 1;
-          transform: scale(1.08) rotate(7deg);
-        }
-
-        .place-delete:active {
-          transform: scale(.9);
-        }
-
-        .place-delete:focus-visible {
-          outline: 2px solid #9c3434;
-          outline-offset: 2px;
-          opacity: 1;
-        }
-
-        .place-empty-state {
-          display: flex;
-          min-height: 58vh;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 13px;
-          color: var(--place-muted);
-          text-align: center;
-          animation: placeIntroIn .8s var(--place-ease) both;
-        }
-
-        .place-empty-state svg {
-          width: 27px;
-          height: 27px;
-          color: var(--place-ink);
-          opacity: .65;
-        }
-
-        .place-empty-state p {
-          max-width: 230px;
-          font-family: Georgia, serif;
-          font-size: 10px;
-          font-style: italic;
-          line-height: 1.7;
-          opacity: .72;
-        }
-
-        .place-footer {
-          position: relative;
-          z-index: 10;
-          flex-shrink: 0;
-          padding:
-            14px
-            max(19px, env(safe-area-inset-right))
-            calc(22px + env(safe-area-inset-bottom))
-            max(19px, env(safe-area-inset-left));
-          background:
-            linear-gradient(
-              180deg,
-              rgba(251,251,248,0),
-              rgba(251,251,248,.95) 28%,
-              #fbfbf8 58%
-            );
-        }
-
-        .place-footer::before {
-          content: "";
-          display: block;
-          width: 34px;
-          height: 2px;
-          margin-bottom: 11px;
-          border-radius: 999px;
-          background: var(--place-black);
-          opacity: .72;
-        }
-
-        .place-footer-display {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 15px;
-        }
-
-        .place-footer-summary {
-          min-width: 0;
-          flex: 1;
-        }
-
-        .place-footer-summary > p {
-          color: var(--place-muted);
-          font-size: 8px;
-          font-weight: 700;
-          letter-spacing: .3px;
-        }
-
-        .place-footer-note {
-          max-width: 100%;
-          margin-top: 6px;
-          overflow: hidden;
-          color: var(--place-ink);
-          font-family: Georgia, serif;
-          font-size: 11px;
-          font-style: italic;
-          line-height: 1.5;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .place-edit-button {
-          display: inline-flex;
-          min-height: 38px;
-          align-items: center;
-          gap: 6px;
-          flex-shrink: 0;
-          padding: 0 14px;
-          border-radius: 999px;
-          color: var(--place-white);
-          background: var(--place-black);
-          box-shadow: 0 13px 25px -15px rgba(0,0,0,.8);
-          font-size: 10px;
-          font-weight: 750;
-          cursor: pointer;
-          transition:
-            background .3s ease,
-            box-shadow .45s var(--place-ease),
-            transform .45s var(--place-ease);
-        }
-
-        .place-edit-button:hover {
-          background: #2d2d29;
-          box-shadow: 0 18px 29px -13px rgba(0,0,0,.82);
-          transform: translateY(-3px);
-        }
-
-        .place-edit-button:active {
-          transform: scale(.93);
-        }
-
-        .place-edit-panel {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          padding: 17px 17px 16px;
-          border-radius: 19px;
-          color: var(--place-white);
-          background: var(--place-black);
-          box-shadow:
-            0 24px 48px -27px rgba(0,0,0,.8),
-            0 5px 16px rgba(0,0,0,.12);
-          animation: placeEditIn .55s var(--place-ease) both;
-        }
-
-        @keyframes placeEditIn {
-          from {
-            opacity: 0;
-            transform: translateY(13px) scale(.985);
-          }
-
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        .place-edit-label {
-          display: block;
-          color: rgba(255,255,255,.48);
-          font-size: 8px;
-          font-weight: 800;
-          letter-spacing: 1.2px;
-          text-transform: uppercase;
-        }
-
-        .place-edit-input,
-        .place-edit-textarea {
-          display: block;
-          width: 100%;
-          border: 0;
-          border-bottom: 1px solid rgba(255,255,255,.2);
-          outline: 0;
-          color: var(--place-white);
-          background: transparent;
-          font-family: inherit;
-          font-size: 13px;
-          line-height: 1.5;
-          transition: border-color .3s ease;
-        }
-
-        .place-edit-input {
-          padding: 5px 0 8px;
-          font-weight: 700;
-        }
-
-        .place-edit-textarea {
-          min-height: 45px;
-          padding: 5px 0 8px;
-          resize: vertical;
-          font-family: Georgia, serif;
-          font-size: 11px;
-        }
-
-        .place-edit-input:focus,
-        .place-edit-textarea:focus {
-          border-bottom-color: rgba(255,255,255,.86);
-        }
-
-        .place-edit-input::placeholder,
-        .place-edit-textarea::placeholder {
-          color: rgba(255,255,255,.38);
-        }
-
-        .place-edit-actions {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 8px;
-          padding-top: 2px;
-        }
-
-        .place-edit-action {
-          display: inline-flex;
-          min-height: 34px;
-          align-items: center;
-          gap: 5px;
-          padding: 0 11px;
-          border-radius: 999px;
-          color: rgba(255,255,255,.72);
-          background: rgba(255,255,255,.1);
-          font-size: 10px;
-          font-weight: 650;
-          cursor: pointer;
-          transition:
-            color .3s ease,
-            background .3s ease,
-            transform .4s var(--place-ease);
-        }
-
-        .place-edit-action:hover {
-          color: #fff;
-          background: rgba(255,255,255,.18);
-          transform: translateY(-2px);
-        }
-
-        .place-edit-action:active {
-          transform: scale(.94);
-        }
-
-        .place-edit-action.save {
-          color: var(--place-black);
-          background: var(--place-white);
-          font-weight: 800;
-        }
-
-        .place-edit-action.save:hover {
-          background: #e9e9e4;
-        }
-
-        .place-edit-action.save:disabled {
-          cursor: not-allowed;
-          opacity: .35;
-          transform: none;
-        }
-
-        @media (min-width: 700px) {
-          .place-scroll {
-            padding-right: 30px;
-            padding-left: 30px;
-          }
-
-          .place-intro {
-            padding-right: 6px;
-            padding-left: 6px;
-          }
-
-          .place-footer {
-            padding-right: 30px;
-            padding-left: 30px;
-          }
-
-          .place-main-title {
-            font-size: 51px;
-          }
-        }
-
-        @media (max-width: 420px) {
-          .place-scroll {
-            padding-right: 17px;
-            padding-left: 17px;
-          }
-
-          .place-back-float {
-            left: 16px;
-          }
-
-          .place-main-title {
-            font-size: clamp(32px, 9.5vw, 43px);
-            letter-spacing: -2.2px;
-          }
-
-          .place-intro {
-            padding-top: 15px;
-          }
-
-          .place-intro::before {
-            width: 126px;
-            height: 126px;
-          }
-
-          .place-intro::after {
-            top: 52px;
-          }
-
-          .map-frame {
-            height: clamp(265px, 61vw, 350px);
-            min-height: 265px;
-          }
-
-          .place-list-heading {
-            margin-top: 34px;
-          }
-
-          .place-list-heading span:first-child {
-            font-size: 21px;
-          }
-
-          .place-row {
-            grid-template-columns: 32px minmax(0, 1fr) 27px;
-            gap: 10px;
-          }
-
-          .place-row-name {
-            font-size: 15px;
-          }
-
-          .place-footer {
-            padding-right: 17px;
-            padding-left: 17px;
-          }
-
-          .place-footer-note {
-            font-size: 10px;
-          }
-
-          .place-edit-panel {
-            padding-right: 15px;
-            padding-left: 15px;
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .place-booklet *,
-          .place-booklet *::before,
-          .place-booklet *::after {
-            animation-duration: .01ms !important;
-            animation-iteration-count: 1 !important;
-            scroll-behavior: auto !important;
-            transition-duration: .01ms !important;
-          }
+        /* 滚动条隐藏 */
+        .place-scroll-content::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
 
+      {/* 顶部悬浮返回按钮（强制精致小胶囊美化） */}
       <button
         type="button"
         onClick={onBack}
-        className="place-back-float"
+        className="place-btn-pill absolute z-30 flex items-center gap-1.5 rounded-full bg-[#0c0c0b] px-3.5 py-2.5 text-white shadow-lg transition-all duration-300 hover:bg-[#252522] hover:-translate-y-0.5 active:scale-95"
+        style={{
+          top: 'max(16px, env(safe-area-inset-top))',
+          left: '20px',
+        }}
         aria-label="返回上一页"
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeft className="h-3.5 w-3.5" />
         <span>返回</span>
       </button>
 
-      <section className="place-scroll">
-        <div className="place-intro">
-          <div className="place-kicker">
-            FIELD NOTES · MEMORY ATLAS
-          </div>
-
-          <h1 className="place-main-title">
-            <span>一起走过的</span>
-            <em>地方。</em>
-          </h1>
-
-          <div className="place-intro-meta">
-            <strong>
-              和 {character?.name || '伴侣'}
-            </strong>
-
-            <span className="place-meta-dot" />
-
-            <span>
-              {places.length} 个足迹
-            </span>
-
-            <span className="place-meta-dot" />
-
-            <span>
-              PLACES WE KEPT
-            </span>
-          </div>
-
-          <div className="place-stamp">
-            WANDER
-            <br />
-            TOGETHER
-          </div>
-        </div>
-
-        {isLoading && (
-          <p className="py-16 text-center text-xs opacity-40">
-            正在翻找记忆里的地点...
-          </p>
-        )}
-
-        {!isLoading && places.length === 0 && (
-          <div className="place-empty-state">
-            <MapPin className="h-7 w-7" />
-
-            <p>
-              还没有留下足迹，等你们一起走过更多地方吧。
-            </p>
-          </div>
-        )}
-
-        {!isLoading && places.length > 0 && (
-          <>
-            <div className="map-heading">
-              <span className="map-heading-label">
-                Places / Map
-              </span>
-
-              <span className="map-heading-place">
-                {activePlace?.name || '记忆地图'}
-              </span>
+      {/* 主滚动区：内部用 max-w-2xl 居中在大屏上展示，外部全屏填满 */}
+      <main className="place-scroll-content flex-1 overflow-y-auto overflow-x-hidden px-5 pt-20 pb-12">
+        <div className="mx-auto w-full max-w-2xl">
+          {/* 抬头小节 */}
+          <div className="relative mb-6 pt-2">
+            <div className="flex items-center gap-2 text-[10px] font-bold tracking-[2px] text-[#77766f] uppercase">
+              <span className="inline-block h-[1px] w-6 bg-[#11110f]/40" />
+              <span>FIELD NOTES · MEMORY ATLAS</span>
             </div>
 
-            <div className="map-frame">
-              <svg
-                className="map-svg"
-                viewBox="0 0 1000 620"
-                preserveAspectRatio="xMidYMid meet"
-                aria-label="地点记忆地图"
-                role="img"
-              >
-                <defs>
-                  <pattern
-                    id="mapGrid"
-                    width="48"
-                    height="48"
-                    patternUnits="userSpaceOnUse"
-                  >
-                    <path
-                      d="M 48 0 L 0 0 0 48"
-                      fill="none"
-                      stroke="#70756f"
-                      strokeWidth="1"
-                    />
-                  </pattern>
+            <h1 className="mt-2 text-4xl font-serif tracking-tight text-[#11110f] sm:text-5xl">
+              <span>一起走过的</span>
+              <em className="pl-3 font-serif italic">地方。</em>
+            </h1>
 
-                  <filter id="markerShadow">
-                    <feDropShadow
-                      dx="0"
-                      dy="4"
-                      stdDeviation="4"
-                      floodColor="#11110f"
-                      floodOpacity=".32"
-                    />
-                  </filter>
-                </defs>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#77766f]">
+              <span className="font-semibold text-[#11110f]">
+                和 {character?.name || '伴侣'}
+              </span>
+              <span className="h-1 w-1 rounded-full bg-[#11110f]/30" />
+              <span>{places.length} 个记忆足迹</span>
+              <span className="h-1 w-1 rounded-full bg-[#11110f]/30" />
+              <span className="text-[10px] tracking-wider uppercase opacity-70">
+                PLACES WE KEPT
+              </span>
+            </div>
+          </div>
 
-                <g className="map-world">
-                  <image
-                    className="map-image"
-                    href={MAP_IMAGE_URL}
-                    x="0"
-                    y="0"
-                    width="1000"
-                    height="620"
-                    preserveAspectRatio="xMidYMid meet"
-                    aria-label="完整地图底图"
-                  />
+          {isLoading && (
+            <div className="flex min-h-[300px] items-center justify-center text-xs text-[#77766f]">
+              正在翻阅足迹地图...
+            </div>
+          )}
 
-                  <rect
-                    className="map-grid"
-                    x="0"
-                    y="0"
-                    width="1000"
-                    height="620"
-                    fill="url(#mapGrid)"
-                  />
+          {!isLoading && places.length === 0 && (
+            <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 text-center text-[#77766f]">
+              <MapPin className="h-8 w-8 stroke-1 opacity-60" />
+              <p className="font-serif text-xs italic">
+                还没有留下足迹，等你们一起走过更多地方吧。
+              </p>
+            </div>
+          )}
 
-                  <g
-                    className="map-coordinate-grid"
-                    aria-hidden="true"
-                  >
-                    <line x1="166" y1="44" x2="166" y2="576" />
-                    <line x1="333" y1="44" x2="333" y2="576" />
-                    <line x1="500" y1="44" x2="500" y2="576" />
-                    <line x1="667" y1="44" x2="667" y2="576" />
-                    <line x1="834" y1="44" x2="834" y2="576" />
+          {!isLoading && places.length > 0 && (
+            <>
+              {/* 地图标题与坐标指示栏 */}
+              <div className="mb-2 flex items-center justify-between px-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider text-[#77766f] uppercase">
+                  <Compass className="h-3.5 w-3.5 text-[#11110f]" />
+                  <span>Places Atlas</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-[#77766f]">
+                  <span className="font-mono text-[10px] text-[#11110f]/70">
+                    {activeMapItem?.coordsText}
+                  </span>
+                  <span className="italic font-serif text-[#11110f] max-w-[120px] truncate">
+                    {activePlace?.name}
+                  </span>
+                </div>
+              </div>
 
-                    <line x1="54" y1="150" x2="946" y2="150" />
-                    <line x1="54" y1="310" x2="946" y2="310" />
-                    <line x1="54" y1="470" x2="946" y2="470" />
-                  </g>
+              {/* 地图画框：严格充满整个区域，配合大地测量坐标美化 */}
+              <div className="map-frame-box">
+                {/* 1. 满铺地图底图（解决底图只显示一半的问题） */}
+                <img
+                  src={MAP_IMAGE_URL}
+                  alt="地图底图"
+                  className="map-bg-image"
+                />
 
-                  <g
-                    className="map-coordinate-axis"
-                    aria-hidden="true"
-                  >
-                    <text x="58" y="38">
-                      90°N
-                    </text>
+                {/* 2. 质感网格与暗角覆盖 */}
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(17,17,15,0.22)_100%)]" />
+                <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] [background-size:36px_36px]" />
 
-                    <text x="914" y="38">
-                      180°E
-                    </text>
+                {/* 3. 四角测量十字准星美化 */}
+                <div className="pointer-events-none absolute top-3 left-3 text-[#11110f]/40 font-mono text-[10px] leading-none">
+                  + 31°N
+                </div>
+                <div className="pointer-events-none absolute top-3 right-3 text-[#11110f]/40 font-mono text-[10px] leading-none">
+                  + 121°E
+                </div>
+                <div className="pointer-events-none absolute bottom-3 left-3 text-[#11110f]/40 font-mono text-[10px] leading-none">
+                  L/01
+                </div>
 
-                    <text x="58" y="602">
-                      90°S
-                    </text>
+                {/* 4. 坐标和路线 SVG 图层 */}
+                <svg
+                  className="absolute inset-0 h-full w-full"
+                  viewBox="0 0 1000 620"
+                  preserveAspectRatio="xMidYMid slice"
+                >
+                  <defs>
+                    <filter
+                      id="pinShadow"
+                      x="-50%"
+                      y="-50%"
+                      width="200%"
+                      height="200%"
+                    >
+                      <feDropShadow
+                        dx="0"
+                        dy="4"
+                        stdDeviation="4"
+                        floodColor="#000000"
+                        floodOpacity="0.35"
+                      />
+                    </filter>
+                  </defs>
 
-                    <text x="882" y="602">
-                      180°W
-                    </text>
-                  </g>
-
+                  {/* 路线虚线 */}
                   {routePoints && (
                     <polyline
-                      className="map-route-line"
                       points={routePoints}
+                      fill="none"
+                      stroke="#11110f"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeDasharray="6 6"
+                      className="anim-route-flow opacity-60"
                     />
                   )}
 
-                  {mapPlaces.map(({ place, index, point }) => {
+                  {/* 地点图钉与大地测量坐标美化 */}
+                  {mapPlaces.map(({ place, index, point, coordsText }) => {
                     const isActive = index === activeIndex;
 
                     return (
                       <g
                         key={place.id}
-                        className={`map-marker ${
-                          isActive ? 'active' : ''
-                        }`}
-                        transform={`translate(${point.x} ${point.y})`}
+                        transform={`translate(${point.x}, ${point.y})`}
                         onClick={() => selectPlace(index)}
-                        onKeyDown={(event) => {
-                          if (
-                            event.key === 'Enter'
-                            || event.key === ' '
-                          ) {
-                            event.preventDefault();
-                            selectPlace(index);
-                          }
-                        }}
+                        className="cursor-pointer transition-transform duration-300"
                         role="button"
-                        tabIndex="0"
-                        aria-label={`选择地点：${place.name}`}
+                        tabIndex={0}
                       >
-                        {isActive && (
-                          <circle
-                            className="map-marker-pulse"
-                            r="25"
-                            fill="#fff"
-                            opacity=".35"
-                          />
-                        )}
-
-                        <circle
-                          r={isActive ? 17 : 13}
-                          fill="#11110f"
-                          opacity=".2"
-                        />
-
-                        <path
-                          d="M0 -17 C-10 -17 -17 -9 -17 1 C-17 12 0 26 0 26 S17 12 17 1 C17 -9 10 -17 0 -17Z"
-                          fill="#11110f"
-                          stroke="#fff"
-                          strokeWidth="3"
-                          filter="url(#markerShadow)"
-                        />
-
-                        <circle
-                          cy="1"
-                          r="5"
-                          fill="#fff"
-                        />
-
-                        <text
-                          className="map-marker-number"
-                          x="0"
-                          y="3.5"
-                        >
-                          {String(index + 1).padStart(2, '0')}
-                        </text>
-
+                        {/* 激活状态：双层扩散雷达涟漪波纹 */}
                         {isActive && (
                           <>
-                            <text
-                              className="map-location-label"
-                              x="24"
-                              y="-20"
-                            >
-                              {place.name || '未命名地点'}
-                            </text>
-
-                            <text
-                              className="map-location-coordinate"
-                              x="25"
-                              y="-6"
-                            >
-                              {getPlaceCoordinate(place, index)}
-                            </text>
+                            <circle
+                              r="32"
+                              fill="none"
+                              stroke="#11110f"
+                              strokeWidth="1.5"
+                              className="anim-pulse-ring"
+                            />
+                            <circle
+                              r="32"
+                              fill="none"
+                              stroke="#11110f"
+                              strokeWidth="1"
+                              className="anim-pulse-ring-delayed"
+                            />
+                            {/* 瞄准准星刻度 */}
+                            <circle
+                              r="15"
+                              fill="none"
+                              stroke="#11110f"
+                              strokeWidth="1"
+                              strokeDasharray="3 3"
+                              opacity="0.6"
+                            />
                           </>
+                        )}
+
+                        {/* 未激活点：精致微型坐标靶心 */}
+                        {!isActive && (
+                          <>
+                            <circle
+                              r="9"
+                              fill="#ffffff"
+                              stroke="#11110f"
+                              strokeWidth="2"
+                              filter="url(#pinShadow)"
+                              className="hover:scale-125 transition-transform"
+                            />
+                            <circle r="3" fill="#11110f" />
+                          </>
+                        )}
+
+                        {/* 激活点：精致黑色大地 Pin 针标 */}
+                        {isActive && (
+                          <g filter="url(#pinShadow)">
+                            <path
+                              d="M0 -22 C-10 -22 -17 -15 -17 -5 C-17 7 0 22 0 22 S17 7 17 -5 C17 -15 10 -22 0 -22 Z"
+                              fill="#11110f"
+                              stroke="#ffffff"
+                              strokeWidth="2.5"
+                            />
+                            <circle cy="-5" r="4.5" fill="#ffffff" />
+
+                            {/* 悬浮在 Pin 头顶的精致坐标 HUD 气泡卡片 */}
+                            <g transform="translate(0, -32)">
+                              <rect
+                                x="-60"
+                                y="-26"
+                                width="120"
+                                height="25"
+                                rx="12.5"
+                                fill="#0c0c0b"
+                                fillOpacity="0.9"
+                              />
+                              <text
+                                x="0"
+                                y="-15"
+                                textAnchor="middle"
+                                fill="#ffffff"
+                                fontSize="9"
+                                fontWeight="700"
+                                letterSpacing="0.2"
+                              >
+                                {place.name?.slice(0, 8) || '足迹点'}
+                              </text>
+                              <text
+                                x="0"
+                                y="-6"
+                                textAnchor="middle"
+                                fill="#a5a59d"
+                                fontSize="7"
+                                fontFamily="monospace"
+                              >
+                                {coordsText}
+                              </text>
+                              {/* 气泡小箭头 */}
+                              <polygon
+                                points="0,0 -4,-4 4,-4"
+                                fill="#0c0c0b"
+                                fillOpacity="0.9"
+                              />
+                            </g>
+                          </g>
                         )}
                       </g>
                     );
                   })}
-                </g>
-              </svg>
+                </svg>
 
-              <div className="map-compass">
-                N
-              </div>
-
-              <div className="map-scale">
-                500 M
-              </div>
-
-              <div className="place-map-caption">
-                <div>
-                  <small>
-                    LAST TRACE / 最近一次足迹
-                  </small>
-
-                  <strong>
-                    {activePlace?.name || '记忆地图'}
-                  </strong>
-
-                  <div className="place-map-caption-coordinate">
-                    {getPlaceCoordinate(activePlace, activeIndex)}
+                {/* 底部信息条与坐标计数 */}
+                <div className="absolute right-3.5 bottom-3 left-3.5 flex items-center justify-between text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] pointer-events-none">
+                  <div className="flex items-center gap-1.5 text-[10px] tracking-wider uppercase">
+                    <Crosshair className="h-3 w-3" />
+                    <span>LOC {String(activeIndex + 1).padStart(2, '0')}</span>
                   </div>
+                  <span className="font-mono text-[10px] tracking-widest opacity-80">
+                    {String(activeIndex + 1).padStart(2, '0')} / {String(places.length).padStart(2, '0')}
+                  </span>
                 </div>
+              </div>
 
-                <span className="place-map-counter">
-                  {String(activeIndex + 1).padStart(2, '0')}
-                  {' / '}
-                  {String(places.length).padStart(2, '0')}
+              {/* 地点列表小标题 */}
+              <div className="mt-8 mb-2 flex items-center justify-between px-1">
+                <span className="font-serif text-xl text-[#11110f]">
+                  足迹列表
+                </span>
+                <span className="text-[10px] font-bold tracking-widest text-[#77766f]">
+                  {places.length} LOCATIONS
                 </span>
               </div>
-            </div>
 
-            <div className="map-note">
-              <span>
-                地图不会记得所有路，但会记得我们停留过的地方。
-              </span>
+              {/* 足迹列表项 */}
+              <div className="divide-y divide-[#11110f]/10 border-t border-b border-[#11110f]/10">
+                {places.map((place, index) => {
+                  const isActive = index === activeIndex;
+                  return (
+                    <div
+                      key={place.id}
+                      onClick={() => selectPlace(index)}
+                      className={`group flex items-center justify-between py-3.5 px-2 transition-all duration-200 cursor-pointer ${
+                        isActive
+                          ? 'bg-[#11110f]/[0.04]'
+                          : 'hover:bg-[#11110f]/[0.02]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all ${
+                            isActive
+                              ? 'bg-[#0c0c0b] text-white shadow-md'
+                              : 'bg-[#f0f0ea] text-[#77766f]'
+                          }`}
+                        >
+                          <Navigation className="h-3.5 w-3.5 rotate-45" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-serif text-base font-normal text-[#11110f]">
+                            {place.name || '未命名地点'}
+                          </p>
+                          <p className="mt-0.5 truncate text-[10px] text-[#77766f]">
+                            {formatCoordinates(place, index)} · 到访{' '}
+                            {place.visitCount || 1} 次 ·{' '}
+                            {formatDate(place.lastVisitAt)}
+                          </p>
+                          {place.note && (
+                            <p className="mt-1 truncate font-serif text-xs italic text-[#55544d]">
+                              "{place.note}"
+                            </p>
+                          )}
+                        </div>
+                      </div>
 
-              <span>
-                ↗
-              </span>
-            </div>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleDelete(place.id);
+                        }}
+                        className="ml-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#77766f]/50 hover:bg-[#a83232] hover:text-white transition-colors"
+                        title="删除该足迹"
+                        aria-label={`删除地点：${place.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </main>
 
-            <div className="place-list-heading">
-              <span>
-                足迹地点
-              </span>
-
-              <span>
-                {String(places.length).padStart(2, '0')} LOCATIONS
-              </span>
-            </div>
-
-            <div className="place-list">
-              {places.map((place, index) => (
-                <div
-                  key={place.id}
-                  className={`place-row ${
-                    index === activeIndex ? 'active' : ''
-                  }`}
-                  onClick={() => selectPlace(index)}
-                  onKeyDown={(event) => handleRowKeyDown(event, index)}
-                  role="button"
-                  tabIndex="0"
-                  aria-pressed={index === activeIndex}
-                >
-                  <div className="place-row-marker">
-                    <MapPin className="h-4 w-4" />
-                  </div>
-
-                  <div className="place-row-info">
-                    <p className="place-row-name">
-                      {place.name || '未命名地点'}
-                    </p>
-
-                    <p className="place-row-meta">
-                      到访 {place.visitCount || 1} 次 · 最近一次{' '}
-                      {formatDate(place.lastVisitAt)}
-                    </p>
-
-                    {place.note && (
-                      <p className="place-row-note">
-                        {place.note}
-                      </p>
-                    )}
-                  </div>
-
+      {/* 底部固定操作面板（强制精致胶囊美化） */}
+      {activePlace && (
+        <footer className="shrink-0 border-t border-[#11110f]/10 bg-[#fbfbf8] px-5 py-4 pb-[max(16px,env(safe-area-inset-bottom))] shadow-[0_-8px_20px_rgba(0,0,0,0.03)]">
+          <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4">
+            {isEditing ? (
+              <div className="flex w-full flex-col gap-2.5 rounded-2xl bg-[#0c0c0b] p-3.5 text-white shadow-xl">
+                <input
+                  type="text"
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  placeholder="地点名称..."
+                  className="w-full border-b border-white/20 bg-transparent py-1 text-sm font-semibold text-white outline-none focus:border-white"
+                  maxLength={60}
+                  autoFocus
+                />
+                <textarea
+                  value={draftNote}
+                  onChange={(e) => setDraftNote(e.target.value)}
+                  placeholder="留下一句关于这里的回忆..."
+                  rows={2}
+                  className="w-full resize-none border-b border-white/20 bg-transparent py-1 font-serif text-xs italic text-white/90 outline-none focus:border-white"
+                  maxLength={200}
+                />
+                <div className="mt-1 flex items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void handleDelete(place.id);
-                    }}
-                    className="place-delete"
-                    title="忘记这个地方"
-                    aria-label={`删除地点：${place.name}`}
+                    onClick={handleCancelEditing}
+                    disabled={isSaving}
+                    className="place-btn-pill flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-white/80 transition-colors hover:bg-white/20"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <X className="h-3 w-3" />
+                    <span>取消</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSave()}
+                    disabled={!canSave}
+                    className="place-btn-pill flex items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-[#0c0c0b] font-bold transition-transform hover:bg-white/90 active:scale-95 disabled:opacity-40"
+                  >
+                    <Check className="h-3 w-3" />
+                    <span>{isSaving ? '保存中...' : '保存'}</span>
                   </button>
                 </div>
-              ))}
-            </div>
-          </>
-        )}
-      </section>
-
-      {activePlace && (
-        <footer className="place-footer">
-          {isEditing ? (
-            <div className="place-edit-panel">
-              <label
-                className="place-edit-label"
-                htmlFor="place-name-input"
-              >
-                地点名称
-              </label>
-
-              <input
-                id="place-name-input"
-                className="place-edit-input"
-                type="text"
-                value={draftName}
-                onChange={(event) => setDraftName(event.target.value)}
-                placeholder="给这个地方取个名字"
-                maxLength={100}
-                autoFocus
-              />
-
-              <label
-                className="place-edit-label"
-                htmlFor="place-note-input"
-              >
-                共同备注
-              </label>
-
-              <textarea
-                id="place-note-input"
-                className="place-edit-textarea"
-                value={draftNote}
-                onChange={(event) => setDraftNote(event.target.value)}
-                placeholder="留一句只有你们知道的话..."
-                maxLength={1000}
-                rows={2}
-              />
-
-              <div className="place-edit-actions">
-                <button
-                  type="button"
-                  className="place-edit-action"
-                  onClick={handleCancelEditing}
-                  disabled={isSaving}
-                >
-                  <X className="h-3.5 w-3.5" />
-                  <span>
-                    取消
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  className="place-edit-action save"
-                  onClick={() => void handleSave()}
-                  disabled={!canSave}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  <span>
-                    {isSaving ? '保存中...' : '保存'}
-                  </span>
-                </button>
               </div>
-            </div>
-          ) : (
-            <div className="place-footer-display">
-              <div className="place-footer-summary">
-                <p>
-                  初次到访：
-                  {formatDate(activePlace.firstVisitAt)}
-                </p>
-
-                {activePlace.note && (
-                  <div className="place-footer-note">
-                    {activePlace.note}
+            ) : (
+              <>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-serif text-base font-medium text-[#11110f]">
+                      {activePlace.name}
+                    </span>
+                    <span className="shrink-0 font-mono text-[10px] text-[#77766f]">
+                      初访: {formatDate(activePlace.firstVisitAt)}
+                    </span>
                   </div>
-                )}
-              </div>
+                  {activePlace.note ? (
+                    <p className="mt-0.5 truncate font-serif text-xs italic text-[#66655e]">
+                      "{activePlace.note}"
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-[11px] text-[#aaa8a0]">
+                      暂无备注回忆，点击右侧编辑添加
+                    </p>
+                  )}
+                </div>
 
-              <button
-                type="button"
-                className="place-edit-button"
-                onClick={handleStartEditing}
-              >
-                <Edit3 className="h-3.5 w-3.5" />
-                <span>
-                  编辑
-                </span>
-              </button>
-            </div>
-          )}
+                {/* 编辑按钮：彻底修复字体大小、小巧紧凑 */}
+                <button
+                  type="button"
+                  onClick={handleStartEditing}
+                  className="place-btn-pill flex shrink-0 items-center gap-1.5 rounded-full bg-[#0c0c0b] px-4 py-2 text-white shadow-md transition-all hover:bg-[#272724] active:scale-95"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  <span>编辑</span>
+                </button>
+              </>
+            )}
+          </div>
         </footer>
       )}
     </div>
@@ -1974,4 +715,3 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
 };
 
 export default PlaceBooklet;
-
