@@ -30,18 +30,12 @@ export const AlmanacObservation = ({
     },
   ];
 
+  // 注意：这里不再渲染自己的标题（原来的 "A QUIET RECORD / 这里留下过"）。
+  // 外层 AlmanacApp.jsx 的 almanac-record-heading 已经渲染了同一个标题，
+  // 两处重复会导致页面上出现两次一样的文字。标题统一交给外层容器负责。
+
   return (
     <section className="almanac-panel almanac-observation-panel">
-      <div className="almanac-observation-heading">
-        <p className="almanac-eyebrow">
-          A QUIET RECORD
-        </p>
-
-        <h2 className="almanac-section-title">
-          这里留下过
-        </h2>
-      </div>
-
       <div
         className="almanac-stat-grid"
         aria-label="Almanac 记录统计"

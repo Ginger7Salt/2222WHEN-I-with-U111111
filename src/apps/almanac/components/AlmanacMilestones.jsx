@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 
@@ -88,6 +89,34 @@ export const AlmanacMilestones = ({ chatId }) => {
     }, 30);
   };
 
+  // 预览只显示"下一个即将到来的日期"，而不是把所有重要日期再列一遍——
+  // 完整、可编辑的列表已经在下面的 AlmanacMilestoneManager 里了，
+  // 这里重复展示全部会让页面长度直接翻倍。
+  // 这是纯展示层的派生计算，不涉及新的 props/state，也不改变任何业务逻辑。
+  const nextUpcoming = useMemo(() => {
+    if (!importantDates.length) {
+      return null;
+    }
+
+    const upcoming = importantDates
+      .map((item) => ({
+        item,
+        daysRemaining: getDaysRemaining(item),
+      }))
+      .filter(
+        ({ daysRemaining }) =>
+          Number.isInteger(daysRemaining) && daysRemaining >= 0,
+      );
+
+    if (!upcoming.length) {
+      return null;
+    }
+
+    return upcoming.sort(
+      (a, b) => a.daysRemaining - b.daysRemaining,
+    )[0];
+  }, [importantDates]);
+
   return (
     <>
       <section className="almanac-panel almanac-milestones-overview">
@@ -114,60 +143,45 @@ export const AlmanacMilestones = ({ chatId }) => {
 
         <AlmanacCompanionshipCard chatId={chatId} />
 
-        {!isLoading && importantDates.length > 0 && (
+        {!isLoading && nextUpcoming && (
           <div className="almanac-personal-milestone-list">
             <div className="almanac-subsection-heading">
-              <p className="almanac-subsection-kicker">YOUR DATES</p>
+              <p className="almanac-subsection-kicker">NEXT UP</p>
               <span className="almanac-subsection-rule" />
             </div>
 
-            {importantDates.map((item) => {
-              const daysRemaining = getDaysRemaining(item);
+            <article className="almanac-personal-milestone">
+              <span
+                className="almanac-personal-milestone-dot"
+                aria-hidden="true"
+              />
 
-              return (
-                <article
-                  className="almanac-personal-milestone"
-                  key={item.id}
+              <div className="almanac-personal-milestone-content">
+                <strong>{nextUpcoming.item.title}</strong>
+
+                <p>
+                  {nextUpcoming.item.date}
+
+                  {nextUpcoming.item.isRecurringYearly && (
+                    <span className="almanac-milestone-tag">
+                      每年重复
+                    </span>
+                  )}
+                </p>
+
+                <small
+                  className={
+                    nextUpcoming.daysRemaining === 0
+                      ? 'almanac-personal-countdown is-today'
+                      : 'almanac-personal-countdown'
+                  }
                 >
-                  <span
-                    className="almanac-personal-milestone-dot"
-                    aria-hidden="true"
-                  />
-
-                  <div className="almanac-personal-milestone-content">
-                    <strong>{item.title}</strong>
-
-                    <p>
-                      {item.date}
-
-                      {item.isRecurringYearly && (
-                        <span className="almanac-milestone-tag">
-                          每年重复
-                        </span>
-                      )}
-                    </p>
-
-                    {Number.isInteger(daysRemaining) && (
-                      <small
-                        className={
-                          daysRemaining === 0
-                            ? 'almanac-personal-countdown is-today'
-                            : daysRemaining < 0
-                              ? 'almanac-personal-countdown is-past'
-                              : 'almanac-personal-countdown'
-                        }
-                      >
-                        {daysRemaining === 0
-                          ? '就是今天'
-                          : daysRemaining > 0
-                            ? `还有 ${daysRemaining} 天`
-                            : `已过去 ${Math.abs(daysRemaining)} 天`}
-                      </small>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
+                  {nextUpcoming.daysRemaining === 0
+                    ? '就是今天'
+                    : `还有 ${nextUpcoming.daysRemaining} 天`}
+                </small>
+              </div>
+            </article>
           </div>
         )}
       </section>
@@ -184,4 +198,3 @@ export const AlmanacMilestones = ({ chatId }) => {
 };
 
 export default AlmanacMilestones;
-
