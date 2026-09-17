@@ -1,7 +1,7 @@
 // src/apps/snapshots/components/CharacterProfileSheet.jsx
 import React, { useState, useEffect } from 'react';
 import db from  "../../../db";
-import { getCharSnapshotProfile, saveCharSnapshotProfile } from './services/snapshotProfileService';
+import { getCharSnapshotProfile, saveCharSnapshotProfile } from "../services/snapshotProfileService";
 import { compressImageFile } from './services/snapshotMediaService';
 
 export const CharacterProfileSheet = ({
