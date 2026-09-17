@@ -35,12 +35,8 @@ const FloatingIconButton = ({ onClick, title, disabled, children, spinning }) =>
   </button>
 );
 
-const FILTER_CHIPS = [
-  { key: 'all', label: '全部' },
-  { key: 'character', label: '伴侣' },
-  { key: 'npc', label: 'NPC' },
-  { key: 'user', label: '我的动态' }
-];
+const FILTER_KEYS = ['all', 'character', 'npc', 'user'];
+const DEFAULT_FILTER_LABELS = { all: '全部', character: '伴侣', npc: 'NPC', user: '我的动态' };
 
 export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
   const [chats, setChats] = useState([]);
@@ -54,6 +50,12 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
 
   // 筛选：{ type: 'all'|'character'|'npc'|'user', npcId: number|null }
   const [activeFilter, setActiveFilter] = useState({ type: 'all', npcId: null });
+
+  // 筛选 chip 自定义文字
+  const [filterLabels, setFilterLabels] = useState(DEFAULT_FILTER_LABELS);
+  const [isEditingLabels, setIsEditingLabels] = useState(false);
+  const [editingLabelKey, setEditingLabelKey] = useState(null);
+  const [labelDraft, setLabelDraft] = useState('');
 
   // Sheets & Modals
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
@@ -115,6 +117,17 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
     }
   }, [currentChatId]);
 
+  const loadFilterLabels = useCallback(async () => {
+    if (!currentChatId) return;
+    try {
+      const saved = await db.snapshotSettings.get(`filterLabels_${currentChatId}`);
+      setFilterLabels({ ...DEFAULT_FILTER_LABELS, ...(saved?.value || {}) });
+    } catch (err) {
+      console.error('加载筛选标签失败:', err);
+      setFilterLabels(DEFAULT_FILTER_LABELS);
+    }
+  }, [currentChatId]);
+
   useEffect(() => {
     loadChats();
   }, [loadChats]);
@@ -129,8 +142,11 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
     });
 
     setActiveFilter({ type: 'all', npcId: null });
+    setIsEditingLabels(false);
+    setEditingLabelKey(null);
     loadSnapshots();
     loadStoryBar();
+    loadFilterLabels();
 
     snapshotScheduler.start(currentChatId);
     const unsubscribe = snapshotScheduler.subscribe(() => {
@@ -141,7 +157,29 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
     return () => {
       unsubscribe();
     };
-  }, [currentChatId, loadSnapshots, loadStoryBar]);
+  }, [currentChatId, loadSnapshots, loadStoryBar, loadFilterLabels]);
+
+  const startEditLabel = (key) => {
+    setEditingLabelKey(key);
+    setLabelDraft(filterLabels[key]);
+  };
+
+  const saveEditLabel = async () => {
+    if (!editingLabelKey || !currentChatId) {
+      setEditingLabelKey(null);
+      return;
+    }
+    const key = editingLabelKey;
+    const trimmed = labelDraft.trim();
+    const nextLabels = { ...filterLabels, [key]: trimmed || DEFAULT_FILTER_LABELS[key] };
+    setFilterLabels(nextLabels);
+    setEditingLabelKey(null);
+    try {
+      await db.snapshotSettings.put({ key: `filterLabels_${currentChatId}`, value: nextLabels });
+    } catch (err) {
+      console.error('保存筛选标签失败:', err);
+    }
+  };
 
   const handleDeleteSnapshot = async (id) => {
     try {
@@ -192,10 +230,10 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-30 w-full h-[100dvh] bg-[#f7f8fa] text-neutral-900 flex flex-col overflow-y-auto overflow-x-hidden selection:bg-neutral-900 selection:text-white">
+    <div className="fixed inset-0 z-30 w-full h-[100dvh] bg-[#f7f8fa] text-neutral-900 flex flex-col overflow-hidden selection:bg-neutral-900 selection:text-white">
 
-      {/* 顶部：4 个独立悬浮图标按钮 */}
-      <header className="sticky top-0 z-40 w-full px-4 pt-4 pb-2 flex items-center justify-between bg-[#f7f8fa]/0">
+      {/* 顶部：4 个独立悬浮图标按钮（固定，不参与滚动） */}
+      <header className="flex-shrink-0 z-40 w-full px-4 pt-4 pb-2 flex items-center justify-between bg-[#f7f8fa]/0">
         <div className="flex items-center gap-2">
           <FloatingIconButton onClick={onBackHub} title="返回中心">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -234,20 +272,23 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
         </div>
       </header>
 
-      {/* 故事条：User + 官配角色 + NPC */}
-      <div className="w-full px-4 pb-2 flex items-center gap-4 overflow-x-auto">
+      {/* 故事条：User + 官配角色 + NPC（不参与整页滚动，只有横向滚动） */}
+      <div className="flex-shrink-0 w-full px-4 pt-2.5 pb-2.5 flex items-center gap-4 overflow-x-auto overflow-y-visible">
         <button
           type="button"
           onClick={() => setIsCreateOpen(true)}
           className="flex flex-col items-center gap-1 flex-shrink-0 active:scale-90 transition-transform"
         >
-          <div className="relative w-14 h-14 rounded-full bg-white shadow-sm border border-neutral-200/60 flex items-center justify-center overflow-hidden">
-            {userStoryInfo.avatar ? (
-              <img src={userStoryInfo.avatar} alt="You" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-sm font-bold text-neutral-400">{userStoryInfo.name[0]}</span>
-            )}
-            <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-neutral-900 border-2 border-white flex items-center justify-center">
+          {/* 徽章挪到 overflow-hidden 容器外面，避免被头像自身的裁切吞掉 */}
+          <div className="relative w-14 h-14">
+            <div className="w-14 h-14 rounded-full bg-white shadow-sm border border-neutral-200/60 flex items-center justify-center overflow-hidden">
+              {userStoryInfo.avatar ? (
+                <img src={userStoryInfo.avatar} alt="You" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-sm font-bold text-neutral-400">{userStoryInfo.name[0]}</span>
+              )}
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-neutral-900 border-2 border-white flex items-center justify-center pointer-events-none">
               <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
               </svg>
@@ -314,29 +355,68 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
         })}
       </div>
 
-      {/* 筛选 chip */}
-      <div className="w-full px-4 pb-3 flex items-center gap-2 overflow-x-auto">
-        {FILTER_CHIPS.map((chip) => {
-          const active = isFilterActive(chip.key);
+      {/* 筛选 chip：文字可自定义，点右侧铅笔进入编辑态 */}
+      <div className="flex-shrink-0 w-full px-4 pb-3 flex items-center gap-2 overflow-x-auto">
+        {FILTER_KEYS.map((key) => {
+          const active = isFilterActive(key);
+          const isEditingThis = isEditingLabels && editingLabelKey === key;
+
+          if (isEditingThis) {
+            return (
+              <input
+                key={key}
+                autoFocus
+                value={labelDraft}
+                onChange={(e) => setLabelDraft(e.target.value)}
+                onBlur={saveEditLabel}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
+                maxLength={6}
+                className="w-16 px-2 py-1.5 rounded-full text-xs font-semibold text-center bg-white border border-neutral-900 outline-none flex-shrink-0"
+              />
+            );
+          }
+
           return (
             <button
-              key={chip.key}
+              key={key}
               type="button"
-              onClick={() => setActiveFilter({ type: chip.key, npcId: null })}
+              onClick={() => {
+                if (isEditingLabels) startEditLabel(key);
+                else setActiveFilter({ type: key, npcId: null });
+              }}
               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 transition-all active:scale-95 ${
                 active
                   ? 'bg-neutral-900 text-white shadow-sm'
                   : 'bg-white text-neutral-500 border border-neutral-200/60 hover:bg-neutral-50'
-              }`}
+              } ${isEditingLabels ? 'ring-2 ring-offset-1 ring-neutral-300' : ''}`}
             >
-              {chip.label}
+              {filterLabels[key]}
             </button>
           );
         })}
+
+        <button
+          type="button"
+          onClick={() => { setIsEditingLabels((v) => !v); setEditingLabelKey(null); }}
+          title={isEditingLabels ? '完成编辑' : '自定义标签文字'}
+          className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${
+            isEditingLabels ? 'bg-neutral-900 text-white' : 'text-neutral-300 hover:text-neutral-500'
+          }`}
+        >
+          {isEditingLabels ? (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+            </svg>
+          )}
+        </button>
       </div>
 
-      {/* 核心视区 */}
-      <main className="flex-1 w-full px-4 pt-1 pb-32 flex flex-col">
+      {/* 核心视区：唯一可垂直滚动的区域，min-h-0 让 flex 容器真正收敛高度而不是被内容撑开 */}
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain w-full px-4 pt-1 pb-32 flex flex-col">
         {filteredSnapshots.length === 0 ? (
           <div className="my-auto flex flex-col items-center justify-center text-center px-4">
             <div className="w-16 h-16 rounded-3xl bg-white shadow-sm border border-neutral-200/60 flex items-center justify-center text-neutral-400 mb-4">
