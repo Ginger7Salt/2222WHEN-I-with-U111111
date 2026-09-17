@@ -1,125 +1,90 @@
 import React, {
-  useMemo,
+  useCallback,
+  useEffect,
   useState,
 } from 'react';
 
 import AlmanacMilestoneManager from './AlmanacMilestoneManager';
+import AlmanacCompanionshipCard from './AlmanacCompanionshipCard';
 
 import {
-  getMilestoneViewData,
-} from '../services/almanacMilestoneService';
+  getAlmanacImportantDates,
+  createAlmanacImportantDate,
+  updateAlmanacImportantDate,
+  deleteAlmanacImportantDate,
+  getDaysRemaining,
+} from '../services/almanacImportantDateService';
 
-const DAY_MILESTONES = [1, 7, 30, 100];
+export const AlmanacMilestones = ({ chatId }) => {
+  const [importantDates, setImportantDates] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [openCreateSignal, setOpenCreateSignal] = useState(0);
 
-const getSystemMilestones = (stats) => {
-  if (
-    !stats
-    || !stats.firstTimestamp
-  ) {
-    return [];
-  }
+  const loadImportantDates = useCallback(async () => {
+    if (!chatId) {
+      setImportantDates([]);
+      setIsLoading(false);
+      return;
+    }
 
-  const firstTimestamp = new Date(
-    stats.firstTimestamp,
-  ).getTime();
+    setIsLoading(true);
 
-  if (!Number.isFinite(firstTimestamp)) {
-    return [];
-  }
+    try {
+      const items = await getAlmanacImportantDates(chatId);
+      setImportantDates(Array.isArray(items) ? items : []);
+    } catch (error) {
+      console.error('[Almanac] 读取重要日期失败：', error);
+      setImportantDates([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [chatId]);
 
-  const elapsedDays = Math.max(
-    1,
-    Math.floor(
-      (Date.now() - firstTimestamp)
-      / (24 * 60 * 60 * 1000),
-    ) + 1,
-  );
+  useEffect(() => {
+    void loadImportantDates();
+  }, [loadImportantDates]);
 
-  const result = DAY_MILESTONES
-    .filter((day) => elapsedDays >= day)
-    .map((day) => ({
-      key: `days-${day}`,
-      title: `相遇第 ${day} 天`,
-      description:
-        day === 1
-          ? '这里第一次留下了你的来访。'
-          : `这段相处已经经过了 ${day} 天。`,
-    }));
+  const handleCreate = async (payload) => {
+    if (!chatId || !payload) return;
 
-  const userMessageCount = Number(
-    stats.userMessageCount,
-  );
-
-  if (
-    Number.isFinite(userMessageCount)
-    && userMessageCount >= 100
-  ) {
-    result.push({
-      key: 'user-messages-100',
-      title: '第 100 条 user 消息',
-      description:
-        '你已经在这里留下了 100 条消息痕迹。',
+    const createdId = await createAlmanacImportantDate({
+      chatId,
+      ...payload,
     });
-  }
 
-  const firstDate = new Date(
-    firstTimestamp,
-  );
+    if (!createdId) return;
 
-  if (
-    firstDate.getFullYear()
-    < new Date().getFullYear()
-  ) {
-    result.push({
-      key: 'first-new-year',
-      title: '第一次跨年',
-      description:
-        '这段相处曾经从一个年份走到了下一个年份。',
-    });
-  }
+    await loadImportantDates();
+  };
 
-  return result;
-};
+  const handleUpdate = async (id, patch) => {
+    if (!id || !patch) return;
 
-export const AlmanacMilestones = ({
-  stats,
-  milestones = [],
-  onCreate,
-  onUpdate,
-  onDelete,
-}) => {
-  const [openCreateSignal, setOpenCreateSignal] =
-    useState(0);
+    const updated = await updateAlmanacImportantDate(id, patch);
 
-  const systemMilestones = useMemo(
-    () => getSystemMilestones(stats),
-    [stats],
-  );
+    if (!updated) return;
 
-  const personalMilestones = useMemo(
-    () => getMilestoneViewData(milestones),
-    [milestones],
-  );
+    await loadImportantDates();
+  };
+
+  const handleDelete = async (id) => {
+    if (!id) return;
+
+    await deleteAlmanacImportantDate(id);
+    await loadImportantDates();
+  };
 
   const handleOpenCreate = () => {
     setOpenCreateSignal((value) => value + 1);
 
-    if (
-      typeof window === 'undefined'
-      || typeof document === 'undefined'
-    ) {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
       return;
     }
 
     window.setTimeout(() => {
       document
-        .querySelector(
-          '[data-almanac-milestone-manager]',
-        )
-        ?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
+        .querySelector('[data-almanac-milestone-manager]')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 30);
   };
 
@@ -128,16 +93,12 @@ export const AlmanacMilestones = ({
       <section className="almanac-panel almanac-milestones-overview">
         <header className="almanac-milestone-heading">
           <div className="almanac-milestone-heading-copy">
-            <p className="almanac-eyebrow">
-              DEVELOPED MARKS
-            </p>
+            <p className="almanac-eyebrow">TOGETHER SO FAR</p>
 
-            <h2 className="almanac-section-title">
-              显影出来的时刻
-            </h2>
+            <h2 className="almanac-section-title">这一路走来</h2>
 
             <p className="almanac-milestone-description">
-              记录重要的日期，也可以留下一个正在靠近的日子。
+              一些关于相处的痕迹，也可以留下一个正在靠近的日子。
             </p>
           </div>
 
@@ -147,150 +108,75 @@ export const AlmanacMilestones = ({
             onClick={handleOpenCreate}
           >
             <span>添加日期</span>
-
-            <span
-              className="almanac-button-arrow"
-              aria-hidden="true"
-            >
-              ↗
-            </span>
+            <span className="almanac-button-arrow" aria-hidden="true">↗</span>
           </button>
         </header>
 
-        <div className="almanac-system-milestones">
-          <div className="almanac-subsection-heading">
-            <p className="almanac-subsection-kicker">
-              SYSTEM MARKS
-            </p>
+        <AlmanacCompanionshipCard chatId={chatId} />
 
-            <span className="almanac-subsection-rule" />
-          </div>
-
-          {systemMilestones.length === 0 ? (
-           <div
-  className="almanac-empty almanac-system-empty"
-  role="status"
->
-  <span
-    className="almanac-empty-mark"
-    aria-hidden="true"
-  >
-    —
-  </span>
-
-  <div className="almanac-empty-copy">
-    <strong className="almanac-empty-title">
-      还没有足够的相处记录
-    </strong>
-
-    <small className="almanac-empty-description">
-      更多相遇发生之后，这里会慢慢显影出新的时刻。
-    </small>
-  </div>
-</div>
-
-          ) : (
-            <div className="almanac-milestone-list">
-              {systemMilestones.map((milestone, index) => (
-                <article
-                  className="almanac-system-milestone"
-                  key={milestone.key}
-                >
-                  <span
-                    className="almanac-milestone-line"
-                    aria-hidden="true"
-                  />
-
-                  <span
-                    className="almanac-system-milestone-index"
-                    aria-hidden="true"
-                  >
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-
-                  <div className="almanac-system-milestone-content">
-                    <strong>
-                      {milestone.title}
-                    </strong>
-
-                    <p>
-                      {milestone.description}
-                    </p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {personalMilestones.length > 0 && (
+        {!isLoading && importantDates.length > 0 && (
           <div className="almanac-personal-milestone-list">
             <div className="almanac-subsection-heading">
-              <p className="almanac-subsection-kicker">
-                YOUR DATES
-              </p>
-
+              <p className="almanac-subsection-kicker">YOUR DATES</p>
               <span className="almanac-subsection-rule" />
             </div>
 
-            {personalMilestones.map((milestone) => (
-              <article
-                className="almanac-personal-milestone"
-                key={milestone.id}
-              >
-                <span
-                  className="almanac-personal-milestone-dot"
-                  aria-hidden="true"
-                />
+            {importantDates.map((item) => {
+              const daysRemaining = getDaysRemaining(item);
 
-                <div className="almanac-personal-milestone-content">
-                  <strong>
-                    {milestone.title}
-                  </strong>
+              return (
+                <article
+                  className="almanac-personal-milestone"
+                  key={item.id}
+                >
+                  <span
+                    className="almanac-personal-milestone-dot"
+                    aria-hidden="true"
+                  />
 
-                  <p>
-                    {milestone.date}
+                  <div className="almanac-personal-milestone-content">
+                    <strong>{item.title}</strong>
 
-                    {milestone.isRecurring && (
-                      <span className="almanac-milestone-tag">
-                        每年重复
-                      </span>
+                    <p>
+                      {item.date}
+
+                      {item.isRecurringYearly && (
+                        <span className="almanac-milestone-tag">
+                          每年重复
+                        </span>
+                      )}
+                    </p>
+
+                    {Number.isInteger(daysRemaining) && (
+                      <small
+                        className={
+                          daysRemaining === 0
+                            ? 'almanac-personal-countdown is-today'
+                            : daysRemaining < 0
+                              ? 'almanac-personal-countdown is-past'
+                              : 'almanac-personal-countdown'
+                        }
+                      >
+                        {daysRemaining === 0
+                          ? '就是今天'
+                          : daysRemaining > 0
+                            ? `还有 ${daysRemaining} 天`
+                            : `已过去 ${Math.abs(daysRemaining)} 天`}
+                      </small>
                     )}
-                  </p>
-
-                  {milestone.showCountdown !== false && (
-                    <small
-                      className={
-                        milestone.daysRemaining === 0
-                          ? 'almanac-personal-countdown is-today'
-                          : milestone.daysRemaining < 0
-                            ? 'almanac-personal-countdown is-past'
-                            : 'almanac-personal-countdown'
-                      }
-                    >
-                      {milestone.daysRemaining === 0
-                        ? '就是今天'
-                        : milestone.daysRemaining > 0
-                          ? `还有 ${milestone.daysRemaining} 天`
-                          : `已过去 ${
-                              Math.abs(
-                                milestone.daysRemaining,
-                              )
-                            } 天`}
-                    </small>
-                  )}
-                </div>
-              </article>
-            ))}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
 
       <AlmanacMilestoneManager
-        milestones={milestones}
-        onCreate={onCreate}
-        onUpdate={onUpdate}
-        onDelete={onDelete}
+        milestones={importantDates}
+        onCreate={handleCreate}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
         openCreateSignal={openCreateSignal}
       />
     </>

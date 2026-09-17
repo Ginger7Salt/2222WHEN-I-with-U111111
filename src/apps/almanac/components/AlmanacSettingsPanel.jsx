@@ -91,7 +91,8 @@ export const AlmanacSettingsPanel = ({
   onSave,
   onRestart,
   onClearRecords,
-  onOpenMilestones,
+  onOpenImportantDates,
+  onOpenReminders,
 }) => {
   const [draft, setDraft] = useState(config);
   const [showTimezoneNotice, setShowTimezoneNotice] =
@@ -344,18 +345,18 @@ export const AlmanacSettingsPanel = ({
 
         <label className="almanac-inline-field">
           <span>
-            <strong>纪念日自然提醒提前范围</strong>
+            <strong>重要日期自然提醒提前范围</strong>
 
             <small>
-              只影响允许自然提醒的日期，不会产生定时通知。
+              只影响临近日期时的自然提及，不会产生定时通知。
             </small>
           </span>
 
           <select
-            value={draft.milestoneReminderLeadDays ?? 7}
+            value={draft.importantDateReminderLeadDays ?? 7}
             onChange={(event) => {
               update({
-                milestoneReminderLeadDays: Number(
+                importantDateReminderLeadDays: Number(
                   event.target.value,
                 ),
               });
@@ -479,8 +480,8 @@ export const AlmanacSettingsPanel = ({
             <small>
               {draft.dataMode === 'all_history'
                 ? '使用目前所有 Almanac 数据进行分析。'
-                : draft.dataMode === 'milestones_only'
-                  ? '只分析重新开始后的记录，并保留纪念日。'
+                : draft.dataMode === 'preserve_dates_only'
+                  ? '只分析重新开始后的记录，并保留重要日期。'
                   : '只分析重新开始后的记录。'}
             </small>
           </div>
@@ -489,12 +490,24 @@ export const AlmanacSettingsPanel = ({
             type="button"
             className="almanac-text-button"
             onClick={() => {
-              if (typeof onOpenMilestones === 'function') {
-                onOpenMilestones();
+              if (typeof onOpenImportantDates === 'function') {
+                onOpenImportantDates();
               }
             }}
           >
-            管理纪念日与倒数日
+            管理重要日期
+          </button>
+
+          <button
+            type="button"
+            className="almanac-text-button"
+            onClick={() => {
+              if (typeof onOpenReminders === 'function') {
+                onOpenReminders();
+              }
+            }}
+          >
+            管理轻提醒
           </button>
 
           <button
@@ -520,7 +533,7 @@ export const AlmanacSettingsPanel = ({
 
             <small>
               只删除当前聊天的 Almanac 相处记录。
-              聊天消息、长期记忆、角色资料和纪念日不会受到影响。
+              聊天消息、长期记忆、角色资料和重要日期不会受到影响。
             </small>
           </div>
 
@@ -562,7 +575,7 @@ export const AlmanacSettingsPanel = ({
 
             <p className="almanac-modal-description">
               Almanac 想按照你的所在地记录相遇时间。
-              这样早安、晚安、热力图和纪念日会更贴近你的生活。
+              这样早安、晚安和重要日期会更贴近你的生活。
             </p>
 
             <div className="almanac-timezone-preview">

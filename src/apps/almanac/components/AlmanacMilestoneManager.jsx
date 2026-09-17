@@ -4,12 +4,10 @@ import React, {
 } from 'react';
 
 import AlmanacCountdownForm from './AlmanacCountdownForm';
+import { getDaysRemaining } from '../services/almanacImportantDateService';
 
 const formatDaysRemaining = (daysRemaining) => {
-  if (
-    daysRemaining === null
-    || daysRemaining === undefined
-  ) {
+  if (daysRemaining === null || daysRemaining === undefined) {
     return '';
   }
 
@@ -39,9 +37,7 @@ export const AlmanacMilestoneManager = ({
   onDelete,
   openCreateSignal = 0,
 }) => {
-  const [editingMilestone, setEditingMilestone] =
-    useState(null);
-
+  const [editingMilestone, setEditingMilestone] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
@@ -55,10 +51,7 @@ export const AlmanacMilestoneManager = ({
 
   const handleSubmit = async (form) => {
     if (editingMilestone) {
-      await onUpdate(
-        editingMilestone.id,
-        form,
-      );
+      await onUpdate(editingMilestone.id, form);
 
       setEditingMilestone(null);
       setShowForm(false);
@@ -85,9 +78,7 @@ export const AlmanacMilestoneManager = ({
   };
 
   const handleDelete = async (milestone) => {
-    const confirmed = window.confirm(
-      `确定删除“${milestone.title}”吗？`,
-    );
+    const confirmed = window.confirm(`确定删除"${milestone.title}"吗？`);
 
     if (!confirmed) {
       return;
@@ -95,9 +86,7 @@ export const AlmanacMilestoneManager = ({
 
     await onDelete(milestone.id);
 
-    if (
-      editingMilestone?.id === milestone.id
-    ) {
+    if (editingMilestone?.id === milestone.id) {
       setEditingMilestone(null);
       setShowForm(false);
     }
@@ -110,13 +99,9 @@ export const AlmanacMilestoneManager = ({
     >
       <header className="almanac-manager-heading">
         <div className="almanac-manager-heading-copy">
-          <p className="almanac-eyebrow">
-            PERSONAL DATES
-          </p>
+          <p className="almanac-eyebrow">PERSONAL DATES</p>
 
-          <h3 className="almanac-section-title">
-            纪念日与倒数日
-          </h3>
+          <h3 className="almanac-section-title">重要日期</h3>
 
           <p className="almanac-manager-description">
             只有你主动留下的日期会出现在这里。
@@ -130,12 +115,7 @@ export const AlmanacMilestoneManager = ({
             onClick={beginCreate}
           >
             <span>添加日期</span>
-            <span
-              className="almanac-button-arrow"
-              aria-hidden="true"
-            >
-              ↗
-            </span>
+            <span className="almanac-button-arrow" aria-hidden="true">↗</span>
           </button>
         )}
       </header>
@@ -151,44 +131,26 @@ export const AlmanacMilestoneManager = ({
       )}
 
       {milestones.length === 0 && !showForm ? (
-       <div
-  className="almanac-empty almanac-milestone-empty"
-  role="status"
->
-  <span
-    className="almanac-empty-mark"
-    aria-hidden="true"
-  >
-    —
-  </span>
+        <div className="almanac-empty almanac-milestone-empty" role="status">
+          <span className="almanac-empty-mark" aria-hidden="true">—</span>
 
-  <div className="almanac-empty-copy">
-    <strong className="almanac-empty-title">
-      还没有留下日期
-    </strong>
+          <div className="almanac-empty-copy">
+            <strong className="almanac-empty-title">还没有留下日期</strong>
 
-    <small className="almanac-empty-description">
-      添加一个重要的日子，它会在这里安静地等待。
-    </small>
-  </div>
-</div>
-
+            <small className="almanac-empty-description">
+              添加一个重要的日子，它会在这里安静地等待。
+            </small>
+          </div>
+        </div>
       ) : (
         <div className="almanac-managed-milestones">
           {milestones.map((milestone, index) => {
-            const daysLabel = formatDaysRemaining(
-              milestone.daysRemaining,
-            );
+            const daysRemaining = getDaysRemaining(milestone);
+            const daysLabel = formatDaysRemaining(daysRemaining);
 
             return (
-              <article
-                className="almanac-managed-milestone"
-                key={milestone.id}
-              >
-                <span
-                  className="almanac-managed-milestone-index"
-                  aria-hidden="true"
-                >
+              <article className="almanac-managed-milestone" key={milestone.id}>
+                <span className="almanac-managed-milestone-index" aria-hidden="true">
                   {String(index + 1).padStart(2, '0')}
                 </span>
 
@@ -201,33 +163,24 @@ export const AlmanacMilestoneManager = ({
                     <p className="almanac-managed-milestone-date">
                       {formatMilestoneDate(milestone.date)}
 
-                      {milestone.isRecurring && (
-                        <span className="almanac-milestone-tag">
-                          每年重复
-                        </span>
+                      {milestone.isRecurringYearly && (
+                        <span className="almanac-milestone-tag">每年重复</span>
                       )}
                     </p>
                   </div>
 
-                  {milestone.showCountdown !== false
-                    && daysLabel && (
-                      <p
-                        className={
-                          milestone.daysRemaining === 0
-                            ? 'almanac-countdown-label is-today'
-                            : milestone.daysRemaining < 0
-                              ? 'almanac-countdown-label is-past'
-                              : 'almanac-countdown-label'
-                        }
-                      >
-                        {daysLabel}
-                      </p>
-                    )}
-
-                  {milestone.allowNaturalReminder && (
-                    <small className="almanac-reminder-status">
-                      已允许自然提醒
-                    </small>
+                  {daysLabel && (
+                    <p
+                      className={
+                        daysRemaining === 0
+                          ? 'almanac-countdown-label is-today'
+                          : daysRemaining < 0
+                            ? 'almanac-countdown-label is-past'
+                            : 'almanac-countdown-label'
+                      }
+                    >
+                      {daysLabel}
+                    </p>
                   )}
                 </div>
 

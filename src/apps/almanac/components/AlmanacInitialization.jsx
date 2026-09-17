@@ -2,17 +2,17 @@ import React, { useState } from 'react';
 
 const INITIALIZATION_OPTIONS = [
   {
-    value: 'milestones_only',
-    title: '从今天重新开始，只保留纪念日',
+    value: 'preserve_dates_only',
+    title: '从今天重新开始，只保留重要日期',
     description:
-      '过去不参与热力图、统计和作息观察，但可以留下第一次相遇日等重要日期。',
+      '过去不参与统计和作息观察，但可以留下第一次相遇日等重要日期。',
     needsDate: true,
   },
   {
     value: 'fresh_start',
     title: '从今天开始新的 Almanac',
     description:
-      '不读取过去数据，也不保留过去纪念日。今天就是新的观察起点。',
+      '不读取过去数据，也不保留过去的重要日期。今天就是新的观察起点。',
     needsDate: false,
   },
   {
@@ -37,10 +37,6 @@ export const AlmanacInitialization = ({
 
   const submit = async () => {
     if (!dataMode || isSaving) {
-      return;
-    }
-
-        if (!dataMode) {
       return;
     }
 
@@ -137,8 +133,7 @@ export const AlmanacInitialization = ({
           <button
             type="button"
             className="almanac-primary-button"
-                        disabled={!dataMode || isSaving}
-
+            disabled={!dataMode || isSaving}
             onClick={() => void submit()}
           >
             {isSaving ? '正在保存…' : '开始记录'}

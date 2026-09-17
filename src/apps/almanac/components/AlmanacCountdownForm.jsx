@@ -6,9 +6,7 @@ import React, {
 const EMPTY_FORM = {
   title: '',
   date: '',
-  isRecurring: false,
-  showCountdown: true,
-  allowNaturalReminder: false,
+  isRecurringYearly: false,
 };
 
 export const AlmanacCountdownForm = ({
@@ -28,11 +26,7 @@ export const AlmanacCountdownForm = ({
     setForm({
       title: milestone.title || '',
       date: milestone.date || '',
-      isRecurring: Boolean(milestone.isRecurring),
-      showCountdown: milestone.showCountdown !== false,
-      allowNaturalReminder: Boolean(
-        milestone.allowNaturalReminder,
-      ),
+      isRecurringYearly: Boolean(milestone.isRecurringYearly),
     });
   }, [milestone]);
 
@@ -46,11 +40,7 @@ export const AlmanacCountdownForm = ({
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (
-      isSaving
-      || !form.title.trim()
-      || !form.date
-    ) {
+    if (isSaving || !form.title.trim() || !form.date) {
       return;
     }
 
@@ -60,9 +50,7 @@ export const AlmanacCountdownForm = ({
       await onSubmit({
         title: form.title.trim(),
         date: form.date,
-        isRecurring: form.isRecurring,
-        showCountdown: form.showCountdown,
-        allowNaturalReminder: form.allowNaturalReminder,
+        isRecurringYearly: form.isRecurringYearly,
       });
 
       if (!milestone) {
@@ -73,17 +61,10 @@ export const AlmanacCountdownForm = ({
     }
   };
 
-  const isSubmitDisabled = (
-    isSaving
-    || !form.title.trim()
-    || !form.date
-  );
+  const isSubmitDisabled = isSaving || !form.title.trim() || !form.date;
 
   return (
-    <form
-      className="almanac-countdown-form"
-      onSubmit={handleSubmit}
-    >
+    <form className="almanac-countdown-form" onSubmit={handleSubmit}>
       <div className="almanac-form-heading">
         <div>
           <p className="almanac-form-kicker">
@@ -96,17 +77,13 @@ export const AlmanacCountdownForm = ({
         </div>
 
         {milestone && (
-          <span className="almanac-form-status">
-            EDITING
-          </span>
+          <span className="almanac-form-status">EDITING</span>
         )}
       </div>
 
       <div className="almanac-form-fields">
         <label className="almanac-form-field">
-          <span className="almanac-form-label">
-            标题
-          </span>
+          <span className="almanac-form-label">标题</span>
 
           <input
             className="almanac-form-input"
@@ -115,26 +92,20 @@ export const AlmanacCountdownForm = ({
             placeholder="例如：我的生日、旅行、见面"
             maxLength={80}
             onChange={(event) => {
-              update({
-                title: event.target.value,
-              });
+              update({ title: event.target.value });
             }}
           />
         </label>
 
         <label className="almanac-form-field">
-          <span className="almanac-form-label">
-            日期
-          </span>
+          <span className="almanac-form-label">日期</span>
 
           <input
             className="almanac-form-input almanac-date-input"
             type="date"
             value={form.date}
             onChange={(event) => {
-              update({
-                date: event.target.value,
-              });
+              update({ date: event.target.value });
             }}
           />
         </label>
@@ -144,59 +115,14 @@ export const AlmanacCountdownForm = ({
         <label className="almanac-toggle-row almanac-form-toggle">
           <span>
             <strong>每年重复</strong>
-
-            <small>
-              适合生日、周年等每年都会到来的日期。
-            </small>
+            <small>适合生日、周年等每年都会到来的日期。</small>
           </span>
 
           <input
             type="checkbox"
-            checked={form.isRecurring}
+            checked={form.isRecurringYearly}
             onChange={(event) => {
-              update({
-                isRecurring: event.target.checked,
-              });
-            }}
-          />
-        </label>
-
-        <label className="almanac-toggle-row almanac-form-toggle">
-          <span>
-            <strong>显示倒数</strong>
-
-            <small>
-              在纪念日区域显示距离下一次日期还有多少天。
-            </small>
-          </span>
-
-          <input
-            type="checkbox"
-            checked={form.showCountdown}
-            onChange={(event) => {
-              update({
-                showCountdown: event.target.checked,
-              });
-            }}
-          />
-        </label>
-
-        <label className="almanac-toggle-row almanac-form-toggle">
-          <span>
-            <strong>允许自然提醒</strong>
-
-            <small>
-              允许 char 在接近日期时自然提及，不代表一定会主动打扰。
-            </small>
-          </span>
-
-          <input
-            type="checkbox"
-            checked={form.allowNaturalReminder}
-            onChange={(event) => {
-              update({
-                allowNaturalReminder: event.target.checked,
-              });
+              update({ isRecurringYearly: event.target.checked });
             }}
           />
         </label>
@@ -208,11 +134,7 @@ export const AlmanacCountdownForm = ({
           className="almanac-primary-button almanac-form-submit"
           disabled={isSubmitDisabled}
         >
-          {isSaving
-            ? '正在保存…'
-            : milestone
-              ? '保存修改'
-              : '添加日期'}
+          {isSaving ? '正在保存…' : milestone ? '保存修改' : '添加日期'}
         </button>
 
         {milestone && (
