@@ -1,6 +1,6 @@
 // src/apps/snapshots/components/UserProfileSheet.jsx
 import React, { useState, useEffect } from 'react';
-import db from '../../db';
+import db from "../../../db";
 import { getUserSnapshotProfile, saveUserSnapshotProfile } from './services/snapshotProfileService';
 import { compressImageFile } from './services/snapshotMediaService';
 
