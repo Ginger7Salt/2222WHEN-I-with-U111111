@@ -444,10 +444,90 @@
 }
 
 /* --------------------------------------------------------------------
-   统计区域（AlmanacObservation）—— 独立卡片，作为第一个"区块"
+   标签卡片：左右滑动，点一下在下方展开对应内容
+   -------------------------------------------------------------------- */
+
+.almanac-tab-strip {
+  display: flex;
+  gap: 0.6rem;
+
+  margin-top: 1.3rem;
+  padding-bottom: 0.4rem;
+
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.almanac-tab-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.almanac-tab-card {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+
+  min-width: 7.5rem;
+  padding: 0.85rem 1rem;
+
+  border: 1px solid var(--almanac-border-faint);
+  border-radius: var(--almanac-radius-lg);
+  background: var(--almanac-paper-soft);
+  color: var(--almanac-ink);
+
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 180ms ease, background-color 180ms ease, transform 150ms ease;
+}
+
+.almanac-tab-card:active {
+  transform: scale(0.97);
+}
+
+.almanac-tab-card.is-active {
+  border-color: var(--almanac-accent);
+  background: var(--almanac-accent-soft);
+}
+
+.almanac-tab-index {
+  color: var(--almanac-muted);
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.almanac-tab-card.is-active .almanac-tab-index {
+  color: var(--almanac-accent-strong);
+}
+
+.almanac-tab-title {
+  font-family: var(--almanac-font-serif);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.almanac-tab-card.is-active .almanac-tab-title {
+  color: var(--almanac-accent-strong);
+}
+
+.almanac-tab-hint {
+  color: var(--almanac-muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+/* --------------------------------------------------------------------
+   统计区域（AlmanacObservation）—— 点开"记录"标签后展开的卡片
    -------------------------------------------------------------------- */
 
 .almanac-record-section {
+  margin-top: 1.4rem;
   padding: 1.5rem 1.25rem;
   border: 1px solid var(--almanac-border-faint);
   border-radius: var(--almanac-radius-lg);
@@ -627,7 +707,7 @@
 
 .almanac-milestone-section,
 .almanac-reminder-section {
-  margin-top: 2.4rem;
+  margin-top: 1.4rem;
   scroll-margin-top: 1rem;
 }
 

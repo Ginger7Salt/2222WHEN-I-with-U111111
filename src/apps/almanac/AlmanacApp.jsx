@@ -33,6 +33,14 @@ import { getRhythmObservation } from './services/almanacRhythmService';
 
 import './almanac.css';
 
+// 顶部这一排是可以左右滑动的"标签卡片"，点一下就在下方展开对应内容，
+// 一次只展开一个——纯展示层的状态，不涉及任何数据读取或业务逻辑。
+const ALMANAC_TABS = [
+  { key: 'record', index: '01', title: '记录', hint: '这里留下过' },
+  { key: 'milestones', index: '02', title: '这一路走来', hint: '陪伴与重要日期' },
+  { key: 'reminders', index: '03', title: '轻提醒', hint: '自然地提一句' },
+];
+
 export const AlmanacApp = ({ onBackHub }) => {
   const [chats, setChats] = useState([]);
   const [characters, setCharacters] = useState([]);
@@ -44,6 +52,7 @@ export const AlmanacApp = ({ onBackHub }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [rhythmObservation, setRhythmObservation] = useState(null);
+  const [activeTab, setActiveTab] = useState('record');
 
   const selectedChat = useMemo(
     () => chats.find((chat) => String(chat.id) === String(selectedChatId)),
@@ -358,32 +367,65 @@ export const AlmanacApp = ({ onBackHub }) => {
               </p>
             </section>
 
-            <section className="almanac-record-section almanac-reveal">
-              <div className="almanac-record-heading">
-                <div>
-                  <p className="almanac-eyebrow">A QUIET RECORD</p>
-                  <h2>这里留下过</h2>
+            <div
+              className="almanac-tab-strip"
+              role="tablist"
+              aria-label="选择要查看的内容"
+            >
+              {ALMANAC_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.key}
+                  className={
+                    activeTab === tab.key
+                      ? 'almanac-tab-card is-active'
+                      : 'almanac-tab-card'
+                  }
+                  onClick={() => setActiveTab(tab.key)}
+                >
+                  <span className="almanac-tab-index" aria-hidden="true">
+                    {tab.index}
+                  </span>
+                  <strong className="almanac-tab-title">{tab.title}</strong>
+                  <span className="almanac-tab-hint">{tab.hint}</span>
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'record' && (
+              <section className="almanac-record-section almanac-reveal">
+                <div className="almanac-record-heading">
+                  <div>
+                    <p className="almanac-eyebrow">A QUIET RECORD</p>
+                    <h2>这里留下过</h2>
+                  </div>
+
+                  <span className="almanac-record-index">
+                    INDEX {String(records.length).padStart(5, '0')}
+                  </span>
                 </div>
 
-                <span className="almanac-record-index">
-                  INDEX {String(records.length).padStart(5, '0')}
-                </span>
-              </div>
+                <AlmanacObservation
+                  stats={stats}
+                  rhythmObservation={rhythmObservation}
+                  isLoading={false}
+                />
+              </section>
+            )}
 
-              <AlmanacObservation
-                stats={stats}
-                rhythmObservation={rhythmObservation}
-                isLoading={false}
-              />
-            </section>
+            {activeTab === 'milestones' && (
+              <section className="almanac-milestone-section almanac-reveal">
+                <AlmanacMilestones chatId={selectedChatId} />
+              </section>
+            )}
 
-            <section className="almanac-milestone-section almanac-reveal">
-              <AlmanacMilestones chatId={selectedChatId} />
-            </section>
-
-            <section className="almanac-reminder-section almanac-reveal">
-              <AlmanacReminderManager chatId={selectedChatId} />
-            </section>
+            {activeTab === 'reminders' && (
+              <section className="almanac-reminder-section almanac-reveal">
+                <AlmanacReminderManager chatId={selectedChatId} />
+              </section>
+            )}
 
             {showSettings && (
               <section className="almanac-settings-section almanac-reveal">
@@ -394,6 +436,7 @@ export const AlmanacApp = ({ onBackHub }) => {
                   onClearRecords={handleClearAlmanacRecords}
                   onOpenImportantDates={() => {
                     setShowSettings(false);
+                    setActiveTab('milestones');
 
                     window.setTimeout(() => {
                       document
@@ -403,6 +446,7 @@ export const AlmanacApp = ({ onBackHub }) => {
                   }}
                   onOpenReminders={() => {
                     setShowSettings(false);
+                    setActiveTab('reminders');
 
                     window.setTimeout(() => {
                       document
