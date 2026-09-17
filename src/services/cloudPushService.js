@@ -298,6 +298,152 @@ export async function syncPendingPushMessages() {
 }
 
 /**
+ * 拉取云端积压的主页留言板内容，写入 db.homeBoard
+ */
+export async function syncPendingHomeBoard() {
+  try {
+    const cleanServerUrl = await getEffectiveServerUrl();
+    if (!cleanServerUrl) return;
+
+    const res = await fetch(`${cleanServerUrl}/api/fetch-pending-homeboard`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return;
+
+    const data = await res.json();
+    const entries = Array.isArray(data.entries) ? data.entries : [];
+    if (entries.length === 0) return;
+
+    const syncedIds = [];
+
+    for (const entry of entries) {
+      const characterId = Number(entry.characterId || 1);
+      const nowIso =
+        typeof entry.timestamp === 'string' && entry.timestamp.includes('T')
+          ? entry.timestamp
+          : new Date(entry.timestamp || Date.now()).toISOString();
+
+      const exists = await db.homeBoard
+        .where('characterId')
+        .equals(characterId)
+        .filter((item) => item.content === entry.content && item.timestamp === nowIso)
+        .first();
+
+      if (!exists) {
+        let avatar = '';
+        try {
+          const character = await db.characters.get(characterId);
+          avatar = character?.avatar || '';
+        } catch (_) {}
+
+        await db.homeBoard.add({
+          characterId,
+          characterName: entry.characterName || '伴侣',
+          avatar,
+          content: entry.content,
+          timestamp: nowIso,
+          isRead: false,
+        });
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('new-homeboard-entry-inserted', {
+              detail: { characterId },
+            }),
+          );
+        }
+      }
+
+      if (entry.id) syncedIds.push(entry.id);
+    }
+
+    if (syncedIds.length > 0) {
+      await fetch(`${cleanServerUrl}/api/ack-pending-homeboard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: syncedIds }),
+      }).catch(() => {});
+    }
+  } catch (e) {
+    // 纯离线或网络波动时静默跳过
+  }
+}
+
+/**
+ * 拉取云端积压的主动日记内容，写入 db.diaries
+ */
+export async function syncPendingDiaries() {
+  try {
+    const cleanServerUrl = await getEffectiveServerUrl();
+    if (!cleanServerUrl) return;
+
+    const res = await fetch(`${cleanServerUrl}/api/fetch-pending-diaries`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return;
+
+    const data = await res.json();
+    const entries = Array.isArray(data.entries) ? data.entries : [];
+    if (entries.length === 0) return;
+
+    const syncedIds = [];
+
+    for (const entry of entries) {
+      const characterId = Number(entry.characterId || 1);
+      const chatId = entry.chatId !== null && entry.chatId !== undefined ? Number(entry.chatId) : null;
+      const nowIso =
+        typeof entry.timestamp === 'string' && entry.timestamp.includes('T')
+          ? entry.timestamp
+          : new Date(entry.timestamp || Date.now()).toISOString();
+
+      const exists = await db.diaries
+        .where('characterId')
+        .equals(characterId)
+        .filter((item) => item.title === entry.title && item.timestamp === nowIso)
+        .first();
+
+      if (!exists) {
+        await db.diaries.add({
+          chatId,
+          characterId,
+          author: 'character',
+          title: entry.title,
+          mood: entry.mood,
+          weather: entry.weather,
+          content: entry.content,
+          companionReply: null,
+          images: [],
+          date: entry.date || nowIso.slice(0, 10),
+          timestamp: nowIso,
+        });
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('new-diary-entry-inserted', {
+              detail: { characterId, chatId },
+            }),
+          );
+        }
+      }
+
+      if (entry.id) syncedIds.push(entry.id);
+    }
+
+    if (syncedIds.length > 0) {
+      await fetch(`${cleanServerUrl}/api/ack-pending-diaries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: syncedIds }),
+      }).catch(() => {});
+    }
+  } catch (e) {
+    // 纯离线或网络波动时静默跳过
+  }
+}
+
+/**
  * 获取本地下一条尚未到期的预约任务。
  *
  * 这里使用安全探测：
@@ -564,6 +710,8 @@ export async function registerCloudPush({
 
   // 注册成功后顺带执行一次开屏拉齐补漏
   void syncPendingPushMessages();
+  void syncPendingHomeBoard();
+  void syncPendingDiaries();
 
   return true;
 }
@@ -864,9 +1012,11 @@ export function initAutoContextSync({
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'hidden') {
       syncAtLifecycle();
-    } else if (document.visibilityState === 'visible') {
+        } else if (document.visibilityState === 'visible') {
       // 回到前台时先拉取云端待取消息，并重新预热最新内存快照
       void syncPendingPushMessages();
+      void syncPendingHomeBoard();
+      void syncPendingDiaries();
       scheduleNormalSync();
     }
   };
@@ -875,8 +1025,10 @@ export function initAutoContextSync({
     syncAtLifecycle();
   };
 
-  const handlePageShow = () => {
+    const handlePageShow = () => {
     void syncPendingPushMessages();
+    void syncPendingHomeBoard();
+    void syncPendingDiaries();
     scheduleNormalSync();
   };
 
