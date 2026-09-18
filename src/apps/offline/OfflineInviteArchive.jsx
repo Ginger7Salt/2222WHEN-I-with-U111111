@@ -11,16 +11,17 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Archive,
-  ArrowLeft,
-  CheckCircle2,
-  ChevronRight,
-  Clock,
-  MessageCircle,
-  Sparkles,
-  Timer,
-  XCircle,
-} from 'lucide-react';
+  ArchiveIcon,
+  ArrowLeftIcon,
+  BanIcon,
+  CalendarClockIcon,
+  ChevronRightIcon,
+  CircleCheckIcon,
+  CircleXIcon,
+  DoorOpenIcon,
+  HourglassIcon,
+  MessageCircleIcon,
+} from 'lucide-animated';
 
 import db from '../../db';
 import { getAllOfflineSessionsForChat } from './offlineSessionService';
@@ -44,32 +45,32 @@ const formatDateTime = (value) => {
 const STATUS_META = {
   pending_review: {
     label: '等待回应',
-    icon: Clock,
+    icon: HourglassIcon,
     tint: '#666d7b',
   },
   scheduled: {
     label: '倒计时中',
-    icon: Timer,
+    icon: CalendarClockIcon,
     tint: '#24262b',
   },
   active: {
     label: '可以进入',
-    icon: Sparkles,
+    icon: DoorOpenIcon,
     tint: '#111216',
   },
   completed: {
     label: '已完成',
-    icon: CheckCircle2,
+    icon: CircleCheckIcon,
     tint: '#555b68',
   },
   declined: {
     label: '被拒绝了',
-    icon: XCircle,
+    icon: CircleXIcon,
     tint: '#8b5555',
   },
   cancelled: {
     label: '已取消',
-    icon: XCircle,
+    icon: BanIcon,
     tint: '#8b5555',
   },
 };
@@ -106,7 +107,6 @@ const ARCHIVE_STYLES = `
     --archive-glass: rgba(255, 255, 255, 0.58);
     --archive-glass-strong: rgba(255, 255, 255, 0.78);
     --archive-glass-border: rgba(255, 255, 255, 0.78);
-    --archive-line: rgba(15, 17, 22, 0.08);
     --archive-shadow:
       0 24px 60px rgba(23, 28, 38, 0.09),
       0 8px 20px rgba(23, 28, 38, 0.06),
@@ -269,6 +269,17 @@ const ARCHIVE_STYLES = `
     transform: scale(0.91);
   }
 
+  .archive-back-button > div,
+  .archive-mark > div,
+  .invite-card__status-icon > div,
+  .invite-pocket__seal > div,
+  .invite-tile > div,
+  .archive-empty__icon > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .archive-heading {
     min-width: 0;
     flex: 1;
@@ -314,12 +325,6 @@ const ARCHIVE_STYLES = `
         rgba(255, 255, 255, 0.9),
         rgba(255, 255, 255, 0.42)
       );
-  }
-
-  .archive-mark svg {
-    width: 19px;
-    height: 19px;
-    stroke-width: 1.7;
   }
 
   .archive-tabs {
@@ -687,12 +692,6 @@ const ARCHIVE_STYLES = `
       inset 0 1px 1px rgba(255, 255, 255, 0.95);
   }
 
-  .invite-pocket__seal svg {
-    width: 14px;
-    height: 14px;
-    stroke-width: 1.9;
-  }
-
   .invite-card__body {
     position: relative;
     z-index: 2;
@@ -730,12 +729,6 @@ const ARCHIVE_STYLES = `
       inset 0 1px 1px rgba(255, 255, 255, 0.9);
   }
 
-  .invite-card__status-icon svg {
-    width: 15px;
-    height: 15px;
-    stroke-width: 1.85;
-  }
-
   .invite-card__copy {
     min-width: 0;
   }
@@ -763,8 +756,6 @@ const ARCHIVE_STYLES = `
   }
 
   .invite-card__arrow {
-    width: 16px;
-    height: 16px;
     flex: 0 0 16px;
     color: #22242a;
     opacity: 0.42;
@@ -805,13 +796,6 @@ const ARCHIVE_STYLES = `
     line-height: 1;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .invite-tile svg {
-    width: 11px;
-    height: 11px;
-    flex: 0 0 11px;
-    stroke-width: 1.8;
   }
 
   .invite-tile__text {
@@ -890,12 +874,6 @@ const ARCHIVE_STYLES = `
     box-shadow:
       0 8px 18px rgba(22, 26, 33, 0.06),
       inset 0 1px 1px rgba(255, 255, 255, 0.94);
-  }
-
-  .archive-empty__icon svg {
-    width: 21px;
-    height: 21px;
-    stroke-width: 1.5;
   }
 
   .archive-empty__title {
@@ -977,7 +955,14 @@ const Tile = ({ label, tint, icon: TileIcon }) => (
     className="invite-tile"
     style={{ color: tint || 'var(--archive-soft-ink)' }}
   >
-    {TileIcon && <TileIcon aria-hidden="true" />}
+    {TileIcon && (
+      <TileIcon
+        aria-hidden="true"
+        size={11}
+        animateOnHover
+      />
+    )}
+
     <span className="invite-tile__text">{label}</span>
   </span>
 );
@@ -985,7 +970,7 @@ const Tile = ({ label, tint, icon: TileIcon }) => (
 const InviteCard = ({ session, onEnterScene }) => {
   const meta = STATUS_META[session.status] || {
     label: session.status,
-    icon: Clock,
+    icon: HourglassIcon,
     tint: '#666d7b',
   };
 
@@ -1026,13 +1011,19 @@ const InviteCard = ({ session, onEnterScene }) => {
         <div className="invite-paper invite-paper--front" />
 
         <div className="invite-pocket">
-          <span className="invite-pocket__label">INVITE ARCHIVE</span>
+          <span className="invite-pocket__label">
+            INVITE ARCHIVE
+          </span>
 
           <span
             className="invite-pocket__seal"
             style={{ color: meta.tint }}
           >
-            <StatusIcon />
+            <StatusIcon
+              size={14}
+              animateOnHover
+              aria-hidden="true"
+            />
           </span>
         </div>
       </div>
@@ -1045,7 +1036,10 @@ const InviteCard = ({ session, onEnterScene }) => {
               style={{ color: meta.tint }}
               aria-hidden="true"
             >
-              <StatusIcon />
+              <StatusIcon
+                size={15}
+                animateOnHover
+              />
             </div>
 
             <div className="invite-card__copy">
@@ -1060,8 +1054,10 @@ const InviteCard = ({ session, onEnterScene }) => {
           </div>
 
           {isEnterable && (
-            <ChevronRight
+            <ChevronRightIcon
               className="invite-card__arrow"
+              size={16}
+              animateOnHover
               aria-hidden="true"
             />
           )}
@@ -1074,7 +1070,7 @@ const InviteCard = ({ session, onEnterScene }) => {
             session.messageCount > 0 && (
               <Tile
                 label={`消息 ${session.messageCount}`}
-                icon={MessageCircle}
+                icon={MessageCircleIcon}
               />
             )}
 
@@ -1195,23 +1191,37 @@ const OfflineInviteArchive = ({
               className="archive-back-button"
               aria-label="关闭线下邀约"
             >
-              <ArrowLeft aria-hidden="true" />
+              <ArrowLeftIcon
+                size={18}
+                animateOnHover
+                aria-hidden="true"
+              />
             </button>
 
             <div className="archive-heading">
-              <div className="archive-kicker">Offline Archive</div>
+              <div className="archive-kicker">
+                Offline Archive
+              </div>
+
               <h1 className="archive-title">线下邀约</h1>
+
               <p className="archive-subtitle">
                 {activeTabLabel} · 保存每一次见面的时间与状态
               </p>
             </div>
 
             <div className="archive-mark" aria-hidden="true">
-              <Archive />
+              <ArchiveIcon
+                size={19}
+                animateOnHover
+              />
             </div>
           </div>
 
-          <nav className="archive-tabs" aria-label="邀约状态筛选">
+          <nav
+            className="archive-tabs"
+            aria-label="邀约状态筛选"
+          >
             {TABS.map((tab) => {
               const isActive = tab.key === activeTab;
 
@@ -1259,13 +1269,20 @@ const OfflineInviteArchive = ({
             <div className="archive-empty">
               <div className="archive-empty__card">
                 <div className="archive-empty__icon">
-                  <Archive aria-hidden="true" />
+                  <ArchiveIcon
+                    size={21}
+                    animateOnHover
+                    aria-hidden="true"
+                  />
                 </div>
 
                 <div className="archive-empty__title">
-                  {activeTab === 'ongoing' && '还没有进行中的邀约'}
+                  {activeTab === 'ongoing' &&
+                    '还没有进行中的邀约'}
+
                   {activeTab === 'completed' &&
                     '还没有完成过的线下见面'}
+
                   {activeTab === 'inactive' &&
                     '没有被拒绝或取消的邀约'}
                 </div>
@@ -1290,7 +1307,10 @@ const OfflineInviteArchive = ({
           )}
         </section>
 
-        <div className="archive-home-indicator" aria-hidden="true" />
+        <div
+          className="archive-home-indicator"
+          aria-hidden="true"
+        />
       </div>
     </>
   );
