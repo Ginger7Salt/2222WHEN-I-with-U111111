@@ -97,26 +97,6 @@ const ArchiveApp = ({ onBackHub }) => {
     setActiveIndex(closestIndex);
   };
 
-  const handlePrevDisc = () => {
-    if (overview.length === 0) {
-      return;
-    }
-
-    const nextIndex = (activeIndex - 1 + overview.length) % overview.length;
-    setActiveIndex(nextIndex);
-    scrollToIndex(nextIndex);
-  };
-
-  const handleNextDisc = () => {
-    if (overview.length === 0) {
-      return;
-    }
-
-    const nextIndex = (activeIndex + 1) % overview.length;
-    setActiveIndex(nextIndex);
-    scrollToIndex(nextIndex);
-  };
-
   const handleGoToDisc = (index) => {
     setActiveIndex(index);
     scrollToIndex(index);
@@ -155,9 +135,6 @@ const ArchiveApp = ({ onBackHub }) => {
     );
   }
 
-  // 用 Portal 直接挂到 document.body：不管外层容器（页面切换动画那层
-  // max-w-[420px] 的 main）身上有没有 transform，都不会把 position:fixed
-  // 的存档室关在里面，保证真正铺满整个视口。
   return createPortal(
     <div className="archive-app">
       <div className="archive-hud">
@@ -205,24 +182,7 @@ const ArchiveApp = ({ onBackHub }) => {
 
         {!isLoading && overview.length > 0 && (
           <div className="archive-carousel-scroll">
-            {activeItem && (
-              <h2 className="archive-section-heading">
-                {activeItem.characterName}
-              </h2>
-            )}
-
             <div className="arv-carousel-outer">
-              {overview.length > 1 && (
-                <button
-                  type="button"
-                  className="arv-carousel-btn prev"
-                  onClick={handlePrevDisc}
-                  aria-label="上一张唱片"
-                >
-                  ‹
-                </button>
-              )}
-
               <div
                 className="arv-track"
                 ref={trackRef}
@@ -280,14 +240,11 @@ const ArchiveApp = ({ onBackHub }) => {
                             <strong>{discCode}</strong>
                             <span>ARCHIVE {archiveNo}</span>
                           </div>
-
-                          <div className="arv-slide-caption">
-                            <strong>{item.characterName}</strong>
-                            <span>与 {item.userName} · {item.totalMessages} 条</span>
-                          </div>
                         </div>
+                      </div>
 
-                        {isActive && (
+                      {isActive && (
+                        <div className="arv-slide-toolbar">
                           <button
                             type="button"
                             className="arv-slide-edit-btn"
@@ -299,9 +256,10 @@ const ArchiveApp = ({ onBackHub }) => {
                             aria-label="更换唱片封面"
                           >
                             <Pencil className="h-3 w-3" />
+                            换封面
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       <div className="arv-slide-meta">
                         与 {item.userName} · {item.totalMessages} 条消息 · 记录 {item.chattedDays} 天
@@ -310,17 +268,6 @@ const ArchiveApp = ({ onBackHub }) => {
                   );
                 })}
               </div>
-
-              {overview.length > 1 && (
-                <button
-                  type="button"
-                  className="arv-carousel-btn next"
-                  onClick={handleNextDisc}
-                  aria-label="下一张唱片"
-                >
-                  ›
-                </button>
-              )}
             </div>
 
             {overview.length > 1 && (
