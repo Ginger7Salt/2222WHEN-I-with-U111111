@@ -55,9 +55,14 @@ import {
 import db from './db';
 
 import {
-  startAutoMessageScheduler,
+    startAutoMessageScheduler,
   stopAutoMessageScheduler,
 } from './services/aiService';
+
+import {
+  startSnapshotGlobalScheduler,
+  stopSnapshotGlobalScheduler
+} from './apps/snapshots/services/snapshotGlobalScheduler';
 
 import {
   getLockscreenCompanionEnabled,
@@ -465,12 +470,13 @@ const [hubBackground, setHubBackground] = useState('');
 
     if (cancelled) return;
 
-    startAutoMessageScheduler();
+        startAutoMessageScheduler();
     startTravelPostcardScheduler();
     startScheduledMessageScheduler();
     startParallelOrbitScheduler();
     startWorkflowScheduler();
     startOfflineSessionScheduler();
+    startSnapshotGlobalScheduler();
 
     void syncWorkflowsToServer();
   })();
@@ -483,6 +489,7 @@ const [hubBackground, setHubBackground] = useState('');
     stopParallelOrbitScheduler();
     stopWorkflowScheduler();
     stopOfflineSessionScheduler();
+    stopSnapshotGlobalScheduler();
   };
 }, []);
 
