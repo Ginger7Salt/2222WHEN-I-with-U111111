@@ -8,7 +8,10 @@ import React, {
 
 import { ArrowLeft, Settings } from 'lucide-react';
 
-import { getChatsArchiveOverview } from './archiveService';
+import {
+  getArchiveNarrativeLine,
+  getChatsArchiveOverview
+} from './archiveService';
 import ArchiveCabinetView from './components/ArchiveCabinetView';
 import ArchiveSettingsPanel from './components/ArchiveSettingsPanel';
 import './archive.css';
@@ -17,11 +20,11 @@ const ArchiveApp = ({ onBackHub }) => {
   const [overview, setOverview] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [selectedChatId, setSelectedChatId] = useState(null);
+  const [enteredChatId, setEnteredChatId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
 
   const trackRef = useRef(null);
-  const cardRefs = useRef([]);
+  const discRefs = useRef([]);
 
   const loadOverview = useCallback(async () => {
     setIsLoading(true);
@@ -41,16 +44,18 @@ const ArchiveApp = ({ onBackHub }) => {
     void loadOverview();
   }, [loadOverview]);
 
-  const selectedOverview = useMemo(
-    () => overview.find((item) => item.chatId === selectedChatId) || null,
-    [overview, selectedChatId]
+  const activeItem = overview[activeIndex] || null;
+
+  const enteredOverview = useMemo(
+    () => overview.find((item) => item.chatId === enteredChatId) || null,
+    [overview, enteredChatId]
   );
 
   const scrollToIndex = (index) => {
-    const card = cardRefs.current[index];
+    const disc = discRefs.current[index];
 
-    if (card) {
-      card.scrollIntoView({
+    if (disc) {
+      disc.scrollIntoView({
         behavior: 'smooth',
         inline: 'center',
         block: 'nearest'
@@ -70,13 +75,13 @@ const ArchiveApp = ({ onBackHub }) => {
     let closestIndex = 0;
     let closestDistance = Infinity;
 
-    cardRefs.current.forEach((card, index) => {
-      if (!card) {
+    discRefs.current.forEach((disc, index) => {
+      if (!disc) {
         return;
       }
 
-      const cardCenter = card.offsetLeft + card.offsetWidth / 2;
-      const distance = Math.abs(cardCenter - trackCenter);
+      const discCenter = disc.offsetLeft + disc.offsetWidth / 2;
+      const distance = Math.abs(discCenter - trackCenter);
 
       if (distance < closestDistance) {
         closestDistance = distance;
@@ -87,11 +92,11 @@ const ArchiveApp = ({ onBackHub }) => {
     setActiveIndex(closestIndex);
   };
 
-  if (selectedChatId && selectedOverview) {
+  if (enteredChatId && enteredOverview) {
     return (
       <ArchiveCabinetView
-        chatOverview={selectedOverview}
-        onBack={() => setSelectedChatId(null)}
+        chatOverview={enteredOverview}
+        onBack={() => setEnteredChatId(null)}
         onStatsChanged={loadOverview}
       />
     );
@@ -142,110 +147,97 @@ const ArchiveApp = ({ onBackHub }) => {
         {!isLoading && overview.length > 0 && (
           <>
             <div
-              className="archive-carousel-track"
+              className="archive-disc-track"
               ref={trackRef}
               onScroll={handleTrackScroll}
             >
               {overview.map((item, index) => (
-                <article
+                <div
                   key={item.chatId}
-                  ref={(node) => { cardRefs.current[index] = node; }}
+                  ref={(node) => { discRefs.current[index] = node; }}
                   className={[
-                    'archive-card',
+                    'archive-disc',
                     index === activeIndex ? 'is-active' : ''
                   ].join(' ')}
-                  onClick={() => {
-                    if (index !== activeIndex) {
-                      setActiveIndex(index);
-                      scrollToIndex(index);
-                      return;
-                    }
-
-                    setSelectedChatId(item.chatId);
-                  }}
-                >
-                  <div
-                    className="archive-card-art"
-                    style={
-                      item.bgImage || item.characterAvatar
-                        ? {
-                            backgroundImage: `url(${item.bgImage || item.characterAvatar})`
-                          }
-                        : undefined
-                    }
-                  >
-                    {!item.bgImage && !item.characterAvatar && (
-                      <span className="archive-card-art-fallback">
-                        {(item.characterName || '?').slice(0, 1)}
-                      </span>
-                    )}
-
-                    <span className="archive-card-disc" />
-                  </div>
-
-                  <div className="archive-card-body">
-                    <div>
-                      <div className="archive-card-name">
-                        {item.characterName}
-                      </div>
-                      <div className="archive-card-sub">
-                        WITH {item.userName}
-                      </div>
-                    </div>
-
-                    <div className="archive-card-stats">
-                      <div className="archive-card-stat">
-                        <span className="archive-card-stat-num">
-                          {item.chattedDays}
-                        </span>
-                        <span className="archive-card-stat-label">
-                          已聊天(天)
-                        </span>
-                      </div>
-
-                      <div className="archive-card-stat">
-                        <span className="archive-card-stat-num">
-                          {item.totalMessages}
-                        </span>
-                        <span className="archive-card-stat-label">
-                          总消息
-                        </span>
-                      </div>
-
-                      <div className="archive-card-stat">
-                        <span className="archive-card-stat-num">
-                          {item.totalArchivedDays}
-                        </span>
-                        <span className="archive-card-stat-label">
-                          已归档(天)
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-
-            <div className="archive-carousel-dots">
-              {overview.map((item, index) => (
-                <button
-                  type="button"
-                  key={item.chatId}
-                  className={[
-                    'archive-carousel-dot',
-                    index === activeIndex ? 'is-active' : ''
-                  ].join(' ')}
+                  style={
+                    item.characterAvatar || item.bgImage
+                      ? {
+                          backgroundImage: `url(${item.characterAvatar || item.bgImage})`
+                        }
+                      : undefined
+                  }
                   onClick={() => {
                     setActiveIndex(index);
                     scrollToIndex(index);
                   }}
-                  aria-label={`查看${item.characterName}`}
-                />
+                >
+                  {!item.characterAvatar && !item.bgImage && (
+                    <span className="archive-disc-fallback">
+                      {(item.characterName || '?').slice(0, 1)}
+                    </span>
+                  )}
+                </div>
               ))}
             </div>
 
+            {activeItem && (
+              <div className="archive-detail-panel">
+                <div className="archive-detail-name">
+                  {activeItem.characterName}
+                </div>
+                <div className="archive-detail-sub">
+                  WITH {activeItem.userName}
+                </div>
+
+                <div className="archive-detail-narrative">
+                  {getArchiveNarrativeLine({
+                    chattedDays: activeItem.chattedDays,
+                    totalArchivedDays: activeItem.totalArchivedDays,
+                    characterName: activeItem.characterName
+                  })}
+                </div>
+
+                <div className="archive-detail-stats">
+                  <div className="archive-detail-stat">
+                    <span className="archive-detail-stat-num">
+                      {activeItem.chattedDays}
+                    </span>
+                    <span className="archive-detail-stat-label">
+                      已相伴(天)
+                    </span>
+                  </div>
+
+                  <div className="archive-detail-stat">
+                    <span className="archive-detail-stat-num">
+                      {activeItem.totalMessages}
+                    </span>
+                    <span className="archive-detail-stat-label">
+                      总消息
+                    </span>
+                  </div>
+
+                  <div className="archive-detail-stat">
+                    <span className="archive-detail-stat-num">
+                      {activeItem.totalArchivedDays}
+                    </span>
+                    <span className="archive-detail-stat-label">
+                      已封存(天)
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="archive-detail-enter-btn"
+                  onClick={() => setEnteredChatId(activeItem.chatId)}
+                >
+                  进入档案柜
+                </button>
+              </div>
+            )}
+
             <p className="archive-carousel-hint">
-              左右滑动选择消息框，点击进入档案柜
+              左右滑动挑一张唱片，再点"进入档案柜"
             </p>
           </>
         )}

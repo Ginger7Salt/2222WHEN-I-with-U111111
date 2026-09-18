@@ -1,41 +1,30 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
-
 /*
- * 存档室的视觉语言：黑白蓝图 + 档案柜。
- * 和 memory.css 那套功能性卡片列表刻意拉开距离，
- * 参考用户给的档案柜/文件夹交互原型改写成真实数据驱动的版本。
+ * 存档室的视觉语言：完全跟随全局 theme.css 的变量走
+ * （--bg-main / --card-bg-gradient / --ink-card-bg / --text-main 等），
+ * 不写死任何颜色，主题切换 / 深色模式下都会自动跟着变。
+ * 质感上对齐 GlassCard 那套"磨砂玻璃 + 柔和弥散阴影"的风格
+ * （backdrop-filter: blur(22px) saturate(120%)），不做硬边框、
+ * 硬阴影的"手账/贴纸"式设计。
  */
 
 .archive-app {
-  --archive-bg-grid: #e5e6e1;
-  --archive-grid-line: #d1d4cb;
-  --archive-paper: #f5f4ee;
-  --archive-paper-dark: #ebe9e0;
-  --archive-ink: #111215;
-  --archive-ink-muted: #6f747a;
-  --archive-border: 1.6px solid var(--archive-ink);
-  --archive-steel: #dadcd6;
-  --archive-shadow: rgba(17, 18, 21, 0.16);
-  --archive-yellow: #f5dc58;
-  --archive-spring: cubic-bezier(0.19, 1, 0.22, 1);
-
   position: fixed;
   inset: 0;
   z-index: 60;
   display: flex;
   flex-direction: column;
-  background-color: var(--archive-bg-grid);
-  background-image:
-    linear-gradient(var(--archive-grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--archive-grid-line) 1px, transparent 1px);
-  background-size: 24px 24px;
-  color: var(--archive-ink);
-  font-family: 'Space Mono', monospace;
+  background: var(--bg-main);
+  color: var(--text-main);
   overflow: hidden;
 }
 
 .archive-app * {
   box-sizing: border-box;
+}
+
+.archive-glass-blur {
+  backdrop-filter: blur(22px) saturate(120%);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
 }
 
 /* ---------- 顶部通用 HUD ---------- */
@@ -51,40 +40,50 @@
 .archive-hud-back {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  background: var(--archive-paper);
-  border: var(--archive-border);
-  border-radius: 40px;
-  padding: 8px 16px;
-  box-shadow: 3px 3px 0 var(--archive-ink);
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-sub);
+  background: transparent;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: transform 0.2s var(--archive-spring), box-shadow 0.2s var(--archive-spring);
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .archive-hud-back:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--archive-ink);
-}
-
-.archive-hud-back:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--archive-ink);
+  background: var(--control-soft-bg);
+  color: var(--text-main);
 }
 
 .archive-hud-title {
-  font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   font-size: 13px;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  opacity: 0.7;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
 }
 
-/* ---------- Level 1：大卡片轮播 ---------- */
+.archive-hud-settings-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: var(--control-soft-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-sub);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.archive-hud-settings-btn:hover {
+  background: var(--control-soft-hover);
+  color: var(--text-main);
+}
+
+/* ---------- Level 1：唱片轮播 + 选中详情 ---------- */
 
 .archive-carousel-wrap {
   flex: 1;
@@ -94,176 +93,174 @@
   justify-content: center;
   padding: 12px 0 32px;
   min-height: 0;
+  gap: 28px;
 }
 
 .archive-carousel-empty {
   text-align: center;
-  color: var(--archive-ink-muted);
+  color: var(--text-muted);
   font-size: 13px;
   padding: 40px;
 }
 
-.archive-carousel-track {
+.archive-disc-track {
   width: 100%;
   display: flex;
-  gap: 20px;
+  gap: 22px;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
-  padding: 20px 50%;
-  flex: 1;
-  min-height: 0;
+  padding: 10px 50%;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-}
-
-.archive-carousel-track::-webkit-scrollbar {
-  display: none;
-}
-
-.archive-card {
-  flex: 0 0 auto;
-  width: min(78vw, 320px);
-  scroll-snap-align: center;
-  background: var(--archive-paper);
-  border: var(--archive-border);
-  border-radius: 22px;
-  box-shadow: 6px 6px 0 var(--archive-ink);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.4s var(--archive-spring), box-shadow 0.4s var(--archive-spring), opacity 0.3s ease;
-  opacity: 0.55;
-  transform: scale(0.92);
-}
-
-.archive-card.is-active {
-  opacity: 1;
-  transform: scale(1);
-  box-shadow: 8px 8px 0 var(--archive-ink);
-}
-
-.archive-card:active {
-  transform: scale(0.98);
-}
-
-.archive-card-art {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background: var(--archive-paper-dark);
-  background-size: cover;
-  background-position: center;
-  border-bottom: var(--archive-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.archive-card-art::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.35), transparent 60%);
-  pointer-events: none;
-}
-
-.archive-card-art-fallback {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 48px;
-  font-weight: 700;
-  color: var(--archive-ink);
-  opacity: 0.25;
-}
-
-.archive-card-disc {
-  position: absolute;
-  bottom: -30px;
-  right: -30px;
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  border: var(--archive-border);
-  background: repeating-radial-gradient(circle, var(--archive-ink) 0px, var(--archive-ink) 1px, transparent 2px, transparent 6px);
-  opacity: 0.85;
-}
-
-.archive-card-body {
-  padding: 16px 18px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.archive-card-name {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 19px;
-  line-height: 1.15;
-}
-
-.archive-card-sub {
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--archive-ink-muted);
-}
-
-.archive-card-stats {
-  display: flex;
-  border-top: 1.4px dashed var(--archive-ink-muted);
-  padding-top: 10px;
-  gap: 10px;
-}
-
-.archive-card-stat {
-  flex: 1;
-  text-align: left;
-}
-
-.archive-card-stat-num {
-  display: block;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 16px;
-}
-
-.archive-card-stat-label {
-  display: block;
-  font-size: 9px;
-  color: var(--archive-ink-muted);
-  letter-spacing: 0.4px;
-  margin-top: 2px;
-}
-
-.archive-carousel-dots {
-  display: flex;
-  gap: 6px;
-  padding-top: 14px;
   flex-shrink: 0;
 }
 
-.archive-carousel-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  border: 1.2px solid var(--archive-ink);
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
+.archive-disc-track::-webkit-scrollbar {
+  display: none;
 }
 
-.archive-carousel-dot.is-active {
-  background: var(--archive-ink);
+.archive-disc {
+  flex: 0 0 auto;
+  width: min(34vw, 150px);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  scroll-snap-align: center;
+  cursor: pointer;
+  position: relative;
+  background: var(--ink-card-bg);
+  border: 1px solid var(--ink-card-border);
+  box-shadow: var(--ink-card-shadow);
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1),
+              box-shadow 0.4s cubic-bezier(0.19, 1, 0.22, 1),
+              opacity 0.3s ease;
+  opacity: 0.5;
+  transform: scale(0.82);
+}
+
+.archive-disc::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    transparent 0%,
+    transparent 28%,
+    color-mix(in srgb, var(--text-on-ink) 55%, transparent) 29%,
+    color-mix(in srgb, var(--text-on-ink) 55%, transparent) 31%,
+    transparent 32%
+  );
+  opacity: 0.5;
+}
+
+.archive-disc-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 32px;
+  color: var(--text-on-ink-muted);
+}
+
+.archive-disc.is-active {
+  opacity: 1;
+  transform: scale(1.05);
+  box-shadow: 0 20px 46px color-mix(in srgb, var(--text-main) 26%, transparent);
+}
+
+.archive-disc.is-active::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-color);
+  opacity: 0.5;
+}
+
+.archive-detail-panel {
+  width: min(88vw, 380px);
+  border-radius: 2rem;
+  padding: 22px 24px;
+  background: var(--card-bg-gradient);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  text-align: center;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.archive-detail-name {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.archive-detail-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  letter-spacing: 0.4px;
+}
+
+.archive-detail-narrative {
+  margin-top: 14px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-sub);
+  padding: 12px 14px;
+  border-radius: 1rem;
+  background: var(--control-soft-bg);
+}
+
+.archive-detail-stats {
+  display: flex;
+  margin-top: 16px;
+  gap: 6px;
+}
+
+.archive-detail-stat {
+  flex: 1;
+}
+
+.archive-detail-stat-num {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.archive-detail-stat-label {
+  display: block;
+  font-size: 9.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.archive-detail-enter-btn {
+  margin-top: 18px;
+  width: 100%;
+  padding: 11px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.archive-detail-enter-btn:hover {
+  opacity: 0.88;
 }
 
 .archive-carousel-hint {
   font-size: 11px;
-  color: var(--archive-ink-muted);
-  letter-spacing: 0.4px;
-  padding-top: 8px;
+  color: var(--text-muted);
 }
 
 /* ---------- Level 2：档案柜 ---------- */
@@ -272,168 +269,181 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
   min-height: 0;
   overflow: hidden;
-  position: relative;
-  padding-top: 10px;
+  padding: 4px 20px 20px;
+  gap: 14px;
+}
+
+.archive-cabinet-narrative {
+  flex-shrink: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-sub);
+  padding: 12px 16px;
+  border-radius: 1.2rem;
+  background: var(--control-soft-bg);
+  text-align: center;
 }
 
 .archive-cabinet-empty {
   margin: auto;
-  color: var(--archive-ink-muted);
+  color: var(--text-muted);
   font-size: 13px;
   text-align: center;
   padding: 30px;
+  line-height: 1.7;
 }
 
-.archive-drawer-cavity {
-  position: relative;
-  width: 100%;
-  max-width: 640px;
+.archive-cabinet-scroll {
   flex: 1;
   min-height: 0;
-  overflow: visible;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 8px;
 }
 
-.archive-folder {
-  position: absolute;
-  left: 50%;
-  width: 88%;
-  max-width: 560px;
-  height: min(58vh, 460px);
-  background: var(--archive-paper);
-  border: var(--archive-border);
-  border-bottom: none;
-  border-radius: 12px 12px 0 0;
-  box-shadow: 0 -4px 10px var(--archive-shadow);
+/* 折叠状态的文件夹条目：一张柔和玻璃卡片 */
+.archive-folder-card {
+  border-radius: 1.4rem;
+  background: var(--card-bg-gradient);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  padding: 14px 16px;
   cursor: pointer;
-  transition: transform 0.65s var(--archive-spring), box-shadow 0.65s var(--archive-spring);
-  transform-origin: center bottom;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.archive-folder:hover:not(.is-pulled) {
-  transform: translate(-50%, -16px);
+.archive-folder-card:hover {
+  transform: translateY(-2px);
 }
 
-.archive-folder.is-pulled {
-  z-index: 80;
-  transform: translate(-50%, -18px) scale(1.02);
-  box-shadow: 0 35px 70px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--archive-ink);
-  cursor: default;
-  background: #faf9f5;
-}
-
-.archive-folder-tab {
-  position: absolute;
-  top: -34px;
-  left: 20px;
-  height: 35px;
-  min-width: 130px;
-  padding: 0 18px;
-  background: var(--archive-paper);
-  border: var(--archive-border);
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
+.archive-folder-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.archive-folder-card-date {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.archive-folder-card-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--ink-card-bg);
+  color: var(--text-on-ink);
+  letter-spacing: 0.4px;
+}
+
+.archive-folder-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.archive-folder-card-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.archive-folder-card-note {
+  font-size: 11.5px;
+  color: var(--text-sub);
+  margin-top: 6px;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 展开态：直接在原位置撑开显示内容，不做"飞出" 3D 动画，
+   改为柔和的高度展开过渡，和整体磨砂玻璃质感更协调 */
+.archive-folder-card.is-open {
+  cursor: default;
+}
+
+.archive-folder-open-body {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--divider);
+}
+
+.archive-folder-note-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  margin-bottom: 12px;
+}
+
+.archive-folder-note-input {
+  flex: 1;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+}
+
+.archive-folder-note-save {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-}
-
-.archive-folder-tab.tab-offline {
-  background: var(--archive-ink);
-  color: #fff;
-}
-
-.archive-folder-count {
-  font-size: 9.5px;
-  opacity: 0.65;
-}
-
-.archive-folder-doc {
-  height: 100%;
-  padding: 20px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.archive-folder-frame {
-  border: 1.5px dashed #bbbeb4;
-  height: 100%;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  background-color: rgba(255, 255, 255, 0.55);
-}
-
-.archive-folder-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: var(--archive-border);
-  padding-bottom: 10px;
+  color: var(--accent-color);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 8px;
   flex-shrink: 0;
 }
 
-.archive-folder-title {
-  background: var(--archive-ink);
-  color: #fff;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 15px;
-  padding: 4px 10px;
-  letter-spacing: 1px;
-}
-
-.archive-folder-close {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: var(--archive-border);
-  background: var(--archive-paper);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+.archive-folder-note-save:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .archive-folder-messages {
-  flex: 1;
+  max-height: 44vh;
   overflow-y: auto;
-  margin-top: 12px;
-  padding-right: 4px;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+.archive-folder-message-row {
+  display: flex;
+  align-items: flex-start;
   gap: 8px;
 }
 
 .archive-folder-message {
-  border: 1.2px solid var(--archive-ink);
-  background: #fff;
-  padding: 8px 10px;
-  border-radius: 4px;
-  font-family: 'Space Mono', monospace;
+  flex: 1;
+  min-width: 0;
+  border-radius: 0.9rem;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--card-border);
 }
 
 .archive-folder-message.is-character {
-  background: var(--archive-paper-dark);
+  background: var(--ink-card-bg);
+  color: var(--text-on-ink);
+  border-color: var(--ink-card-border);
 }
 
 .archive-folder-message-meta {
   display: flex;
   justify-content: space-between;
   font-size: 9.5px;
-  color: var(--archive-ink-muted);
+  opacity: 0.6;
   margin-bottom: 4px;
-  letter-spacing: 0.4px;
 }
 
 .archive-folder-message-content {
@@ -443,34 +453,83 @@
   word-break: break-word;
 }
 
+.archive-msg-delete-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.archive-msg-delete-btn:hover {
+  color: #c0392b;
+  border-color: #c0392b;
+}
+
 .archive-folder-hint {
   margin-top: 10px;
   font-size: 10.5px;
-  color: var(--archive-ink-muted);
-  flex-shrink: 0;
+  color: var(--text-muted);
 }
 
-/* ---------- 抽屉前面板 ---------- */
+.archive-folder-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.archive-folder-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #c0392b;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 8px;
+}
+
+.archive-folder-close-btn {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+  background: var(--control-soft-bg);
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+/* ---------- 抽屉前面板（统计 + 整理归档入口） ---------- */
 
 .archive-drawer-front {
-  position: relative;
-  width: 104%;
   flex-shrink: 0;
-  background: var(--archive-steel);
-  border: 2.5px solid var(--archive-ink);
-  border-radius: 6px 6px 0 0;
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08), inset 0 2px 0 rgba(255,255,255,0.7);
+  border-radius: 1.6rem 1.6rem 0 0;
+  background: var(--card-bg-gradient);
+  border: 1px solid var(--card-border);
+  border-bottom: none;
+  box-shadow: 0 -8px 30px color-mix(in srgb, var(--text-main) 10%, transparent);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px 16px 18px;
-  z-index: 90;
+  padding: 16px 16px 20px;
   gap: 12px;
+  margin: 0 4px;
 }
 
 .archive-drawer-stats {
   display: flex;
-  gap: 18px;
+  gap: 22px;
 }
 
 .archive-drawer-stat {
@@ -479,82 +538,47 @@
 
 .archive-drawer-stat-num {
   display: block;
-  font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   font-size: 18px;
+  color: var(--text-main);
 }
 
 .archive-drawer-stat-label {
   display: block;
   font-size: 9px;
-  color: var(--archive-ink-muted);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
 .archive-drawer-actions {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .archive-plaque-btn {
-  background: var(--archive-yellow);
-  border: var(--archive-border);
-  border-radius: 30px;
-  padding: 8px 20px;
-  font-size: 12px;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  border: none;
+  border-radius: 999px;
+  padding: 9px 22px;
+  font-size: 12.5px;
   font-weight: 700;
-  letter-spacing: 0.4px;
-  box-shadow: 2px 2px 0 var(--archive-ink);
   cursor: pointer;
-  transition: transform 0.2s ease;
-  font-family: 'Space Mono', monospace;
+  transition: opacity 0.2s ease;
 }
 
 .archive-plaque-btn:hover {
-  transform: scale(1.04);
+  opacity: 0.88;
 }
 
-.archive-louver-handle {
-  width: 110px;
-  height: 36px;
-  border: var(--archive-border);
-  border-radius: 20px 20px 6px 6px;
-  background: #eef0eb;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  padding: 0 16px;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.15), 0 2px 0 #fff;
-  cursor: pointer;
-}
-
-.archive-louver-vent {
-  height: 2.5px;
-  background: var(--archive-ink);
-  border-radius: 2px;
-  opacity: 0.85;
-}
-
-.archive-dismiss-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  display: none;
-}
-
-.archive-dismiss-overlay.is-active {
-  display: block;
-}
-
-/* ---------- 整理归档弹层（勾选，不做飞出动画） ---------- */
+/* ---------- 整理归档弹层 ---------- */
 
 .archive-organizer-overlay {
   position: fixed;
   inset: 0;
   z-index: 120;
-  background: rgba(17, 18, 21, 0.45);
+  background: var(--modal-overlay);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -564,10 +588,11 @@
   width: 100%;
   max-width: 560px;
   max-height: 85vh;
-  background: var(--archive-paper);
-  border: var(--archive-border);
+  background: var(--modal-bg);
+  border: 1px solid var(--modal-border);
   border-bottom: none;
-  border-radius: 18px 18px 0 0;
+  border-radius: 1.6rem 1.6rem 0 0;
+  box-shadow: var(--modal-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -575,7 +600,7 @@
 
 .archive-organizer-header {
   padding: 18px 20px 14px;
-  border-bottom: var(--archive-border);
+  border-bottom: 1px solid var(--divider);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -583,14 +608,14 @@
 }
 
 .archive-organizer-title {
-  font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
+  color: var(--text-main);
 }
 
 .archive-organizer-sub {
   font-size: 10.5px;
-  color: var(--archive-ink-muted);
+  color: var(--text-muted);
   margin-top: 4px;
 }
 
@@ -598,8 +623,9 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: var(--archive-border);
-  background: #fff;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+  color: var(--text-sub);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -611,25 +637,26 @@
   display: flex;
   gap: 8px;
   padding: 14px 20px;
-  border-bottom: 1.2px dashed var(--archive-ink-muted);
+  border-bottom: 1px solid var(--divider);
   flex-wrap: wrap;
   flex-shrink: 0;
 }
 
 .archive-organizer-quickbtn {
-  border: var(--archive-border);
-  background: #fff;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+  color: var(--text-sub);
   border-radius: 20px;
   padding: 6px 14px;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  font-family: 'Space Mono', monospace;
 }
 
 .archive-organizer-quickbtn.is-active {
-  background: var(--archive-ink);
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  border-color: transparent;
 }
 
 .archive-organizer-list {
@@ -648,6 +675,7 @@
   gap: 8px;
   font-size: 11.5px;
   font-weight: 700;
+  color: var(--text-main);
   letter-spacing: 0.4px;
   margin-bottom: 8px;
 }
@@ -655,7 +683,7 @@
 .archive-organizer-day-checkbox {
   width: 15px;
   height: 15px;
-  accent-color: var(--archive-ink);
+  accent-color: var(--accent-color);
 }
 
 .archive-organizer-row {
@@ -663,7 +691,7 @@
   align-items: flex-start;
   gap: 8px;
   padding: 6px 0;
-  border-bottom: 1px solid var(--archive-grid-line);
+  border-bottom: 1px solid var(--divider);
 }
 
 .archive-organizer-row.is-protected {
@@ -674,7 +702,7 @@
   margin-top: 3px;
   width: 14px;
   height: 14px;
-  accent-color: var(--archive-ink);
+  accent-color: var(--accent-color);
 }
 
 .archive-organizer-row-content {
@@ -684,13 +712,14 @@
 
 .archive-organizer-row-meta {
   font-size: 9px;
-  color: var(--archive-ink-muted);
+  color: var(--text-muted);
   margin-bottom: 2px;
 }
 
 .archive-organizer-row-text {
   font-size: 12px;
   line-height: 1.4;
+  color: var(--text-sub);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -703,29 +732,29 @@
 
 .archive-organizer-footer {
   padding: 14px 20px;
-  border-top: var(--archive-border);
+  border-top: 1px solid var(--divider);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  background: var(--archive-paper);
+  background: var(--modal-bg);
 }
 
 .archive-organizer-footer-count {
   font-size: 11.5px;
   font-weight: 700;
+  color: var(--text-main);
 }
 
 .archive-organizer-confirm {
-  background: var(--archive-ink);
-  color: #fff;
-  border: var(--archive-border);
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  border: none;
   border-radius: 24px;
   padding: 10px 22px;
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
-  font-family: 'Space Mono', monospace;
 }
 
 .archive-organizer-confirm:disabled {
@@ -734,38 +763,19 @@
 }
 
 .archive-organizer-empty {
-  color: var(--archive-ink-muted);
+  color: var(--text-muted);
   font-size: 12px;
   text-align: center;
   padding: 30px 0;
 }
 
-/* ---------- HUD 设置按钮 + 自动归档设置弹层 ---------- */
-
-.archive-hud-settings-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: var(--archive-border);
-  background: var(--archive-paper);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 3px 3px 0 var(--archive-ink);
-  transition: transform 0.2s var(--archive-spring), box-shadow 0.2s var(--archive-spring);
-}
-
-.archive-hud-settings-btn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--archive-ink);
-}
+/* ---------- 自动归档设置弹层 ---------- */
 
 .archive-settings-overlay {
   position: fixed;
   inset: 0;
   z-index: 130;
-  background: rgba(17, 18, 21, 0.45);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -775,10 +785,10 @@
 .archive-settings-panel {
   width: 100%;
   max-width: 380px;
-  background: var(--archive-paper);
-  border: var(--archive-border);
-  border-radius: 16px;
-  box-shadow: 8px 8px 0 var(--archive-ink);
+  background: var(--modal-bg);
+  border: 1px solid var(--modal-border);
+  border-radius: 1.6rem;
+  box-shadow: var(--modal-shadow);
   padding: 20px;
 }
 
@@ -790,17 +800,18 @@
 }
 
 .archive-settings-title {
-  font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   font-size: 15px;
+  color: var(--text-main);
 }
 
 .archive-settings-close {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: var(--archive-border);
-  background: #fff;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+  color: var(--text-sub);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -812,7 +823,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 0;
-  border-top: 1.2px dashed var(--archive-ink-muted);
+  border-top: 1px solid var(--divider);
 }
 
 .archive-settings-row:first-of-type {
@@ -822,11 +833,12 @@
 .archive-settings-row-label {
   font-size: 12.5px;
   font-weight: 700;
+  color: var(--text-main);
 }
 
 .archive-settings-row-hint {
   font-size: 10px;
-  color: var(--archive-ink-muted);
+  color: var(--text-muted);
   margin-top: 3px;
 }
 
@@ -835,43 +847,43 @@
   width: 44px;
   height: 24px;
   border-radius: 20px;
-  border: var(--archive-border);
-  background: #fff;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.2s ease;
 }
 
 .archive-settings-toggle.is-on {
-  background: var(--archive-ink);
+  background: var(--accent-color);
+  border-color: transparent;
 }
 
 .archive-settings-toggle-knob {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: var(--archive-ink);
-  transition: transform 0.2s var(--archive-spring), background 0.2s ease;
+  background: var(--card-bg);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--text-main) 25%, transparent);
+  transition: transform 0.2s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .archive-settings-toggle.is-on .archive-settings-toggle-knob {
   transform: translateX(20px);
-  background: var(--archive-yellow);
 }
 
 .archive-settings-days-input {
   width: 64px;
-  border: var(--archive-border);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   padding: 6px 8px;
-  font-family: 'Space Mono', monospace;
   font-size: 13px;
   text-align: center;
-  background: #fff;
-  color: var(--archive-ink);
+  background: var(--bg-surface);
+  color: var(--text-main);
 }
 
 .archive-settings-days-input:disabled {
@@ -881,6 +893,6 @@
 .archive-settings-save-note {
   margin-top: 14px;
   font-size: 10.5px;
-  color: var(--archive-ink-muted);
+  color: var(--text-muted);
   text-align: center;
 }

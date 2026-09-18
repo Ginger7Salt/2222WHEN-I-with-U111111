@@ -227,6 +227,59 @@ export const getChatsArchiveOverview = async () => {
 };
 
 /*
+ * 归档消息的"文件夹分组 key"计算规则，统一在这一处，
+ * 读取（getArchivedMessageFolders）、备注（setArchiveFolderNote）、
+ * 删除（deleteArchivedFolder）都复用它，避免三处逻辑各写一遍、
+ * 以后改分组规则时漏改某一处。
+ */
+const computeGroupKey = (message) => {
+  const dayKey = getDayKey(message.timestamp);
+
+  if (!dayKey) {
+    return null;
+  }
+
+  return message.offlineSessionId
+    ? `${dayKey}__offline_${message.offlineSessionId}`
+    : `${dayKey}__online`;
+};
+
+const groupArchivedRecords = (records) => {
+  const folderMap = new Map();
+
+  for (const message of records) {
+    const groupKey = computeGroupKey(message);
+
+    if (!groupKey) {
+      continue;
+    }
+
+    if (!folderMap.has(groupKey)) {
+      folderMap.set(groupKey, {
+        groupKey,
+        dayKey: getDayKey(message.timestamp),
+        mode: message.mode || 'online',
+        offlineSessionId: message.offlineSessionId || null,
+        note: '',
+        messages: []
+      });
+    }
+
+    const folder = folderMap.get(groupKey);
+
+    folder.messages.push(message);
+
+    // 备注是冗余存在每条消息的 folderNote 字段上的（同一组内应该一致），
+    // 取第一个非空值即可，不需要新建表。
+    if (!folder.note && message.folderNote) {
+      folder.note = message.folderNote;
+    }
+  }
+
+  return folderMap;
+};
+
+/*
  * 已归档消息列表，按自然日分组，供档案柜视图渲染成一个个"文件夹"。
  * 分组时附带 mode/offlineSessionId，方便同一天既有线上又有一次性线下会话时
  * 分别展示（比如同一天既有普通聊天也有一次线下场景）。
@@ -241,33 +294,7 @@ export const getArchivedMessageFolders = async (chatId) => {
     .equals(chatId)
     .toArray();
 
-  const folderMap = new Map();
-
-  for (const message of records) {
-    const dayKey = getDayKey(message.timestamp);
-
-    if (!dayKey) {
-      continue;
-    }
-
-    const groupKey = message.offlineSessionId
-      ? `${dayKey}__offline_${message.offlineSessionId}`
-      : `${dayKey}__online`;
-
-    if (!folderMap.has(groupKey)) {
-      folderMap.set(groupKey, {
-        groupKey,
-        dayKey,
-        mode: message.mode || 'online',
-        offlineSessionId: message.offlineSessionId || null,
-        messages: []
-      });
-    }
-
-    folderMap.get(groupKey).messages.push(message);
-  }
-
-  const folders = Array.from(folderMap.values());
+  const folders = Array.from(groupArchivedRecords(records).values());
 
   for (const folder of folders) {
     folder.messages.sort((a, b) => (
@@ -279,6 +306,126 @@ export const getArchivedMessageFolders = async (chatId) => {
     (toSafeTime(b.messages[0]?.timestamp) || 0)
     - (toSafeTime(a.messages[0]?.timestamp) || 0)
   ));
+};
+
+/*
+ * 给某个已归档"文件夹"写备注，方便辨认。
+ * 备注冗余存在这个分组下每一条 archivedMessages 记录的 folderNote 字段上
+ * （批量 update，不新建表，符合项目里"优先加字段而不是加表"的惯例）。
+ */
+export const setArchiveFolderNote = async (chatId, groupKey, note) => {
+  if (!isValidChatId(chatId) || !groupKey) {
+    return false;
+  }
+
+  const records = await db.archivedMessages
+    .where('chatId')
+    .equals(chatId)
+    .toArray();
+
+  const targetIds = records
+    .filter((message) => computeGroupKey(message) === groupKey)
+    .map((message) => message.id);
+
+  if (targetIds.length === 0) {
+    return false;
+  }
+
+  await db.archivedMessages
+    .where('id')
+    .anyOf(targetIds)
+    .modify({ folderNote: note || '' });
+
+  return true;
+};
+
+/*
+ * 删除后重新计算 archiveStats。
+ * 删除是低频操作，这里允许现场扫一次这个聊天的 archivedMessages
+ * （不是每次开页面都扫），用真实剩余数据重建 archivedDayKeys，
+ * 比增量减法更不容易算错（比如同一天还有别的 session 没删）。
+ */
+const recomputeArchiveStatsAfterDeletion = async (chatId) => {
+  const remaining = await db.archivedMessages
+    .where('chatId')
+    .equals(chatId)
+    .toArray();
+
+  const dayKeys = new Set(
+    remaining
+      .map((message) => getDayKey(message.timestamp))
+      .filter(Boolean)
+  );
+
+  const current = await getArchiveStats(chatId);
+
+  await db.archiveStats.put({
+    ...getDefaultArchiveStats(chatId),
+    ...current,
+    chatId,
+    archivedDayKeys: Array.from(dayKeys),
+    totalArchivedDays: dayKeys.size,
+    totalArchivedMessages: remaining.length,
+    updatedAt: nowIso()
+  });
+};
+
+/*
+ * 彻底删除一整个"文件夹"（某一天的归档，或者某一次线下会话的归档）。
+ * 不可恢复——调用方应该在 UI 上用 ConfirmModal 之类的二次确认。
+ * 删除的是已经归档的内容，记忆系统早在归档之前就已经独立提炼过了，
+ * 所以这里不需要、也不会再去动 memories 表。
+ */
+export const deleteArchivedFolder = async (chatId, groupKey) => {
+  if (!isValidChatId(chatId) || !groupKey) {
+    return { deletedCount: 0 };
+  }
+
+  const records = await db.archivedMessages
+    .where('chatId')
+    .equals(chatId)
+    .toArray();
+
+  const targetIds = records
+    .filter((message) => computeGroupKey(message) === groupKey)
+    .map((message) => message.id);
+
+  if (targetIds.length === 0) {
+    return { deletedCount: 0 };
+  }
+
+  await db.transaction(
+    'rw',
+    db.archivedMessages,
+    db.archiveStats,
+    async () => {
+      await db.archivedMessages.bulkDelete(targetIds);
+      await recomputeArchiveStatsAfterDeletion(chatId);
+    }
+  );
+
+  return { deletedCount: targetIds.length };
+};
+
+/*
+ * 删除文件夹里的单条归档消息（不删整个文件夹）。
+ */
+export const deleteArchivedMessage = async (chatId, messageId) => {
+  if (!isValidChatId(chatId) || !messageId) {
+    return false;
+  }
+
+  await db.transaction(
+    'rw',
+    db.archivedMessages,
+    db.archiveStats,
+    async () => {
+      await db.archivedMessages.delete(Number(messageId));
+      await recomputeArchiveStatsAfterDeletion(chatId);
+    }
+  );
+
+  return true;
 };
 
 /*
@@ -569,4 +716,46 @@ export const runAutoArchiveForAllChats = async () => {
       0
     )
   };
+};
+
+/*
+ * 档案柜页面用的一句文学性描述，纯粹由已经算好的统计数字模板生成，
+ * 不调用 AI（不需要额外请求，结果也稳定可预期）。
+ * 按"已聊天天数"分几档换不同措辞，避免每次看到的都是同一句话。
+ */
+export const getArchiveNarrativeLine = ({
+  chattedDays = 0,
+  totalArchivedDays = 0,
+  characterName = 'Ta'
+}) => {
+  if (chattedDays <= 0) {
+    return '这段故事还没正式开始。';
+  }
+
+  const ratio = chattedDays > 0
+    ? Math.round((totalArchivedDays / chattedDays) * 100)
+    : 0;
+
+  if (totalArchivedDays === 0) {
+    return `已经一起度过了 ${chattedDays} 天，还没有被封存的旧日子。`;
+  }
+
+  if (chattedDays < 30) {
+    return (
+      `一起走过 ${chattedDays} 天，其中 ${totalArchivedDays} 天`
+      + `已经被仔细收进了这间屋子。`
+    );
+  }
+
+  if (chattedDays < 100) {
+    return (
+      `${chattedDays} 天的陪伴里，有 ${totalArchivedDays} 天沉淀成了记忆，`
+      + `大约占了你们相处时光的 ${ratio}%。`
+    );
+  }
+
+  return (
+    `${chattedDays} 天，${ratio}% 的时光都封存在这里——`
+    + `这大概已经是 ${characterName} 生命里，一段写不完的章节。`
+  );
 };
