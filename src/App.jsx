@@ -35,6 +35,7 @@ import MarginNotesApp from './apps/margin-notes/MarginNotesApp';
 import AlmanacApp from './apps/almanac/AlmanacApp';
 
 import { startOfflineSessionScheduler, stopOfflineSessionScheduler } from './apps/offline/offlineSessionScheduler';
+import { startOfflineCountdownLockscreenScheduler, stopOfflineCountdownLockscreenScheduler } from './apps/offline/offlineCountdownLockscreenScheduler';
 
 import {
   syncWorkflowsToServer,
@@ -370,6 +371,7 @@ const [hubBackground, setHubBackground] = useState('');
     startParallelOrbitScheduler();
     startWorkflowScheduler();
     startOfflineSessionScheduler();
+    startOfflineCountdownLockscreenScheduler();
 
     void syncWorkflowsToServer();
     void pullWorkflowRunStatusFromServer();
@@ -383,6 +385,7 @@ const [hubBackground, setHubBackground] = useState('');
     stopParallelOrbitScheduler();
     stopWorkflowScheduler();
     stopOfflineSessionScheduler();
+    stopOfflineCountdownLockscreenScheduler();
     stopSnapshotGlobalScheduler();
   };
 }, []);
