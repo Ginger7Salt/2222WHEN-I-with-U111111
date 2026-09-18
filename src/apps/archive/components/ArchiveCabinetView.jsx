@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
@@ -13,6 +13,7 @@ import {
   deleteArchivedFolder,
   deleteArchivedMessage,
   getArchivedMessageFolders,
+  setArchiveFolderCoverImage,
   setArchiveFolderNote
 } from '../archiveService';
 import '../archive.css';
@@ -55,6 +56,8 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
   const [editingNote, setEditingNote] = useState(false);
   const [noteInput, setNoteInput] = useState('');
 
+  const coverInputRef = useRef(null);
+
   const loadFolders = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -78,8 +81,6 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
     [folders, selectedGroupKey]
   );
 
-  // 点列表里的某一行：还没选中就先选中（更新上方大卡片）；
-  // 已经是选中状态再点一次，直接打开全屏播放器。
   const handleRowClick = (folder) => {
     if (selectedGroupKey === folder.groupKey) {
       setIsFullscreen(true);
@@ -115,6 +116,29 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
     await deleteArchivedMessage(chatId, messageId);
     await loadFolders();
     onStatsChanged?.();
+  };
+
+  const handlePickCoverImage = () => {
+    coverInputRef.current?.click();
+  };
+
+  const handleCoverImageChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file || !activeFolder) {
+      return;
+    }
+
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    await setArchiveFolderCoverImage(chatId, activeFolder.groupKey, dataUrl);
+    await loadFolders();
   };
 
   const content = (
@@ -158,18 +182,34 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
 
         {!isLoading && folders.length > 0 && (
           <div className="player-scroll">
-            {/* =========================================================
-                置顶大卡片：当前选中的卷宗
-                ========================================================= */}
             {activeFolder && (
               <div className="player-hero">
                 <div
-                  className="player-hero-cover"
-                  style={{ '--tone': folders.indexOf(activeFolder) % 4 }}
+                  className={['player-hero-cover', activeFolder.coverImage ? 'has-cover' : ''].join(' ')}
+                  style={
+                    activeFolder.coverImage
+                      ? { backgroundImage: `url(${activeFolder.coverImage})` }
+                      : { '--tone': folders.indexOf(activeFolder) % 4 }
+                  }
                 >
-                  <span className="player-hero-daynum">
-                    {formatDayNumber(activeFolder.dayKey)}
-                  </span>
+                  {!activeFolder.coverImage && (
+                    <span className="player-hero-daynum">
+                      {formatDayNumber(activeFolder.dayKey)}
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    className="player-cover-edit-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePickCoverImage();
+                    }}
+                    title="更换封面"
+                    aria-label="更换封面"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
                 </div>
 
                 <div className="player-hero-info">
@@ -190,9 +230,6 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
               </div>
             )}
 
-            {/* =========================================================
-                完整卷宗列表
-                ========================================================= */}
             <div className="player-list-head">全部卷宗</div>
 
             <div className="player-list">
@@ -207,10 +244,14 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
                     onClick={() => handleRowClick(folder)}
                   >
                     <span
-                      className="player-row-cover"
-                      style={{ '--tone': index % 4 }}
+                      className={['player-row-cover', folder.coverImage ? 'has-cover' : ''].join(' ')}
+                      style={
+                        folder.coverImage
+                          ? { backgroundImage: `url(${folder.coverImage})` }
+                          : { '--tone': index % 4 }
+                      }
                     >
-                      {formatDayNumber(folder.dayKey)}
+                      {!folder.coverImage && formatDayNumber(folder.dayKey)}
                     </span>
 
                     <span className="player-row-info">
@@ -229,9 +270,14 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
         )}
       </main>
 
-      {/* =========================================================
-          全屏播放器：转录记录做成"歌词队列"的样子
-          ========================================================= */}
+      <input
+        type="file"
+        accept="image/*"
+        ref={coverInputRef}
+        style={{ display: 'none' }}
+        onChange={handleCoverImageChange}
+      />
+
       {isFullscreen && activeFolder && (
         <div className="player-fullscreen">
           <div className="player-fs-topbar">
@@ -257,12 +303,28 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
           </div>
 
           <div
-            className="player-fs-cover"
-            style={{ '--tone': folders.indexOf(activeFolder) % 4 }}
+            className={['player-fs-cover', activeFolder.coverImage ? 'has-cover' : ''].join(' ')}
+            style={
+              activeFolder.coverImage
+                ? { backgroundImage: `url(${activeFolder.coverImage})` }
+                : { '--tone': folders.indexOf(activeFolder) % 4 }
+            }
           >
-            <span className="player-fs-daynum">
-              {formatDayNumber(activeFolder.dayKey)}
-            </span>
+            {!activeFolder.coverImage && (
+              <span className="player-fs-daynum">
+                {formatDayNumber(activeFolder.dayKey)}
+              </span>
+            )}
+
+            <button
+              type="button"
+              className="player-cover-edit-btn"
+              onClick={handlePickCoverImage}
+              title="更换封面"
+              aria-label="更换封面"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
           </div>
 
           <div className="player-fs-title">{formatDisplayDate(activeFolder.dayKey)}</div>

@@ -392,3 +392,35 @@
   .player-fs-daynum{font-size:42px}
   .player-fs-title{font-size:17px}
 }
+/* ---------- 自定义封面 ---------- */
+.player-hero-cover,.player-row-cover,.player-fs-cover{position:relative}
+.player-hero-cover.has-cover,.player-fs-cover.has-cover{
+  background-size:cover;
+  background-position:center;
+}
+.player-row-cover.has-cover{
+  background-size:cover;
+  background-position:center;
+}
+
+.player-cover-edit-btn{
+  position:absolute;
+  right:6px;
+  bottom:6px;
+  width:24px;
+  height:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  border-radius:50%;
+  background:rgba(255,255,255,.85);
+  color:#171717;
+  cursor:pointer;
+  box-shadow:0 4px 10px rgba(0,0,0,.2);
+  transition:background .2s ease,transform .2s ease;
+}
+.player-cover-edit-btn:hover{background:#fff;transform:scale(1.06)}
+
+.player-fs-cover{position:relative}
+.player-fs-cover .player-cover-edit-btn{right:10px;bottom:10px;width:30px;height:30px}

@@ -278,6 +278,7 @@ const groupArchivedRecords = (records) => {
         mode: message.mode || 'online',
         offlineSessionId: message.offlineSessionId || null,
         note: '',
+        coverImage: '',
         messages: []
       });
     }
@@ -286,10 +287,14 @@ const groupArchivedRecords = (records) => {
 
     folder.messages.push(message);
 
-    // 备注是冗余存在每条消息的 folderNote 字段上的（同一组内应该一致），
+    // 备注/封面都是冗余存在每条消息上的字段（同一组内应该一致），
     // 取第一个非空值即可，不需要新建表。
     if (!folder.note && message.folderNote) {
       folder.note = message.folderNote;
+    }
+
+    if (!folder.coverImage && message.folderCoverImage) {
+      folder.coverImage = message.folderCoverImage;
     }
   }
 
@@ -352,6 +357,38 @@ export const setArchiveFolderNote = async (chatId, groupKey, note) => {
     .where('id')
     .anyOf(targetIds)
     .modify({ folderNote: note || '' });
+
+  return true;
+};
+
+/*
+ * 给某个已归档"文件夹"设置自定义封面图（data URL）。
+ * 跟 setArchiveFolderNote 完全同一套写法：冗余存在这个分组下
+ * 每一条 archivedMessages 记录的 folderCoverImage 字段上，
+ * 批量 update，不新建表、不升级 db 版本。
+ */
+export const setArchiveFolderCoverImage = async (chatId, groupKey, dataUrl) => {
+  if (!isValidChatId(chatId) || !groupKey) {
+    return false;
+  }
+
+  const records = await db.archivedMessages
+    .where('chatId')
+    .equals(chatId)
+    .toArray();
+
+  const targetIds = records
+    .filter((message) => computeGroupKey(message) === groupKey)
+    .map((message) => message.id);
+
+  if (targetIds.length === 0) {
+    return false;
+  }
+
+  await db.archivedMessages
+    .where('id')
+    .anyOf(targetIds)
+    .modify({ folderCoverImage: dataUrl || '' });
 
   return true;
 };
