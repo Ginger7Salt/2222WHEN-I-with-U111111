@@ -1,27 +1,67 @@
-import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
-import { ArrowLeft, Send, Sparkles, LogOut, Heart } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, useMemo } from 'react';
+import {
+  ArrowLeft,
+  Send,
+  Sparkles,
+  LogOut,
+  Image as ImageIcon,
+  User,
+  CloudSun,
+  Smile,
+  Quote,
+  MoreHorizontal,
+  Pencil,
+  Check,
+} from 'lucide-react';
 
 import db from '../../db';
 import MessageList from '../messages/components/MessageList'
 import { triggerOfflineAiResponse, subscribeOfflineAiEvents } from '../../services/offlineAiService';
 import { getOfflineSession, completeOfflineSession } from './offlineSessionService';
+import { maybeUpdateOfflineSceneStatus } from './offlineSceneStatusService';
+import OfflineSceneSettingsSheet from './OfflineSceneSettingsSheet';
 
-const EMOTION_LABELS = {
-  warmth: '暖意', calm: '平静', joy: '愉悦',
-  concern: '牵挂', longing: '想念', hurt: '低落', fatigue: '疲惫',
-};
+// 气泡样式：和线上 ChatRoom.jsx 里的 defaultCss 保持同一套苹果 Message 观感
+// （圆角气泡 + 尖角、accent 色发送气泡、柔和灰色接收气泡）。
+// 这里独立复制一份而不是从 ChatRoom.jsx 里导入，
+// 避免线下聊天室的改动牵连到线上聊天室的渲染逻辑。
+// 如果这个聊天窗在线上设置了 customCss，线下也会沿用同一份自定义气泡样式，
+// 保证同一个角色在线上线下的聊天气泡观感一致。
+const DEFAULT_BUBBLE_CSS = `
+  .user-bubble {
+    background: var(--accent-color);
+    color: var(--accent-foreground);
+    border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+  }
+
+  .ai-bubble {
+    background: var(--control-soft-bg);
+    color: var(--text-main);
+    border: 1px solid var(--card-border);
+    border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+  }
+
+  .chat-font {
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+`;
 
 const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false }) => {
   const [session, setSession] = useState(null);
   const [chat, setChat] = useState(null);
   const [character, setCharacter] = useState(null);
-  const [characterState, setCharacterState] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
+  const [showSceneSettings, setShowSceneSettings] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [isEditingSignature, setIsEditingSignature] = useState(false);
+  const [signatureDraft, setSignatureDraft] = useState('');
 
   const scrollAreaRef = useRef(null);
   const hasScrolledToLatestRef = useRef(false);
+  const signatureInputRef = useRef(null);
 
   const isReadonly = readonly || session?.status === 'completed';
 
@@ -34,18 +74,34 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
     if (!sessionRecord || !chatRecord) return;
 
     const charRecord = await db.characters.get(chatRecord.characterId);
-    const stateRecord = await db.characterStates.get(chatId).catch(() => null);
 
-    setSession(sessionRecord);
     setChat(chatRecord);
     if (charRecord) setCharacter(charRecord);
-    setCharacterState(stateRecord || null);
 
     const allMsgs = await db.messages.where('chatId').equals(chatId).sortBy('timestamp');
 
-    setMessages(allMsgs.filter((m) => (
+    const offlineMsgs = allMsgs.filter((m) => (
       m.mode === 'offline' && m.offlineSessionId === offlineSessionId
-    )));
+    ));
+
+    setMessages(offlineMsgs);
+    setSession(sessionRecord);
+
+    // 每 10 条线下消息，静默刷新一次场景状态栏（心情/天气/内心独白）。
+    // 不阻塞当前渲染：生成完成后重新拉一次 session 更新状态栏展示。
+    if (charRecord && sessionRecord.status !== 'completed') {
+      void maybeUpdateOfflineSceneStatus({
+        chatId,
+        offlineSessionId,
+        session: sessionRecord,
+        character: charRecord,
+        offlineMessages: offlineMsgs,
+      }).then((updatedFields) => {
+        if (updatedFields) {
+          setSession((previous) => (previous ? { ...previous, ...updatedFields } : previous));
+        }
+      });
+    }
   }, [chatId, offlineSessionId]);
 
   useEffect(() => {
@@ -86,7 +142,17 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
     hasScrolledToLatestRef.current = true;
   }, [messages, isAiTyping]);
 
+  useEffect(() => {
+    if (isEditingSignature) {
+      signatureInputRef.current?.focus();
+    }
+  }, [isEditingSignature]);
+
   const messagesById = new Map(messages.map((m) => [m.id, m]));
+
+  const bubbleCss = useMemo(() => (
+    chat?.customCss || DEFAULT_BUBBLE_CSS
+  ), [chat?.customCss]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || isReadonly) return;
@@ -131,6 +197,15 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
     onBack?.();
   };
 
+  const handleSaveSignature = async () => {
+    const trimmed = signatureDraft.trim();
+    setIsEditingSignature(false);
+    if (!chat?.id || trimmed === (chat?.offlineSignature || '')) return;
+
+    await db.chats.update(chatId, { offlineSignature: trimmed });
+    setChat((previous) => (previous ? { ...previous, offlineSignature: trimmed } : previous));
+  };
+
   if (!session || !chat) {
     return (
       <div className="flex h-[100dvh] w-full items-center justify-center bg-[var(--bg-main)] text-[var(--text-main)]">
@@ -139,72 +214,235 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
     );
   }
 
-  const dominantEmotionLabel = characterState?.dominantEmotion
-    ? (EMOTION_LABELS[characterState.dominantEmotion] || characterState.dominantEmotion)
-    : null;
+  const offlineBgImage = chat?.offlineBgImage || '';
+  const offlineBgOpacity = chat?.offlineBgOpacity ?? 0.3;
+  const offlineIsBgDimmed = chat?.offlineIsBgDimmed ?? true;
 
-  const intensityPercent = Number.isFinite(characterState?.intensity)
-    ? Math.round(Math.max(0, Math.min(1, characterState.intensity)) * 100)
-    : null;
+  const hasSceneStatus = Boolean(
+    session.sceneMood || session.sceneWeather || session.sceneMonologue
+  );
+
+  const userAvatar = chat?.userAvatar || character?.userAvatar || '';
+  const userName = chat?.userName || character?.userName || '你';
 
   return (
     <div
       className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden text-left text-xs animate-fade-in-up"
       style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}
     >
-      <header className="z-20 shrink-0 px-4 pb-2 pt-3">
-        <div className="flex items-center justify-between">
+      <style>{bubbleCss}</style>
+
+      {offlineBgImage && (
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${offlineBgImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+            }}
+          />
+          {offlineIsBgDimmed && (
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'var(--bg-main)',
+                opacity: 1 - offlineBgOpacity,
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      <header
+        className="z-20 shrink-0 px-4 pb-3 pt-3 backdrop-blur-xl"
+        style={{ background: offlineBgImage ? 'var(--card-bg-gradient)' : 'transparent' }}
+      >
+        <div className="flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center justify-center rounded-full p-2 opacity-85 hover:opacity-100"
+            className="flex items-center justify-center rounded-full p-2 opacity-85 transition-transform hover:opacity-100 active:scale-90"
             style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
             aria-label="返回"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
 
-          <div className="flex flex-1 flex-col items-center">
-            <span className="text-xs font-semibold">{session.sceneLabel}</span>
-            <span className="text-[10px] opacity-60">
-              {isReadonly ? '这次见面已经结束' : '你们正身处这个场景'}
-            </span>
-          </div>
-
           {!isReadonly ? (
-            <button
-              type="button"
-              onClick={handleEndSession}
-              className="flex items-center gap-1 rounded-full px-3 py-2 text-[10px] font-semibold opacity-85 hover:opacity-100"
-              style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              结束
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowMoreMenu((prev) => !prev)}
+                className="flex items-center justify-center rounded-full p-2 opacity-85 transition-transform hover:opacity-100 active:scale-90"
+                style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
+                aria-label="更多"
+                title="更多"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+
+              {showMoreMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-[65]"
+                    onClick={() => setShowMoreMenu(false)}
+                  />
+                  <div
+                    className="absolute right-0 top-full z-[66] mt-2 w-44 overflow-hidden rounded-2xl shadow-xl backdrop-blur-xl animate-fade-in-up"
+                    style={{ background: 'var(--card-bg-gradient)', border: '1px solid var(--card-border)' }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        setShowSceneSettings(true);
+                      }}
+                      className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[11px] font-medium transition-opacity hover:opacity-70"
+                      style={{ color: 'var(--text-main)' }}
+                    >
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      场景背景设置
+                    </button>
+
+                    <div className="h-px" style={{ background: 'var(--divider)' }} />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        void handleEndSession();
+                      }}
+                      className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[11px] font-medium text-red-500 transition-opacity hover:opacity-70"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      结束这次见面
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
             <div className="w-9" />
           )}
         </div>
 
-        {/* 状态栏：场景细节 + 角色此刻的心情 */}
-        {(session.sceneDescription || dominantEmotionLabel) && (
-          <div
-            className="mt-2 flex items-center justify-between gap-2 rounded-full px-3 py-1.5"
-            style={{ background: 'var(--control-soft-bg)' }}
-          >
-            <span className="truncate text-[10px] opacity-70">
-              {session.sceneDescription || ' '}
-            </span>
+        {/* 沉浸式大头像 + 可编辑签名 */}
+        <div className="mt-1 flex flex-col items-center">
+          <div className="relative">
+            <div
+              className="flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-full border-[3px] shadow-lg transition-transform active:scale-95"
+              style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--bg-main)' }}
+            >
+              {character?.avatar ? (
+                <img src={character.avatar} alt={character?.name || '对方'} className="h-full w-full object-cover" />
+              ) : (
+                <User className="h-7 w-7 opacity-40" />
+              )}
+            </div>
 
-            {dominantEmotionLabel && (
-              <span
-                className="flex shrink-0 items-center gap-1 text-[10px] font-semibold"
-                style={{ color: 'var(--accent-color)' }}
+            <div
+              className="absolute -bottom-1 -right-1.5 flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 shadow-md"
+              style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--bg-main)' }}
+              title={userName}
+            >
+              {userAvatar ? (
+                <img src={userAvatar} alt={userName} className="h-full w-full object-cover" />
+              ) : (
+                <User className="h-3.5 w-3.5 opacity-40" />
+              )}
+            </div>
+          </div>
+
+          <div className="mt-2 max-w-[80%]">
+            {isEditingSignature ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  ref={signatureInputRef}
+                  value={signatureDraft}
+                  onChange={(event) => setSignatureDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleSaveSignature();
+                    }
+                  }}
+                  onBlur={handleSaveSignature}
+                  maxLength={40}
+                  placeholder="写一句这个场景的签名…"
+                  className="w-40 rounded-full border bg-transparent px-3 py-1 text-center text-[11px] outline-none"
+                  style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                />
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={handleSaveSignature}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-transform active:scale-90"
+                  style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+                >
+                  <Check className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  if (isReadonly) return;
+                  setSignatureDraft(chat?.offlineSignature || '');
+                  setIsEditingSignature(true);
+                }}
+                className="flex items-center gap-1 text-[11px] italic opacity-70 transition-opacity hover:opacity-100"
               >
-                <Heart className="h-3 w-3" />
-                {dominantEmotionLabel}
-                {intensityPercent !== null ? ` · ${intensityPercent}%` : ''}
-              </span>
+                <span className="truncate">
+                  {chat?.offlineSignature || (isReadonly ? '这次见面的签名还是空的' : '点这里，给这个场景写一句签名…')}
+                </span>
+                {!isReadonly && <Pencil className="h-2.5 w-2.5 shrink-0 opacity-50" />}
+              </button>
+            )}
+          </div>
+
+          <span className="mt-0.5 text-[10px] font-semibold opacity-60">
+            {session.sceneLabel}
+            {isReadonly ? ' · 已结束' : ''}
+          </span>
+        </div>
+
+        {/* 状态栏：场景细节 + 每 10 条消息刷新一次的心情/天气/内心独白 */}
+        {(session.sceneDescription || hasSceneStatus) && (
+          <div
+            className="mt-2 space-y-1.5 rounded-2xl px-3 py-2 backdrop-blur-md"
+            style={{ background: 'var(--control-soft-bg)', border: '1px solid var(--card-border)' }}
+          >
+            {session.sceneDescription && (
+              <div className="truncate text-[10px] opacity-70">
+                {session.sceneDescription}
+              </div>
+            )}
+
+            {hasSceneStatus && (
+              <div className="flex items-center gap-3 text-[10px]">
+                {session.sceneWeather && (
+                  <span className="flex items-center gap-1 opacity-80">
+                    <CloudSun className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
+                    {session.sceneWeather}
+                  </span>
+                )}
+
+                {session.sceneMood && (
+                  <span className="flex items-center gap-1 opacity-80">
+                    <Smile className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
+                    {session.sceneMood}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {session.sceneMonologue && (
+              <div className="flex items-start gap-1 text-[10px] italic opacity-60">
+                <Quote className="mt-0.5 h-3 w-3 shrink-0" />
+                <span>{session.sceneMonologue}</span>
+              </div>
             )}
           </div>
         )}
@@ -218,8 +456,8 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
           visibleMessages={messages}
           messagesById={messagesById}
           character={character}
-          activeUserAvatar={chat?.userAvatar || character?.userAvatar || ''}
-          activeUserName={chat?.userName || character?.userName || '你'}
+          activeUserAvatar={userAvatar}
+          activeUserName={userName}
           isAiTyping={isAiTyping}
           mcpTrace={null}
           typingText={`${character?.name || '对方'} 正在回应...`}
@@ -283,6 +521,14 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
             </div>
           </div>
         </footer>
+      )}
+
+      {showSceneSettings && (
+        <OfflineSceneSettingsSheet
+          chat={chat}
+          onClose={() => setShowSceneSettings(false)}
+          onUpdated={(patch) => setChat((previous) => ({ ...previous, ...patch }))}
+        />
       )}
     </div>
   );

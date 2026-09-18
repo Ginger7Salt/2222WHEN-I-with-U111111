@@ -22,6 +22,7 @@ import {
   Compass,
   Plus,
   PawPrint,
+  Ticket,
 } from 'lucide-react';
 
 import {
@@ -60,7 +61,7 @@ import CheckInNotice from './check-in/CheckInNotice';
 import { checkForCrossChatCheckIn } from './check-in/checkInService';
 
 import PhotoCaptureButton from './components/cards/PhotoCaptureButton';
-
+import OfflineInviteArchive from '../offline/OfflineInviteArchive';
 
 import './check-in/check-in.css';
 import './interactions/chat-interactions.css';
@@ -182,6 +183,7 @@ const [showTopMenu, setShowTopMenu] = useState(false);
 
 const [activeOfflineSessionId, setActiveOfflineSessionId] = useState(null);
 const [showOfflineComposer, setShowOfflineComposer] = useState(false);
+const [showOfflineInviteArchive, setShowOfflineInviteArchive] = useState(false);
 
 const [showInputMenu, setShowInputMenu] = useState(false);
 
@@ -1104,6 +1106,17 @@ useLayoutEffect(() => {
               <ReceiptText className="h-4 w-4" />
             </button>
 
+            <button
+  type="button"
+  onClick={() => setShowOfflineInviteArchive(true)}
+  className="flex items-center justify-center rounded-full p-2 opacity-85 hover:opacity-100"
+  style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
+  aria-label="查看线下邀约"
+  title="查看线下邀约"
+>
+  <Ticket className="h-3.5 w-3.5" />
+</button>
+
             <MoreMenuPopover
               onOpenCalendar={() => setShowCalendar(true)}
               onOpenSettings={() => setShowChatSettings(true)}
@@ -1619,6 +1632,18 @@ useLayoutEffect(() => {
           onCreated={loadChatData}
         />
       )}
+
+      {showOfflineInviteArchive && (
+  <OfflineInviteArchive
+    chatId={chatId}
+    onClose={() => setShowOfflineInviteArchive(false)}
+    onEnterScene={(sessionId) => {
+      setShowOfflineInviteArchive(false);
+      hasScrolledToLatestRef.current = false;
+      setActiveOfflineSessionId(sessionId);
+    }}
+  />
+)}
 
       <StickerPickerModal
         isOpen={showStickerModal}

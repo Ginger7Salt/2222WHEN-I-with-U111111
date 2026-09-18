@@ -50,13 +50,15 @@ const useCountdownText = (scheduledFor, isActive) => {
   return `${parts.join('')}后`;
 };
 
-const CardShell = ({ children, tone = 'default' }) => (
+// 视觉上模仿 iMessage 里居中的「系统事件」气泡（比如「已分享位置」）：
+// 独立于普通聊天气泡、居中、更克制的卡片感，而不是贴着头像的普通对话气泡。
+const CardShell = ({ children, tone = 'default', accentBorder = false }) => (
   <div
-    className="mx-auto my-2 flex max-w-[240px] flex-col gap-1 rounded-xl p-3 text-xs shadow-md"
+    className="mx-auto my-2.5 flex max-w-[260px] flex-col gap-1.5 rounded-[1.25rem] p-3.5 text-xs shadow-lg backdrop-blur-md"
     style={{
       background: tone === 'muted' ? 'var(--control-soft-bg)' : 'var(--card-bg-gradient)',
       color: 'var(--text-main)',
-      border: '1px solid var(--card-border)',
+      border: `1px solid ${accentBorder ? 'var(--accent-color)' : 'var(--card-border)'}`,
       opacity: tone === 'muted' ? 0.65 : 1,
     }}
   >
@@ -106,7 +108,7 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
           <Ticket className="h-3.5 w-3.5 animate-pulse" />
           <span>等待对方回应你的邀约…</span>
         </div>
-        <div className="font-semibold">{sceneLabel}</div>
+        <div className="text-[13px] font-semibold">{sceneLabel}</div>
         {scheduledForText && <div className="opacity-70">{scheduledForText}</div>}
       </CardShell>
     );
@@ -114,10 +116,10 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
 
   if (status === 'pending_review' && proposedBy === 'character') {
     return (
-      <CardShell>
+      <CardShell accentBorder>
         <div className="flex items-center gap-1.5">
           <BookMarked className="h-3.5 w-3.5" style={{ color: 'var(--accent-color)' }} />
-          <span className="font-semibold">{sceneLabel}</span>
+          <span className="text-[13px] font-semibold">{sceneLabel}</span>
         </div>
         {sceneDescription && <div className="opacity-75">{sceneDescription}</div>}
         {scheduledForText && (
@@ -131,7 +133,7 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
             type="button"
             disabled={isResponding}
             onClick={handleAccept}
-            className="flex flex-1 items-center justify-center gap-1 rounded-full py-1.5 font-semibold disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-1 rounded-full py-1.5 font-semibold transition-transform active:scale-95 disabled:opacity-50"
             style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
           >
             <Check className="h-3 w-3" /> 好呀
@@ -140,7 +142,7 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
             type="button"
             disabled={isResponding}
             onClick={handleDecline}
-            className="flex flex-1 items-center justify-center gap-1 rounded-full py-1.5 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-1 rounded-full py-1.5 transition-transform active:scale-95 disabled:opacity-50"
             style={{ background: 'var(--control-soft-bg)' }}
           >
             <X className="h-3 w-3" /> 改天吧
@@ -152,13 +154,16 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
 
   if (status === 'scheduled') {
     return (
-      <CardShell>
+      <CardShell accentBorder>
         <div className="flex items-center gap-1.5">
           <Ticket className="h-3.5 w-3.5" style={{ color: 'var(--accent-color)' }} />
-          <span className="font-semibold">{sceneLabel}</span>
+          <span className="text-[13px] font-semibold">{sceneLabel}</span>
         </div>
         {scheduledForText && <div className="opacity-75">{scheduledForText}</div>}
-        <div className="mt-1 flex items-center gap-1 font-mono text-[11px]" style={{ color: 'var(--accent-color)' }}>
+        <div
+          className="mt-1 flex items-center gap-1 self-start rounded-full px-2 py-0.5 font-mono text-[11px]"
+          style={{ background: 'var(--control-soft-bg)', color: 'var(--accent-color)' }}
+        >
           <Clock className="h-3 w-3" />
           <span>{countdownText}</span>
         </div>
@@ -168,19 +173,31 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
 
   if (status === 'active') {
     return (
-      <CardShell>
+      <CardShell accentBorder>
         <button
           type="button"
           onClick={() => onEnterScene?.(offlineSessionId)}
-          className="flex items-center justify-between gap-2 text-left"
+          className="flex items-center justify-between gap-2 text-left transition-opacity active:opacity-70"
         >
           <div className="flex items-center gap-1.5">
             <BookMarked className="h-3.5 w-3.5" style={{ color: 'var(--accent-color)' }} />
-            <span className="font-semibold">{sceneLabel}</span>
+            <span className="text-[13px] font-semibold">{sceneLabel}</span>
           </div>
           <ChevronRight className="h-4 w-4 opacity-60" />
         </button>
-        <div className="opacity-70">时间到了，点这里赴约</div>
+        <div className="flex items-center gap-1" style={{ color: 'var(--accent-color)' }}>
+          <span className="relative flex h-1.5 w-1.5">
+            <span
+              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+              style={{ background: 'var(--accent-color)' }}
+            />
+            <span
+              className="relative inline-flex h-1.5 w-1.5 rounded-full"
+              style={{ background: 'var(--accent-color)' }}
+            />
+          </span>
+          时间到了，点这里赴约
+        </div>
       </CardShell>
     );
   }
@@ -190,7 +207,7 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
       <CardShell tone="muted">
         <div className="flex items-center gap-1.5 opacity-60">
           <X className="h-3.5 w-3.5" />
-          <span>{sceneLabel}</span>
+          <span className="text-[13px] font-semibold">{sceneLabel}</span>
         </div>
         <div className="opacity-50">
           {status === 'declined' ? '这次没能约成' : '邀约已取消'}
@@ -205,11 +222,11 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
         <button
           type="button"
           onClick={() => onEnterScene?.(offlineSessionId, { readonly: true })}
-          className="flex items-center justify-between gap-2 text-left opacity-75"
+          className="flex items-center justify-between gap-2 text-left opacity-75 transition-opacity active:opacity-50"
         >
           <div className="flex items-center gap-1.5">
             <BookMarked className="h-3.5 w-3.5" />
-            <span>{sceneLabel}</span>
+            <span className="text-[13px] font-semibold">{sceneLabel}</span>
           </div>
           <ChevronRight className="h-4 w-4 opacity-60" />
         </button>
