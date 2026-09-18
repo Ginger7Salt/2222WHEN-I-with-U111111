@@ -980,4 +980,89 @@
     max-height: none;
     padding: 1.15rem 1rem 1.25rem;
   }
+  /* ==========================================================
+   说明书：纯白底色 / 黑色文字
+   ========================================================== */
+
+.manual-page,
+.house-manual-modal {
+  --hm-bg: #fff;
+  --hm-bg-soft: #fff;
+  --hm-ink: #000;
+  --hm-ink-dim: #000;
+  --hm-ink-faint: #000;
+  --hm-line: rgba(0, 0, 0, 0.16);
+  --hm-line-strong: rgba(0, 0, 0, 0.36);
+  --hm-surface: #fff;
+  --hm-surface-hover: #f5f5f5;
+  --text-main: #000;
+  --text-sub: #000;
+  --text-muted: #000;
+  --card-border: var(--hm-line);
+  --card-bg-gradient: #fff;
+  --card-shadow: none;
+  --control-soft-bg: #fff;
+  --control-soft-hover: #f5f5f5;
+  --divider: var(--hm-line);
+  --accent-color: #000;
+  --accent-foreground: #fff;
+  --modal-bg: #fff;
+  color: #000;
+}
+
+.manual-page {
+  background: #fff;
+}
+
+.manual-page::before {
+  display: none;
+}
+
+.manual-article,
+.house-manual-modal__window {
+  background: #fff;
+  box-shadow: none;
+}
+
+.manual-intro h2,
+.house-manual-modal__intro h2 {
+  background: none;
+  color: #000;
+  animation: none;
+  -webkit-text-fill-color: #000;
+}
+
+.manual-index__item--active,
+.house-manual-modal__index-item--active {
+  color: #000;
+  background: #fff;
+  border-bottom-color: #000;
+}
+
+.manual-index__item--active .manual-index__number,
+.house-manual-modal__index-item--active .house-manual-modal__index-number {
+  color: #000;
+  opacity: 0.6;
+}
+
+.manual-article__icon,
+.house-manual-modal__article-icon {
+  color: #000;
+  background: #fff;
+  border-color: #000;
+}
+
+.manual-back-button,
+.manual-header__mark,
+.house-manual-modal__close {
+  color: #000;
+  background: #fff;
+  border-color: var(--hm-line);
+}
+
+.manual-note {
+  color: #000;
+  background: #fff;
+}
+
 }
