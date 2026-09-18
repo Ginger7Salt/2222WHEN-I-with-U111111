@@ -17,16 +17,11 @@ const formatRecordedDate = (value) => {
   });
 };
 
-/*
- * 存档室主界面中间的"记忆卡牌"，填补选中唱片下面原本空荡荡的区域，
- * 同时增加一点可以点着玩的互动性。内容来自这个聊天已有的记忆
- * （memories 表），不是编出来的占位文案；一条记忆都没有时整块不渲染。
- */
 const ArchiveMemoryDeck = ({ chatId }) => {
   const [cards, setCards] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFlipping, setIsFlipping] = useState(false);
+  const [isSwiping, setIsSwiping] = useState(false);
 
   const loadCards = async () => {
     setIsLoading(true);
@@ -52,7 +47,10 @@ const ArchiveMemoryDeck = ({ chatId }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
+  // 当前卡牌与下一张待翻出的卡牌
   const activeCard = cards[activeIndex] || null;
+  const nextIndex = cards.length > 0 ? (activeIndex + 1) % cards.length : 0;
+  const nextCard = cards[nextIndex] || null;
 
   const ringDegrees = useMemo(() => (
     cards.length > 0
@@ -65,78 +63,118 @@ const ArchiveMemoryDeck = ({ chatId }) => {
   }
 
   const handleAdvance = () => {
-    if (isFlipping || cards.length <= 1) {
-      setActiveIndex((previous) => (previous + 1) % Math.max(cards.length, 1));
+    if (isSwiping || cards.length <= 1) {
+      if (cards.length > 1) {
+        setActiveIndex((previous) => (previous + 1) % cards.length);
+      }
       return;
     }
 
-    setIsFlipping(true);
+    // 触发手滑翻牌物理动画：顶层卡片飞甩，底层卡片浮起
+    setIsSwiping(true);
 
-    // 先让当前卡片往左飞出去（像翻单词卡一样），
-    // 动画播完再真正切到下一张，下一张进场时会自带滑入动画。
+    // 400ms 是经过动效调教后的黄金抛卡时间
     setTimeout(() => {
       setActiveIndex((previous) => (previous + 1) % cards.length);
-      setIsFlipping(false);
-    }, 190);
+      setIsSwiping(false);
+    }, 380);
   };
 
   return (
     <div className="archive-memory-deck">
+      {/* 顶部指示条：极简弥散黑白 HUD */}
       <div className="archive-memory-deck-hud">
         <div className="archive-memory-deck-counter">
           <span
             className="archive-memory-deck-ring"
             style={{
-              background: `conic-gradient(var(--accent-color) ${ringDegrees}deg, var(--divider) 0deg)`
+              background: `conic-gradient(#ffffff ${ringDegrees}deg, rgba(255, 255, 255, 0.12) 0deg)`
             }}
           />
-          <span>
-            {activeIndex + 1} / {cards.length}
+          <span className="deck-counter-text">
+            {activeIndex + 1} <span className="deck-counter-divider">/</span> {cards.length}
           </span>
         </div>
 
         <button
           type="button"
           className="archive-memory-deck-shuffle"
-          onClick={() => void loadCards()}
+          onClick={(e) => {
+            e.stopPropagation();
+            void loadCards();
+          }}
           title="换一批记忆"
           aria-label="换一批记忆"
         >
-          <Shuffle className="h-3.5 w-3.5" />
+          <Shuffle className="h-3 w-3" />
         </button>
       </div>
 
+      {/* 3D 实体手感卡牌堆栈 */}
       <div
-        className="archive-memory-deck-stack"
+        className="archive-memory-deck-stage"
         onClick={handleAdvance}
+        role="button"
+        tabIndex={0}
       >
-        <div className="archive-memory-deck-shadow archive-memory-deck-shadow-2" />
-        <div className="archive-memory-deck-shadow archive-memory-deck-shadow-1" />
+        {/* 第 3 层：最底部的卡片阴影虚边 */}
+        <div className="deck-card-layer deck-card-bottom" />
 
-        <div
-          className={[
-            'archive-memory-deck-card',
-            isFlipping ? 'is-flipping-out' : ''
-          ].join(' ')}
-          key={activeCard?.id}
-        >
-          <span className="archive-memory-deck-tag">
-            {activeCard?.typeLabel}
-          </span>
+        {/* 第 2 层：下一张卡片（随着前一张甩走，它将无缝放大浮起到顶层） */}
+        {cards.length > 1 && nextCard && (
+          <div
+            className={[
+              'deck-card-layer deck-card-next',
+              isSwiping ? 'is-promoting' : ''
+            ].join(' ')}
+          >
+            <div className="deck-card-inner">
+              <span className="archive-memory-deck-tag">
+                {nextCard.typeLabel || '记忆'}
+              </span>
+              <p className="archive-memory-deck-content">
+                {nextCard.content || nextCard.title}
+              </p>
+              {nextCard.recordedAt && (
+                <span className="archive-memory-deck-date">
+                  {formatRecordedDate(nextCard.recordedAt)}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
-          <p className="archive-memory-deck-content">
-            {activeCard?.content || activeCard?.title}
-          </p>
+        {/* 第 1 层：当前卡片（点击时呈现向左翻飞划走的物理甩出动画） */}
+        {activeCard && (
+          <div
+            className={[
+              'deck-card-layer deck-card-active',
+              isSwiping ? 'is-swiping-away' : ''
+            ].join(' ')}
+          >
+            <div className="deck-card-inner">
+              <div className="deck-card-header">
+                <span className="archive-memory-deck-tag">
+                  {activeCard.typeLabel || '记忆'}
+                </span>
+                <span className="deck-card-glint" />
+              </div>
 
-          {activeCard?.recordedAt && (
-            <span className="archive-memory-deck-date">
-              记录于 {formatRecordedDate(activeCard.recordedAt)}
-            </span>
-          )}
-        </div>
+              <p className="archive-memory-deck-content">
+                {activeCard.content || activeCard.title}
+              </p>
+
+              {activeCard.recordedAt && (
+                <span className="archive-memory-deck-date">
+                  记录于 {formatRecordedDate(activeCard.recordedAt)}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      <p className="archive-memory-deck-hint">点击卡片翻看下一条</p>
+      <p className="archive-memory-deck-hint">轻触卡片 · 翻看下一张片段</p>
     </div>
   );
 };

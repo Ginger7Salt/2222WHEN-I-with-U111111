@@ -22,6 +22,7 @@ import {
 import {
   MEMORY_JOB_STATUSES,
   MEMORY_STATUSES,
+  MEMORY_TYPES,
   MEMORY_CANDIDATE_PROPOSALS
 
 } from './memoryConstants';
@@ -29,6 +30,10 @@ import {
 import {
   extractMemoryFromConversation
 } from './memoryAiService';
+
+import {
+  runReflectionForChat
+} from './reflectionService';
 
 import {
   buildMemorySourceBatch,
@@ -49,6 +54,15 @@ const NORMAL_DELAY = 90000;
 const RETRY_DELAY = 10 * 60 * 1000;
 const CONTINUATION_DELAY = 1000;
 const MAX_RETRY_COUNT = 3;
+
+/*
+ * 累计这么多条新的、生效中的具体记忆（不含反思本身）之后，
+ * 才值得跑一轮反思——太频繁会导致反思互相重复、也没有新东西可综合。
+ * 用 memoryJobs 记录上新增的 reflectionMemoryCursor 字段
+ * （附加字段，不需要 db 版本升级）记住"上次反思时有多少条"，
+ * 每次只比较增量，不用每次都重新判断"够不够 30 条消息"这种事。
+ */
+const REFLECTION_MEMORY_THRESHOLD = 8;
 
 const nowIso = () => new Date().toISOString();
 
@@ -135,6 +149,47 @@ const updateMemoryJob = async (chatId, updates) => {
   await db.memoryJobs.update(currentJob.id, nextJob);
 
   return nextJob;
+};
+
+/*
+ * 每次一轮"记忆提炼"成功跑完之后顺带检查一下：
+ * 距离上次反思，这个聊天又新增了多少条生效中的具体记忆？
+ * 够阈值才真正跑一次反思，不够就什么也不做——
+ * 复用记忆调度器本来就有的触发节点，不另开一个定时器。
+ * 失败要静默吞掉，不能因为反思出错就影响本轮记忆提炼的正常返回。
+ */
+const maybeRunReflection = async (chatId) => {
+  try {
+    const job = await getMemoryJob(chatId);
+
+    if (!job) {
+      return;
+    }
+
+    const activeMemoryCount = await db.memories
+      .where('chatId')
+      .equals(chatId)
+      .filter((memory) => (
+        memory.status === MEMORY_STATUSES.ACTIVE &&
+        memory.type !== MEMORY_TYPES.REFLECTION
+      ))
+      .count();
+
+    const cursor = Number(job.reflectionMemoryCursor) || 0;
+
+    if (activeMemoryCount - cursor < REFLECTION_MEMORY_THRESHOLD) {
+      return;
+    }
+
+    await runReflectionForChat(chatId);
+
+    await updateMemoryJob(chatId, {
+      reflectionMemoryCursor: activeMemoryCount,
+      lastReflectionAt: nowIso()
+    });
+  } catch (error) {
+    console.warn('[Memory] Reflection check failed safely:', error);
+  }
 };
 
 const clearPendingTimer = (chatId) => {
@@ -648,6 +703,8 @@ export const runMemoryProcessing = async (
       chatId,
       lastProcessedMessageId
     });
+
+    await maybeRunReflection(chatId);
 
     return {
       skipped: false,

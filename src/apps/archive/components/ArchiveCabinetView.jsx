@@ -1,118 +1,65 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState
-} from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  ChevronRight,
+  FileText,
+  Maximize2,
+  Minimize2,
+  Pencil,
+  Trash2,
+  X
+} from 'lucide-react';
 
-import { ArrowLeft, Trash2, X } from 'lucide-react';
-
-import ConfirmModal from '../../../components/ConfirmModal';
 import {
   deleteArchivedFolder,
   deleteArchivedMessage,
   getArchivedMessageFolders,
-  getArchiveNarrativeLine,
-  getArchiveStats,
   setArchiveFolderNote
 } from '../archiveService';
-import ArchiveOrganizerModal from './ArchiveOrganizerModal';
 import '../archive.css';
 
-const formatFolderLabel = (dayKey) => {
-  if (!dayKey) {
-    return '未知日期';
-  }
-
+const formatDisplayDate = (dayKey) => {
+  if (!dayKey) return '未知日期';
   const parts = dayKey.split('-');
-
-  if (parts.length !== 3) {
-    return dayKey;
+  if (parts.length === 3) {
+    return `${parts[0]}.${parts[1]}.${parts[2]}`;
   }
-
-  return `${parts[0]}年${parts[1]}月${parts[2]}日`;
+  return dayKey;
 };
 
-const formatShortLabel = (dayKey) => {
-  if (!dayKey) {
-    return '--.--';
-  }
-
-  const parts = dayKey.split('-');
-
-  if (parts.length !== 3) {
-    return dayKey;
-  }
-
-  return `${parts[1]}.${parts[2]}`;
-};
-
-const formatMessageTime = (value) => {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
+const formatTimeOnly = (timestamp) => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('zh-CN', {
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    hour12: false
   });
 };
 
-const getMessageContentText = (message) => {
-  if (message.type === 'sticker') {
-    return `[贴纸] ${message.content || message.metadata?.name || ''}`;
-  }
-
-  if (message.type === 'photo') {
-    return '[照片]';
-  }
-
-  if (message.type === 'offline_invite') {
-    return `[线下邀约] ${message.content || ''}`;
-  }
-
-  return message.content || '（空消息）';
-};
-
-const ArchiveCabinetView = ({
-  chatOverview,
-  onBack,
-  onStatsChanged
-}) => {
-  const chatId = chatOverview.chatId;
+const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
+  const { chatId, characterName } = chatOverview;
 
   const [folders, setFolders] = useState([]);
-  const [stats, setStats] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 三段式：closed（一沓关闭的文件夹） -> preview（点一下展开的预览卡）
-  // -> full（再点一下进入的全屏完整内容）。同一时刻只有一个文件夹
-  // 处于 preview 或 full。
-  const [previewGroupKey, setPreviewGroupKey] = useState(null);
-  const [fullGroupKey, setFullGroupKey] = useState(null);
+  // 三段式交互状态：
+  // selectedFolder: null 时为抽屉整体视角（P1）；有选中时为半展开封面（P2）
+  // isFullscreen: true 时为全屏深度查阅卷宗内容
+  const [selectedGroupKey, setSelectedGroupKey] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const [noteDraft, setNoteDraft] = useState('');
-  const [isSavingNote, setIsSavingNote] = useState(false);
-  const [showOrganizer, setShowOrganizer] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  // 备注编辑状态
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteInput, setNoteInput] = useState('');
 
-  const loadData = useCallback(async () => {
+  const loadFolders = useCallback(async () => {
     setIsLoading(true);
-
     try {
-      const [nextFolders, nextStats] = await Promise.all([
-        getArchivedMessageFolders(chatId),
-        getArchiveStats(chatId)
-      ]);
-
-      setFolders(nextFolders);
-      setStats(nextStats);
+      const result = await getArchivedMessageFolders(chatId);
+      setFolders(result);
     } catch (error) {
-      console.error('[Archive] 读取档案柜失败：', error);
+      console.error('[ArchiveCabinet] 获取归档文件夹失败：', error);
       setFolders([]);
     } finally {
       setIsLoading(false);
@@ -120,388 +67,324 @@ const ArchiveCabinetView = ({
   }, [chatId]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    void loadFolders();
+  }, [loadFolders]);
 
-  const previewFolder = useMemo(
-    () => folders.find((folder) => folder.groupKey === previewGroupKey) || null,
-    [folders, previewGroupKey]
+  const activeFolder = useMemo(
+    () => folders.find((f) => f.groupKey === selectedGroupKey) || null,
+    [folders, selectedGroupKey]
   );
 
-  const fullFolder = useMemo(
-    () => folders.find((folder) => folder.groupKey === fullGroupKey) || null,
-    [folders, fullGroupKey]
-  );
-
-  const openPreview = (folder) => {
-    setPreviewGroupKey(folder.groupKey);
+  // 切换标签耳选中
+  const handleTabClick = (folder) => {
+    if (selectedGroupKey === folder.groupKey) {
+      // 再次点击同一张：直接进入全屏阅读
+      setIsFullscreen(true);
+    } else {
+      setSelectedGroupKey(folder.groupKey);
+      setIsFullscreen(false);
+      setEditingNote(false);
+    }
   };
 
-  const closePreview = () => setPreviewGroupKey(null);
-
-  const openFull = (folder) => {
-    setNoteDraft(folder.note || '');
-    setFullGroupKey(folder.groupKey);
-    setPreviewGroupKey(null);
-  };
-
-  const closeFull = () => setFullGroupKey(null);
-
+  // 保存备注
   const handleSaveNote = async () => {
-    if (!fullFolder) {
-      return;
-    }
-
-    setIsSavingNote(true);
-
-    try {
-      await setArchiveFolderNote(chatId, fullFolder.groupKey, noteDraft.trim());
-      await loadData();
-    } catch (error) {
-      console.error('[Archive] 保存备注失败：', error);
-    } finally {
-      setIsSavingNote(false);
-    }
+    if (!activeFolder) return;
+    await setArchiveFolderNote(chatId, activeFolder.groupKey, noteInput.trim());
+    setEditingNote(false);
+    await loadFolders();
   };
 
-  const handleOrganizerClosed = async (didArchive) => {
-    setShowOrganizer(false);
+  // 删除整份卷宗
+  const handleDeleteFolder = async () => {
+    if (!activeFolder) return;
+    const confirm = window.confirm(`确认永久销毁该卷宗（${activeFolder.dayKey}）的全部档案吗？`);
+    if (!confirm) return;
 
-    if (didArchive) {
-      await loadData();
-      onStatsChanged?.();
-    }
+    await deleteArchivedFolder(chatId, activeFolder.groupKey);
+    setSelectedGroupKey(null);
+    setIsFullscreen(false);
+    await loadFolders();
+    onStatsChanged?.();
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) {
-      return;
-    }
+  // 删除单条归档
+  const handleDeleteSingleMessage = async (messageId) => {
+    const confirm = window.confirm('确认抹去这条记录吗？');
+    if (!confirm) return;
 
-    try {
-      if (deleteTarget.type === 'folder') {
-        await deleteArchivedFolder(chatId, deleteTarget.groupKey);
-        setFullGroupKey(null);
-        setPreviewGroupKey(null);
-      } else if (deleteTarget.type === 'message') {
-        await deleteArchivedMessage(chatId, deleteTarget.messageId);
-      }
-
-      await loadData();
-      onStatsChanged?.();
-    } catch (error) {
-      console.error('[Archive] 删除存档失败：', error);
-    } finally {
-      setDeleteTarget(null);
-    }
+    await deleteArchivedMessage(chatId, messageId);
+    await loadFolders();
+    onStatsChanged?.();
   };
-
-  const narrativeLine = getArchiveNarrativeLine({
-    chattedDays: chatOverview.chattedDays,
-    totalArchivedDays: stats?.totalArchivedDays ?? chatOverview.totalArchivedDays,
-    characterName: chatOverview.characterName
-  });
 
   return (
-    <div className="archive-app">
-      <div className="archive-hud">
+    <div className="cabinet-viewport">
+      {/* 顶部极简 HUD 导航 */}
+      <header className="cabinet-hud">
         <button
           type="button"
-          className="archive-hud-back"
-          onClick={onBack}
+          className="cabinet-hud-btn"
+          onClick={() => {
+            if (isFullscreen) {
+              setIsFullscreen(false);
+            } else if (selectedGroupKey) {
+              setSelectedGroupKey(null);
+            } else {
+              onBack();
+            }
+          }}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          返回选择
+          <span>{isFullscreen ? '合上封面' : selectedGroupKey ? '推回抽屉' : '返回唱片架'}</span>
         </button>
 
-        <span className="archive-hud-title">
-          {chatOverview.characterName} 的档案柜
-        </span>
-
-        <span style={{ width: 36 }} />
-      </div>
-
-      <div className="archive-cabinet">
-        <div className="archive-cabinet-narrative">
-          {narrativeLine}
+        <div className="cabinet-title-stamp">
+          <span className="stamp-box">CONFIDENTIAL</span>
+          <span className="cabinet-char-name">{characterName} 档案室</span>
         </div>
 
+        <div className="cabinet-stat-pill">
+          {folders.length} 卷封存
+        </div>
+      </header>
+
+      {/* 主体区域：抽屉舞台 */}
+      <main className="cabinet-stage">
         {isLoading && (
-          <div className="archive-cabinet-empty">
-            正在拉开抽屉。
+          <div className="cabinet-loading">
+            <div className="cabinet-loading-box" />
+            <p>正在拉开铁皮档案抽屉...</p>
           </div>
         )}
 
         {!isLoading && folders.length === 0 && (
-          <div className="archive-cabinet-empty">
-            这个聊天框还没有归档任何内容。
-            <br />
-            点击下方"整理归档"可以提前把旧消息收进来。
+          <div className="cabinet-empty">
+            <div className="cabinet-empty-folder">
+              <span className="empty-tab">EMPTY</span>
+              <p>当前档案盒内尚无归档卷宗</p>
+            </div>
           </div>
         )}
 
+        {/* =========================================================================
+            P1 视图：档案抽屉内部与错落排列的文件袋凸出标签（Tabs）
+            ========================================================================= */}
         {!isLoading && folders.length > 0 && (
-          <div className="archive-folder-stack-wrap">
-            <div className="archive-folder-stack">
-              {folders.map((folder, index) => (
-                <button
-                  type="button"
-                  key={folder.groupKey}
-                  className={[
-                    'archive-folder-tab',
-                    index % 2 === 0
-                      ? 'archive-folder-tab--a'
-                      : 'archive-folder-tab--b'
-                  ].join(' ')}
-                  style={{ zIndex: index + 1 }}
-                  onClick={() => openPreview(folder)}
-                >
-                  <span className="archive-folder-tab-date">
-                    {formatShortLabel(folder.dayKey)}
-                  </span>
+          <div className={`drawer-box ${selectedGroupKey ? 'has-extracted' : ''}`}>
+            <div className="drawer-hanging-rail">
+              {folders.map((folder, index) => {
+                const isSelected = folder.groupKey === selectedGroupKey;
+                // 模拟 P1 标签在 4 个槽位（左、偏左、偏右、右）错开排布的视觉节奏
+                const tabPosition = `tab-slot-${index % 4}`;
+                const folderIndexStr = String(folders.length - index).padStart(3, '0');
 
-                  <span className="archive-folder-tab-count">
-                    {folder.messages.length} 条
-                  </span>
-
-                  {folder.offlineSessionId && (
-                    <span className="archive-folder-tab-dot" title="线下场景" />
-                  )}
-
-                  {folder.note && (
-                    <span className="archive-folder-tab-note-dot" title="有备注" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="archive-drawer-front">
-        <div className="archive-drawer-stats">
-          <div className="archive-drawer-stat">
-            <span className="archive-drawer-stat-num">
-              {chatOverview.chattedDays}
-            </span>
-            <span className="archive-drawer-stat-label">已相伴(天)</span>
-          </div>
-
-          <div className="archive-drawer-stat">
-            <span className="archive-drawer-stat-num">
-              {chatOverview.activeMessages + chatOverview.archivedMessages}
-            </span>
-            <span className="archive-drawer-stat-label">总消息</span>
-          </div>
-
-          <div className="archive-drawer-stat">
-            <span className="archive-drawer-stat-num">
-              {stats?.totalArchivedDays ?? chatOverview.totalArchivedDays}
-            </span>
-            <span className="archive-drawer-stat-label">已封存(天)</span>
-          </div>
-        </div>
-
-        <div className="archive-drawer-actions">
-          <button
-            type="button"
-            className="archive-plaque-btn"
-            onClick={() => setShowOrganizer(true)}
-          >
-            整理归档
-          </button>
-        </div>
-      </div>
-
-      {/* 预览态：P3 那种单卡展开，点一下文件夹之后、进全屏之前的中间态 */}
-      {previewFolder && (
-        <div className="archive-preview-overlay" onClick={closePreview}>
-          <div
-            className="archive-preview-card"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="archive-preview-close"
-              onClick={closePreview}
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            <div className="archive-preview-date">
-              {formatFolderLabel(previewFolder.dayKey)}
-            </div>
-
-            <div className="archive-preview-count">
-              {previewFolder.messages.length} 条消息
-              {previewFolder.offlineSessionId ? '　·　线下场景' : ''}
-            </div>
-
-            {previewFolder.note && (
-              <div className="archive-preview-note">
-                「{previewFolder.note}」
-              </div>
-            )}
-
-            <div className="archive-preview-snippets">
-              <div className="archive-preview-snippet">
-                <span className="archive-preview-snippet-label">开始</span>
-                <p>{getMessageContentText(previewFolder.messages[0])}</p>
-              </div>
-
-              {previewFolder.messages.length > 1 && (
-                <div className="archive-preview-snippet">
-                  <span className="archive-preview-snippet-label">结尾</span>
-                  <p>
-                    {getMessageContentText(
-                      previewFolder.messages[previewFolder.messages.length - 1]
-                    )}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <button
-              type="button"
-              className="archive-preview-enter-btn"
-              onClick={() => openFull(previewFolder)}
-            >
-              查看完整内容
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 全屏态：完整内容 + 备注编辑 + 删除 */}
-      {fullFolder && (
-        <div className="archive-app archive-fullscreen">
-          <div className="archive-hud">
-            <button
-              type="button"
-              className="archive-hud-back"
-              onClick={closeFull}
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              收起
-            </button>
-
-            <span className="archive-hud-title">
-              {formatFolderLabel(fullFolder.dayKey)}
-            </span>
-
-            <span style={{ width: 36 }} />
-          </div>
-
-          <div className="archive-fullscreen-body">
-            <div className="archive-folder-note-row">
-              <input
-                type="text"
-                className="archive-folder-note-input"
-                placeholder="写一句备注，方便以后辨认这份存档"
-                value={noteDraft}
-                maxLength={60}
-                onChange={(event) => setNoteDraft(event.target.value)}
-              />
-
-              <button
-                type="button"
-                className="archive-folder-note-save"
-                disabled={isSavingNote || noteDraft === (fullFolder.note || '')}
-                onClick={handleSaveNote}
-              >
-                {isSavingNote ? '保存中' : '保存'}
-              </button>
-            </div>
-
-            <div className="archive-folder-messages archive-folder-messages--full">
-              {fullFolder.messages.map((message) => (
-                <div
-                  className="archive-folder-message-row"
-                  key={message.id}
-                >
+                return (
                   <div
+                    key={folder.groupKey}
                     className={[
-                      'archive-folder-message',
-                      message.sender === 'character'
-                        ? 'is-character'
-                        : ''
+                      'drawer-folder-item',
+                      tabPosition,
+                      isSelected ? 'is-active-tab' : ''
                     ].join(' ')}
+                    style={{
+                      '--depth-index': index,
+                      zIndex: folders.length - index + (isSelected ? 50 : 0)
+                    }}
+                    onClick={() => handleTabClick(folder)}
                   >
-                    <div className="archive-folder-message-meta">
-                      <span>
-                        {message.sender === 'user'
-                          ? chatOverview.userName
-                          : chatOverview.characterName}
-                      </span>
-                      <span>
-                        {formatMessageTime(message.timestamp)}
-                      </span>
+                    {/* 凸出的耳朵标签（Tab） */}
+                    <div className="folder-protruding-tab">
+                      <span className="tab-serial">№ {folderIndexStr}</span>
+                      <span className="tab-date">{formatDisplayDate(folder.dayKey)}</span>
+                      {folder.note && <span className="tab-note-dot" title={folder.note} />}
                     </div>
-                    <div className="archive-folder-message-content">
-                      {getMessageContentText(message)}
+
+                    {/* 文件袋脊背横条 */}
+                    <div className="folder-lip-edge" />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* =========================================================================
+                P2 视图：向上抽拔半展开的【黑白工业档案报纸封面】
+                ========================================================================= */}
+            {activeFolder && (
+              <div
+                className={`extracted-dossier-card ${isFullscreen ? 'dossier-full-mode' : ''}`}
+                onClick={(e) => {
+                  if (!isFullscreen) {
+                    setIsFullscreen(true);
+                  }
+                }}
+              >
+                {/* 档案封面顶部把手条 / 工具条 */}
+                <div className="dossier-topbar">
+                  <div className="dossier-serial-code">
+                    ARCHIVE DEPT. // CHAT-{chatId.slice(0, 6).toUpperCase()}
+                  </div>
+                  <div className="dossier-actions" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="dossier-icon-btn"
+                      onClick={() => setIsFullscreen(!isFullscreen)}
+                      title={isFullscreen ? '折叠为封面' : '全屏展开阅读'}
+                    >
+                      {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                    </button>
+                    <button
+                      type="button"
+                      className="dossier-icon-btn danger"
+                      onClick={handleDeleteFolder}
+                      title="销毁整份卷宗"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      className="dossier-icon-btn"
+                      onClick={() => {
+                        setSelectedGroupKey(null);
+                        setIsFullscreen(false);
+                      }}
+                      title="收纳回抽屉"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 封面纸张主体（参考 P2 的版式构图） */}
+                <div className="dossier-paper-sheet">
+                  {/* 工业排版 Header */}
+                  <div className="dossier-header-block">
+                    <div className="dossier-brand-title">
+                      <span className="title-lead">{characterName}</span>
+                      <span className="title-sub">ARCHIVED DOSSIER</span>
+                    </div>
+                    <div className="dossier-wireframe-box">
+                      <span className="wireframe-cross" />
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className="archive-msg-delete-btn"
-                    title="删除这条存档消息"
-                    onClick={() => setDeleteTarget({
-                      type: 'message',
-                      messageId: message.id
-                    })}
+                  {/* 核心时间印戳与网格图示（纯正 P2 风格） */}
+                  <div className="dossier-spec-row">
+                    <div className="dossier-blueprint-grid">
+                      <div className="blueprint-cells">
+                        {Array.from({ length: 18 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className={`bp-cell ${i === activeFolder.messages.length % 18 ? 'is-marked' : ''}`}
+                          />
+                        ))}
+                      </div>
+                      <span className="blueprint-label">INDEX REF</span>
+                    </div>
+
+                    <div className="dossier-date-badge">
+                      <div className="date-badge-label">RECORD DATE</div>
+                      <div className="date-badge-value">{activeFolder.dayKey}</div>
+                      <div className="date-badge-stat">
+                        TOTAL: {activeFolder.messages.length} MESSAGES
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 备注手写条 */}
+                  <div
+                    className="dossier-note-banner"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingNote(true);
+                      setNoteInput(activeFolder.note || '');
+                    }}
                   >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+                    <span className="note-label">卷宗备注:</span>
+                    {editingNote ? (
+                      <div className="note-input-row" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          value={noteInput}
+                          placeholder="为此段封存记录输入简注..."
+                          autoFocus
+                          onChange={(e) => setNoteInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && void handleSaveNote()}
+                        />
+                        <button type="button" onClick={handleSaveNote}>保存</button>
+                      </div>
+                    ) : (
+                      <div className="note-text">
+                        {activeFolder.note || <span className="note-placeholder">点击添加备注条目...</span>}
+                        <Pencil className="h-2.5 w-2.5 ml-1 inline opacity-60" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* =========================================================================
+                      P2 展开的卷宗正文：对话记录清单（全屏时完整展示；非全屏时做渐隐预览）
+                      ========================================================================= */}
+                  <div className="dossier-records-container">
+                    <div className="records-header-line">
+                      <span>TRANSCRIPT LOG</span>
+                      <span>SECURE // READ-ONLY</span>
+                    </div>
+
+                    <div className="dossier-records-scroll">
+                      {activeFolder.messages.map((msg, i) => (
+                        <div key={msg.id || i} className="dossier-msg-row">
+                          <div className="msg-sidebar">
+                            <span className="msg-seq">#{String(i + 1).padStart(2, '0')}</span>
+                            <span className="msg-time">{formatTimeOnly(msg.timestamp)}</span>
+                          </div>
+                          <div className="msg-body">
+                            <div className="msg-sender-tag">
+                              {msg.role === 'user' ? 'YOU' : characterName.toUpperCase()}
+                            </div>
+                            <div className="msg-text">{msg.content}</div>
+                          </div>
+                          {isFullscreen && (
+                            <button
+                              type="button"
+                              className="msg-del-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDeleteSingleMessage(msg.id);
+                              }}
+                              title="抹去该条消息"
+                            >
+                              <Trash2 className="h-2.5 w-2.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {!isFullscreen && (
+                      <div className="dossier-click-hint">
+                        <span>轻触卡片展开全屏卷宗</span>
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
 
-            <p className="archive-folder-hint">
-              这份存档只读文本，不会影响记忆系统里已经保存的内容。
-            </p>
-
-            <div className="archive-folder-actions">
-              <button
-                type="button"
-                className="archive-folder-delete-btn"
-                onClick={() => setDeleteTarget({
-                  type: 'folder',
-                  groupKey: fullFolder.groupKey
-                })}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                删除整份存档
-              </button>
+            {/* P1 底部抽屉金属外壳与百叶拉手装饰 */}
+            <div className="cabinet-drawer-front">
+              <div className="drawer-metal-handle">
+                <div className="handle-louver handle-1" />
+                <div className="handle-louver handle-2" />
+                <div className="handle-louver handle-3" />
+              </div>
+              <div className="drawer-yellow-tag">
+                <span>{characterName.toLowerCase()}'s secret files</span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {showOrganizer && (
-        <ArchiveOrganizerModal
-          chatOverview={chatOverview}
-          onClose={handleOrganizerClosed}
-        />
-      )}
-
-      <ConfirmModal
-        isOpen={Boolean(deleteTarget)}
-        title={
-          deleteTarget?.type === 'folder'
-            ? '删除整份存档？'
-            : '删除这条存档消息？'
-        }
-        message={
-          deleteTarget?.type === 'folder'
-            ? '这份存档里的所有消息都会被永久删除，无法恢复。记忆系统里已经提炼好的内容不会受影响。'
-            : '这条消息会被永久删除，无法恢复。记忆系统里已经提炼好的内容不会受影响。'
-        }
-        confirmText="删除"
-        cancelText="取消"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
+        )}
+      </main>
     </div>
   );
 };
