@@ -108,8 +108,7 @@ const MessageRow = ({
               className="h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm"
               style={{
                 borderColor: 'var(--card-border)',
-              }}
-            />
+              }} loading="lazy" decoding="async" />
           ) : (
             <div
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
@@ -127,8 +126,7 @@ const MessageRow = ({
             className="h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm"
             style={{
               borderColor: 'var(--card-border)',
-            }}
-          />
+            }} loading="lazy" decoding="async" />
         ) : (
           <div
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"

@@ -532,6 +532,9 @@ export default function AskBoxApp({ onBackHub }) {
                     }
                     alt={char.name}
                     className="h-10 w-10 rounded-full object-cover filter grayscale border border-stone-200"
+                                        loading="lazy"
+                    decoding="async"
+
                     onError={(event) => {
                       event.target.src =
                         'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=100';

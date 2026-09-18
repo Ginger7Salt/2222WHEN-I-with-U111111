@@ -77,8 +77,7 @@ export const HubBackgroundSettings = ({
             className="h-44 w-full object-cover"
             style={{
               filter: 'saturate(0.9)',
-            }}
-          />
+            }} loading="lazy" decoding="async" />
 
           <div
             className="pointer-events-none absolute inset-0"

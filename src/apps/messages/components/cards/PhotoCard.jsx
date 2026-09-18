@@ -65,8 +65,8 @@ export const PhotoCard = ({ metadata, messageId, isUser = false }) => {
             alt="真实照片"
             className="block h-auto w-full object-cover"
             loading="lazy"
-            style={{ maxHeight: '260px' }}
-          />
+            style={{ maxHeight: '260px' }} 
+            decoding="async" />
         ) : (
           <div
             className="flex h-32 w-40 items-center justify-center opacity-50"

@@ -59,8 +59,7 @@ export const InnerWorldEntryList = ({ onBack }) => {
                   <img
                     src={character.avatar}
                     alt={character.name}
-                    className="h-10 w-10 shrink-0 rounded-full object-cover"
-                  />
+                    className="h-10 w-10 shrink-0 rounded-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 font-serif text-sm">
                     {character?.name?.[0] || '?'}

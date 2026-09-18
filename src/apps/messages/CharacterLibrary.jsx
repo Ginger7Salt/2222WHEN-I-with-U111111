@@ -39,7 +39,7 @@ export const CharacterLibrary = ({ onSelectCharacter, onCreateNew }) => {
             <GlassCard key={char.id} className="flex items-center justify-between gap-3 p-4">
               <div className="flex items-center gap-3 min-w-0">
                 {char.avatar ? (
-                  <img src={char.avatar} alt={char.name} className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0" />
+                  <img src={char.avatar} alt={char.name} className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0" loading="lazy" decoding="async" />
                 ) : (
                   <div className="w-11 h-11 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold shrink-0">
                     {char.name?.[0]}

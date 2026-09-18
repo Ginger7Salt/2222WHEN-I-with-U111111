@@ -158,7 +158,7 @@ const LocalImageUploader = ({
         className={`group relative flex cursor-pointer items-center justify-center overflow-hidden border border-black/10 bg-black/[0.03] transition-all hover:bg-black/[0.06] ${getShapeClasses()}`}
       >
         {value ? (
-          <img src={value} alt="" className="h-full w-full object-cover" />
+          <img src={value} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="flex flex-col items-center gap-1.5 p-3 text-center text-black/40">
             <ImagePlus className="h-5 w-5 stroke-[1.5]" />
@@ -225,8 +225,7 @@ const CameraFilmItem = ({ character, index, isActive, onClick }) => {
           <img
             src={displayPhoto}
             alt=""
-            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-          />
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" loading="lazy" decoding="async" />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-zinc-900 font-serif text-6xl italic text-white/40">
             {getInitial(getCharacterName(character))}
@@ -747,8 +746,7 @@ const ChatSelectorModal = ({ chats, onSelect, onClose }) => (
               <img
                 src={getCharacterAvatar(chat.character)}
                 alt=""
-                className="h-10 w-10 rounded-full object-cover bg-black/5"
-              />
+                className="h-10 w-10 rounded-full object-cover bg-black/5" loading="lazy" decoding="async" />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-serif text-sm font-semibold">
                   {getCharacterName(chat.character)}
@@ -971,8 +969,7 @@ export const WorkflowApp = ({ onBackHub }) => {
             <img
               src={activeBanner}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover transition-all duration-700 ease-out"
-            />
+              className="absolute inset-0 h-full w-full object-cover transition-all duration-700 ease-out" loading="lazy" decoding="async" />
           ) : (
             <div className="absolute inset-0 bg-[#161616]" />
           )}
@@ -1010,8 +1007,7 @@ export const WorkflowApp = ({ onBackHub }) => {
                   <img
                     src={activeUserAvatar}
                     alt=""
-                    className="h-16 w-16 rounded-full border border-white/30 object-cover shadow-lg sm:h-20 sm:w-20"
-                  />
+                    className="h-16 w-16 rounded-full border border-white/30 object-cover shadow-lg sm:h-20 sm:w-20" loading="lazy" decoding="async" />
                 ) : (
                   <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/30 bg-white/10 font-serif text-xl sm:h-20 sm:w-20">
                     {getInitial(userProfile.name)}

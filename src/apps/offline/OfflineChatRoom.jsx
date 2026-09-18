@@ -304,7 +304,7 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
             style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--bg-main)' }}
           >
             {character?.avatar ? (
-              <img src={character.avatar} alt={character?.name || '对方'} className="h-full w-full object-cover" />
+              <img src={character.avatar} alt={character?.name || '对方'} className="h-full w-full object-cover" loading="lazy" decoding="async" />
             ) : (
               <User className="h-7 w-7 opacity-40" />
             )}

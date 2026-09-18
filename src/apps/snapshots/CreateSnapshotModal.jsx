@@ -139,7 +139,7 @@ export const CreateSnapshotModal = ({ isOpen, onClose, currentChatId, onPostCrea
           <div className="flex gap-3">
             <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-neutral-100 flex items-center justify-center text-xs font-bold text-neutral-500">
               {authorAvatar ? (
-                <img src={authorAvatar} alt={authorName} className="w-full h-full object-cover" />
+                <img src={authorAvatar} alt={authorName} className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 authorName[0]
               )}
@@ -156,7 +156,7 @@ export const CreateSnapshotModal = ({ isOpen, onClose, currentChatId, onPostCrea
           {/* 已选图片预览 */}
           {mediaUrl && (
             <div className="relative rounded-2xl overflow-hidden bg-neutral-100 ml-12">
-              <img src={mediaUrl} alt="预览" className="w-full max-h-64 object-cover" />
+              <img src={mediaUrl} alt="预览" className="w-full max-h-64 object-cover" loading="lazy" decoding="async" />
               <button
                 type="button"
                 onClick={() => setMediaUrl('')}

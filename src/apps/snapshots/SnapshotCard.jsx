@@ -274,7 +274,7 @@ export const SnapshotCard = ({
         <div className="flex items-center gap-3 cursor-pointer group" onClick={handleAuthorClick}>
           <div className="w-10 h-10 rounded-2xl overflow-hidden p-[2px] bg-gradient-to-tr from-neutral-200 to-neutral-400 shadow-sm transition-transform active:scale-95">
             {localSnapshot.authorAvatar ? (
-              <img src={localSnapshot.authorAvatar} alt={localSnapshot.authorName} className="w-full h-full object-cover rounded-[14px]" />
+              <img src={localSnapshot.authorAvatar} alt={localSnapshot.authorName} className="w-full h-full object-cover rounded-[14px]" loading="lazy" decoding="async" />
             ) : (
               <div className="w-full h-full bg-neutral-100 flex items-center justify-center text-xs font-bold text-neutral-600 rounded-[14px]">
                 {(localSnapshot.authorName || 'U')[0]}
@@ -336,7 +336,7 @@ export const SnapshotCard = ({
             className="relative w-full h-40 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 flex items-center justify-center group"
           >
             {editMediaUrl ? (
-              <img src={editMediaUrl} alt="预览" className="w-full h-full object-cover" />
+              <img src={editMediaUrl} alt="预览" className="w-full h-full object-cover" loading="lazy" decoding="async" />
             ) : (
               <span className="text-neutral-400 text-xs">点击选择照片（可选）</span>
             )}
@@ -401,7 +401,7 @@ export const SnapshotCard = ({
           {/* 视觉主图：有图时做成图片主导的 hero 卡，悬浮徽章 + 底部渐变文字 */}
           {localSnapshot.mediaUrl ? (
             <div className="w-full aspect-square rounded-[24px] overflow-hidden bg-neutral-100 shadow-inner relative group">
-              <img src={localSnapshot.mediaUrl} alt="Moment snapshot" className="w-full h-full object-cover" />
+              <img src={localSnapshot.mediaUrl} alt="Moment snapshot" className="w-full h-full object-cover" loading="lazy" decoding="async" />
 
               {/* 左上角：作者类型 + 时间 悬浮徽章 */}
               <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md text-[10px] font-medium text-white/90 border border-white/10">

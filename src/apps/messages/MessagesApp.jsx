@@ -304,8 +304,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                         <img
                           src={char.avatar}
                           alt={chatItem.title}
-                          className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0 shadow-sm"
-                        />
+                          className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0 shadow-sm" loading="lazy" decoding="async" />
                       ) : (
                         <div
                           className="w-11 h-11 rounded-full flex items-center justify-center font-bold shrink-0 shadow-sm"

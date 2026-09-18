@@ -23,7 +23,7 @@ export default function PebbleNestCompass({
             <div className="pebble-nest-folio__identity">
               <div className="pebble-nest-avatar">
                 {activeCharacter.avatar ? (
-                  <img src={activeCharacter.avatar} alt={activeCharacter.name} />
+                  <img src={activeCharacter.avatar} alt={activeCharacter.name} loading="lazy" decoding="async" />
                 ) : (
                   <Feather size={20} strokeWidth={1.5} />
                 )}
@@ -94,7 +94,7 @@ export default function PebbleNestCompass({
             >
               <div className="pebble-nest-index__avatar">
                 {character.avatar ? (
-                  <img src={character.avatar} alt="" />
+                  <img src={character.avatar} alt="" loading="lazy" decoding="async" />
                 ) : (
                   <Sparkles size={13} strokeWidth={1.4} />
                 )}

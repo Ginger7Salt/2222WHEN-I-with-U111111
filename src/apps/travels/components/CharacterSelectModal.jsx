@@ -66,8 +66,7 @@ export const CharacterSelectModal = ({ isOpen, onClose, characters = [], onSelec
                     src={character.avatar}
                     alt={character.name}
                     className="h-12 w-12 shrink-0 rounded-2xl border object-cover"
-                    style={{ borderColor: 'var(--card-border)' }}
-                  />
+                    style={{ borderColor: 'var(--card-border)' }} loading="lazy" decoding="async" />
                 ) : (
                   <div
                     className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border font-serif text-lg font-bold"

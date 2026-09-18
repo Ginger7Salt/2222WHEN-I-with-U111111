@@ -369,8 +369,7 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
                     <img
                       src={config.companionAvatar}
                       alt={config.companionName}
-                      className="h-full w-full object-cover"
-                    />
+                      className="h-full w-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <span className="font-serif text-xl">
                       {getInitial(config.companionName, 'W')}
@@ -438,8 +437,7 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
                   <img
                     src={config.companionAvatar}
                     alt={config.companionName}
-                    className="h-full w-full object-cover"
-                  />
+                    className="h-full w-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   getInitial(config.companionName, 'W')
                 )}
@@ -456,8 +454,7 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
                   <img
                     src={config.userAvatar}
                     alt="用户头像"
-                    className="h-full w-full object-cover"
-                  />
+                    className="h-full w-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   'U'
                 )}

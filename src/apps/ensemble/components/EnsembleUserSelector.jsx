@@ -88,7 +88,7 @@ export const EnsembleUserSelector = ({
               }}
             >
               {item.avatar ? (
-                <img src={item.avatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
+                <img src={item.avatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <div className="w-3.5 h-3.5 rounded-full bg-current opacity-20 flex items-center justify-center text-[8px]">
                   {item.name[0]}

@@ -33,8 +33,7 @@ export const CheckInNotice = ({
           <img
             src={delivery.characterAvatar}
             alt={delivery.characterName}
-            className="check-in-notice__avatar"
-          />
+            className="check-in-notice__avatar" loading="lazy" decoding="async" />
         ) : (
           <span className="check-in-notice__avatar check-in-notice__avatar--empty">
             {delivery.characterName?.[0] || 'C'}

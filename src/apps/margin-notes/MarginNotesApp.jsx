@@ -651,8 +651,7 @@ export default function MarginNotesApp({ onBackHub }) {
                         <img
                           src={character.avatar}
                           alt=""
-                          className="mn-character__avatar"
-                        />
+                          className="mn-character__avatar" loading="lazy" decoding="async" />
                       ) : (
                         <span
                           className="mn-character__placeholder"

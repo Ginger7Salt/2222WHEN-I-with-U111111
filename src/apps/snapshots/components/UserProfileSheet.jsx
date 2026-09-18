@@ -170,7 +170,7 @@ export const UserProfileSheet = ({
       {/* 固定背景大图：贯穿整页，滚动内容浮在它上方，图片始终可见 */}
       <div className="fixed inset-0 z-0">
         {displayBanner ? (
-          <img src={displayBanner} alt="Banner" className="w-full h-full object-cover" />
+          <img src={displayBanner} alt="Banner" className="w-full h-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-300" />
         )}
@@ -225,7 +225,7 @@ export const UserProfileSheet = ({
                 className="relative w-full h-28 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200/70 flex items-center justify-center group"
               >
                 {editBanner ? (
-                  <img src={editBanner} alt="Banner preview" className="w-full h-full object-cover" />
+                  <img src={editBanner} alt="Banner preview" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <span className="text-neutral-400 text-xs">点击选择封面图</span>
                 )}
@@ -246,7 +246,7 @@ export const UserProfileSheet = ({
                 className="relative w-16 h-16 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200/70 flex-shrink-0 flex items-center justify-center group"
               >
                 {editAvatar ? (
-                  <img src={editAvatar} alt="Avatar preview" className="w-full h-full object-cover" />
+                  <img src={editAvatar} alt="Avatar preview" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <span className="text-neutral-500 font-bold text-lg">{(editName || 'U')[0]}</span>
                 )}
@@ -303,7 +303,7 @@ export const UserProfileSheet = ({
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                 {editShowcase.map((img, idx) => (
                   <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-neutral-100 border border-neutral-200/70">
-                    <img src={img} alt={`Showcase ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img src={img} alt={`Showcase ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                     <button
                       type="button"
                       onClick={() => removeShowcaseImage(idx)}
@@ -340,7 +340,7 @@ export const UserProfileSheet = ({
             <div className="flex items-center gap-3">
               <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 bg-neutral-100 border border-neutral-200/70">
                 {profile?.avatar ? (
-                  <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+                  <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center font-bold text-neutral-500 text-lg">
                     {(profile?.name || 'U')[0]}
@@ -414,7 +414,7 @@ export const UserProfileSheet = ({
                   key={idx}
                   className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 snap-start bg-white/70 border border-white/60 shadow-sm"
                 >
-                  <img src={img} alt={`Showcase ${idx + 1}`} className="w-full h-full object-cover" />
+                  <img src={img} alt={`Showcase ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 </div>
               ))}
             </div>
@@ -459,7 +459,7 @@ export const UserProfileSheet = ({
                     className="relative aspect-square overflow-hidden bg-white/60"
                   >
                     {item.mediaUrl ? (
-                      <img src={item.mediaUrl} alt="Snapshot" className="w-full h-full object-cover" />
+                      <img src={item.mediaUrl} alt="Snapshot" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                     ) : (
                       <div className="w-full h-full p-2 flex items-center justify-center bg-gradient-to-br from-neutral-50 to-neutral-100">
                         <span className="text-[8px] font-serif italic text-neutral-600 line-clamp-5 text-center leading-snug">
@@ -479,7 +479,7 @@ export const UserProfileSheet = ({
           <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-3xl p-4 flex items-start gap-3 shadow-sm">
             <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-neutral-100 flex items-center justify-center text-xs font-bold text-neutral-500">
               {latestEcho.senderAvatar ? (
-                <img src={latestEcho.senderAvatar} alt={latestEcho.senderName} className="w-full h-full object-cover" />
+                <img src={latestEcho.senderAvatar} alt={latestEcho.senderName} className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 (latestEcho.senderName || '?')[0]
               )}

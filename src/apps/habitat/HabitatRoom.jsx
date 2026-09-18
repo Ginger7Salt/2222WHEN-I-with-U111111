@@ -546,8 +546,7 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
               <img
                 src={habitat.avatar}
                 alt={habitat.name}
-                className="relative z-10 h-24 w-24 object-contain animate-float-gentle"
-              />
+                className="relative z-10 h-24 w-24 object-contain animate-float-gentle" loading="lazy" decoding="async" />
 
               {sprayActive && (
                 <div
@@ -981,8 +980,7 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
                             <img
                               src={log.avatar}
                               alt={log.operatorName}
-                              className="h-6 w-6 rounded-full object-cover"
-                            />
+                              className="h-6 w-6 rounded-full object-cover" loading="lazy" decoding="async" />
                           ) : (
                             <div
                               className="flex h-6 w-6 items-center justify-center rounded-full"

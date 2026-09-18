@@ -149,8 +149,7 @@ export const QuickBoard = ({ delay = 300 }) => {
                           src={item.avatar}
                           alt={item.characterName}
                           className="w-7 h-7 rounded-full object-cover shrink-0 border"
-                          style={{ borderColor: 'var(--card-border)' }}
-                        />
+                          style={{ borderColor: 'var(--card-border)' }} loading="lazy" decoding="async" />
                       ) : (
                         <div
                           className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"

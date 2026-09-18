@@ -190,7 +190,7 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
               className="w-16 h-16 rounded-full border border-white/20 bg-black/5 dark:bg-white/10 flex items-center justify-center cursor-pointer overflow-hidden relative group"
             >
               {character.avatar ? (
-                <img src={character.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                <img src={character.avatar} alt="Avatar" className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <Upload className="w-5 h-5 opacity-40" />
               )}
@@ -553,7 +553,7 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
               className="w-10 h-10 rounded-full border border-white/20 bg-black/5 dark:bg-white/10 flex items-center justify-center cursor-pointer overflow-hidden"
             >
               {character.userAvatar ? (
-                <img src={character.userAvatar} alt="User Avatar" className="w-full h-full object-cover" />
+                <img src={character.userAvatar} alt="User Avatar" className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <User className="w-4 h-4 opacity-40" />
               )}

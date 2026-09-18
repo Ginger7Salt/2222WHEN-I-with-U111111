@@ -386,7 +386,7 @@ export const ImaginariumSettingsModal = ({
                   <div key={m.id || idx} className="flex items-center justify-between p-2 rounded-xl border" style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
                     <div className="flex items-center gap-2 overflow-hidden">
                       <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 font-bold text-xs flex items-center justify-center border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
-                        {m.avatar ? <img src={m.avatar} alt={m.name} className="w-full h-full object-cover" /> : m.name?.[0]}
+                        {m.avatar ? <img src={m.avatar} alt={m.name} className="w-full h-full object-cover" loading="lazy" decoding="async" /> : m.name?.[0]}
                       </div>
                       <div className="truncate">
                         <div className="font-bold text-xs">{m.name}</div>

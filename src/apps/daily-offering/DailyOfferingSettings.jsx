@@ -293,7 +293,7 @@ export const DailyOfferingSettings = () => {
           <div className="daily-offering-settings__image-list">
             {images.map((image) => (
               <article key={image.id} className="daily-offering-settings__image-item">
-                <img src={image.url} alt="" />
+                <img src={image.url} alt="" loading="lazy" decoding="async" />
 
                 <p>{image.description}</p>
 

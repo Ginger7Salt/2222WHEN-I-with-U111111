@@ -393,8 +393,7 @@ const handleToggleLocation = async () => {
                 <img
                   src={userAvatar}
                   alt="User Avatar"
-                  className="w-full h-full object-cover"
-                />
+                  className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <User className="w-5 h-5 opacity-35" />
               )}
@@ -920,8 +919,7 @@ const handleToggleLocation = async () => {
                 <img
                   src={bgImage}
                   alt="Background"
-                  className="w-full h-full object-cover"
-                />
+                  className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <Upload className="w-4 h-4 opacity-40" />
               )}

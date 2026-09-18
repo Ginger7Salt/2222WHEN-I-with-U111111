@@ -162,7 +162,7 @@ export const AdoptionAndEditModal = ({ habitat, onClose, onSave }) => {
           <div className="flex items-center gap-4">
             <div className="relative h-16 w-16 rounded-full border overflow-hidden flex items-center justify-center shrink-0" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--control-soft-bg)' }}>
               {avatar ? (
-                <img src={avatar} alt="avatar" className="h-full w-full object-cover" />
+                <img src={avatar} alt="avatar" className="h-full w-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>无头像</span>
               )}

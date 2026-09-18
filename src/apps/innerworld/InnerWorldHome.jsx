@@ -653,7 +653,7 @@ const pageStyle = `
 const Avatar = ({ src, fallback, className = '' }) => (
   <div className={`iw-avatar ${className}`}>
     {src ? (
-      <img src={src} alt="" />
+      <img src={src} alt="" loading="lazy" decoding="async" />
     ) : (
       <div className="iw-avatar-fallback">{fallback}</div>
     )}
@@ -1113,7 +1113,7 @@ export const InnerWorldHome = ({
                   onClick={() => setIsAvatarMenuOpen((value) => !value)}
                 >
                   {userAvatar ? (
-                    <img src={userAvatar} alt="" />
+                    <img src={userAvatar} alt="" loading="lazy" decoding="async" />
                   ) : (
                     <span>{userName.slice(0, 1)}</span>
                   )}
@@ -1170,7 +1170,7 @@ export const InnerWorldHome = ({
 
           <section className="iw-cover">
             {banner ? (
-              <img src={banner} alt="" className="iw-cover-image" />
+              <img src={banner} alt="" className="iw-cover-image" loading="lazy" decoding="async" />
             ) : (
               <div className="iw-cover-fallback" />
             )}
@@ -1222,7 +1222,7 @@ export const InnerWorldHome = ({
             <div className="iw-photo-row">
               {photos.map((photo, index) => (
                 <div className="iw-photo" key={`${photo}-${index}`}>
-                  <img src={photo} alt="" />
+                  <img src={photo} alt="" loading="lazy" decoding="async" />
 
                   <button
                     type="button"

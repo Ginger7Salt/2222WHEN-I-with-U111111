@@ -119,8 +119,7 @@ export const ImaginariumHeaderBanner = ({ chat, onUpdateChatInfo }) => {
               <img
                 src={chat.bgImage || 'https://picsum.photos/200/200?random=1'}
                 alt="Banner Avatar"
-                className="w-full h-full object-cover"
-              />
+                className="w-full h-full object-cover" loading="lazy" decoding="async" />
               {isEditing && (
                 <label className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer text-white">
                   <Upload className="w-4 h-4" />
@@ -203,7 +202,7 @@ export const ImaginariumHeaderBanner = ({ chat, onUpdateChatInfo }) => {
               {gallery.map((item, idx) => (
                 <div key={item.id || idx} className="space-y-1 group relative">
                   <div className="aspect-[4/3] rounded-xl overflow-hidden border relative" style={{ borderColor: 'var(--card-border)' }}>
-                    <img src={item.url} alt={item.title} className="w-full h-full object-cover" />
+                    <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                     {isEditing && (
                       <div className="absolute inset-0 bg-black/60 p-1 flex flex-col justify-between text-white text-[9px]">
                         <div className="flex justify-between items-center">

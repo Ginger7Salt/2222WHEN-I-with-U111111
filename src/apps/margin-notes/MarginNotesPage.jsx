@@ -277,8 +277,7 @@ export default function MarginNotesPage({
             <img
               className="mn-companion-line__avatar"
               src={character?.avatar || page.characterAvatar}
-              alt=""
-            />
+              alt="" loading="lazy" decoding="async" />
           ) : (
             <span className="mn-companion-line__placeholder" />
           )}

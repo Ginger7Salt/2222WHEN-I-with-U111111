@@ -133,8 +133,7 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
                   style={{
                     borderColor: 'var(--card-bg)',
                     boxShadow: '0 8px 18px color-mix(in srgb, var(--text-main) 16%, transparent)'
-                  }}
-                />
+                  }} loading="lazy" decoding="async" />
               ) : (
                 <div
                   className="absolute inset-[0.48rem] flex h-[3.65rem] w-[3.65rem] items-center justify-center rounded-full border font-serif text-lg font-semibold"

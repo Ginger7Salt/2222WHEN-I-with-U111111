@@ -240,8 +240,7 @@ export const PinnedGallery = ({ delay = 200 }) => {
               <img
                 src={photo.url}
                 alt="Pinned"
-                className="h-full w-full object-cover"
-              />
+                className="h-full w-full object-cover" loading="lazy" decoding="async" />
             ) : (
               <ImageIcon className="h-5 w-5 opacity-40" />
             )}

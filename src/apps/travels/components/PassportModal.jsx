@@ -137,8 +137,7 @@ export const PassportModal = ({ isOpen, onClose, character, onNext }) => {
                     src={character.avatar}
                     alt={character.name}
                     className="h-16 w-16 rounded-2xl border object-cover"
-                    style={{ borderColor: 'var(--card-border)' }}
-                  />
+                    style={{ borderColor: 'var(--card-border)' }} loading="lazy" decoding="async" />
                 ) : (
                   <div
                     className="flex h-16 w-16 items-center justify-center rounded-2xl border font-serif text-xl"

@@ -191,8 +191,7 @@ export const TravelStampCard = ({
                     src={character.avatar}
                     alt={character.name}
                     className="h-8 w-8 rounded-full border-2 object-cover"
-                    style={{ borderColor: 'var(--card-bg)' }}
-                  />
+                    style={{ borderColor: 'var(--card-bg)' }} loading="lazy" decoding="async" />
                 ) : (
                   <div
                     className="flex h-8 w-8 items-center justify-center rounded-full border-2 text-[10px] font-bold"

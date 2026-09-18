@@ -338,8 +338,7 @@ export const CheckInSettings = ({
                         {character.avatar ? (
                           <img
                             src={character.avatar}
-                            alt={character.name}
-                          />
+                            alt={character.name} loading="lazy" decoding="async" />
                         ) : (
                           <span className="check-in-character-avatar">
                             {character.name?.[0] || 'C'}

@@ -842,8 +842,7 @@ const driftDelay = `${(index % 5) * -0.78}s`;
                                 src={char.avatar}
                                 alt={char.name}
                                 className="h-6 w-6 rounded-full object-cover"
-                                style={{ border: '1px solid var(--card-border)' }}
-                              />
+                                style={{ border: '1px solid var(--card-border)' }} loading="lazy" decoding="async" />
                             ) : (
                               <div
                                 className="flex h-6 w-6 items-center justify-center rounded-full"

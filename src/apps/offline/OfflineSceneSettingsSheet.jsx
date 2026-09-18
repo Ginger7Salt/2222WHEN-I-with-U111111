@@ -99,7 +99,7 @@ const OfflineSceneSettingsSheet = ({ chat, onClose, onUpdated }) => {
               style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)' }}
             >
               {bgImage ? (
-                <img src={bgImage} alt="线下场景背景" className="h-full w-full object-cover" />
+                <img src={bgImage} alt="线下场景背景" className="h-full w-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <Upload className="h-4 w-4 opacity-40" />
               )}

@@ -19,7 +19,7 @@ export const ImaginariumCuteTypingIndicator = ({ activeSpeakerName, activeSpeake
     >
       <div className="relative w-5 h-5 rounded-full overflow-hidden shrink-0 border" style={{ borderColor: 'var(--card-border)' }}>
         {activeSpeakerAvatar ? (
-          <img src={activeSpeakerAvatar} alt="Thinking" className="w-full h-full object-cover" />
+          <img src={activeSpeakerAvatar} alt="Thinking" className="w-full h-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full flex items-center justify-center font-bold text-[9px]" style={{ backgroundColor: 'var(--control-soft-bg)' }}>
             {activeSpeakerName?.[0] || 'AI'}

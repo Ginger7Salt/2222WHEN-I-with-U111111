@@ -121,8 +121,7 @@ export const HabitatApp = ({ onBackHub, onChatRoomStateChange }) => {
                 <img 
                   src={h.avatar} 
                   alt={h.name} 
-                  className="h-12 w-12 object-contain animate-float-gentle"
-                />
+                  className="h-12 w-12 object-contain animate-float-gentle" loading="lazy" decoding="async" />
               </div>
 
               <div className="flex-1 space-y-2 overflow-hidden">

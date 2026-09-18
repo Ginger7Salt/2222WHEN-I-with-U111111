@@ -269,7 +269,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
                 style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
               >
                 {m.senderAvatar ? (
-                  <img src={m.senderAvatar} alt={m.senderName} className="w-full h-full object-cover" />
+                  <img src={m.senderAvatar} alt={m.senderName} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   m.senderName?.[0]
                 )}
@@ -294,7 +294,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
                   className={`p-3 text-xs leading-relaxed cursor-pointer transition-all active:scale-[0.99] w-fit max-w-full text-left break-words ${isUser ? 'imaginarium-bubble-user' : 'imaginarium-bubble-ai'}`}
                 >
                   {m.type === 'sticker' ? (
-                    <img src={m.content} alt="贴纸" className="max-w-[120px] rounded-xl" />
+                    <img src={m.content} alt="贴纸" className="max-w-[120px] rounded-xl" loading="lazy" decoding="async" />
                   ) : m.type === 'voice' ? (
                     <VoiceCard content={m.content} metadata={m.metadata} />
                   ) : (

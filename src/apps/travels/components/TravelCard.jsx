@@ -38,8 +38,7 @@ export const TravelCard = ({ travel, character, postcardCount = 0, onClick, onDe
               src={character.avatar} 
               alt={character.name} 
               className="w-10 h-10 rounded-full object-cover border shrink-0 shadow-sm"
-              style={{ borderColor: 'var(--card-border)' }}
-            />
+              style={{ borderColor: 'var(--card-border)' }} loading="lazy" decoding="async" />
           ) : (
             <div 
               className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-serif font-bold shrink-0 border"

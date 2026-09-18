@@ -234,8 +234,8 @@ export const StickerPickerModal = ({ isOpen, onClose, onSelectSticker }) => {
                   src={sticker.url}
                   alt={sticker.name}
                   className="w-12 h-12 object-cover rounded-xl"
-                  loading="lazy"
-                />
+                  loading="lazy" 
+                  decoding="async" />
 
                 <span className="text-[9px] truncate w-full text-center mt-1 opacity-70">
                   {sticker.name}

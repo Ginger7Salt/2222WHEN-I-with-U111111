@@ -90,8 +90,7 @@ export const DailyOfferingModal = ({
             <img
               src={offering.characterAvatar}
               alt=""
-              className="daily-offering-modal__avatar"
-            />
+              className="daily-offering-modal__avatar" loading="lazy" decoding="async" />
           ) : (
             <span className="daily-offering-modal__avatar daily-offering-modal__avatar--fallback">
               {getInitials(offering.characterName)}
@@ -111,8 +110,7 @@ export const DailyOfferingModal = ({
                 <img
                   src={track.artworkUrl}
                   alt={`${track.title || offering.media?.requestedTitle || '音乐'}封面`}
-                  className="daily-offering-music-card__cover"
-                />
+                  className="daily-offering-music-card__cover" loading="lazy" decoding="async" />
               ) : (
                 <div className="daily-offering-music-card__cover daily-offering-music-card__cover--blank">
                   <Music2 className="h-7 w-7" strokeWidth={1.3} />
@@ -191,6 +189,8 @@ export const DailyOfferingModal = ({
                 src={imageUrl}
                 alt={offering.media?.description || '角色留下的今日画面'}
                 className="daily-offering-image-card__image"
+                                loading="lazy"
+                decoding="async"
                 onError={() => setImageFailed(true)}
               />
             ) : (

@@ -283,7 +283,7 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
           <div className="relative w-14 h-14">
             <div className="w-14 h-14 rounded-full bg-white shadow-sm border border-neutral-200/60 flex items-center justify-center overflow-hidden">
               {userStoryInfo.avatar ? (
-                <img src={userStoryInfo.avatar} alt="You" className="w-full h-full object-cover" />
+                <img src={userStoryInfo.avatar} alt="You" className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <span className="text-sm font-bold text-neutral-400">{userStoryInfo.name[0]}</span>
               )}
@@ -306,7 +306,7 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
             <div className="relative w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-neutral-300 to-neutral-400 shadow-sm">
               <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
                 {storyChar.avatar ? (
-                  <img src={storyChar.avatar} alt={storyChar.name} className="w-full h-full object-cover" />
+                  <img src={storyChar.avatar} alt={storyChar.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <span className="text-sm font-bold text-neutral-400">{storyChar.name[0]}</span>
                 )}
@@ -338,7 +338,7 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
               }`}>
                 <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
                   {npc.avatar ? (
-                    <img src={npc.avatar} alt={npc.name} className="w-full h-full object-cover" />
+                    <img src={npc.avatar} alt={npc.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <span className="text-sm font-bold text-neutral-400">{npc.name[0]}</span>
                   )}

@@ -38,8 +38,7 @@ const MessageAvatar = ({ avatar, name }) => {
       src={avatar}
       alt=""
       className="h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm"
-      style={{ borderColor: 'var(--card-border)' }}
-    />
+      style={{ borderColor: 'var(--card-border)' }} loading="lazy" decoding="async" />
   );
 };
 
