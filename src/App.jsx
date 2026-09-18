@@ -36,8 +36,16 @@ import AlmanacApp from './apps/almanac/AlmanacApp';
 
 import { startOfflineSessionScheduler, stopOfflineSessionScheduler } from './apps/offline/offlineSessionScheduler';
 
-import { syncWorkflowsToServer } from './services/workflow/workflowSyncService';
-import { syncAllChatContextsToCloud } from './services/cloudPushService';
+import {
+  syncWorkflowsToServer,
+  pullWorkflowRunStatusFromServer,
+} from './services/workflow/workflowSyncService';
+import {
+  syncAllChatContextsToCloud,
+  syncPendingPushMessages,
+  syncPendingHomeBoard,
+  syncPendingDiaries,
+} from './services/cloudPushService';
 
 
 import soundService from './services/soundService';
@@ -148,124 +156,6 @@ const DEFAULT_AUDIO_CONFIG = {
   activeTrackId: '',
 };
 
-/**
- * 开屏/唤醒双保险同步函数：
- * 从云端待取池拉取未写入本地的消息，确保用户不点系统通知直接点桌面图标打开 App 也能 100% 看见新消息
- */
-async function syncPendingPushMessages() {
-  try {
-    const pushSetting = await db.settings.get('cloudPushConfig');
-    const rawServerUrl = pushSetting?.value?.serverUrl;
-    const serverUrl = (rawServerUrl || '').trim().replace(/\/$/, '');
-
-    if (!serverUrl) {
-      return;
-    }
-
-    const res = await fetch(`${serverUrl}/api/fetch-pending-messages`, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    });
-    if (!res.ok) return;
-
-    const data = await res.json();
-    if (!data.messages || !Array.isArray(data.messages) || data.messages.length === 0) {
-      return;
-    }
-
-    const syncedIds = [];
-
-    for (const msg of data.messages) {
-      const chatIdNum = Number(msg.chatId || 1);
-      const rawTimestamp = msg.timestamp || Date.now();
-      const timestampNum = typeof rawTimestamp === 'number' ? rawTimestamp : new Date(rawTimestamp).getTime();
-
-      // 本地查重：优先复合索引，兼容时间+内容查重防崩溃
-      let exists = false;
-      try {
-        exists = await db.messages
-          .where('[chatId+timestamp]')
-          .equals([chatIdNum, timestampNum])
-          .first();
-      } catch (err) {
-        exists = await db.messages
-          .where('chatId')
-          .equals(chatIdNum)
-          .filter((m) => m.timestamp === timestampNum || (m.content === msg.content && Math.abs((m.timestamp || 0) - timestampNum) < 3000))
-          .first();
-      }
-
-      if (!exists) {
-        const { id, ...recordToSave } = msg;
-        const nowIso = new Date(timestampNum).toISOString();
-
-        // ⚠️ 核心修复：sender 必须对齐系统标准 'assistant'，而不是 'character'！
-        const rawSender = recordToSave.sender;
-        const normalizedSender = (rawSender === 'character' || rawSender === 'assistant') ? 'assistant' : (rawSender || 'assistant');
-
-        const messageRecord = {
-          ...recordToSave,
-          chatId: chatIdNum,
-          characterId: Number(recordToSave.characterId || 1),
-          sender: normalizedSender,
-          type: recordToSave.type || 'text',
-          content: recordToSave.content || '',
-          metadata: {
-            isOfflinePush: true,
-            source: 'cloud-pending-sync',
-            ...(recordToSave.metadata || {}),
-          },
-          quotedMessageId: recordToSave.quotedMessageId ?? null,
-          isRead: 0,
-          timestamp: timestampNum,
-          versions: recordToSave.versions || [
-            {
-              text: recordToSave.content || '',
-              timestamp: timestampNum,
-              model: 'cloud-push-ai',
-            },
-          ],
-          currentVersionIndex: 0,
-        };
-
-        const newMsgId = await db.messages.add(messageRecord);
-
-        // 同步更新对应会话列表摘要和最后更新时间
-        await db.chats.where('id').equals(chatIdNum).modify({
-          updatedAt: nowIso,
-          summary: (messageRecord.content || '').slice(0, 30),
-        });
-
-        // 派发全局事件通知当前打开的聊天框立刻刷新
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('new-local-message-inserted', {
-              detail: {
-                chatId: chatIdNum,
-                messageId: newMsgId,
-              },
-            })
-          );
-        }
-      }
-
-      if (msg.id) {
-        syncedIds.push(msg.id);
-      }
-    }
-
-    if (syncedIds.length > 0) {
-      await fetch(`${serverUrl}/api/ack-pending-messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: syncedIds }),
-      }).catch(() => {});
-    }
-  } catch (error) {
-    console.warn('[CloudPushSync] 同步未完成:', error);
-  }
-}
-
 
 export const App = () => {
   const [showPreloader, setShowPreloader] = useState(true);
@@ -301,10 +191,14 @@ const [hubBackground, setHubBackground] = useState('');
     // 云端离线推送消息开屏/切回前台无感补齐 + 监听 ServiceWorker 点击直达 + 伴侣新消息提示音
   useEffect(() => {
     void syncPendingPushMessages();
+    void syncPendingHomeBoard();
+    void syncPendingDiaries();
 
     const handleWakeSync = () => {
       if (document.visibilityState === 'visible') {
         void syncPendingPushMessages();
+        void syncPendingHomeBoard();
+        void syncPendingDiaries();
       }
     };
 
@@ -315,12 +209,14 @@ const [hubBackground, setHubBackground] = useState('');
 
       if (data.type === 'SYNC_OFFLINE_MESSAGES') {
         void syncPendingPushMessages();
+        void syncPendingHomeBoard();
+        void syncPendingDiaries();
         // 收到来自 SW 的新消息广播时播放提示音
         if (data.action === 'new_message' && data.chatId) {
           soundService.playCompanionMessageSound({ chatId: data.chatId });
         }
       } else if (data.type === 'NAVIGATE_TO_CHAT') {
-        // 用户点击系统横幅通知时，自动直达消息 App
+                // 用户点击系统横幅通知时，自动直达消息 App
         setCurrentApp('messages');
       }
     };
@@ -465,20 +361,18 @@ const [hubBackground, setHubBackground] = useState('');
  useEffect(() => {
   let cancelled = false;
 
-  (async () => {
-    await pullServerWorkflowRunStatus();
-
+   (async () => {
     if (cancelled) return;
 
-        startAutoMessageScheduler();
+    startAutoMessageScheduler();
     startTravelPostcardScheduler();
     startScheduledMessageScheduler();
     startParallelOrbitScheduler();
     startWorkflowScheduler();
     startOfflineSessionScheduler();
-    startSnapshotGlobalScheduler();
 
     void syncWorkflowsToServer();
+    void pullWorkflowRunStatusFromServer();
   })();
 
   return () => {

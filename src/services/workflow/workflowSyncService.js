@@ -155,3 +155,61 @@ export const scheduleWorkflowSync = () => {
     });
   }, SYNC_DEBOUNCE_MS);
 };
+
+/**
+ * 拉取服务器侧记录的 workflow 运行状态（lastRunDate / lastRunError），
+ * 写回本地 db.workflows，让「工作流」管理页也能看到 App 关闭期间、
+ * 服务器已经代跑过的执行结果（比如早上 6 点用 MCP 天气发的那条）。
+ *
+ * 只读云端接口，完全不影响本地 workflowScheduler.js 的调度逻辑；
+ * 未配置推送服务器 / 网络失败时静默跳过。
+ */
+export const pullWorkflowRunStatusFromServer = async () => {
+  try {
+    const serverUrl = await getEffectiveServerUrl();
+
+    if (!serverUrl) {
+      return { skipped: true, reason: 'no-server-configured' };
+    }
+
+    const response = await fetch(`${serverUrl}/api/fetch-workflow-run-status`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+
+    if (!response.ok) {
+      return { skipped: false, ok: false, status: response.status };
+    }
+
+    const data = await response.json().catch(() => null);
+    const serverWorkflows = Array.isArray(data?.workflows) ? data.workflows : [];
+
+    let updatedCount = 0;
+
+    for (const serverWorkflow of serverWorkflows) {
+      if (!serverWorkflow?.id) continue;
+
+      const localWorkflow = await db.workflows.get(serverWorkflow.id);
+      if (!localWorkflow) continue;
+
+      const serverRunDate = serverWorkflow.lastRunDate || '';
+      const localRunDate = localWorkflow.lastRunDate || '';
+
+      // 谁的 lastRunDate 更新（YYYY-MM-DD 字符串可以直接比较），就以谁为准，
+      // 避免服务器的旧记录覆盖掉本地刚跑完的新结果。
+      if (serverRunDate && serverRunDate >= localRunDate) {
+        await db.workflows.update(serverWorkflow.id, {
+          lastRunDate: serverRunDate,
+          lastRunError: serverWorkflow.lastRunError || null,
+          lastRunStatus: serverWorkflow.lastRunError ? 'error' : 'sent',
+        });
+        updatedCount += 1;
+      }
+    }
+
+    return { skipped: false, ok: true, updatedCount };
+  } catch (error) {
+    console.warn('[WorkflowSync] 拉取服务器运行状态失败（已忽略）:', error?.message);
+    return { skipped: false, ok: false, error: error?.message };
+  }
+};
