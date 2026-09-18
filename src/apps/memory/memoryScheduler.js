@@ -400,7 +400,38 @@ const persistExtractionResult = async ({
         note: '由对话整理形成。'
       });
 
-          existingMemories.push(createdMemory);
+      /*
+       * moodDelta / emotionTag 都不是 createMemory 的标准参数（那是
+       * 记忆内容本身的字段，不是所有类型的记忆都有），这里跟反思机制里
+       * sourceMemoryIds、以及 characterAbsenceService.js 的做法一样，
+       * 单独补一次附加字段写入。
+       *
+       * 这里同时修了一个既有问题：之前 applyCharacterEmotionMemory
+       * 传的是 createdMemory（不带 moodDelta），而不是带 moodDelta 的
+       * memory，导致从对话里正式提炼出来的情绪记忆从未真正影响过角色的
+       * 实时心情状态——只有 characterAbsenceService.js 生成的"被冷落"
+       * 情绪记忆生效。现在两条路径行为一致。
+       */
+      const extraMemoryFields = {};
+
+      if (memory.moodDelta) {
+        extraMemoryFields.moodDelta = memory.moodDelta;
+      }
+
+      if (memory.emotionTag) {
+        extraMemoryFields.emotionTag = memory.emotionTag;
+      }
+
+      if (Object.keys(extraMemoryFields).length > 0) {
+        await db.memories.update(createdMemory.id, extraMemoryFields);
+      }
+
+      const persistedMemory = {
+        ...createdMemory,
+        ...extraMemoryFields
+      };
+
+          existingMemories.push(persistedMemory);
       existingContents.add(comparableContent);
 
       /*
@@ -410,7 +441,7 @@ const persistExtractionResult = async ({
       await applyCharacterEmotionMemory({
         chatId,
         characterId,
-        memory: createdMemory
+        memory: persistedMemory
       });
 
       createdMemories += 1;
@@ -734,7 +765,6 @@ export const runMemoryProcessing = async (
     });
 
     await maybeRunReflection(chatId);
-        await maybeRunReflection(chatId);
     await maybeRefreshEmotionPersonality(chatId);
 
     return {

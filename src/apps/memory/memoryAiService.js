@@ -335,7 +335,13 @@ const normalizeMoodDelta = (value) => {
     'concern',
     'longing',
     'hurt',
-    'fatigue'
+    'fatigue',
+    'wronged',
+    'security',
+    'anticipation',
+    'contentment',
+    'surprise',
+    'loneliness'
   ];
 
   const result = {};
@@ -362,6 +368,16 @@ const normalizeMoodDelta = (value) => {
     : null;
 };
 
+
+/*
+ * emotionTag 是给"情绪痕迹"记忆用的自由标签（用户明确要求不局限于
+ * 内置心情维度的固定词表），只做长度和空白清理，不做枚举校验——
+ * 万一 AI 给的词有点跑偏，也只是一个展示用的小标签，不会像 moodDelta
+ * 那样直接改角色状态，风险很低。
+ */
+const normalizeEmotionTag = (value) => (
+  normalizeText(value).slice(0, 12)
+);
 
 const normalizeMemoryItem = (
   item,
@@ -463,6 +479,10 @@ const normalizeMemoryItem = (
     )
       ? normalizeMoodDelta(item?.moodDelta)
       : null,
+
+    emotionTag: type === 'emotion'
+      ? normalizeEmotionTag(item?.emotionTag)
+      : '',
 
     sourceMessageIds,
 
@@ -681,7 +701,15 @@ const buildSystemPrompt = () => `
     - 共同关系中的情绪：subject 为 relationship 或 shared，emotionSubject 为 shared。
 15. 用户短暂情绪通常应为 temporary；角色当前感受可以保留线索，但不得写成永久不变的人格事实。
 16. 当且仅当 type 为 emotion 且 emotionSubject 为 character 或 shared 时，可以输出 moodDelta，用于轻微调整角色当前情绪状态。
-17. moodDelta 只能使用 warmth、calm、joy、concern、longing、hurt、fatigue 这些字段；数值范围必须在 -0.35 到 0.35 之间。
+17. moodDelta 只能使用以下字段；数值范围必须在 -0.35 到 0.35 之间：
+    - warmth（温暖安定）、calm（平静）、joy（愉悦）、concern（关切）、
+      longing（想念）、hurt（失落）、fatigue（疲惫）；
+    - wronged（委屈，觉得自己被误解、不被理解，跟 hurt 不同，很容易被一句解释或安慰打消）；
+    - security（安全感/信任，越低代表角色对这段关系越没有安全感、越不安，不要另外发明一个"不安"字段，用 security 给负值即可）；
+    - anticipation（对某个还没发生的具体事情的期待/兴奋，跟当下就有的 joy 不同）；
+    - contentment（满足、松弛的知足感）；
+    - surprise（意外之喜，通常是"期待值被超出"，例如期待收到一点小礼物，结果对方给的超出预期）；
+    - loneliness（孤单，哪怕在聊天也可能存在，跟专门指向"想念用户"的 longing 不同）。
 18. 用户情绪的 emotionSubject 为 user，moodDelta 必须为 null；不要把用户难过、疲惫或开心直接等同于角色的失落、疲惫或开心。
 19. 角色的情绪变化必须克制：例如用户分享好消息可以提高 joy 或 warmth；用户需要空间时可轻微提高 concern，但不要借此制造角色受伤、委屈或被忽视的叙事。
 20. topicKey 使用简短稳定的主题键，例如 coffee、dating、work_stress、character_name；topicKeys 为相关主题键列表，最多 8 项。
@@ -689,6 +717,7 @@ const buildSystemPrompt = () => `
 22. 最多输出 ${MAX_MEMORY_ITEMS} 条 memories 和 ${MAX_CANDIDATE_ITEMS} 条 candidates。
 23. 不得使用 Emoji。
 24. 只输出严格 JSON，不要 Markdown，不要解释。
+25. 当且仅当 type 为 emotion 时，额外给出 emotionTag：用你自己的话概括这条情绪记忆最贴切的情绪标签，1 到 4 个字，例如"心动""委屈""孤单""如释重负"，不必局限于规则 17 里列出的心情字段名称，也不必每条都往同一个词上靠；找不到合适的词就输出空字符串，不要勉强凑一个。
 
 JSON 格式：
 {
@@ -711,6 +740,7 @@ JSON 格式：
   "warmth": 0.1,
   "joy": 0.08
 },
+"emotionTag": "仅 type 为 emotion 时填写；无合适词则为空字符串",
 "sourceMessageIds": [1, 2]
 
     }
@@ -732,6 +762,7 @@ JSON 格式：
 "moodDelta": {
   "warmth": 0.1
 },
+"emotionTag": "仅 type 为 emotion 时填写；无合适词则为空字符串",
 "sourceMessageIds": [1]
 
     }

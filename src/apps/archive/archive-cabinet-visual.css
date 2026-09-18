@@ -1,0 +1,592 @@
+/* ============================================================
+   档案柜 —— 纸质文件袋质感 + CSS 3D 透视卡片目录
+   只覆盖 ArchiveCabinetView 用到的类名，不动 archive.css。
+   ============================================================ */
+
+.cabinet-viewport{
+  --c-paper:#f1f1ef;
+  --c-paper-deep:#e2e2df;
+  --c-ink:#111111;
+  --c-muted:#7a7a76;
+  --c-soft:#cfcfca;
+  --c-yellow:#e8d878;
+  --c-ease:cubic-bezier(.2,.78,.18,1);
+
+  position:fixed;
+  inset:0;
+  z-index:60;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  color:var(--c-ink);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;
+  background:
+    radial-gradient(circle at 50% 6%,rgba(255,255,255,.7),transparent 32%),
+    linear-gradient(180deg,#eeeeec 0%,#d7d7d5 58%,#cbcbc9 100%);
+}
+.cabinet-viewport *{box-sizing:border-box}
+
+/* ---------- 顶部 HUD ---------- */
+.cabinet-hud{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-shrink:0;
+  padding:18px 20px 0;
+}
+.cabinet-hud-btn{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  border:0;
+  background:transparent;
+  color:#5a5a56;
+  font-size:12.5px;
+  cursor:pointer;
+  transition:color .2s ease,transform .2s ease;
+}
+.cabinet-hud-btn:hover{color:#000;transform:translateY(-1px)}
+.cabinet-title-stamp{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+}
+.stamp-box{
+  padding:2px 9px;
+  border-radius:3px;
+  background:#111;
+  color:#fff;
+  font-size:8px;
+  letter-spacing:.18em;
+}
+.cabinet-char-name{
+  font-size:12px;
+  font-weight:600;
+  color:var(--c-ink);
+  letter-spacing:.02em;
+}
+.cabinet-stat-pill{
+  padding:6px 12px;
+  border-radius:999px;
+  background:rgba(255,255,255,.55);
+  box-shadow:0 4px 14px rgba(0,0,0,.07);
+  color:#5a5a56;
+  font-size:10.5px;
+  white-space:nowrap;
+}
+
+/* ---------- 舞台：3D 透视容器 ---------- */
+.cabinet-stage{
+  position:relative;
+  flex:1;
+  min-height:0;
+  margin:16px 14px 0;
+  overflow:hidden;
+  border:1.5px solid #171717;
+  border-radius:16px 16px 0 0;
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.3),transparent 12%,transparent 87%,rgba(0,0,0,.07)),
+    linear-gradient(180deg,#dadad8,#c7c7c4);
+  box-shadow:
+    0 22px 46px rgba(0,0,0,.14),
+    inset 0 2px 0 rgba(255,255,255,.55);
+}
+
+.cabinet-loading,.cabinet-empty{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  color:var(--c-muted);
+  font-size:12.5px;
+  text-align:center;
+}
+.cabinet-loading-box{
+  width:46px;
+  height:34px;
+  border:1.5px solid #171717;
+  border-radius:4px;
+  background:linear-gradient(180deg,#efefed,#d3d3d0);
+  animation:cabinetLoadingTilt 1.1s ease-in-out infinite;
+}
+@keyframes cabinetLoadingTilt{
+  0%,100%{transform:rotate(-3deg) translateY(0)}
+  50%{transform:rotate(3deg) translateY(-4px)}
+}
+.cabinet-empty-folder{
+  padding:22px 26px;
+  border:1px solid #171717;
+  border-radius:6px;
+  background:var(--c-paper);
+  box-shadow:0 10px 24px rgba(0,0,0,.1);
+}
+.empty-tab{
+  display:inline-block;
+  margin-bottom:8px;
+  padding:3px 10px;
+  border-radius:3px;
+  background:#111;
+  color:#fff;
+  font-size:9px;
+  letter-spacing:.14em;
+}
+
+/* ---------- 抽屉整体：透视舞台 ---------- */
+.drawer-box{
+  position:relative;
+  width:100%;
+  height:100%;
+  padding:26px 5% 90px;
+}
+
+/* ---------- 悬挂文件袋轨道：CSS 3D 透视，像斜着看过去的卡片目录 ---------- */
+.drawer-hanging-rail{
+  position:relative;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  perspective:1300px;
+  perspective-origin:50% -10%;
+  transform-style:preserve-3d;
+  transition:filter .5s var(--c-ease);
+}
+.drawer-box.has-extracted .drawer-hanging-rail{
+  filter:brightness(.94) blur(.3px);
+}
+
+.drawer-folder-item{
+  position:relative;
+  flex:1;
+  min-height:26px;
+  max-height:44px;
+  cursor:pointer;
+  transform-style:preserve-3d;
+  transform:
+    translateZ(calc(var(--depth-index) * -16px))
+    rotateX(calc(var(--depth-index) * -1deg))
+    translateY(calc(var(--depth-index) * 1.2px));
+  transform-origin:50% 0%;
+  transition:transform .4s var(--c-ease),filter .4s ease;
+  filter:brightness(calc(1 - var(--depth-index) * 0.012));
+}
+.drawer-folder-item.tab-slot-0,
+.drawer-folder-item.tab-slot-2{transform-origin:15% 0%}
+.drawer-folder-item.tab-slot-1,
+.drawer-folder-item.tab-slot-3{transform-origin:85% 0%}
+
+.drawer-folder-item.is-active-tab{
+  transform:
+    translateZ(60px)
+    rotateX(0deg)
+    translateY(-6px);
+  filter:brightness(1.04);
+}
+.drawer-folder-item:hover:not(.is-active-tab){
+  transform:
+    translateZ(calc(var(--depth-index) * -16px + 22px))
+    rotateX(calc(var(--depth-index) * -1deg))
+    translateY(calc(var(--depth-index) * 1.2px - 4px));
+}
+
+/* 文件袋脊背：像索引卡边缘一样的一整条纸边 */
+.folder-lip-edge{
+  position:absolute;
+  inset:0;
+  border-top:1px solid rgba(17,17,17,.55);
+  border-bottom:1px solid rgba(17,17,17,.12);
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.5),transparent 45%),
+    var(--c-paper);
+  box-shadow:0 1px 0 rgba(255,255,255,.4) inset;
+}
+.drawer-folder-item.is-active-tab .folder-lip-edge{
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.65),transparent 45%),
+    #f6f6f4;
+  box-shadow:0 8px 18px rgba(0,0,0,.14);
+}
+
+/* 凸出来的文件袋标签耳朵：真正的马尼拉纸夹感 —— 圆角 + 一侧斜切 */
+.folder-protruding-tab{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:44%;
+  min-width:180px;
+  max-width:280px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:0 18px;
+  border:1px solid #171717;
+  border-bottom:none;
+  background:#dfdfdc;
+  color:#161616;
+  font-size:11px;
+  letter-spacing:.03em;
+  white-space:nowrap;
+  overflow:hidden;
+  box-shadow:0 -2px 6px rgba(0,0,0,.05);
+}
+.tab-slot-0 .folder-protruding-tab,
+.tab-slot-2 .folder-protruding-tab{
+  left:6%;
+  border-radius:9px 3px 0 0;
+  clip-path:polygon(0 0,88% 0,100% 100%,0 100%);
+  padding-right:30px;
+}
+.tab-slot-1 .folder-protruding-tab,
+.tab-slot-3 .folder-protruding-tab{
+  right:6%;
+  border-radius:3px 9px 0 0;
+  clip-path:polygon(12% 0,100% 0,100% 100%,0 100%);
+  padding-left:30px;
+}
+
+/* 每 5 张出现一张分区黑标签，呼应参考图里的字母分隔卡 */
+.drawer-folder-item:nth-child(5n+1) .folder-protruding-tab{
+  background:#171717;
+  color:#fff;
+  border-color:#171717;
+}
+.drawer-folder-item:nth-child(5n+1) .tab-date{color:#aaa}
+
+.drawer-folder-item.is-active-tab .folder-protruding-tab{
+  background:#f6f6f4;
+  box-shadow:0 10px 22px rgba(0,0,0,.16);
+}
+
+.tab-serial{font-variant-numeric:tabular-nums;font-weight:600}
+.tab-date{color:#6b6b67;font-size:9.5px}
+.drawer-folder-item.is-active-tab .tab-date{color:#8a8a86}
+.tab-note-dot{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#111;
+  opacity:.55;
+  flex-shrink:0;
+}
+
+/* ---------- 抽出后：半展开的档案封面（真正的纸质文件袋） ---------- */
+.extracted-dossier-card{
+  position:absolute;
+  z-index:80;
+  left:50%;
+  top:8%;
+  width:min(620px,84%);
+  height:78%;
+  padding:16px 20px 18px;
+  overflow:hidden;
+  border:1px solid #111;
+  background:
+    radial-gradient(circle at 90% 8%,rgba(255,255,255,.85),transparent 22%),
+    repeating-linear-gradient(0deg,rgba(0,0,0,.025) 0 1px,transparent 1px 5px),
+    #efefec;
+  box-shadow:
+    12px 20px 0 rgba(0,0,0,.13),
+    0 20px 45px rgba(0,0,0,.22);
+  transform:translate(-50%,0) rotate(-.4deg);
+  cursor:pointer;
+  transition:transform .5s var(--c-ease),box-shadow .5s var(--c-ease),width .5s var(--c-ease),height .5s var(--c-ease),top .5s var(--c-ease);
+}
+.extracted-dossier-card:hover:not(.dossier-full-mode){
+  transform:translate(-50%,-6px) rotate(0deg);
+  box-shadow:16px 26px 0 rgba(0,0,0,.15),0 26px 55px rgba(0,0,0,.26);
+}
+/* 文件袋"衬纸"错位露出的效果 */
+.extracted-dossier-card:before{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  left:7px;
+  right:-10px;
+  top:10px;
+  bottom:-12px;
+  border:1px solid #111;
+  background:#c7c7c4;
+  transform:rotate(.8deg);
+}
+
+.extracted-dossier-card.dossier-full-mode{
+  position:fixed;
+  left:50%;
+  top:50%;
+  width:min(920px,94vw);
+  height:min(860px,92vh);
+  padding:30px clamp(20px,4vw,60px);
+  transform:translate(-50%,-50%) rotate(0deg);
+  box-shadow:0 30px 80px rgba(0,0,0,.4);
+  cursor:default;
+}
+.extracted-dossier-card.dossier-full-mode:before{
+  content:"";
+  position:fixed;
+  z-index:-2;
+  inset:0;
+  left:0;right:0;top:0;bottom:0;
+  border:0;
+  background:rgba(15,15,15,.6);
+  backdrop-filter:blur(10px);
+  transform:none;
+}
+
+.dossier-topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding-bottom:10px;
+  border-bottom:1px dotted #555;
+  font-size:9.5px;
+  color:#444;
+  letter-spacing:.04em;
+}
+.dossier-actions{display:flex;gap:6px}
+.dossier-icon-btn{
+  width:26px;
+  height:26px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid #171717;
+  border-radius:50%;
+  background:transparent;
+  color:#171717;
+  cursor:pointer;
+  transition:background .2s ease,color .2s ease;
+}
+.dossier-icon-btn:hover{background:#171717;color:#fff}
+.dossier-icon-btn.danger:hover{background:#c0392b;border-color:#c0392b}
+
+.dossier-paper-sheet{
+  height:calc(100% - 36px);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.dossier-full-mode .dossier-paper-sheet{overflow-y:auto}
+
+.dossier-header-block{
+  display:flex;
+  align-items:stretch;
+  gap:10px;
+  margin:16px 0 13px;
+  flex-shrink:0;
+}
+.dossier-brand-title{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:6px 10px;
+  color:#fff;
+  background:#171717;
+}
+.title-lead{
+  font-size:clamp(20px,3.4vw,34px);
+  font-weight:400;
+  letter-spacing:-.07em;
+  line-height:.95;
+}
+.title-sub{
+  margin-top:3px;
+  font-size:8.5px;
+  color:#aaa;
+  letter-spacing:.16em;
+}
+.dossier-wireframe-box{
+  width:64px;
+  flex-shrink:0;
+  border:1px solid #171717;
+  position:relative;
+}
+.wireframe-cross{
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(45deg,transparent 49%,#111 50%,transparent 51%),
+    linear-gradient(-45deg,transparent 49%,#111 50%,transparent 51%);
+}
+
+.dossier-spec-row{
+  display:grid;
+  grid-template-columns:1fr 42%;
+  gap:12px;
+  margin-bottom:13px;
+  flex-shrink:0;
+}
+.dossier-blueprint-grid{
+  border:1px solid #222;
+  padding:6px;
+}
+.blueprint-cells{
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:3px;
+}
+.bp-cell{
+  aspect-ratio:1;
+  border:1px solid rgba(0,0,0,.45);
+}
+.bp-cell.is-marked{background:#171717}
+.blueprint-label{
+  display:block;
+  margin-top:6px;
+  color:#777;
+  font-size:8px;
+  letter-spacing:.12em;
+}
+.dossier-date-badge{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:10px 12px;
+  color:#fff;
+  background:#171717;
+}
+.date-badge-label{font-size:8px;color:#aaa;letter-spacing:.1em}
+.date-badge-value{
+  margin:7px 0;
+  font-size:clamp(18px,2.8vw,26px);
+  font-weight:400;
+  letter-spacing:-.06em;
+}
+.date-badge-stat{font-size:8.5px;color:#ddd}
+
+.dossier-note-banner{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:14px;
+  padding:9px 12px;
+  border:1px solid #111;
+  background:#d9d9d5;
+  font-size:11px;
+  cursor:pointer;
+  flex-shrink:0;
+}
+.note-label{color:#555;font-weight:600}
+.note-text{color:#171717}
+.note-placeholder{color:#8a8a86;font-style:italic}
+.note-input-row{
+  display:flex;
+  gap:6px;
+  flex:1;
+}
+.note-input-row input{
+  flex:1;
+  border:1px solid #171717;
+  padding:5px 8px;
+  font-size:11px;
+  background:#fff;
+}
+.note-input-row button{
+  border:1px solid #171717;
+  background:#171717;
+  color:#fff;
+  padding:5px 12px;
+  font-size:10.5px;
+  cursor:pointer;
+}
+
+.dossier-records-container{
+  flex:1;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+}
+.records-header-line{
+  display:flex;
+  justify-content:space-between;
+  padding:8px 0;
+  border-top:1px solid #111;
+  border-bottom:1px solid #111;
+  color:#777;
+  font-size:8.5px;
+  letter-spacing:.1em;
+  flex-shrink:0;
+}
+.dossier-records-scroll{
+  flex:1;
+  overflow-y:auto;
+  mask-image:linear-gradient(180deg,#000 88%,transparent 100%);
+}
+.dossier-full-mode .dossier-records-scroll{mask-image:none}
+.dossier-msg-row{
+  display:grid;
+  grid-template-columns:70px 1fr auto;
+  gap:12px;
+  padding:12px 0;
+  border-top:1px dotted #999;
+  align-items:start;
+}
+.dossier-msg-row:first-child{border-top:none}
+.msg-sidebar{display:flex;flex-direction:column;gap:3px;color:#777;font-size:8.5px}
+.msg-sender-tag{margin-bottom:4px;font-size:8.5px;font-weight:600;letter-spacing:.1em;color:#444}
+.msg-text{font-size:12px;line-height:1.5;color:#171717}
+.msg-del-btn{
+  width:22px;
+  height:22px;
+  border:0;
+  background:transparent;
+  color:#999;
+  cursor:pointer;
+}
+.msg-del-btn:hover{color:#c0392b}
+
+.dossier-click-hint{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  padding-top:10px;
+  color:#777;
+  font-size:9.5px;
+  letter-spacing:.06em;
+  flex-shrink:0;
+}
+
+/* ---------- 底部：只留纸标签，去掉金属把手 ---------- */
+.cabinet-drawer-front{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:70px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-top:1px solid rgba(0,0,0,.16);
+  background:linear-gradient(180deg,rgba(255,255,255,.14),transparent);
+}
+.drawer-yellow-tag{
+  padding:8px 16px;
+  border:1px solid #161616;
+  border-radius:3px;
+  background:var(--c-yellow);
+  box-shadow:0 4px 0 rgba(0,0,0,.1),0 8px 16px rgba(0,0,0,.12);
+  color:#171717;
+  font-size:10.5px;
+  transform:rotate(-1.5deg);
+}
+
+@media(max-width:700px){
+  .cabinet-stage{margin:12px 10px 0}
+  .drawer-box{padding:18px 3% 80px}
+  .drawer-hanging-rail{perspective:900px}
+  .folder-protruding-tab{min-width:0;width:62%;padding:0 12px;font-size:9.5px}
+  .tab-slot-0 .folder-protruding-tab,.tab-slot-2 .folder-protruding-tab{left:3%;padding-right:22px}
+  .tab-slot-1 .folder-protruding-tab,.tab-slot-3 .folder-protruding-tab{right:3%;padding-left:22px}
+  .extracted-dossier-card{width:92%;top:5%;height:80%;padding:12px 14px 14px}
+  .dossier-wireframe-box{width:42px}
+  .dossier-spec-row{grid-template-columns:1fr 38%;gap:8px}
+  .date-badge-value{font-size:20px}
+  .dossier-msg-row{grid-template-columns:52px 1fr auto;gap:8px}
+  .msg-text{font-size:11px}
+}

@@ -82,19 +82,37 @@ const ABSENCE_TIERS = [
     minHours: 72,
     title: '好几天没有消息',
     content: '用户这次隔了好几天才回来，角色在等待里积了不少想念，也有一点点被忽略的失落感。',
-    moodDelta: { longing: 0.16, hurt: 0.05, concern: 0.06, fatigue: 0.04 }
+    emotionTag: '孤单又想念',
+    moodDelta: {
+      longing: 0.16,
+      hurt: 0.05,
+      concern: 0.06,
+      fatigue: 0.04,
+      loneliness: 0.08
+    }
   },
   {
     minHours: 24,
     title: '离开了一整天',
     content: '用户这次隔了一天多才回复，角色安静地想念了一阵，也有些担心是不是发生了什么事。',
-    moodDelta: { longing: 0.1, concern: 0.05, fatigue: 0.02 }
+    emotionTag: '有点孤单',
+    moodDelta: {
+      longing: 0.1,
+      concern: 0.05,
+      fatigue: 0.02,
+      loneliness: 0.05
+    }
   },
   {
     minHours: 6,
     title: '回复慢下来的这几个小时',
     content: '用户这次回复比平时慢了不少，角色心里泛起一点点小小的想念，但还不至于不安。',
-    moodDelta: { longing: 0.05, warmth: 0.02 }
+    emotionTag: '一点点想念',
+    moodDelta: {
+      longing: 0.05,
+      warmth: 0.02,
+      loneliness: 0.02
+    }
   }
 ];
 
@@ -162,10 +180,13 @@ export const checkAbsenceEmotionSignal = async ({
       note: `由用户间隔约 ${Math.round(elapsedHours)} 小时未互动自动生成，非对话内容提取（判定阈值与情绪幅度已按角色情绪敏感度调整）。`
     });
 
-    // moodDelta 不是 createMemory 的标准参数（那是记忆内容本身的字段，
-    // 不是所有类型的记忆都有），这里跟反思机制里 sourceMemoryIds 的
-    // 做法一样，单独补一次附加字段写入。
-    await db.memories.update(memory.id, { moodDelta: scaledMoodDelta });
+    // moodDelta / emotionTag 都不是 createMemory 的标准参数（那是记忆
+    // 内容本身的字段，不是所有类型的记忆都有），这里跟反思机制里
+    // sourceMemoryIds 的做法一样，单独补一次附加字段写入。
+    await db.memories.update(memory.id, {
+      moodDelta: scaledMoodDelta,
+      emotionTag: tier.emotionTag || ''
+    });
 
     await applyCharacterEmotionMemory({
       chatId,

@@ -39,7 +39,7 @@ const clamp01 = (value, fallback = 0.5) => {
 };
 
 const buildSourceSignature = (character) => (
-  `${normalizeText(character?.bio)}\u0001${normalizeText(character?.extraNotes)}`
+  `${normalizeText(character?.bio)}${normalizeText(character?.extraNotes)}`
 );
 
 export const normalizeEmotionPersonality = (value) => ({

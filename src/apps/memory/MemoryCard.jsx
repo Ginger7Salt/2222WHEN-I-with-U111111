@@ -437,6 +437,15 @@ export const MemoryCard = ({
               </div>
             )}
 
+            {memory.type === 'emotion' && memory.emotionTag && (
+              <div>
+                <span className="memory-detail-label">情绪标签</span>
+                <span className="memory-detail-value">
+                  {memory.emotionTag}
+                </span>
+              </div>
+            )}
+
             {memory.topicKey && (
               <div>
                 <span className="memory-detail-label">主题</span>

@@ -4,6 +4,11 @@ import { getEmotionPersonality } from './emotionPersonalityService';
 
 const HOUR = 60 * 60 * 1000;
 
+/*
+ * 新增的六个维度（2026-09 扩充），设计上刻意没有再加一个独立的“不安”维度：
+ * 不安就是 security（安全感/信任）偏低时的样子，用一个维度的两端表达，
+ * 比再开一个和 security 高度重叠的维度更干净，避免两个数值互相打架。
+ */
 const MOOD_KEYS = [
   'warmth',
   'calm',
@@ -11,7 +16,13 @@ const MOOD_KEYS = [
   'concern',
   'longing',
   'hurt',
-  'fatigue'
+  'fatigue',
+  'wronged',
+  'security',
+  'anticipation',
+  'contentment',
+  'surprise',
+  'loneliness'
 ];
 
 const DEFAULT_MOOD = {
@@ -21,7 +32,13 @@ const DEFAULT_MOOD = {
   concern: 0.18,
   longing: 0.12,
   hurt: 0,
-  fatigue: 0.1
+  fatigue: 0.1,
+  wronged: 0,
+  security: 0.6,
+  anticipation: 0.15,
+  contentment: 0.35,
+  surprise: 0,
+  loneliness: 0.15
 };
 
 const EMOTION_LABELS = {
@@ -31,7 +48,13 @@ const EMOTION_LABELS = {
   concern: '关切',
   longing: '想念',
   hurt: '有一点失落',
-  fatigue: '有些疲惫'
+  fatigue: '有些疲惫',
+  wronged: '有点委屈',
+  security: '安心而信任',
+  anticipation: '带着期待',
+  contentment: '感到满足',
+  surprise: '有些惊喜',
+  loneliness: '有点孤单'
 };
 
 const normalizeText = (value) => String(value || '').trim();
@@ -309,9 +332,36 @@ export const getCharacterEmotionContext = async ({
     toneHints.push('语气可以更安静简洁，不必勉强维持高热度。');
   }
 
+  if (state.mood.wronged >= 0.32) {
+    toneHints.push('可以带一点点委屈的语气，但很容易被一句关心或解释打消，不要无限放大。');
+  }
+
+  if (state.mood.security < 0.3) {
+    toneHints.push('语气里可以流露一点不确定、小心翼翼，但不要变成怀疑或指责用户。');
+  }
+
+  if (state.mood.anticipation >= 0.34) {
+    toneHints.push('可以自然表现出对即将发生的事情的期待，但不要反复催促或提醒。');
+  }
+
+  if (state.mood.contentment >= 0.5) {
+    toneHints.push('整体语气可以更松弛满足，不必刻意制造额外的情绪起伏。');
+  }
+
+  if (state.mood.surprise >= 0.32) {
+    toneHints.push('可以流露一点惊喜和意外之情，但不要过度夸张。');
+  }
+
+  if (
+    state.mood.loneliness >= 0.34 &&
+    state.mood.loneliness > state.mood.longing
+  ) {
+    toneHints.push('可以自然流露一点孤单感，但不应变成对用户的指责或压力。');
+  }
+
   return `
 【角色此刻的内部情绪状态】
-角色当前整体处于"${label}"的状态，强度为 ${
+角色当前整体处于“${label}”的状态，强度为 ${
   Math.round(intensity * 100)
 } / 100。
 这不是用户需要处理的任务，也不是必须说出口的内容。
@@ -368,6 +418,12 @@ export const markCharacterInteraction = async ({
    * 每次互动后让高唤起情绪略微回落。
    * 这避免角色因一次高兴、担忧或失落长期处于同一高强度状态，
    * 具体回落多少则按角色性格（settleSpeed）区分快慢。
+   *
+   * security（安全感/信任）、anticipation（期待，通常指向一个还没到的
+   * 未来时间点，不该因为今天多聊了几句就被削弱）、contentment（满足）
+   * 刻意不放进这里——它们更像 warmth/calm 那样的缓慢基线情绪，只靠被动
+   * 衰退（decayMoodTowardBaseline）和情绪记忆的 moodDelta 来推动，
+   * 不该被"见了一面"这种互动信号直接压低或抚平。
    */
   const settledMood = {
     ...previousState.mood,
@@ -375,7 +431,10 @@ export const markCharacterInteraction = async ({
     concern: settleTowardCalm(previousState.mood.concern, 0.94, settleFactor),
     longing: settleTowardCalm(previousState.mood.longing, 0.94, settleFactor),
     hurt: settleTowardCalm(previousState.mood.hurt, 0.9, settleFactor),
-    fatigue: settleTowardCalm(previousState.mood.fatigue, 0.96, settleFactor)
+    fatigue: settleTowardCalm(previousState.mood.fatigue, 0.96, settleFactor),
+    wronged: settleTowardCalm(previousState.mood.wronged, 0.9, settleFactor),
+    surprise: settleTowardCalm(previousState.mood.surprise, 0.8, settleFactor),
+    loneliness: settleTowardCalm(previousState.mood.loneliness, 0.94, settleFactor)
   };
 
   return updateCharacterState({

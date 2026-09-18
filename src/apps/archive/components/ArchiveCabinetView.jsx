@@ -17,6 +17,7 @@ import {
   setArchiveFolderNote
 } from '../archiveService';
 import '../archive.css';
+import '../archive-cabinet-visual.css';
 
 const formatDisplayDate = (dayKey) => {
   if (!dayKey) return '未知日期';
@@ -371,13 +372,8 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
               </div>
             )}
 
-            {/* P1 底部抽屉金属外壳与百叶拉手装饰 */}
+            {/* P1 底部：只留一张挂着的黄色标签纸条，金属把手外壳整个去掉 */}
             <div className="cabinet-drawer-front">
-              <div className="drawer-metal-handle">
-                <div className="handle-louver handle-1" />
-                <div className="handle-louver handle-2" />
-                <div className="handle-louver handle-3" />
-              </div>
               <div className="drawer-yellow-tag">
                 <span>{characterName.toLowerCase()}'s secret files</span>
               </div>
