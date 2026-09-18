@@ -1,5 +1,6 @@
 import db from '../../db';
-import { getMemoryJob } from '../memory/memoryService';
+import { getChatMemory, getMemoryJob } from '../memory/memoryService';
+import { MEMORY_STATUSES, MEMORY_TYPES } from '../memory/memoryConstants';
 
 /*
  * 存档室的数据层。
@@ -716,6 +717,75 @@ export const runAutoArchiveForAllChats = async () => {
       0
     )
   };
+};
+
+const MEMORY_HIGHLIGHT_TYPE_LABELS = {
+  [MEMORY_TYPES.EPISODE]: '共同经历',
+  [MEMORY_TYPES.EMOTION]: '情绪痕迹',
+  [MEMORY_TYPES.RELATIONSHIP]: '关系理解',
+  [MEMORY_TYPES.CHARACTER_THOUGHT]: '角色心事',
+  [MEMORY_TYPES.FACT]: '事实与近况',
+  [MEMORY_TYPES.PREFERENCE]: '偏好与习惯',
+  [MEMORY_TYPES.REFLECTION]: '阶段性反思',
+  [MEMORY_TYPES.EXPRESSION_RULE]: '表达方式与边界'
+};
+
+const shuffleArray = (items) => {
+  const copy = [...items];
+
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+
+  return copy;
+};
+
+/*
+ * 存档室主界面"记忆卡牌"用：从这个聊天已有的记忆里随机抽几条
+ * "美好瞬间"类型的记忆（共同经历/情绪痕迹/关系理解优先），
+ * 没有这类记忆时退回到任意生效中的记忆，都没有就返回空数组
+ * （调用方据此隐藏这个区块，不强行展示占位假数据）。
+ */
+export const getArchiveMemoryHighlights = async (chatId, limit = 6) => {
+  if (!isValidChatId(chatId)) {
+    return [];
+  }
+
+  let memories = [];
+
+  try {
+    memories = await getChatMemory(chatId);
+  } catch (error) {
+    console.warn('[Archive] 读取记忆高光失败：', error);
+    return [];
+  }
+
+  const activeMemories = memories.filter(
+    (memory) => memory.status === MEMORY_STATUSES.ACTIVE
+  );
+
+  const preferredTypes = [
+    MEMORY_TYPES.EPISODE,
+    MEMORY_TYPES.EMOTION,
+    MEMORY_TYPES.RELATIONSHIP
+  ];
+
+  const preferredPool = activeMemories.filter(
+    (memory) => preferredTypes.includes(memory.type)
+  );
+
+  const pool = preferredPool.length > 0 ? preferredPool : activeMemories;
+
+  return shuffleArray(pool)
+    .slice(0, limit)
+    .map((memory) => ({
+      id: memory.id,
+      title: memory.title || '',
+      content: memory.content || '',
+      typeLabel: MEMORY_HIGHLIGHT_TYPE_LABELS[memory.type] || '共同记忆',
+      recordedAt: memory.createdAt || memory.updatedAt || null
+    }));
 };
 
 /*

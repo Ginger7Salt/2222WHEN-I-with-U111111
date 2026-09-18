@@ -1,0 +1,146 @@
+{
+  "id": "ios-pwa-web-push",
+  "title": "iOS PWA 离线主动推送（Web Push）全流程避坑指南",
+  "summary": "针对纯静态前端 PWA，在 iPhone 彻底划掉后台/息屏状态下实现云端主动唤醒锁屏横幅的完整部署方案与排坑经验。",
+  "category": "部署教程",
+  "blocks": [
+    {
+      "type": "paragraph",
+      "title": "核心架构概览",
+      "text": "本方案专为纯静态前端 PWA 设计。用户的数据（API Key、伴侣人设、聊天记忆等）完全保存在手机本地 IndexedDB。通过前端将 APNs 订阅凭据与配置上报至轻量 Node.js 守护微服务，微服务利用 node-cron 定时巡检、冷却判断并调用大模型，最终借助 VAPID 协议将消息签名投递至苹果 APNs 官方通道。即便 PWA 被彻底划掉杀死或手机处于息屏状态，依然能强行唤醒锁屏弹窗。"
+    },
+    {
+      "type": "checklist",
+      "title": "前期硬性准备与门槛检查",
+      "items": [
+        "iPhone 客户端系统版本必须在 iOS 16.4 或更高（低于此版本苹果不支持网页离线推送）。",
+        "客户端必须通过 Safari 的「分享 -> 添加到主屏幕」方式安装，并从桌面图标以 Standalone 模式打开运行。",
+        "准备一台轻量云服务器（最低 1核1G 即可，推荐安装宝塔 Linux 面板）。",
+        "准备一个独立域名并完成实名过户认证（苹果强制要求前端上报与通信全走合法 HTTPS，不支持纯 IP）。",
+        "生成一组专用的 VAPID 密钥对（Public Key 与 Private Key）。"
+      ]
+    },
+    {
+      "type": "steps",
+      "title": "第一阶段：基础凭据与云端环境准备",
+      "items": [
+        {
+          "title": "生成 VAPID 密钥对",
+          "body": "在本地终端或服务器中运行命令生成公私钥。Public Key 后续填入前端推送设置，Private Key 保存在后端服务脚本中，请妥善保存在本地备用。",
+          "code": "npx web-push generate-vapid-keys",
+          "note": "输出的 Public Key 与 Private Key 是一一对应的加密凭证，切勿泄露私钥。"
+        },
+        {
+          "title": "检查服务器全局 Node.js 环境",
+          "body": "登录宝塔终端（root 权限），确保 Node.js（推荐 Node 18 或 Node 20 LTS）和 npm 已正确软链接到全局路径。",
+          "code": "node -v\nnpm -v\n\n# 若提示 command not found，执行以下命令建立软链接：\nNODE_PATH=$(find /www/server/nodejs -name \"node\" -type f 2>/dev/null | head -n 1)\nNPM_PATH=$(find /www/server/nodejs -path \"*/bin/npm\" 2>/dev/null | head -n 1)\nln -sf $NODE_PATH /usr/bin/node\nln -sf $NODE_PATH /usr/local/bin/node\nln -sf $NPM_PATH /usr/bin/npm\nln -sf $NPM_PATH /usr/local/bin/npm"
+        },
+        {
+          "title": "创建微服务工作目录",
+          "body": "在宝塔文件管理器中创建目录 /www/wwwroot/pwa-push-server，作为常驻微服务的运行根目录。"
+        }
+      ]
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "paragraph",
+      "title": "第二阶段：服务端微服务构建",
+      "text": "在 /www/wwwroot/pwa-push-server/ 目录下新建 package.json 与核心脚本 server.js。"
+    },
+    {
+      "type": "code",
+      "title": "依赖声明文件：package.json",
+      "language": "json",
+      "code": "{\n  \"name\": \"pwa-push-server\",\n  \"version\": \"1.0.0\",\n  \"main\": \"server.js\",\n  \"scripts\": {\n    \"start\": \"node server.js\"\n  },\n  \"dependencies\": {\n    \"cors\": \"^2.8.5\",\n    \"express\": \"^4.19.2\",\n    \"node-cron\": \"^3.0.3\",\n    \"web-push\": \"^3.6.7\"\n  }\n}"
+    },
+    {
+      "type": "code",
+      "title": "推送微服务核心大脑：server.js（脱敏骨架）",
+      "language": "javascript",
+      "code": "const express = require('express');\nconst cors = require('cors');\nconst fs = require('fs');\nconst path = require('path');\nconst webpush = require('web-push');\nconst cron = require('node-cron');\n\nconst app = express();\napp.use(cors());\napp.use(express.json({ limit: '5mb' }));\n\nconst CONFIG_FILE = path.join(__dirname, 'push_data.json');\n\n// 1. 配置 VAPID 签名（替换为你的密钥或环境变量）\nconst VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '<YOUR_VAPID_PUBLIC_KEY>';\nconst VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '<YOUR_VAPID_PRIVATE_KEY>';\n\nwebpush.setVapidDetails(\n  'mailto:<YOUR_EMAIL>@example.com',\n  VAPID_PUBLIC_KEY,\n  VAPID_PRIVATE_KEY\n);\n\n// 2. 接收手机前端上报的订阅凭据与配置\napp.post('/api/sync-push-config', (req, res) => {\n  const { subscription, apiConfig, character, recentContext } = req.body;\n  if (!subscription || !subscription.endpoint) {\n    return res.status(400).json({ ok: false, error: '缺少有效推送凭据' });\n  }\n\n  const payload = {\n    subscription,\n    apiConfig,\n    character,\n    recentContext,\n    updatedAt: Date.now()\n  };\n  fs.writeFileSync(CONFIG_FILE, JSON.stringify(payload, null, 2), 'utf-8');\n  res.json({ ok: true, message: '配置同步成功' });\n});\n\n// 3. 测试通道连通性接口\napp.get('/api/test-push', async (req, res) => {\n  if (!fs.existsSync(CONFIG_FILE)) {\n    return res.status(400).json({ error: '尚未绑定任何手机推送凭证' });\n  }\n  try {\n    const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));\n    const testPayload = JSON.stringify({\n      title: data.character?.name || '伴侣消息',\n      body: '收到测试推送，全链路配置成功！',\n      url: '/'\n    });\n    await webpush.sendNotification(data.subscription, testPayload);\n    res.json({ ok: true, message: '测试消息已成功投递至 APNs' });\n  } catch (err) {\n    res.status(500).json({ ok: false, error: err.message });\n  }\n});\n\n// 4. 定时调度与大模型主动触发\nasync function checkAndTrigger() {\n  if (!fs.existsSync(CONFIG_FILE)) return;\n  // A. 免打扰过滤（如夜间 23:00~08:00 静默）\n  // B. 动态冷却判断与概率留白（消除机械定时感）\n  // C. 调用用户上报的 API Key 请求大模型生成口吻短句\n  // D. 调用 webpush.sendNotification 推向苹果 APNs\n}\n\ncron.schedule('0 * * * *', () => {\n  void checkAndTrigger();\n});\n\n// 5. 启动服务（必须显式绑定 0.0.0.0）\nconst PORT = process.env.PORT || 3456;\napp.listen(PORT, '0.0.0.0', () => {\n  console.log(`PWA 推送微服务已在端口 ${PORT} 启动`);\n});"
+    },
+    {
+      "type": "steps",
+      "title": "第三阶段：安装依赖与常驻托管",
+      "items": [
+        {
+          "title": "安装 Node 模块",
+          "body": "在终端进入微服务目录执行安装：",
+          "code": "cd /www/wwwroot/pwa-push-server\nnpm install --registry=https://registry.npmmirror.com"
+        },
+        {
+          "title": "在宝塔中创建 Node 项目常驻守护",
+          "body": "进入宝塔面板 ->「网站」->「Node项目」（未安装则先在软件商店安装 PM2 管理器或 Node.js 版本管理器）。点击「添加 Node 项目」：\n- 目录选择：/www/wwwroot/pwa-push-server\n- 启动文件：server.js\n- 项目名称：pwa-push\n- 运行端口：3456\n点击提交后，宝塔将自动拉起守护进程。",
+          "note": "切记不要在 Node 项目内绑定或申请 SSL 证书，SSL 证书统一挂载在后续的 Nginx 站点上。"
+        }
+      ]
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "steps",
+      "title": "第四阶段：域名解析与 Nginx 反向代理配置",
+      "items": [
+        {
+          "title": "配置 DNS 解析",
+          "body": "在域名解析控制台添加一条 A 记录：\n- 记录类型：A\n- 主机记录：push（代表二级域名为 push.<YOUR_DOMAIN>）\n- 记录值：填入服务器公网 IP 地址（<YOUR_SERVER_IP>）\n保存后等待 5~10 分钟使解析生效。"
+        },
+        {
+          "title": "在宝塔新建站点并申请 SSL",
+          "body": "1. 宝塔「网站」->「添加站点」，域名填写你的完整二级域名（如 push.<YOUR_DOMAIN>），PHP 版本选「纯静态」，其余不创建。\n2. 进入站点「设置」->「SSL」->「Let's Encrypt」，勾选域名申请证书。\n3. 申请成功后开启「强制 HTTPS」开关。"
+        },
+        {
+          "title": "添加反向代理与跨域放行",
+          "body": "在站点设置中点击「反向代理」->「添加反向代理」，代理名称填写 pwa-push，目标 URL 填写 http://127.0.0.1:3456，发送域名填写 $host。保存后打开该反向代理的「配置文件」进行跨域定制。"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "title": "Nginx 反向代理关键避坑配置",
+      "language": "nginx",
+      "code": "# 宝塔站点反向代理配置片段\nlocation ^~ / {\n    proxy_pass http://127.0.0.1:3456;\n    proxy_set_header Host $host;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header REMOTE-HOST $remote_addr;\n\n    # 应对 iOS Safari 严苛的 OPTIONS 跨域预检死穴：\n    # Nginx if 块会丢失外层 header，必须在 if 内完整注入响应头并返回 204\n    if ($request_method = 'OPTIONS') {\n        add_header 'Access-Control-Allow-Origin' '*' always;\n        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;\n        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;\n        add_header 'Access-Control-Max-Age' 1728000 always;\n        add_header 'Content-Type' 'text/plain; charset=utf-8' always;\n        add_header 'Content-Length' 0 always;\n        return 204;\n    }\n}"
+    },
+    {
+      "type": "warning",
+      "title": "大陆机房未备案域名拦截注意",
+      "text": "如果服务器位于腾讯云/阿里云等中国大陆机房且域名未办理工信部 ICP 备案，机房硬件防火墙会对标准 80/443 端口进行阻断，表现为丢包或「连接被重置」。解法：站点不要监听 443 端口，改用非标准 HTTPS 端口（如 8443），并在云服务器安全组与宝塔防火墙中放行该端口。"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "steps",
+      "title": "第五阶段：常见排坑指南（FAQ）",
+      "items": [
+        {
+          "title": "iPhone 点击绑定报错 TypeError: Load failed",
+          "body": "Safari 在跨域预检（CORS OPTIONS）未通过、证书非法或网络阻断时，会将所有错误统一封装为 Load failed。请优先检查 Nginx 是否在 OPTIONS 预检请求中显式返回了 204 和 Access-Control-Allow-Origin 响应头。",
+          "note": "全链路通畅的检验标准：在终端执行 curl -i -X OPTIONS https://push.<YOUR_DOMAIN>/api/sync-push-config 能拿到带有 Access-Control-Allow-Origin 的 204 状态。"
+        },
+        {
+          "title": "反代报 502 Bad Gateway（IPv6 陷阱）",
+          "body": "若 node 脚本直接写 app.listen(PORT)，在部分系统内核上可能默认只监听 IPv6 地址 [::]，而 Nginx proxy_pass 走的是 127.0.0.1 (IPv4)。必须在 server.js 中显式声明监听 '0.0.0.0'。",
+          "code": "app.listen(PORT, '0.0.0.0', () => { ... });"
+        },
+        {
+          "title": "服务报 EADDRINUSE: address already in use :::3456",
+          "body": "之前异常退出的进程变成了孤儿僵尸进程占用端口。可执行命令强行释放并重新拉起微服务：",
+          "code": "fuser -k 3456/tcp || kill -9 $(lsof -t -i:3456)"
+        },
+        {
+          "title": "申请证书提示 NXDOMAIN 或解析错误",
+          "body": "国内新购域名必须完成「实名过户认证」才会激活解析。同时，国际 DNS 根服务器同步通常需要 5~15 分钟，在申请 SSL 证书前可先在终端使用 ping push.<YOUR_DOMAIN> 验证是否已解析到真实服务器 IP。"
+        }
+      ]
+    },
+    {
+      "type": "note",
+      "title": "前端集成关键点",
+      "text": "1. 前端推送订阅对象（PushSubscription）必须在 POST 上报前调用 subscription.toJSON() 进行序列化，否则在部分 WebKit 内核中以原生对象传递会造成 keys 和 endpoint 丢失。\n2. public/sw.js 必须注册标准 push 与 notificationclick 事件，且跨域 Fetch 不得被 Service Worker 误拦截。"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ import {
   getChatsArchiveOverview
 } from './archiveService';
 import ArchiveCabinetView from './components/ArchiveCabinetView';
+import ArchiveMemoryDeck from './components/ArchiveMemoryDeck';
 import ArchiveSettingsPanel from './components/ArchiveSettingsPanel';
 import './archive.css';
 
@@ -114,8 +115,6 @@ const ArchiveApp = ({ onBackHub }) => {
           返回主页
         </button>
 
-        <span className="archive-hud-title">存档室</span>
-
         <button
           type="button"
           className="archive-hud-settings-btn"
@@ -131,6 +130,11 @@ const ArchiveApp = ({ onBackHub }) => {
         <ArchiveSettingsPanel onClose={() => setShowSettings(false)} />
       )}
 
+      <div className="archive-page-title">
+        <h1>存档室</h1>
+        <p>封存的时光，静静存放在这里</p>
+      </div>
+
       <div className="archive-carousel-wrap">
         {isLoading && (
           <div className="archive-carousel-empty">
@@ -145,7 +149,13 @@ const ArchiveApp = ({ onBackHub }) => {
         )}
 
         {!isLoading && overview.length > 0 && (
-          <>
+          <div className="archive-carousel-scroll">
+            {activeItem && (
+              <h2 className="archive-section-heading">
+                {activeItem.characterName}
+              </h2>
+            )}
+
             <div
               className="archive-disc-track"
               ref={trackRef}
@@ -181,49 +191,17 @@ const ArchiveApp = ({ onBackHub }) => {
             </div>
 
             {activeItem && (
-              <div className="archive-detail-panel">
-                <div className="archive-detail-name">
-                  {activeItem.characterName}
-                </div>
-                <div className="archive-detail-sub">
-                  WITH {activeItem.userName}
-                </div>
+              <ArchiveMemoryDeck chatId={activeItem.chatId} />
+            )}
 
-                <div className="archive-detail-narrative">
+            {activeItem && (
+              <div className="archive-summary-row">
+                <div className="archive-summary-narrative">
                   {getArchiveNarrativeLine({
                     chattedDays: activeItem.chattedDays,
                     totalArchivedDays: activeItem.totalArchivedDays,
                     characterName: activeItem.characterName
                   })}
-                </div>
-
-                <div className="archive-detail-stats">
-                  <div className="archive-detail-stat">
-                    <span className="archive-detail-stat-num">
-                      {activeItem.chattedDays}
-                    </span>
-                    <span className="archive-detail-stat-label">
-                      已相伴(天)
-                    </span>
-                  </div>
-
-                  <div className="archive-detail-stat">
-                    <span className="archive-detail-stat-num">
-                      {activeItem.totalMessages}
-                    </span>
-                    <span className="archive-detail-stat-label">
-                      总消息
-                    </span>
-                  </div>
-
-                  <div className="archive-detail-stat">
-                    <span className="archive-detail-stat-num">
-                      {activeItem.totalArchivedDays}
-                    </span>
-                    <span className="archive-detail-stat-label">
-                      已封存(天)
-                    </span>
-                  </div>
                 </div>
 
                 <button
@@ -237,9 +215,9 @@ const ArchiveApp = ({ onBackHub }) => {
             )}
 
             <p className="archive-carousel-hint">
-              左右滑动挑一张唱片，再点"进入档案柜"
+              左右滑动挑一张唱片，点击查看这段关系的记忆片段
             </p>
-          </>
+          </div>
         )}
       </div>
     </div>

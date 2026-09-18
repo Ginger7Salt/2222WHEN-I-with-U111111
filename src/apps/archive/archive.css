@@ -83,24 +83,64 @@
   color: var(--text-main);
 }
 
-/* ---------- Level 1：唱片轮播 + 选中详情 ---------- */
+/* ---------- 页面大标题（顶部文字） ---------- */
+
+.archive-page-title {
+  flex-shrink: 0;
+  padding: 4px 24px 0;
+  text-align: left;
+}
+
+.archive-page-title h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.archive-page-title p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+/* ---------- Level 1：唱片轮播 + 记忆卡牌 + 概览 ---------- */
 
 .archive-carousel-wrap {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 0 32px;
   min-height: 0;
-  gap: 28px;
+  padding: 8px 0 20px;
+  overflow: hidden;
 }
 
 .archive-carousel-empty {
+  margin: auto;
   text-align: center;
   color: var(--text-muted);
   font-size: 13px;
   padding: 40px;
+}
+
+.archive-carousel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 12px;
+}
+
+.archive-section-heading {
+  width: 100%;
+  text-align: center;
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 4px 0 0;
 }
 
 .archive-disc-track {
@@ -182,66 +222,163 @@
   opacity: 0.5;
 }
 
-.archive-detail-panel {
+/* ---------- 记忆卡牌（中间区块，填补空荡感） ---------- */
+
+.archive-memory-deck {
   width: min(88vw, 380px);
-  border-radius: 2rem;
-  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.archive-memory-deck-hud {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  margin-bottom: 10px;
+}
+
+.archive-memory-deck-counter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.archive-memory-deck-ring {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.archive-memory-deck-ring::before {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin: 3px;
+  border-radius: 50%;
+  background: var(--bg-main);
+}
+
+.archive-memory-deck-shuffle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.archive-memory-deck-stack {
+  position: relative;
+  width: 100%;
+  cursor: pointer;
+}
+
+.archive-memory-deck-shadow {
+  position: absolute;
+  inset: 0;
+  border-radius: 1.6rem;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
+
+.archive-memory-deck-shadow-1 {
+  transform: translateY(6px) scale(0.97);
+  opacity: 0.7;
+}
+
+.archive-memory-deck-shadow-2 {
+  transform: translateY(12px) scale(0.94);
+  opacity: 0.45;
+}
+
+.archive-memory-deck-card {
+  position: relative;
+  min-height: 150px;
+  border-radius: 1.6rem;
+  padding: 20px;
   background: var(--card-bg-gradient);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
-  text-align: center;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: archiveCardFade 0.35s ease;
 }
 
-.archive-detail-name {
-  font-size: 19px;
+@keyframes archiveCardFade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.archive-memory-deck-tag {
+  align-self: flex-start;
+  font-size: 10px;
   font-weight: 700;
-  color: var(--text-main);
-}
-
-.archive-detail-sub {
-  font-size: 11.5px;
-  color: var(--text-muted);
-  margin-top: 3px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--ink-card-bg);
+  color: var(--text-on-ink);
   letter-spacing: 0.4px;
 }
 
-.archive-detail-narrative {
-  margin-top: 14px;
+.archive-memory-deck-content {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-main);
+  flex: 1;
+}
+
+.archive-memory-deck-date {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.archive-memory-deck-hint {
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ---------- 概览行（叙述句 + 进入按钮） ---------- */
+
+.archive-summary-row {
+  width: min(88vw, 380px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.archive-summary-narrative {
   font-size: 12.5px;
   line-height: 1.6;
   color: var(--text-sub);
   padding: 12px 14px;
   border-radius: 1rem;
   background: var(--control-soft-bg);
-}
-
-.archive-detail-stats {
-  display: flex;
-  margin-top: 16px;
-  gap: 6px;
-}
-
-.archive-detail-stat {
-  flex: 1;
-}
-
-.archive-detail-stat-num {
-  display: block;
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.archive-detail-stat-label {
-  display: block;
-  font-size: 9.5px;
-  color: var(--text-muted);
-  margin-top: 2px;
+  text-align: center;
 }
 
 .archive-detail-enter-btn {
-  margin-top: 18px;
   width: 100%;
   padding: 11px;
   border-radius: 999px;
@@ -261,6 +398,7 @@
 .archive-carousel-hint {
   font-size: 11px;
   color: var(--text-muted);
+  text-align: center;
 }
 
 /* ---------- Level 2：档案柜 ---------- */
@@ -295,85 +433,225 @@
   line-height: 1.7;
 }
 
-.archive-cabinet-scroll {
+/* ---------- 折叠态：一沓叠起来的档案标签（P4 参考图） ---------- */
+
+.archive-folder-stack-wrap {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-bottom: 8px;
+  align-items: center;
+  padding: 6px 0 10px;
 }
 
-/* 折叠状态的文件夹条目：一张柔和玻璃卡片 */
-.archive-folder-card {
-  border-radius: 1.4rem;
+.archive-folder-stack {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+}
+
+.archive-folder-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 18px;
+  margin-top: -10px;
+  border-radius: 1.1rem;
   background: var(--card-bg-gradient);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
-  padding: 14px 16px;
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  text-align: left;
+  transition: transform 0.25s cubic-bezier(0.19, 1, 0.22, 1), box-shadow 0.25s ease;
 }
 
-.archive-folder-card:hover {
-  transform: translateY(-2px);
+.archive-folder-stack .archive-folder-tab:first-child {
+  margin-top: 0;
 }
 
-.archive-folder-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.archive-folder-tab--a {
+  transform: rotate(-0.6deg) translateX(-3px);
 }
 
-.archive-folder-card-date {
-  font-size: 14px;
+.archive-folder-tab--b {
+  transform: rotate(0.6deg) translateX(3px);
+}
+
+.archive-folder-tab:hover {
+  transform: translateY(-6px) rotate(0deg);
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--text-main) 20%, transparent);
+}
+
+.archive-folder-tab-date {
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--text-main);
+  flex-shrink: 0;
 }
 
-.archive-folder-card-tag {
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--ink-card-bg);
-  color: var(--text-on-ink);
-  letter-spacing: 0.4px;
+.archive-folder-tab-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
 }
 
-.archive-folder-card-meta {
+.archive-folder-tab-dot,
+.archive-folder-tab-note-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.archive-folder-tab-dot {
+  background: var(--accent-color);
+  opacity: 0.7;
+}
+
+.archive-folder-tab-note-dot {
+  background: var(--text-sub);
+  opacity: 0.5;
+}
+
+/* ---------- 预览态：P3 单卡展开 ---------- */
+
+.archive-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 6px;
+  justify-content: center;
+  padding: 20px;
 }
 
-.archive-folder-card-count {
-  font-size: 11px;
+.archive-preview-card {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 1.6rem;
+  background: var(--modal-bg);
+  border: 1px solid var(--modal-border);
+  box-shadow: var(--modal-shadow);
+  padding: 24px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  backdrop-filter: blur(22px) saturate(120%);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+}
+
+.archive-preview-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.archive-preview-date {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+  padding-right: 30px;
+}
+
+.archive-preview-count {
+  font-size: 11.5px;
   color: var(--text-muted);
 }
 
-.archive-folder-card-note {
-  font-size: 11.5px;
+.archive-preview-note {
+  font-size: 12.5px;
   color: var(--text-sub);
-  margin-top: 6px;
   font-style: italic;
+  padding: 8px 12px;
+  border-radius: 0.8rem;
+  background: var(--control-soft-bg);
+}
+
+.archive-preview-snippets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.archive-preview-snippet {
+  border-radius: 0.9rem;
+  padding: 10px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--card-border);
+}
+
+.archive-preview-snippet-label {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.archive-preview-snippet p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-sub);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-/* 展开态：直接在原位置撑开显示内容，不做"飞出" 3D 动画，
-   改为柔和的高度展开过渡，和整体磨砂玻璃质感更协调 */
-.archive-folder-card.is-open {
-  cursor: default;
+.archive-preview-enter-btn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 11px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
 }
 
-.archive-folder-open-body {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--divider);
+.archive-preview-enter-btn:hover {
+  opacity: 0.88;
+}
+
+/* ---------- 全屏态：完整存档内容 ---------- */
+
+.archive-fullscreen {
+  z-index: 150;
+}
+
+.archive-fullscreen-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 20px 24px;
+}
+
+.archive-folder-messages--full {
+  max-height: none;
+  overflow-y: visible;
 }
 
 .archive-folder-note-row {
@@ -497,17 +775,6 @@
   border: none;
   cursor: pointer;
   padding: 6px 8px;
-}
-
-.archive-folder-close-btn {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-sub);
-  background: var(--control-soft-bg);
-  border: none;
-  border-radius: 999px;
-  padding: 6px 14px;
-  cursor: pointer;
 }
 
 /* ---------- 抽屉前面板（统计 + 整理归档入口） ---------- */

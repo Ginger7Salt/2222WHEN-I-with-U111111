@@ -5,7 +5,7 @@ import React, {
   useState
 } from 'react';
 
-import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2, X } from 'lucide-react';
 
 import ConfirmModal from '../../../components/ConfirmModal';
 import {
@@ -31,6 +31,20 @@ const formatFolderLabel = (dayKey) => {
   }
 
   return `${parts[0]}年${parts[1]}月${parts[2]}日`;
+};
+
+const formatShortLabel = (dayKey) => {
+  if (!dayKey) {
+    return '--.--';
+  }
+
+  const parts = dayKey.split('-');
+
+  if (parts.length !== 3) {
+    return dayKey;
+  }
+
+  return `${parts[1]}.${parts[2]}`;
 };
 
 const formatMessageTime = (value) => {
@@ -74,7 +88,13 @@ const ArchiveCabinetView = ({
   const [folders, setFolders] = useState([]);
   const [stats, setStats] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [openGroupKey, setOpenGroupKey] = useState(null);
+
+  // 三段式：closed（一沓关闭的文件夹） -> preview（点一下展开的预览卡）
+  // -> full（再点一下进入的全屏完整内容）。同一时刻只有一个文件夹
+  // 处于 preview 或 full。
+  const [previewGroupKey, setPreviewGroupKey] = useState(null);
+  const [fullGroupKey, setFullGroupKey] = useState(null);
+
   const [noteDraft, setNoteDraft] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [showOrganizer, setShowOrganizer] = useState(false);
@@ -103,30 +123,39 @@ const ArchiveCabinetView = ({
     void loadData();
   }, [loadData]);
 
-  const openFolder = useMemo(
-    () => folders.find((folder) => folder.groupKey === openGroupKey) || null,
-    [folders, openGroupKey]
+  const previewFolder = useMemo(
+    () => folders.find((folder) => folder.groupKey === previewGroupKey) || null,
+    [folders, previewGroupKey]
   );
 
-  const handleToggleFolder = (folder) => {
-    if (openGroupKey === folder.groupKey) {
-      setOpenGroupKey(null);
-      return;
-    }
+  const fullFolder = useMemo(
+    () => folders.find((folder) => folder.groupKey === fullGroupKey) || null,
+    [folders, fullGroupKey]
+  );
 
-    setOpenGroupKey(folder.groupKey);
-    setNoteDraft(folder.note || '');
+  const openPreview = (folder) => {
+    setPreviewGroupKey(folder.groupKey);
   };
 
+  const closePreview = () => setPreviewGroupKey(null);
+
+  const openFull = (folder) => {
+    setNoteDraft(folder.note || '');
+    setFullGroupKey(folder.groupKey);
+    setPreviewGroupKey(null);
+  };
+
+  const closeFull = () => setFullGroupKey(null);
+
   const handleSaveNote = async () => {
-    if (!openFolder) {
+    if (!fullFolder) {
       return;
     }
 
     setIsSavingNote(true);
 
     try {
-      await setArchiveFolderNote(chatId, openFolder.groupKey, noteDraft.trim());
+      await setArchiveFolderNote(chatId, fullFolder.groupKey, noteDraft.trim());
       await loadData();
     } catch (error) {
       console.error('[Archive] 保存备注失败：', error);
@@ -152,7 +181,8 @@ const ArchiveCabinetView = ({
     try {
       if (deleteTarget.type === 'folder') {
         await deleteArchivedFolder(chatId, deleteTarget.groupKey);
-        setOpenGroupKey(null);
+        setFullGroupKey(null);
+        setPreviewGroupKey(null);
       } else if (deleteTarget.type === 'message') {
         await deleteArchivedMessage(chatId, deleteTarget.messageId);
       }
@@ -211,142 +241,39 @@ const ArchiveCabinetView = ({
         )}
 
         {!isLoading && folders.length > 0 && (
-          <div className="archive-cabinet-scroll">
-            {folders.map((folder) => {
-              const isOpen = folder.groupKey === openGroupKey;
-
-              return (
-                <div
+          <div className="archive-folder-stack-wrap">
+            <div className="archive-folder-stack">
+              {folders.map((folder, index) => (
+                <button
+                  type="button"
                   key={folder.groupKey}
                   className={[
-                    'archive-folder-card',
-                    isOpen ? 'is-open' : ''
+                    'archive-folder-tab',
+                    index % 2 === 0
+                      ? 'archive-folder-tab--a'
+                      : 'archive-folder-tab--b'
                   ].join(' ')}
-                  onClick={() => (!isOpen ? handleToggleFolder(folder) : undefined)}
+                  style={{ zIndex: index + 1 }}
+                  onClick={() => openPreview(folder)}
                 >
-                  <div className="archive-folder-card-top">
-                    <span className="archive-folder-card-date">
-                      {formatFolderLabel(folder.dayKey)}
-                    </span>
+                  <span className="archive-folder-tab-date">
+                    {formatShortLabel(folder.dayKey)}
+                  </span>
 
-                    {folder.offlineSessionId && (
-                      <span className="archive-folder-card-tag">
-                        线下场景
-                      </span>
-                    )}
-                  </div>
+                  <span className="archive-folder-tab-count">
+                    {folder.messages.length} 条
+                  </span>
 
-                  <div className="archive-folder-card-meta">
-                    <span className="archive-folder-card-count">
-                      {folder.messages.length} 条消息
-                    </span>
-                  </div>
-
-                  {folder.note && !isOpen && (
-                    <div className="archive-folder-card-note">
-                      「{folder.note}」
-                    </div>
+                  {folder.offlineSessionId && (
+                    <span className="archive-folder-tab-dot" title="线下场景" />
                   )}
 
-                  {isOpen && (
-                    <div
-                      className="archive-folder-open-body"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <div className="archive-folder-note-row">
-                        <input
-                          type="text"
-                          className="archive-folder-note-input"
-                          placeholder="写一句备注，方便以后辨认这份存档"
-                          value={noteDraft}
-                          maxLength={60}
-                          onChange={(event) => setNoteDraft(event.target.value)}
-                        />
-
-                        <button
-                          type="button"
-                          className="archive-folder-note-save"
-                          disabled={isSavingNote || noteDraft === (openFolder?.note || '')}
-                          onClick={handleSaveNote}
-                        >
-                          {isSavingNote ? '保存中' : '保存'}
-                        </button>
-                      </div>
-
-                      <div className="archive-folder-messages">
-                        {folder.messages.map((message) => (
-                          <div
-                            className="archive-folder-message-row"
-                            key={message.id}
-                          >
-                            <div
-                              className={[
-                                'archive-folder-message',
-                                message.sender === 'character'
-                                  ? 'is-character'
-                                  : ''
-                              ].join(' ')}
-                            >
-                              <div className="archive-folder-message-meta">
-                                <span>
-                                  {message.sender === 'user'
-                                    ? chatOverview.userName
-                                    : chatOverview.characterName}
-                                </span>
-                                <span>
-                                  {formatMessageTime(message.timestamp)}
-                                </span>
-                              </div>
-                              <div className="archive-folder-message-content">
-                                {getMessageContentText(message)}
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              className="archive-msg-delete-btn"
-                              title="删除这条存档消息"
-                              onClick={() => setDeleteTarget({
-                                type: 'message',
-                                messageId: message.id
-                              })}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      <p className="archive-folder-hint">
-                        这份存档只读文本，不会影响记忆系统里已经保存的内容。
-                      </p>
-
-                      <div className="archive-folder-actions">
-                        <button
-                          type="button"
-                          className="archive-folder-delete-btn"
-                          onClick={() => setDeleteTarget({
-                            type: 'folder',
-                            groupKey: folder.groupKey
-                          })}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          删除整份存档
-                        </button>
-
-                        <button
-                          type="button"
-                          className="archive-folder-close-btn"
-                          onClick={() => setOpenGroupKey(null)}
-                        >
-                          收起
-                        </button>
-                      </div>
-                    </div>
+                  {folder.note && (
+                    <span className="archive-folder-tab-note-dot" title="有备注" />
                   )}
-                </div>
-              );
-            })}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -385,6 +312,171 @@ const ArchiveCabinetView = ({
           </button>
         </div>
       </div>
+
+      {/* 预览态：P3 那种单卡展开，点一下文件夹之后、进全屏之前的中间态 */}
+      {previewFolder && (
+        <div className="archive-preview-overlay" onClick={closePreview}>
+          <div
+            className="archive-preview-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="archive-preview-close"
+              onClick={closePreview}
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="archive-preview-date">
+              {formatFolderLabel(previewFolder.dayKey)}
+            </div>
+
+            <div className="archive-preview-count">
+              {previewFolder.messages.length} 条消息
+              {previewFolder.offlineSessionId ? '　·　线下场景' : ''}
+            </div>
+
+            {previewFolder.note && (
+              <div className="archive-preview-note">
+                「{previewFolder.note}」
+              </div>
+            )}
+
+            <div className="archive-preview-snippets">
+              <div className="archive-preview-snippet">
+                <span className="archive-preview-snippet-label">开始</span>
+                <p>{getMessageContentText(previewFolder.messages[0])}</p>
+              </div>
+
+              {previewFolder.messages.length > 1 && (
+                <div className="archive-preview-snippet">
+                  <span className="archive-preview-snippet-label">结尾</span>
+                  <p>
+                    {getMessageContentText(
+                      previewFolder.messages[previewFolder.messages.length - 1]
+                    )}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="archive-preview-enter-btn"
+              onClick={() => openFull(previewFolder)}
+            >
+              查看完整内容
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 全屏态：完整内容 + 备注编辑 + 删除 */}
+      {fullFolder && (
+        <div className="archive-app archive-fullscreen">
+          <div className="archive-hud">
+            <button
+              type="button"
+              className="archive-hud-back"
+              onClick={closeFull}
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              收起
+            </button>
+
+            <span className="archive-hud-title">
+              {formatFolderLabel(fullFolder.dayKey)}
+            </span>
+
+            <span style={{ width: 36 }} />
+          </div>
+
+          <div className="archive-fullscreen-body">
+            <div className="archive-folder-note-row">
+              <input
+                type="text"
+                className="archive-folder-note-input"
+                placeholder="写一句备注，方便以后辨认这份存档"
+                value={noteDraft}
+                maxLength={60}
+                onChange={(event) => setNoteDraft(event.target.value)}
+              />
+
+              <button
+                type="button"
+                className="archive-folder-note-save"
+                disabled={isSavingNote || noteDraft === (fullFolder.note || '')}
+                onClick={handleSaveNote}
+              >
+                {isSavingNote ? '保存中' : '保存'}
+              </button>
+            </div>
+
+            <div className="archive-folder-messages archive-folder-messages--full">
+              {fullFolder.messages.map((message) => (
+                <div
+                  className="archive-folder-message-row"
+                  key={message.id}
+                >
+                  <div
+                    className={[
+                      'archive-folder-message',
+                      message.sender === 'character'
+                        ? 'is-character'
+                        : ''
+                    ].join(' ')}
+                  >
+                    <div className="archive-folder-message-meta">
+                      <span>
+                        {message.sender === 'user'
+                          ? chatOverview.userName
+                          : chatOverview.characterName}
+                      </span>
+                      <span>
+                        {formatMessageTime(message.timestamp)}
+                      </span>
+                    </div>
+                    <div className="archive-folder-message-content">
+                      {getMessageContentText(message)}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="archive-msg-delete-btn"
+                    title="删除这条存档消息"
+                    onClick={() => setDeleteTarget({
+                      type: 'message',
+                      messageId: message.id
+                    })}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <p className="archive-folder-hint">
+              这份存档只读文本，不会影响记忆系统里已经保存的内容。
+            </p>
+
+            <div className="archive-folder-actions">
+              <button
+                type="button"
+                className="archive-folder-delete-btn"
+                onClick={() => setDeleteTarget({
+                  type: 'folder',
+                  groupKey: fullFolder.groupKey
+                })}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                删除整份存档
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showOrganizer && (
         <ArchiveOrganizerModal
