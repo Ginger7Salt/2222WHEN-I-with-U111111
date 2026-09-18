@@ -13,6 +13,8 @@ import PinnedGallery from './apps/hub/PinnedGallery';
 import QuickBoard from './apps/hub/QuickBoard';
 import AppGrid from './apps/hub/AppGrid';
 
+import ArchiveApp from './apps/archive/ArchiveApp';
+
 import SettingsPage from './apps/settings/SettingsPage';
 import MessagesApp from './apps/messages/MessagesApp';
 import TodoApp from './apps/todos/TodoApp';
@@ -47,6 +49,11 @@ import {
   syncPendingHomeBoard,
   syncPendingDiaries,
 } from './services/cloudPushService';
+
+import {
+  startArchiveScheduler,
+  stopArchiveScheduler
+} from './apps/archive/archiveScheduler';
 
 
 import soundService from './services/soundService';
@@ -147,6 +154,7 @@ const REGISTERED_APPS = [
   'rhythm',
   'almanac',
   'memory',
+  'archive',
   'newspaper',
   'margin-notes',
   'workflows',
@@ -373,6 +381,8 @@ const [hubBackground, setHubBackground] = useState('');
     startOfflineSessionScheduler();
     startOfflineCountdownLockscreenScheduler();
 
+      startArchiveScheduler();
+
     void syncWorkflowsToServer();
     void pullWorkflowRunStatusFromServer();
   })();
@@ -387,6 +397,7 @@ const [hubBackground, setHubBackground] = useState('');
     stopOfflineSessionScheduler();
     stopOfflineCountdownLockscreenScheduler();
     stopSnapshotGlobalScheduler();
+       stopArchiveScheduler();
   };
 }, []);
 
@@ -1053,6 +1064,14 @@ const [hubBackground, setHubBackground] = useState('');
           <MemoryApp
             onBackHub={() => openApp('hub')}
           />
+        )}
+
+                {currentApp === 'archive' && (
+          <ErrorBoundary>
+            <ArchiveApp
+              onBackHub={() => openApp('hub')}
+            />
+          </ErrorBoundary>
         )}
 
         {currentApp === 'workflows' && (
