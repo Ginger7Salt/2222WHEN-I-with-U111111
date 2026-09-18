@@ -15,7 +15,7 @@ import {
   MapPinCheckIcon,
   MessageCircleIcon,
   TimerIcon,
-  XCircleIcon,
+  XIcon,
 } from 'lucide-animated';
 
 import db from '../../db';
@@ -59,15 +59,16 @@ const STATUS_META = {
     tint: 'var(--text-main, #303238)',
   },
   declined: {
-    label: '被拒绝了',
-    icon: XCircleIcon,
-    tint: '#776366',
-  },
-  cancelled: {
-    label: '已取消',
-    icon: XCircleIcon,
-    tint: '#776366',
-  },
+  label: '被拒绝了',
+  icon: XIcon,
+  tint: '#776366',
+},
+cancelled: {
+  label: '已取消',
+  icon: XIcon,
+  tint: '#776366',
+},
+
 };
 
 const TABS = [
