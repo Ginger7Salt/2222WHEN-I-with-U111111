@@ -1022,6 +1022,13 @@ const handleDelete = async (memory) => {
                     onViewRevisions={(item) => {
                       setRevisionMemory(item);
                     }}
+                    sourceMemories={
+                      memory.type === 'reflection' && Array.isArray(memory.sourceMemoryIds)
+                        ? memory.sourceMemoryIds
+                          .map((sourceMemoryId) => memoryById.get(sourceMemoryId))
+                          .filter(Boolean)
+                        : undefined
+                    }
                   />
                 ))}
               </div>
@@ -1350,7 +1357,3 @@ const handleDelete = async (memory) => {
 };
 
 export default MemoryApp;
-
-
-
-

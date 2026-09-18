@@ -193,7 +193,11 @@ export const MemoryCard = ({
   onRestore,
   onArchive,
   onDelete,
-  onViewRevisions
+  onViewRevisions,
+  // 只有 type === 'reflection' 的记忆会用到：这条反思是综合自哪几条
+  // 具体记忆，调用方（MemoryApp.jsx）按 memory.sourceMemoryIds 解析好
+  // 标题后传进来，这里只负责展示，不做任何表查询。
+  sourceMemories = []
 }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
@@ -388,6 +392,28 @@ export const MemoryCard = ({
 
         {showDetails && (
           <div className="memory-card-details">
+            {memory.type === 'reflection' && (
+              <div className="memory-detail-sources">
+                <span className="memory-detail-label">综合自</span>
+                {sourceMemories.length > 0 ? (
+                  <ul className="memory-detail-source-list">
+                    {sourceMemories.map((sourceMemory) => (
+                      <li key={sourceMemory.memoryId}>
+                        <span className="memory-detail-source-type">
+                          {getTypeLabel(sourceMemory.type)}
+                        </span>
+                        {sourceMemory.title || sourceMemory.content}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span className="memory-detail-value">
+                    来源记忆已被删除或撤回
+                  </span>
+                )}
+              </div>
+            )}
+
             <div>
               <span className="memory-detail-label">重要程度</span>
               <span className="memory-detail-value">

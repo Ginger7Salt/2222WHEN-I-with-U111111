@@ -9,6 +9,7 @@ import {
   getCharacterEmotionContext,
   markCharacterInteraction
 } from '../apps/memory/memoryCharacterState';
+import { checkAbsenceEmotionSignal } from '../apps/memory/characterAbsenceService';
 import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
 import {
   generateCompanionProactiveDiary as generateStandaloneDiary
@@ -2230,14 +2231,29 @@ if (!result.error) {
 if (!result.error) {
   void checkAndTriggerAutoSummary(chatId, character, apiConfig);
 
-  void markCharacterInteraction({
+  // 用户"这次隔了多久才回来"这个信号，必须在 markCharacterInteraction
+  // 把 lastInteractionAt 刷新成现在之前读出来，所以先跑这个、
+  // 再跑 markCharacterInteraction，而不是并列 void 两个。
+  // 只在这条"用户发消息 -> 角色正常回复"的主路径上检查，
+  // 重新生成回复、角色主动发起的消息都不代表"用户回来了"，不应该触发。
+  void checkAbsenceEmotionSignal({
     chatId,
     characterId: character.id
   }).catch((error) => {
     console.warn(
-      '[Memory] Character state settlement skipped safely:',
+      '[Memory] Absence emotion signal skipped safely:',
       error
     );
+  }).finally(() => {
+    void markCharacterInteraction({
+      chatId,
+      characterId: character.id
+    }).catch((error) => {
+      console.warn(
+        '[Memory] Character state settlement skipped safely:',
+        error
+      );
+    });
   });
 
   // 记忆整理是独立、延迟、非阻塞的后台任务。
