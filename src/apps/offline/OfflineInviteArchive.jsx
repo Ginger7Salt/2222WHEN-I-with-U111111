@@ -2,22 +2,21 @@
 //
 // 全屏版邀约收纳室。
 // 三个 tab：进行中、已完成、未成行。
-// 视觉采用白黑弥散、液态玻璃风格。
-// 颜色优先读取项目 theme.css 中的主题变量。
+// 每张卡片展示邀约标题、时间、状态、消息数、天气、心情以及发起人信息。
+// 视觉使用 theme.css 中的主题变量，并结合白黑弥散和液态玻璃效果。
 
 import React, { useEffect, useMemo, useState } from 'react';
-
-import { ArchiveIcon } from '@/components/icons/archive';
-import { ArrowLeftIcon } from '@/components/icons/arrow-left';
-import { BanIcon } from '@/components/icons/ban';
-import { CalendarCheck2Icon } from '@/components/icons/calendar-check-2';
-import { ChevronRightIcon } from '@/components/icons/chevron-right';
-import { CircleCheckIcon } from '@/components/icons/circle-check';
-import { ClockIcon } from '@/components/icons/clock';
-import { HourglassIcon } from '@/components/icons/hourglass';
-import { MapPinCheckIcon } from '@/components/icons/map-pin-check';
-import { MessageCircleIcon } from '@/components/icons/message-circle';
-import { XIcon } from '@/components/icons/x';
+import {
+  ArchiveIcon,
+  ArrowLeftIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  MapPinCheckIcon,
+  MessageCircleIcon,
+  TimerIcon,
+  XCircleIcon,
+} from 'lucide-animated';
 
 import db from '../../db';
 import { getAllOfflineSessionsForChat } from './offlineSessionService';
@@ -42,32 +41,32 @@ const STATUS_META = {
   pending_review: {
     label: '等待回应',
     icon: ClockIcon,
-    tint: 'var(--archive-muted)',
+    tint: 'var(--text-muted, #727985)',
   },
   scheduled: {
     label: '倒计时中',
-    icon: HourglassIcon,
-    tint: 'var(--archive-ink)',
+    icon: TimerIcon,
+    tint: 'var(--text-main, #17181c)',
   },
   active: {
     label: '可以进入',
     icon: MapPinCheckIcon,
-    tint: 'var(--archive-ink)',
+    tint: 'var(--accent-color, #17181c)',
   },
   completed: {
     label: '已完成',
-    icon: CalendarCheck2Icon,
-    tint: 'var(--archive-muted)',
+    icon: CheckIcon,
+    tint: 'var(--text-main, #303238)',
   },
   declined: {
     label: '被拒绝了',
-    icon: BanIcon,
-    tint: 'var(--archive-danger)',
+    icon: XCircleIcon,
+    tint: '#776366',
   },
   cancelled: {
     label: '已取消',
-    icon: XIcon,
-    tint: 'var(--archive-danger)',
+    icon: XCircleIcon,
+    tint: '#776366',
   },
 };
 
@@ -99,37 +98,25 @@ const ARCHIVE_STYLES = `
     --archive-bg: var(--bg-main, #eef0f4);
     --archive-ink: var(--text-main, #111216);
     --archive-muted: var(--text-muted, #777e8c);
-    --archive-soft-ink: var(--text-secondary, var(--text-muted, #626875));
+    --archive-soft-ink: var(--text-muted, #5e6571);
     --archive-accent: var(--accent-color, #111216);
-    --archive-accent-foreground: var(
-      --accent-foreground,
-      #ffffff
-    );
-    --archive-control-bg: var(
+    --archive-accent-foreground: var(--accent-foreground, #ffffff);
+    --archive-control: var(
       --control-soft-bg,
-      rgba(255, 255, 255, 0.52)
+      rgba(255, 255, 255, 0.48)
     );
-    --archive-card-bg: var(
+    --archive-card: var(
       --card-bg-gradient,
       linear-gradient(
         145deg,
-        rgba(255, 255, 255, 0.76),
-        rgba(255, 255, 255, 0.32)
+        rgba(255, 255, 255, 0.74),
+        rgba(255, 255, 255, 0.36)
       )
     );
-    --archive-card-border: var(
+    --archive-border: var(
       --card-border,
       rgba(255, 255, 255, 0.76)
     );
-    --archive-danger: var(--danger-color, #8b5555);
-
-    --archive-glass-border: rgba(255, 255, 255, 0.78);
-
-    --archive-shadow:
-      0 24px 60px rgba(23, 28, 38, 0.09),
-      0 8px 20px rgba(23, 28, 38, 0.06),
-      inset 0 1px 1px rgba(255, 255, 255, 0.92),
-      inset 0 -1px 2px rgba(20, 22, 28, 0.035);
 
     position: fixed;
     isolation: isolate;
@@ -144,15 +131,21 @@ const ARCHIVE_STYLES = `
     background:
       radial-gradient(
         circle at 4% 7%,
-        rgba(255, 255, 255, 0.68) 0,
-        rgba(255, 255, 255, 0.18) 22%,
+        rgba(255, 255, 255, 0.85) 0,
+        rgba(255, 255, 255, 0.28) 19%,
         transparent 48%
       ),
       radial-gradient(
         circle at 96% 90%,
-        rgba(255, 255, 255, 0.45) 0,
-        rgba(255, 255, 255, 0.1) 21%,
-        transparent 48%
+        rgba(215, 218, 224, 0.72) 0,
+        rgba(215, 218, 224, 0.2) 20%,
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 52% 48%,
+        rgba(255, 255, 255, 0.74) 0,
+        rgba(255, 255, 255, 0.2) 32%,
+        transparent 72%
       ),
       var(--archive-bg);
     -webkit-font-smoothing: antialiased;
@@ -164,7 +157,7 @@ const ARCHIVE_STYLES = `
     inset: 0;
     pointer-events: none;
     content: '';
-    opacity: 0.2;
+    opacity: 0.18;
     background-image:
       linear-gradient(
         rgba(255, 255, 255, 0.16) 1px,
@@ -194,9 +187,9 @@ const ARCHIVE_STYLES = `
   .archive-orb {
     position: absolute;
     border-radius: 999px;
-    filter: blur(52px);
+    filter: blur(50px);
     opacity: 0.48;
-    animation: archiveOrbFloat 16s ease-in-out infinite alternate;
+    animation: archiveOrbFloat 17s ease-in-out infinite alternate;
   }
 
   .archive-orb--light {
@@ -204,24 +197,24 @@ const ARCHIVE_STYLES = `
     left: -100px;
     width: 310px;
     height: 310px;
-    background: rgba(255, 255, 255, 0.84);
+    background: rgba(255, 255, 255, 0.92);
   }
 
   .archive-orb--cool {
     top: 34%;
-    right: -130px;
+    right: -140px;
     width: 310px;
     height: 310px;
-    background: rgba(200, 208, 222, 0.64);
+    background: rgba(203, 210, 222, 0.68);
     animation-delay: -5s;
   }
 
   .archive-orb--warm {
-    bottom: -140px;
+    bottom: -145px;
     left: 8%;
     width: 310px;
     height: 310px;
-    background: rgba(227, 220, 213, 0.62);
+    background: rgba(225, 220, 215, 0.62);
     animation-delay: -10s;
   }
 
@@ -265,10 +258,10 @@ const ARCHIVE_STYLES = `
     align-items: center;
     justify-content: center;
     color: var(--archive-ink);
-    border: 1px solid var(--archive-glass-border);
+    border: 1px solid var(--archive-border);
     border-radius: 15px;
     outline: none;
-    background: var(--archive-control-bg);
+    background: var(--archive-control);
     box-shadow:
       0 8px 18px rgba(20, 24, 31, 0.055),
       inset 0 1px 1px rgba(255, 255, 255, 0.92);
@@ -277,6 +270,7 @@ const ARCHIVE_STYLES = `
   }
 
   .archive-back-button {
+    appearance: none;
     cursor: pointer;
     transition:
       transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -285,7 +279,7 @@ const ARCHIVE_STYLES = `
   }
 
   .archive-back-button:hover {
-    background: rgba(255, 255, 255, 0.76);
+    background: rgba(255, 255, 255, 0.78);
     box-shadow:
       0 12px 24px rgba(20, 24, 31, 0.08),
       inset 0 1px 1px rgba(255, 255, 255, 0.96);
@@ -295,11 +289,17 @@ const ARCHIVE_STYLES = `
     transform: scale(0.91);
   }
 
-  .archive-back-button svg,
-  .archive-mark svg {
-    width: 19px;
-    height: 19px;
-    stroke-width: 1.8;
+  .archive-button-icon {
+    display: flex;
+    width: 18px;
+    height: 18px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .archive-button-icon svg {
+    width: 100%;
+    height: 100%;
   }
 
   .archive-heading {
@@ -344,9 +344,22 @@ const ARCHIVE_STYLES = `
     background:
       linear-gradient(
         145deg,
-        rgba(255, 255, 255, 0.88),
+        rgba(255, 255, 255, 0.86),
         rgba(255, 255, 255, 0.38)
       );
+  }
+
+  .archive-mark__icon {
+    display: flex;
+    width: 19px;
+    height: 19px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .archive-mark__icon svg {
+    width: 100%;
+    height: 100%;
   }
 
   .archive-tabs {
@@ -356,9 +369,9 @@ const ARCHIVE_STYLES = `
     margin-top: 22px;
     padding: 5px;
     overflow-x: auto;
-    border: 1px solid rgba(255, 255, 255, 0.66);
+    border: 1px solid var(--archive-border);
     border-radius: 18px;
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.32);
     box-shadow:
       inset 0 1px 1px rgba(255, 255, 255, 0.85),
       0 8px 24px rgba(29, 33, 40, 0.035);
@@ -386,6 +399,7 @@ const ARCHIVE_STYLES = `
     border-radius: 12px;
     outline: none;
     background: transparent;
+    font-family: inherit;
     font-size: 11px;
     font-weight: 680;
     letter-spacing: -0.01em;
@@ -412,7 +426,7 @@ const ARCHIVE_STYLES = `
     background: var(--archive-accent);
     box-shadow:
       0 8px 16px rgba(11, 12, 15, 0.19),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .archive-tab__count {
@@ -468,11 +482,17 @@ const ARCHIVE_STYLES = `
     overflow: hidden;
     color: var(--archive-ink);
     text-align: left;
-    border: 1px solid var(--archive-card-border);
+    border: 1px solid var(--archive-border);
     border-radius: 27px;
     outline: none;
-    background: var(--archive-card-bg);
-    box-shadow: var(--archive-shadow);
+    background: var(--archive-card);
+    box-shadow:
+      0 24px 60px rgba(23, 28, 38, 0.09),
+      0 8px 20px rgba(23, 28, 38, 0.06),
+      inset 0 1px 1px rgba(255, 255, 255, 0.92),
+      inset 0 -1px 2px rgba(20, 22, 28, 0.035);
+    font-family: inherit;
+    cursor: default;
     backdrop-filter: blur(26px) saturate(155%);
     -webkit-backdrop-filter: blur(26px) saturate(155%);
     transition:
@@ -491,7 +511,7 @@ const ARCHIVE_STYLES = `
     border-radius: 999px;
     pointer-events: none;
     content: '';
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.43);
     filter: blur(12px);
   }
 
@@ -517,7 +537,7 @@ const ARCHIVE_STYLES = `
     border-color: color-mix(
       in srgb,
       var(--archive-accent) 22%,
-      transparent
+      var(--archive-border)
     );
   }
 
@@ -571,20 +591,6 @@ const ARCHIVE_STYLES = `
       );
   }
 
-  .status-completed .invite-card__art {
-    background:
-      radial-gradient(
-        circle at 80% 18%,
-        rgba(255, 255, 255, 0.86),
-        transparent 34%
-      ),
-      linear-gradient(
-        145deg,
-        rgba(237, 239, 240, 0.78),
-        rgba(208, 212, 217, 0.46)
-      );
-  }
-
   .status-declined .invite-card__art,
   .status-cancelled .invite-card__art {
     background:
@@ -624,7 +630,8 @@ const ARCHIVE_STYLES = `
     box-shadow:
       0 8px 17px rgba(24, 28, 35, 0.08),
       inset 0 1px 1px rgba(255, 255, 255, 0.92);
-    transition: transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition:
+      transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .invite-paper::before {
@@ -730,10 +737,17 @@ const ARCHIVE_STYLES = `
       inset 0 1px 1px rgba(255, 255, 255, 0.95);
   }
 
+  .invite-pocket__seal > div {
+    display: flex;
+    width: 15px;
+    height: 15px;
+    align-items: center;
+    justify-content: center;
+  }
+
   .invite-pocket__seal svg {
-    width: 14px;
-    height: 14px;
-    stroke-width: 1.9;
+    width: 100%;
+    height: 100%;
   }
 
   .invite-card__body {
@@ -767,16 +781,23 @@ const ARCHIVE_STYLES = `
     color: var(--archive-ink);
     border: 1px solid rgba(255, 255, 255, 0.86);
     border-radius: 11px;
-    background: var(--archive-control-bg);
+    background: var(--archive-control);
     box-shadow:
       0 5px 12px rgba(25, 28, 34, 0.045),
       inset 0 1px 1px rgba(255, 255, 255, 0.9);
   }
 
-  .invite-card__status-icon svg {
+  .invite-animated-icon {
+    display: flex;
     width: 15px;
     height: 15px;
-    stroke-width: 1.85;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .invite-animated-icon svg {
+    width: 100%;
+    height: 100%;
   }
 
   .invite-card__copy {
@@ -806,14 +827,22 @@ const ARCHIVE_STYLES = `
   }
 
   .invite-card__arrow {
-    width: 16px;
-    height: 16px;
-    flex: 0 0 16px;
+    display: flex;
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+    align-items: center;
+    justify-content: center;
     color: var(--archive-ink);
     opacity: 0.42;
     transition:
       opacity 220ms ease,
       transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .invite-card__arrow svg {
+    width: 100%;
+    height: 100%;
   }
 
   .invite-card:hover .invite-card__arrow {
@@ -850,11 +879,18 @@ const ARCHIVE_STYLES = `
     white-space: nowrap;
   }
 
-  .invite-tile svg {
+  .invite-tile__icon {
+    display: inline-flex;
     width: 11px;
     height: 11px;
     flex: 0 0 11px;
-    stroke-width: 1.8;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .invite-tile__icon svg {
+    width: 100%;
+    height: 100%;
   }
 
   .invite-tile__text {
@@ -909,7 +945,7 @@ const ARCHIVE_STYLES = `
     align-items: center;
     padding: 30px 22px;
     text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--archive-border);
     border-radius: 25px;
     background: rgba(255, 255, 255, 0.35);
     box-shadow:
@@ -926,19 +962,26 @@ const ARCHIVE_STYLES = `
     align-items: center;
     justify-content: center;
     margin-bottom: 15px;
-    color: var(--archive-soft-ink);
+    color: var(--archive-ink);
     border: 1px solid rgba(255, 255, 255, 0.86);
     border-radius: 17px;
-    background: var(--archive-control-bg);
+    background: var(--archive-control);
     box-shadow:
       0 8px 18px rgba(22, 26, 33, 0.06),
       inset 0 1px 1px rgba(255, 255, 255, 0.94);
   }
 
+  .archive-empty__icon > div {
+    display: flex;
+    width: 22px;
+    height: 22px;
+    align-items: center;
+    justify-content: center;
+  }
+
   .archive-empty__icon svg {
-    width: 21px;
-    height: 21px;
-    stroke-width: 1.5;
+    width: 100%;
+    height: 100%;
   }
 
   .archive-empty__title {
@@ -963,8 +1006,11 @@ const ARCHIVE_STYLES = `
     height: 4px;
     pointer-events: none;
     border-radius: 999px;
-    background: var(--archive-ink);
-    opacity: 0.7;
+    background: color-mix(
+      in srgb,
+      var(--archive-ink) 72%,
+      transparent
+    );
     transform: translateX(-50%);
   }
 
@@ -1020,20 +1066,27 @@ const getDateLabel = (session) => {
 };
 
 const Tile = ({ label, tint, icon: TileIcon }) => (
-  <span
+  <div
     className="invite-tile"
     style={{ color: tint || 'var(--archive-soft-ink)' }}
   >
-    {TileIcon && <TileIcon aria-hidden="true" />}
+    {TileIcon && (
+      <TileIcon
+        size={11}
+        className="invite-tile__icon"
+        aria-hidden="true"
+      />
+    )}
+
     <span className="invite-tile__text">{label}</span>
-  </span>
+  </div>
 );
 
 const InviteCard = ({ session, onEnterScene }) => {
   const meta = STATUS_META[session.status] || {
     label: session.status,
     icon: ClockIcon,
-    tint: 'var(--archive-muted)',
+    tint: 'var(--text-muted, #727985)',
   };
 
   const StatusIcon = meta.icon;
@@ -1077,12 +1130,16 @@ const InviteCard = ({ session, onEnterScene }) => {
             INVITE ARCHIVE
           </span>
 
-          <span
+          <div
             className="invite-pocket__seal"
             style={{ color: meta.tint }}
+            aria-hidden="true"
           >
-            <StatusIcon />
-          </span>
+            <StatusIcon
+              size={15}
+              className="invite-animated-icon"
+            />
+          </div>
         </div>
       </div>
 
@@ -1094,7 +1151,10 @@ const InviteCard = ({ session, onEnterScene }) => {
               style={{ color: meta.tint }}
               aria-hidden="true"
             >
-              <StatusIcon />
+              <StatusIcon
+                size={15}
+                className="invite-animated-icon"
+              />
             </div>
 
             <div className="invite-card__copy">
@@ -1110,6 +1170,7 @@ const InviteCard = ({ session, onEnterScene }) => {
 
           {isEnterable && (
             <ChevronRightIcon
+              size={17}
               className="invite-card__arrow"
               aria-hidden="true"
             />
@@ -1244,7 +1305,11 @@ const OfflineInviteArchive = ({
               className="archive-back-button"
               aria-label="关闭线下邀约"
             >
-              <ArrowLeftIcon aria-hidden="true" />
+              <ArrowLeftIcon
+                size={18}
+                className="archive-button-icon"
+                aria-hidden="true"
+              />
             </button>
 
             <div className="archive-heading">
@@ -1260,7 +1325,10 @@ const OfflineInviteArchive = ({
             </div>
 
             <div className="archive-mark" aria-hidden="true">
-              <ArchiveIcon />
+              <ArchiveIcon
+                size={19}
+                className="archive-mark__icon"
+              />
             </div>
           </div>
 
@@ -1315,16 +1383,17 @@ const OfflineInviteArchive = ({
             <div className="archive-empty">
               <div className="archive-empty__card">
                 <div className="archive-empty__icon">
-                  <CircleCheckIcon aria-hidden="true" />
+                  <ArchiveIcon
+                    size={22}
+                    aria-hidden="true"
+                  />
                 </div>
 
                 <div className="archive-empty__title">
                   {activeTab === 'ongoing' &&
                     '还没有进行中的邀约'}
-
                   {activeTab === 'completed' &&
                     '还没有完成过的线下见面'}
-
                   {activeTab === 'inactive' &&
                     '没有被拒绝或取消的邀约'}
                 </div>
