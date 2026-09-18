@@ -12,8 +12,10 @@ import { ArrowLeft, Pencil, Settings } from 'lucide-react';
 import {
   getArchiveNarrativeLine,
   getChatsArchiveOverview,
-  setChatDiscImage
+  setChatDiscImage,
+  setChatDiscLabel
 } from './archiveService';
+
 import ArchiveCabinetView from './components/ArchiveCabinetView';
 import ArchiveMemoryDeck from './components/ArchiveMemoryDeck';
 import ArchiveSettingsPanel from './components/ArchiveSettingsPanel';
@@ -135,6 +137,31 @@ const ArchiveApp = ({ onBackHub }) => {
     );
   }
 
+
+  const handleEditDiscLabel = async () => {
+  if (!activeItem) {
+    return;
+  }
+
+  const nextLabel = window.prompt(
+    '请输入唱片上的文字，直接留空即可隐藏文字。',
+    activeItem.discLabel ?? activeItem.characterName ?? ''
+  );
+
+  // 用户点击取消
+  if (nextLabel === null) {
+    return;
+  }
+
+  try {
+    await setChatDiscLabel(activeItem.chatId, nextLabel);
+    await loadOverview();
+  } catch (error) {
+    console.error('[Archive] 保存唱片文字失败：', error);
+  }
+};
+
+
   return createPortal(
     <div className="archive-app">
       <div className="archive-hud">
@@ -192,8 +219,8 @@ const ArchiveApp = ({ onBackHub }) => {
                   const coverImage = item.discImage || item.characterAvatar || item.bgImage;
                   const isActive = index === activeIndex;
                   const firstChar = (item.characterName || '?').slice(0, 1);
-                  const discCode = (item.characterName || '??').slice(0, 2).toUpperCase();
-                  const archiveNo = String(index + 1).padStart(3, '0');
+const archiveNo = String(index + 1).padStart(3, '0');
+
 
                   return (
                     <div
@@ -237,29 +264,46 @@ const ArchiveApp = ({ onBackHub }) => {
                           )}
 
                           <div className="arv-slide-label">
-                            <strong>{discCode}</strong>
-                            <span>ARCHIVE {archiveNo}</span>
-                          </div>
+  {item.discLabel && (
+    <strong>{item.discLabel}</strong>
+  )}
+  <span>ARCHIVE {archiveNo}</span>
+</div>
+
                         </div>
                       </div>
 
-                      {isActive && (
-                        <div className="arv-slide-toolbar">
-                          <button
-                            type="button"
-                            className="arv-slide-edit-btn"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handlePickDiscImage();
-                            }}
-                            title="更换唱片封面"
-                            aria-label="更换唱片封面"
-                          >
-                            <Pencil className="h-3 w-3" />
-                            换封面
-                          </button>
-                        </div>
-                      )}
+{isActive && (
+  <div className="arv-slide-toolbar">
+    <button
+      type="button"
+      className="arv-slide-edit-btn"
+      onClick={(event) => {
+        event.stopPropagation();
+        handlePickDiscImage();
+      }}
+      title="更换唱片封面"
+      aria-label="更换唱片封面"
+    >
+      <Pencil className="h-3 w-3" />
+      换封面
+    </button>
+
+    <button
+      type="button"
+      className="arv-slide-edit-btn"
+      onClick={(event) => {
+        event.stopPropagation();
+        void handleEditDiscLabel();
+      }}
+      title="编辑唱片文字"
+      aria-label="编辑唱片文字"
+    >
+      <Pencil className="h-3 w-3" />
+      编辑文字
+    </button>
+  </div>
+)}
 
                       <div className="arv-slide-meta">
                         与 {item.userName} · {item.totalMessages} 条消息 · 记录 {item.chattedDays} 天

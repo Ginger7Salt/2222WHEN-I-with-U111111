@@ -201,12 +201,21 @@ export const getChatsArchiveOverview = async () => {
         ensureFirstMessageCached(chatId)
       ]);
 
+           const characterName = character?.name || chat.title || '未命名';
+
       return {
         chatId,
         characterId: chat.characterId,
-        characterName: character?.name || chat.title || '未命名',
+        characterName,
         characterAvatar: character?.avatar || '',
         discImage: chat.archiveDiscImage || '',
+
+        // 只有没有自定义文字时才使用角色名字。
+        // 空字符串是有效值，表示用户主动把唱片文字留空。
+        discLabel: typeof chat.archiveDiscLabel === 'string'
+          ? chat.archiveDiscLabel
+          : characterName,
+
         userName: chat.userName || '你',
         userAvatar: chat.userAvatar || character?.userAvatar || '',
         bgImage: chat.bgImage || '',
@@ -242,6 +251,27 @@ export const setChatDiscImage = async (chatId, dataUrl) => {
 
   return true;
 };
+
+/*
+ * 允许 user 自定义唱片上的主文字。
+ * 不填写时保存为空字符串，表示主动隐藏这段文字。
+ */
+export const setChatDiscLabel = async (chatId, label) => {
+  if (!isValidChatId(chatId)) {
+    return false;
+  }
+
+  const normalizedLabel = typeof label === 'string'
+    ? label.trim()
+    : '';
+
+  await db.chats.update(chatId, {
+    archiveDiscLabel: normalizedLabel
+  });
+
+  return true;
+};
+
 
 /*
  * 归档消息的"文件夹分组 key"计算规则，统一在这一处，

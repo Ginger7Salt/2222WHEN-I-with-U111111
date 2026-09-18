@@ -11,8 +11,10 @@
 // 只是换一种排布和视觉呈现，不会丢内容。
 
 import ClassicLayout from './ClassicLayout';
+import IgBlogLayout from './IgBlogLayout';
 
 export const HUB_HEADER_LAYOUT_CLASSIC = 'classic';
+export const HUB_HEADER_LAYOUT_IG_BLOG = 'igBlog';
 
 // 版式列表，用于设置页渲染选择器
 export const HUB_HEADER_LAYOUTS = [
@@ -21,11 +23,17 @@ export const HUB_HEADER_LAYOUTS = [
     label: '经典卡片',
     hint: 'Profile + Pinned',
   },
+  {
+    id: HUB_HEADER_LAYOUT_IG_BLOG,
+    label: '博客 / IG 风',
+    hint: 'Bio + Links',
+  },
 ];
 
 // id -> 组件，用于 HubHeader.jsx 实际渲染
 export const HUB_HEADER_LAYOUT_COMPONENTS = {
   [HUB_HEADER_LAYOUT_CLASSIC]: ClassicLayout,
+  [HUB_HEADER_LAYOUT_IG_BLOG]: IgBlogLayout,
 };
 
 export const isKnownHubHeaderLayout = (id) =>
