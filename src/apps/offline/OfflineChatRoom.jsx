@@ -221,10 +221,6 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
   const hasSceneStatus = Boolean(
     session.sceneMood || session.sceneWeather || session.sceneMonologue
   );
-  const hasStatusContent = Boolean(session.sceneDescription || hasSceneStatus);
-
-  const userAvatar = chat?.userAvatar || character?.userAvatar || '';
-  const userName = chat?.userName || character?.userName || '你';
 
   return (
     <div
@@ -256,7 +252,7 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
         </div>
       )}
 
-      {/* header 本身完全透明，不做整条底色/模糊，只有按钮、头像、签名、状态胶囊各自带底色 */}
+      {/* header 完全透明，不做整条底色/模糊，只有按钮、头像、签名、状态胶囊各自带底色 */}
       <header className="z-20 shrink-0 px-4 pb-3 pt-3">
         <div className="flex items-center justify-between gap-2">
           <button
@@ -299,31 +295,17 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
           </div>
         </div>
 
-        {/* 沉浸式大头像 + 可编辑签名 */}
+        {/* 沉浸式大头像（只放角色自己的，不叠加 user 头像）+ 可编辑签名 */}
         <div className="mt-1 flex flex-col items-center">
-          <div className="relative">
-            <div
-              className="flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-full border-[3px] shadow-lg transition-transform active:scale-95"
-              style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--bg-main)' }}
-            >
-              {character?.avatar ? (
-                <img src={character.avatar} alt={character?.name || '对方'} className="h-full w-full object-cover" />
-              ) : (
-                <User className="h-7 w-7 opacity-40" />
-              )}
-            </div>
-
-            <div
-              className="absolute -bottom-1 -right-1.5 flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 shadow-md"
-              style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--bg-main)' }}
-              title={userName}
-            >
-              {userAvatar ? (
-                <img src={userAvatar} alt={userName} className="h-full w-full object-cover" />
-              ) : (
-                <User className="h-3.5 w-3.5 opacity-40" />
-              )}
-            </div>
+          <div
+            className="flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-full border-[3px] shadow-lg transition-transform active:scale-95"
+            style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--bg-main)' }}
+          >
+            {character?.avatar ? (
+              <img src={character.avatar} alt={character?.name || '对方'} className="h-full w-full object-cover" />
+            ) : (
+              <User className="h-7 w-7 opacity-40" />
+            )}
           </div>
 
           <div className="mt-2 max-w-[80%]">
@@ -378,23 +360,21 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
             {isReadonly ? ' · 已结束' : ''}
           </span>
 
-          {/* 状态栏收起来，点这个小胶囊按钮才展开 */}
-          {hasStatusContent && (
-            <button
-              type="button"
-              onClick={() => setShowStatusPanel((previous) => !previous)}
-              className="mt-2 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium shadow-sm transition-transform active:scale-95"
-              style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
-            >
-              <Sparkles className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
-              <span>此刻状态</span>
-              <ChevronDown
-                className={`h-3 w-3 transition-transform duration-300 ${showStatusPanel ? 'rotate-180' : ''}`}
-              />
-            </button>
-          )}
+          {/* 状态栏按钮常驻显示，不管有没有内容都能点开——避免用户找不到入口 */}
+          <button
+            type="button"
+            onClick={() => setShowStatusPanel((previous) => !previous)}
+            className="mt-2 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium shadow-sm transition-transform active:scale-95"
+            style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
+          >
+            <Sparkles className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
+            <span>此刻状态</span>
+            <ChevronDown
+              className={`h-3 w-3 transition-transform duration-300 ${showStatusPanel ? 'rotate-180' : ''}`}
+            />
+          </button>
 
-          {hasStatusContent && showStatusPanel && (
+          {showStatusPanel && (
             <div
               className="mt-2 w-full max-w-[280px] space-y-1.5 rounded-2xl px-3 py-2 shadow-sm backdrop-blur-md animate-fade-in-up"
               style={{ background: 'var(--control-soft-bg)', border: '1px solid var(--card-border)' }}
@@ -405,29 +385,37 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
                 </div>
               )}
 
-              {hasSceneStatus && (
-                <div className="flex items-center justify-center gap-3 text-[10px]">
-                  {session.sceneWeather && (
-                    <span className="flex items-center gap-1 opacity-80">
-                      <CloudSun className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
-                      {session.sceneWeather}
-                    </span>
-                  )}
+              {hasSceneStatus ? (
+                <>
+                  <div className="flex items-center justify-center gap-3 text-[10px]">
+                    {session.sceneWeather && (
+                      <span className="flex items-center gap-1 opacity-80">
+                        <CloudSun className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
+                        {session.sceneWeather}
+                      </span>
+                    )}
 
-                  {session.sceneMood && (
-                    <span className="flex items-center gap-1 opacity-80">
-                      <Smile className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
-                      {session.sceneMood}
-                    </span>
-                  )}
-                </div>
-              )}
+                    {session.sceneMood && (
+                      <span className="flex items-center gap-1 opacity-80">
+                        <Smile className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
+                        {session.sceneMood}
+                      </span>
+                    )}
+                  </div>
 
-              {session.sceneMonologue && (
-                <div className="flex items-start gap-1 text-[10px] italic opacity-60">
-                  <Quote className="mt-0.5 h-3 w-3 shrink-0" />
-                  <span>{session.sceneMonologue}</span>
-                </div>
+                  {session.sceneMonologue && (
+                    <div className="flex items-start gap-1 text-[10px] italic opacity-60">
+                      <Quote className="mt-0.5 h-3 w-3 shrink-0" />
+                      <span>{session.sceneMonologue}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                !session.sceneDescription && (
+                  <div className="py-1 text-center text-[10px] opacity-50">
+                    还没有更新，再聊几句之后（每 10 条消息）会自动刷新心情 / 天气 / 内心独白
+                  </div>
+                )
               )}
             </div>
           )}
@@ -442,8 +430,8 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
           visibleMessages={messages}
           messagesById={messagesById}
           character={character}
-          activeUserAvatar={userAvatar}
-          activeUserName={userName}
+          activeUserAvatar={chat?.userAvatar || character?.userAvatar || ''}
+          activeUserName={chat?.userName || character?.userName || '你'}
           isAiTyping={isAiTyping}
           mcpTrace={null}
           typingText={`${character?.name || '对方'} 正在回应...`}
