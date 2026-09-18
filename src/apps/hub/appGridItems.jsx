@@ -5,9 +5,10 @@
 // 交给 paginateGridItems 按真实的网格排布规则拼进固定行数的页面里，再
 // 由 AppSwiper 渲染成可以左右滑动的分页。
 //
-// 大小不同的卡片（横幅大卡 / 方形小卡 / 迷你工具条）继续保留各自原本的
-// 视觉设计，只是外层统一套上 colSpan 的网格容器、并用 h-full 撑满统一的
-// 行高，让每一页拼出来的总尺寸一致。
+// 大小不同的卡片（横幅大卡 / 方形小卡）继续保留各自原本的视觉设计，只是
+// 外层统一套上 colSpan 的网格容器、并用 h-full 撑满统一的行高，让每一页
+// 拼出来的总尺寸一致；同时统一关掉 GlassCard 的 backdrop-filter 弥散
+// 效果（blur={false}），避免在横向滚动容器里被裁切出生硬的边缘。
 
 import React from 'react';
 import {
@@ -45,6 +46,7 @@ export const buildAppGridItems = ({
     colSpan: 2,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('margin-notes')}
         className="group h-full cursor-pointer overflow-hidden p-0 text-left"
       >
@@ -109,6 +111,7 @@ export const buildAppGridItems = ({
     colSpan: 1,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('snapshots')}
         className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
       >
@@ -134,6 +137,7 @@ export const buildAppGridItems = ({
     colSpan: 1,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('pebbling')}
         className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
       >
@@ -162,6 +166,7 @@ export const buildAppGridItems = ({
     colSpan: 2,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('habitat')}
         className="group flex h-full cursor-pointer items-center justify-between p-4 text-left"
       >
@@ -198,6 +203,7 @@ export const buildAppGridItems = ({
     colSpan: 1,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('imaginarium')}
         className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
       >
@@ -226,6 +232,7 @@ export const buildAppGridItems = ({
     colSpan: 1,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('ensemble')}
         className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
       >
@@ -254,6 +261,7 @@ export const buildAppGridItems = ({
     colSpan: 1,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('diaries')}
         className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
       >
@@ -282,6 +290,7 @@ export const buildAppGridItems = ({
     colSpan: 1,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('memory')}
         className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
       >
@@ -310,6 +319,7 @@ export const buildAppGridItems = ({
     colSpan: 1,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('archive')}
         className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
       >
@@ -338,6 +348,7 @@ export const buildAppGridItems = ({
     colSpan: 1,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('ephemera')}
         className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
       >
@@ -366,6 +377,7 @@ export const buildAppGridItems = ({
     colSpan: 1,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('newspaper')}
         className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
       >
@@ -394,6 +406,7 @@ export const buildAppGridItems = ({
     colSpan: 2,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('workflows')}
         className="group flex h-full cursor-pointer items-center justify-between p-4 text-left"
       >
@@ -426,6 +439,7 @@ export const buildAppGridItems = ({
     colSpan: 2,
     content: (
       <GlassCard
+        blur={false}
         onClick={() => onOpenApp('askbox')}
         className="group flex h-full cursor-pointer items-center justify-between border-dashed p-4 text-left"
         style={{ borderColor: 'var(--text-muted)' }}
@@ -464,61 +478,116 @@ export const buildAppGridItems = ({
   },
 
   {
-    id: 'small-tools',
-    colSpan: 2,
+    id: 'travel',
+    colSpan: 1,
     content: (
-      <GlassCard className="flex h-full flex-col justify-between p-3 text-left">
-        <div className="flex items-center justify-between px-1">
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] opacity-35">
-            Small arrangements
-          </span>
-
-          <span className="text-[9px] opacity-30">for everyday life</span>
+      <GlassCard
+        blur={false}
+        onClick={() => onOpenApp('travel')}
+        className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
+      >
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: 'var(--control-soft-bg)' }}
+        >
+          <Compass
+            className="h-5 w-5 opacity-90"
+            style={{ color: 'var(--text-main)' }}
+          />
         </div>
 
-        <div className="grid flex-1 grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => onOpenApp('travel')}
-            className="flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl p-2 text-left transition-transform active:scale-95"
-            style={{ backgroundColor: 'var(--control-soft-bg)' }}
-          >
-            <Compass className="h-3.5 w-3.5 shrink-0 opacity-75" />
-            <AppTitle en="Travel" zh="旅行" mode={nameMode} className="truncate text-xs font-bold" />
-          </button>
+        <div>
+          <AppTitle en="Travel" zh="旅行" mode={nameMode} />
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+            Journey Log
+          </p>
+        </div>
+      </GlassCard>
+    ),
+  },
 
-          <button
-            type="button"
-            onClick={() => onOpenApp('planner')}
-            className="flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl p-2 text-left transition-transform active:scale-95"
-            style={{ backgroundColor: 'var(--control-soft-bg)' }}
-          >
-            <Calendar className="h-3.5 w-3.5 shrink-0 opacity-75" />
-            <AppTitle en="Planner" zh="日程" mode={nameMode} className="truncate text-xs font-bold" />
-          </button>
+  {
+    id: 'planner',
+    colSpan: 1,
+    content: (
+      <GlassCard
+        blur={false}
+        onClick={() => onOpenApp('planner')}
+        className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
+      >
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: 'var(--control-soft-bg)' }}
+        >
+          <Calendar
+            className="h-5 w-5 opacity-90"
+            style={{ color: 'var(--text-main)' }}
+          />
+        </div>
 
-          <button
-            type="button"
-            onClick={() => onOpenApp('rhythm')}
-            className="flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl p-2 text-left transition-transform active:scale-95"
-            style={{ backgroundColor: 'var(--control-soft-bg)' }}
-          >
-            <Clock className="h-3.5 w-3.5 shrink-0 opacity-75" />
-            <AppTitle en="Rhythm" zh="律动" mode={nameMode} className="truncate text-xs font-bold" />
-          </button>
+        <div>
+          <AppTitle en="Planner" zh="日程" mode={nameMode} />
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+            Shared Schedule
+          </p>
+        </div>
+      </GlassCard>
+    ),
+  },
 
-          <button
-            type="button"
-            onClick={() => onOpenApp('almanac')}
-            className="flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl p-2 text-left transition-transform active:scale-95"
-            style={{ backgroundColor: 'var(--control-soft-bg)' }}
-          >
-            <BookOpen
-              className="h-3.5 w-3.5 shrink-0 opacity-75"
-              style={{ color: 'var(--text-main)' }}
-            />
-            <AppTitle en="Almanac" zh="岁时纪" mode={nameMode} className="truncate text-xs font-bold" />
-          </button>
+  {
+    id: 'rhythm',
+    colSpan: 1,
+    content: (
+      <GlassCard
+        blur={false}
+        onClick={() => onOpenApp('rhythm')}
+        className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
+      >
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: 'var(--control-soft-bg)' }}
+        >
+          <Clock
+            className="h-5 w-5 opacity-90"
+            style={{ color: 'var(--text-main)' }}
+          />
+        </div>
+
+        <div>
+          <AppTitle en="Rhythm" zh="律动" mode={nameMode} />
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+            Study Rhythm
+          </p>
+        </div>
+      </GlassCard>
+    ),
+  },
+
+  {
+    id: 'almanac',
+    colSpan: 1,
+    content: (
+      <GlassCard
+        blur={false}
+        onClick={() => onOpenApp('almanac')}
+        className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
+      >
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: 'var(--control-soft-bg)' }}
+        >
+          <BookOpen
+            className="h-5 w-5 opacity-90"
+            style={{ color: 'var(--text-main)' }}
+          />
+        </div>
+
+        <div>
+          <AppTitle en="Almanac" zh="岁时纪" mode={nameMode} />
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+            Seasonal Notes
+          </p>
         </div>
       </GlassCard>
     ),

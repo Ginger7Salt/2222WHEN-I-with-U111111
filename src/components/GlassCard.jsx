@@ -11,6 +11,7 @@ export const GlassCard = ({
   onClick = null,
   delay = 0,
   tone = 'light',
+  blur = true,
 }) => {
   const isInk = tone === 'ink';
 
@@ -52,8 +53,8 @@ export const GlassCard = ({
         borderStyle: 'solid',
         boxShadow: isInk ? 'var(--ink-card-shadow)' : 'var(--card-shadow)',
         color: isInk ? 'var(--text-on-ink)' : 'var(--text-main)',
-        backdropFilter: isSettled ? blurValue : 'none',
-        WebkitBackdropFilter: isSettled ? blurValue : 'none',
+                backdropFilter: blur && isSettled ? blurValue : 'none',
+        WebkitBackdropFilter: blur && isSettled ? blurValue : 'none',
         animationDelay: `${delay}ms`,
         // 提示浏览器为该元素建立独立合成层，减少 backdrop-filter
         // 启用后与页面其他重绘/重排互相影响的范围。
