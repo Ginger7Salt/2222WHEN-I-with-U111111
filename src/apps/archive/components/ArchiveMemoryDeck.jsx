@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Shuffle } from 'lucide-react';
 
 import { getArchiveMemoryHighlights } from '../archiveService';
+
 import '../archive.css';
+import '../archive-visual.css';
 
 const formatRecordedDate = (value) => {
   const date = new Date(value);
@@ -17,11 +19,6 @@ const formatRecordedDate = (value) => {
   });
 };
 
-/*
- * 存档室主界面中间的"记忆卡牌"，填补选中唱片下面原本空荡荡的区域，
- * 同时增加一点可以点着玩的互动性。内容来自这个聊天已有的记忆
- * （memories 表），不是编出来的占位文案；一条记忆都没有时整块不渲染。
- */
 const ArchiveMemoryDeck = ({ chatId }) => {
   const [cards, setCards] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -49,6 +46,7 @@ const ArchiveMemoryDeck = ({ chatId }) => {
     } else {
       setCards([]);
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
@@ -66,34 +64,60 @@ const ArchiveMemoryDeck = ({ chatId }) => {
 
   const handleAdvance = () => {
     if (isFlipping || cards.length <= 1) {
-      setActiveIndex((previous) => (previous + 1) % Math.max(cards.length, 1));
+      setActiveIndex((previous) => (
+        (previous + 1) % Math.max(cards.length, 1)
+      ));
+
       return;
     }
 
     setIsFlipping(true);
 
-    // 先让当前卡片往左飞出去（像翻单词卡一样），
-    // 动画播完再真正切到下一张，下一张进场时会自带滑入动画。
     setTimeout(() => {
-      setActiveIndex((previous) => (previous + 1) % cards.length);
+      setActiveIndex((previous) => (
+        (previous + 1) % cards.length
+      ));
+
       setIsFlipping(false);
     }, 190);
   };
 
   return (
-    <div className="archive-memory-deck">
-      <div className="archive-memory-deck-hud">
+    <section className="archive-memory-deck">
+      <div className="archive-memory-deck-heading">
+        <div>
+          <span className="archive-memory-deck-kicker">
+            MEMORY FRAGMENTS
+          </span>
+
+          <h3>记忆片段</h3>
+        </div>
+
         <div className="archive-memory-deck-counter">
           <span
             className="archive-memory-deck-ring"
             style={{
-              background: `conic-gradient(var(--accent-color) ${ringDegrees}deg, var(--divider) 0deg)`
+              background: `
+                conic-gradient(
+                  var(--archive-ink)
+                  ${ringDegrees}deg,
+                  var(--archive-divider)
+                  0deg
+                )
+              `
             }}
           />
+
           <span>
-            {activeIndex + 1} / {cards.length}
+            {String(activeIndex + 1).padStart(2, '0')}
+            <i>/</i>
+            {String(cards.length).padStart(2, '0')}
           </span>
         </div>
+      </div>
+
+      <div className="archive-memory-deck-toolbar">
+        <span>来自这段关系的真实记录</span>
 
         <button
           type="button"
@@ -102,7 +126,8 @@ const ArchiveMemoryDeck = ({ chatId }) => {
           title="换一批记忆"
           aria-label="换一批记忆"
         >
-          <Shuffle className="h-3.5 w-3.5" />
+          <Shuffle className="archive-icon archive-icon-shuffle" />
+          <span>换一批</span>
         </button>
       </div>
 
@@ -113,31 +138,47 @@ const ArchiveMemoryDeck = ({ chatId }) => {
         <div className="archive-memory-deck-shadow archive-memory-deck-shadow-2" />
         <div className="archive-memory-deck-shadow archive-memory-deck-shadow-1" />
 
-        <div
+        <article
           className={[
             'archive-memory-deck-card',
             isFlipping ? 'is-flipping-out' : ''
           ].join(' ')}
           key={activeCard?.id}
         >
-          <span className="archive-memory-deck-tag">
-            {activeCard?.typeLabel}
-          </span>
+          <div className="archive-memory-deck-card-top">
+            <span className="archive-memory-deck-tag">
+              {activeCard?.typeLabel}
+            </span>
+
+            <span className="archive-memory-deck-card-index">
+              {String(activeIndex + 1).padStart(2, '0')}
+            </span>
+          </div>
 
           <p className="archive-memory-deck-content">
             {activeCard?.content || activeCard?.title}
           </p>
 
-          {activeCard?.recordedAt && (
-            <span className="archive-memory-deck-date">
-              记录于 {formatRecordedDate(activeCard.recordedAt)}
+          <div className="archive-memory-deck-card-bottom">
+            {activeCard?.recordedAt ? (
+              <span>
+                记录于 {formatRecordedDate(activeCard.recordedAt)}
+              </span>
+            ) : (
+              <span>ARCHIVE MEMORY</span>
+            )}
+
+            <span className="archive-memory-deck-card-arrow">
+              点击翻阅 →
             </span>
-          )}
-        </div>
+          </div>
+        </article>
       </div>
 
-      <p className="archive-memory-deck-hint">点击卡片翻看下一条</p>
-    </div>
+      <p className="archive-memory-deck-hint">
+        点击卡牌，让这一段记忆退到后面
+      </p>
+    </section>
   );
 };
 
