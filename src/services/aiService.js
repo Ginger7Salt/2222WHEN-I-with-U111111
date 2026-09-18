@@ -1415,9 +1415,36 @@ export const checkAndTriggerAutoMessage = async () => {
     // 处理日记或主页留言板生成
     if (actionType === 'diary') {
       character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
-      generatedId = await generateCompanionProactiveDiary(character.id);
+
+      // 优先寻找该角色名下的聊天窗，让日记生成时能带上真实聊天历史作为上下文，
+      // 写出来的内容更有真实感；若该角色暂无任何聊天窗，则传 null，
+      // 交由 resolveDiaryTarget 的兜底逻辑随机换一个"确实有聊天记录"的角色。
+      const diaryTargetChat = await db.chats
+        .where('characterId')
+        .equals(character.id)
+        .first();
+
+      generatedId = await generateCompanionProactiveDiary(
+        diaryTargetChat ? diaryTargetChat.id : null
+      );
+
+      // resolveDiaryTarget 内部可能触发"无聊天窗则换一个角色"的兜底逻辑，
+      // 此时实际写日记的角色可能不是上面随机选中的 character。
+      // 生成成功后以日记记录里真实的 characterId 为准，
+      // 保证锁屏卡片显示的名字和真正写日记的角色一致。
+      if (generatedId) {
+        const writtenDiary = await db.diaries.get(generatedId);
+
+        if (writtenDiary?.characterId) {
+          const actualCharacter = await db.characters.get(writtenDiary.characterId);
+
+          if (actualCharacter) {
+            character = actualCharacter;
+          }
+        }
+      }
     } else if (actionType === 'homeBoard') {
-      character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
+            character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
       generatedId = await generateCharacterHomeBoardMessage(character.id);
     }
 
