@@ -75,6 +75,15 @@ img {
   max-width: 100%;
 }
 
+/* 首页 app 滑块：隐藏横向滚动条，只依赖左右滑动/圆点导航 */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* 系统在深色模式时不应篡改白色默认主题下的表单控件 */
 :root[data-theme="mono-mist"],
 :root[data-theme="cream-latte"] {

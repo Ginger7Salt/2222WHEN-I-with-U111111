@@ -29,6 +29,8 @@ import {
 import GlassCard from '../../components/GlassCard';
 
 import HubBackgroundSettings from '../../components/HubBackgroundSettings';
+import AppNameDisplaySettings from './AppNameDisplaySettings';
+import { APP_NAME_DISPLAY_EN } from '../hub/useAppNameDisplayMode';
 
 import ConfirmModal from '../../components/ConfirmModal';
 import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
@@ -100,6 +102,15 @@ export const SettingsPage = ({
 const [draftShowTitle, setDraftShowTitle] = useState(showTitle);
 const [draftHubBackground, setDraftHubBackground] = useState(
   currentHubBackground || '',
+);
+
+// 应用名称显示模式（英文 / 英文+中文），不经过 App.jsx 转发，
+// 直接读写 db.settings，首页滑块通过 useAppNameDisplayMode 订阅。
+const [draftAppNameDisplayMode, setDraftAppNameDisplayMode] = useState(
+  APP_NAME_DISPLAY_EN,
+);
+const [initialAppNameDisplayMode, setInitialAppNameDisplayMode] = useState(
+  APP_NAME_DISPLAY_EN,
 );
 
 
@@ -308,8 +319,13 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
           setDraftShowTitle(settingMap.showTitle);
         }
 
-        if (typeof settingMap.hubBackground === 'string') {
+               if (typeof settingMap.hubBackground === 'string') {
   setDraftHubBackground(settingMap.hubBackground);
+}
+
+        if (typeof settingMap.appNameDisplayMode === 'string') {
+  setDraftAppNameDisplayMode(settingMap.appNameDisplayMode);
+  setInitialAppNameDisplayMode(settingMap.appNameDisplayMode);
 }
 
 
@@ -406,7 +422,8 @@ setIsCompanionLoading(false);
   const hasUnsavedChanges =
   draftTheme !== currentTheme ||
   draftShowTitle !== showTitle ||
-  draftHubBackground !== (currentHubBackground || '') ||
+   draftHubBackground !== (currentHubBackground || '') ||
+  draftAppNameDisplayMode !== initialAppNameDisplayMode ||
   autoMessage !== false ||
   frequency !== 'moderate' ||
   apiConfig.baseUrl !== '' ||
@@ -728,11 +745,14 @@ const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
         await db.settings.bulkPut([
           { key: 'theme', value: draftTheme },
           { key: 'showTitle', value: draftShowTitle },
-          {
+                   {
   key: 'hubBackground',
   value: draftHubBackground,
 },
-
+          {
+  key: 'appNameDisplayMode',
+  value: draftAppNameDisplayMode,
+},
           { key: 'autoMessage', value: autoMessage },
           { key: 'frequency', value: frequency },
           { key: 'quietHours', value: quietHours },
@@ -758,10 +778,13 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
         onToggleTitle();
       }
 
-      if (draftHubBackground !== (currentHubBackground || '')) {
+          if (draftHubBackground !== (currentHubBackground || '')) {
   onChangeHubBackground(draftHubBackground);
 }
 
+      if (draftAppNameDisplayMode !== initialAppNameDisplayMode) {
+  setInitialAppNameDisplayMode(draftAppNameDisplayMode);
+}
 
       showSaveResult('success', '配置保存成功。');
     } catch (error) {
@@ -1070,9 +1093,21 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
           <span>主界面景色</span>
         </div>
 
-        <HubBackgroundSettings
+               <HubBackgroundSettings
           value={draftHubBackground}
           onChange={setDraftHubBackground}
+        />
+      </GlassCard>
+
+      <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <Palette className="h-4 w-4" />
+          <span>应用名称显示</span>
+        </div>
+
+        <AppNameDisplaySettings
+          value={draftAppNameDisplayMode}
+          onChange={setDraftAppNameDisplayMode}
         />
       </GlassCard>
 
