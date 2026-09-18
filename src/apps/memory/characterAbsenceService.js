@@ -2,6 +2,7 @@ import db from '../../db';
 
 import { createMemory } from './memoryService';
 import { applyCharacterEmotionMemory, getCharacterState } from './memoryCharacterState';
+import { getEmotionPersonality } from './emotionPersonalityService';
 
 import {
   MEMORY_CONFIDENCES,
@@ -36,6 +37,39 @@ const HOUR = 60 * 60 * 1000;
 
 const isValidChatId = (chatId) => (
   chatId !== null && chatId !== undefined && chatId !== ''
+);
+
+const clamp01 = (value, fallback = 0.5) => {
+  const numberValue = Number(value);
+
+  if (!Number.isFinite(numberValue)) {
+    return fallback;
+  }
+
+  return Math.max(0, Math.min(1, numberValue));
+};
+
+/*
+ * sensitivity 来自角色的情绪人格画像（emotionPersonalityService.js）。
+ * 0.5 换算出来的系数正好是 1，完全还原下面 ABSENCE_TIERS 里原本写死的
+ * 判定阈值和 moodDelta 幅度。
+ *
+ * 数值越高：判定"用户很久没来"所需的时间越短（角色更敏感，没多久就
+ * 开始想念），且这次生成的情绪幅度也更大；数值越低则相反——角色比较
+ * 迟钝、要隔很久才有感觉，反应也更轻。
+ */
+const getAbsenceThresholdFactor = (sensitivity) => (
+  1.4 - clamp01(sensitivity) * 0.8
+);
+
+const getAbsenceMagnitudeFactor = (sensitivity) => (
+  0.5 + clamp01(sensitivity) * 1.0
+);
+
+const scaleMoodDelta = (moodDelta, factor) => (
+  Object.fromEntries(
+    Object.entries(moodDelta).map(([key, value]) => [key, value * factor])
+  )
 );
 
 /*
@@ -90,12 +124,24 @@ export const checkAbsenceEmotionSignal = async ({
       return null;
     }
 
+    const resolvedCharacterId = characterId ||
+      previousState.characterId ||
+      null;
+
+    const personality = await getEmotionPersonality(resolvedCharacterId);
+    const thresholdFactor = getAbsenceThresholdFactor(personality.sensitivity);
+    const magnitudeFactor = getAbsenceMagnitudeFactor(personality.sensitivity);
+
     const elapsedHours = elapsedMs / HOUR;
-    const tier = ABSENCE_TIERS.find((item) => elapsedHours >= item.minHours);
+    const tier = ABSENCE_TIERS.find((item) => (
+      elapsedHours >= item.minHours * thresholdFactor
+    ));
 
     if (!tier) {
       return null;
     }
+
+    const scaledMoodDelta = scaleMoodDelta(tier.moodDelta, magnitudeFactor);
 
     const memory = await createMemory({
       chatId,
@@ -113,20 +159,20 @@ export const checkAbsenceEmotionSignal = async ({
       recallPolicy: MEMORY_RECALL_POLICIES.LOW_FREQUENCY,
       sourceState: MEMORY_SOURCE_STATES.IMPORTED_WITHOUT_SOURCE,
       sourceKind: MEMORY_SOURCE_KINDS.SUMMARY_ASSISTED,
-      note: `由用户间隔约 ${Math.round(elapsedHours)} 小时未互动自动生成，非对话内容提取。`
+      note: `由用户间隔约 ${Math.round(elapsedHours)} 小时未互动自动生成，非对话内容提取（判定阈值与情绪幅度已按角色情绪敏感度调整）。`
     });
 
     // moodDelta 不是 createMemory 的标准参数（那是记忆内容本身的字段，
     // 不是所有类型的记忆都有），这里跟反思机制里 sourceMemoryIds 的
     // 做法一样，单独补一次附加字段写入。
-    await db.memories.update(memory.id, { moodDelta: tier.moodDelta });
+    await db.memories.update(memory.id, { moodDelta: scaledMoodDelta });
 
     await applyCharacterEmotionMemory({
       chatId,
-      characterId,
+      characterId: resolvedCharacterId,
       memory: {
         ...memory,
-        moodDelta: tier.moodDelta
+        moodDelta: scaledMoodDelta
       }
     });
 

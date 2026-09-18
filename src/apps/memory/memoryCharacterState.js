@@ -1,5 +1,7 @@
 import db from '../../db';
 
+import { getEmotionPersonality } from './emotionPersonalityService';
+
 const HOUR = 60 * 60 * 1000;
 
 const MOOD_KEYS = [
@@ -44,6 +46,10 @@ const clampMoodValue = (value) => {
   return Math.max(0, Math.min(1, numberValue));
 };
 
+// 语义上跟 clampMoodValue 是同一个 0~1 夹取，这里单独起个名字，
+// 只是为了在"角色人格参数"相关的代码里读起来不别扭。
+const clamp01 = clampMoodValue;
+
 const normalizeMood = (value) => {
   const source = value && typeof value === 'object'
     ? value
@@ -87,18 +93,32 @@ const getDaysSince = (value) => {
   return Math.max(0, (Date.now() - time) / 86400000);
 };
 
-const getEmotionDecay = (updatedAt) => {
+/*
+ * decaySpeed 来自角色的情绪人格画像（emotionPersonalityService.js，由角色
+ * 人设文本 AI 推断得出）。0.5 代表"普通"，换算出来的系数正好是 1，
+ * 完全还原这里原本写死的 0.018 这个速率——没有生成过画像的角色
+ * （getEmotionPersonality 会返回默认 0.5）行为跟以前完全一样。
+ *
+ * 数值越低，角色情绪衰退越慢：一旦难过、想念，会持续更久才淡下去；
+ * 数值越高，衰退越快：情绪来得快、去得也快。
+ */
+const getDecayRateFactor = (decaySpeed) => (
+  0.25 + clamp01(decaySpeed) * 1.5
+);
+
+const getEmotionDecay = (updatedAt, decaySpeed = 0.5) => {
   const hoursSinceUpdate = getDaysSince(updatedAt) * 24;
+  const rate = 0.018 * getDecayRateFactor(decaySpeed);
 
   /*
    * 状态会缓慢向安定基线回归：
    * 角色可以有情绪连续性，但不会被一次事件永久锁住。
    */
-  return Math.min(0.72, hoursSinceUpdate * 0.018);
+  return Math.min(0.72, hoursSinceUpdate * rate);
 };
 
-const decayMoodTowardBaseline = (mood, updatedAt) => {
-  const decay = getEmotionDecay(updatedAt);
+const decayMoodTowardBaseline = (mood, updatedAt, decaySpeed = 0.5) => {
+  const decay = getEmotionDecay(updatedAt, decaySpeed);
   const sourceMood = normalizeMood(mood);
 
   return MOOD_KEYS.reduce((result, key) => ({
@@ -153,9 +173,14 @@ export const getCharacterState = async ({
     });
   }
 
+  const resolvedCharacterId = characterId || state.characterId || null;
+
+  const personality = await getEmotionPersonality(resolvedCharacterId);
+
   const mood = decayMoodTowardBaseline(
     state.mood,
-    state.updatedAt
+    state.updatedAt,
+    personality.decaySpeed
   );
 
   const dominant = getDominantMood(mood);
@@ -163,10 +188,10 @@ export const getCharacterState = async ({
   return {
     ...createDefaultState({
       chatId,
-      characterId: characterId || state.characterId || null
+      characterId: resolvedCharacterId
     }),
     ...state,
-    characterId: characterId || state.characterId || null,
+    characterId: resolvedCharacterId,
     mood,
     dominantEmotion: dominant.dominantEmotion,
     intensity: dominant.intensity
@@ -286,7 +311,7 @@ export const getCharacterEmotionContext = async ({
 
   return `
 【角色此刻的内部情绪状态】
-角色当前整体处于“${label}”的状态，强度为 ${
+角色当前整体处于"${label}"的状态，强度为 ${
   Math.round(intensity * 100)
 } / 100。
 这不是用户需要处理的任务，也不是必须说出口的内容。
@@ -299,6 +324,24 @@ export const getCharacterEmotionContext = async ({
 - 不要在每次回复中都提及同一种情绪。
 ${toneHints.map((hint) => `- ${hint}`).join('\n')}
 `;
+};
+
+/*
+ * settleSpeed 同样来自角色的情绪人格画像。0.5 换算出来的系数正好还原
+ * 这里原本写死的 0.96 / 0.94 / 0.94 / 0.9 / 0.96 这几个安定系数。
+ *
+ * 数值越低，角色越需要花时间被陪伴、被哄才能真正安定下来——哪怕用户
+ * 已经回来了，情绪也不会立刻消失；数值越高，角色一见到用户几乎立刻
+ * 就没事了。
+ */
+const getSettleIntensityFactor = (settleSpeed) => (
+  0.35 + clamp01(settleSpeed) * 1.3
+);
+
+const settleTowardCalm = (value, baseMultiplier, settleFactor) => {
+  const reduction = (1 - baseMultiplier) * settleFactor;
+
+  return value * clamp01(1 - reduction);
 };
 
 export const markCharacterInteraction = async ({
@@ -314,22 +357,30 @@ export const markCharacterInteraction = async ({
     characterId
   });
 
+  const resolvedCharacterId = characterId ||
+    previousState?.characterId ||
+    null;
+
+  const personality = await getEmotionPersonality(resolvedCharacterId);
+  const settleFactor = getSettleIntensityFactor(personality.settleSpeed);
+
   /*
    * 每次互动后让高唤起情绪略微回落。
-   * 这避免角色因一次高兴、担忧或失落长期处于同一高强度状态。
+   * 这避免角色因一次高兴、担忧或失落长期处于同一高强度状态，
+   * 具体回落多少则按角色性格（settleSpeed）区分快慢。
    */
   const settledMood = {
     ...previousState.mood,
-    joy: previousState.mood.joy * 0.96,
-    concern: previousState.mood.concern * 0.94,
-    longing: previousState.mood.longing * 0.94,
-    hurt: previousState.mood.hurt * 0.9,
-    fatigue: previousState.mood.fatigue * 0.96
+    joy: settleTowardCalm(previousState.mood.joy, 0.96, settleFactor),
+    concern: settleTowardCalm(previousState.mood.concern, 0.94, settleFactor),
+    longing: settleTowardCalm(previousState.mood.longing, 0.94, settleFactor),
+    hurt: settleTowardCalm(previousState.mood.hurt, 0.9, settleFactor),
+    fatigue: settleTowardCalm(previousState.mood.fatigue, 0.96, settleFactor)
   };
 
   return updateCharacterState({
     chatId,
-    characterId,
+    characterId: resolvedCharacterId,
     mood: settledMood,
     sourceMemoryIds: previousState.sourceMemoryIds,
     lastInteractionAt: new Date().toISOString()
@@ -337,6 +388,18 @@ export const markCharacterInteraction = async ({
 };
 
 export const getCharacterStateRefreshDelay = () => 6 * HOUR;
+
+/*
+ * sensitivity 同样来自角色的情绪人格画像。0.5 换算出来的系数正好还原
+ * 这里原本写死的单次 ±0.2 上限，以及 shared 关系里 hurt 的 +0.08 上限。
+ *
+ * 数值越低，角色对单条情绪记忆的反应越迟钝、变化越小；
+ * 数值越高，角色情绪反应越强烈、越容易被一条记忆明显带动。
+ */
+const getReactionMagnitudeFactor = (sensitivity) => (
+  0.5 + clamp01(sensitivity) * 1.0
+);
+
 export const applyCharacterEmotionMemory = async ({
   chatId,
   characterId = null,
@@ -373,6 +436,23 @@ export const applyCharacterEmotionMemory = async ({
     characterId
   });
 
+  const resolvedCharacterId = characterId ||
+    previousState?.characterId ||
+    null;
+
+  const personality = await getEmotionPersonality(resolvedCharacterId);
+  const magnitudeFactor = getReactionMagnitudeFactor(personality.sensitivity);
+
+  const maxSingleDelta = Math.max(
+    0.08,
+    Math.min(0.32, 0.2 * magnitudeFactor)
+  );
+
+  const maxSharedHurtGain = Math.max(
+    0.03,
+    Math.min(0.14, 0.08 * magnitudeFactor)
+  );
+
   const nextMood = { ...previousState.mood };
 
   for (const key of MOOD_KEYS) {
@@ -383,12 +463,13 @@ export const applyCharacterEmotionMemory = async ({
     }
 
     /*
-     * 即使 AI 输出异常值，角色状态每次最多只移动 0.2。
-     * 角色有连续情绪，但不能被单条记忆剧烈改写。
+     * 即使 AI 输出异常值，角色状态每次最多只移动 maxSingleDelta
+     * （随角色 sensitivity 在约 0.08~0.32 之间浮动，0.5 时为原本写死的
+     * 0.2）。角色有连续情绪，但不能被单条记忆剧烈改写。
      */
     const safeDelta = Math.max(
-      -0.2,
-      Math.min(0.2, delta)
+      -maxSingleDelta,
+      Math.min(maxSingleDelta, delta)
     );
 
     nextMood[key] = clampMoodValue(
@@ -407,13 +488,13 @@ export const applyCharacterEmotionMemory = async ({
   ) {
     nextMood.hurt = Math.min(
       nextMood.hurt,
-      previousState.mood.hurt + 0.08
+      previousState.mood.hurt + maxSharedHurtGain
     );
   }
 
   return updateCharacterState({
     chatId,
-    characterId,
+    characterId: resolvedCharacterId,
     mood: nextMood,
     sourceMemoryIds: [
       ...(previousState.sourceMemoryIds || []),

@@ -36,6 +36,10 @@ import {
 } from './reflectionService';
 
 import {
+  ensureEmotionPersonalityFresh
+} from './emotionPersonalityService';
+
+import {
   buildMemorySourceBatch,
   getUsableMessages,
   inspectMemorySignals
@@ -189,6 +193,31 @@ const maybeRunReflection = async (chatId) => {
     });
   } catch (error) {
     console.warn('[Memory] Reflection check failed safely:', error);
+  }
+};
+
+/*
+ * 复用记忆调度器本来就有的触发节点：每轮记忆提炼跑完之后，顺带检查一下
+ * 这个角色的情绪人格画像是不是该刷新了（人设文本变了，或者从没生成过）。
+ * ensureEmotionPersonalityFresh 内部已经做好信号量判断和失败节流，
+ * 这里只负责在合适的时机调用它，并且吞掉任何异常——不能因为画像刷新
+ * 失败影响本轮记忆提炼的正常返回。
+ */
+const maybeRefreshEmotionPersonality = async (chatId) => {
+  try {
+    const chat = await db.chats.get(chatId);
+    const characterId = chat?.characterId || null;
+
+    if (!characterId) {
+      return;
+    }
+
+    await ensureEmotionPersonalityFresh(characterId);
+  } catch (error) {
+    console.warn(
+      '[Memory] Emotion personality refresh check failed safely:',
+      error
+    );
   }
 };
 
@@ -705,6 +734,8 @@ export const runMemoryProcessing = async (
     });
 
     await maybeRunReflection(chatId);
+        await maybeRunReflection(chatId);
+    await maybeRefreshEmotionPersonality(chatId);
 
     return {
       skipped: false,
