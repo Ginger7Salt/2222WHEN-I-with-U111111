@@ -1075,7 +1075,7 @@ useLayoutEffect(() => {
                     <span>地点小册子</span>
                   </button>
 
-                  <button
+                                    <button
                     type="button"
                     onClick={() => {
                       setShowTopMenu(false);
@@ -1085,6 +1085,18 @@ useLayoutEffect(() => {
                   >
                     <Compass className="h-4 w-4" />
                     <span>邀请线下见面</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTopMenu(false);
+                      setShowOfflineInviteArchive(true);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <Ticket className="h-4 w-4" />
+                    <span>查看线下邀约</span>
                   </button>
                 </div>
               </>
@@ -1106,19 +1118,8 @@ useLayoutEffect(() => {
               <ReceiptText className="h-4 w-4" />
             </button>
 
-            <button
-  type="button"
-  onClick={() => setShowOfflineInviteArchive(true)}
-  className="flex items-center justify-center rounded-full p-2 opacity-85 hover:opacity-100"
-  style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
-  aria-label="查看线下邀约"
-  title="查看线下邀约"
->
-  <Ticket className="h-3.5 w-3.5" />
-</button>
-
             <MoreMenuPopover
-              onOpenCalendar={() => setShowCalendar(true)}
+                          onOpenCalendar={() => setShowCalendar(true)}
               onOpenSettings={() => setShowChatSettings(true)}
             />
           </div>

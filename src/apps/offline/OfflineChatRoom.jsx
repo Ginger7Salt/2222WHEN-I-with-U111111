@@ -9,7 +9,7 @@ import {
   CloudSun,
   Smile,
   Quote,
-  MoreHorizontal,
+  ChevronDown,
   Pencil,
   Check,
 } from 'lucide-react';
@@ -55,7 +55,7 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
   const [inputText, setInputText] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [showSceneSettings, setShowSceneSettings] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showStatusPanel, setShowStatusPanel] = useState(false);
   const [isEditingSignature, setIsEditingSignature] = useState(false);
   const [signatureDraft, setSignatureDraft] = useState('');
 
@@ -221,6 +221,7 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
   const hasSceneStatus = Boolean(
     session.sceneMood || session.sceneWeather || session.sceneMonologue
   );
+  const hasStatusContent = Boolean(session.sceneDescription || hasSceneStatus);
 
   const userAvatar = chat?.userAvatar || character?.userAvatar || '';
   const userName = chat?.userName || character?.userName || '你';
@@ -255,77 +256,47 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
         </div>
       )}
 
-      <header
-        className="z-20 shrink-0 px-4 pb-3 pt-3 backdrop-blur-xl"
-        style={{ background: offlineBgImage ? 'var(--card-bg-gradient)' : 'transparent' }}
-      >
+      {/* header 本身完全透明，不做整条底色/模糊，只有按钮、头像、签名、状态胶囊各自带底色 */}
+      <header className="z-20 shrink-0 px-4 pb-3 pt-3">
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center justify-center rounded-full p-2 opacity-85 transition-transform hover:opacity-100 active:scale-90"
+            className="flex items-center justify-center rounded-full p-2 opacity-85 shadow-sm transition-transform hover:opacity-100 active:scale-90"
             style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
             aria-label="返回"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
 
-          {!isReadonly ? (
-            <div className="relative">
+          <div className="flex shrink-0 items-center gap-1.5">
+            {!isReadonly && (
               <button
                 type="button"
-                onClick={() => setShowMoreMenu((prev) => !prev)}
-                className="flex items-center justify-center rounded-full p-2 opacity-85 transition-transform hover:opacity-100 active:scale-90"
+                onClick={() => setShowSceneSettings(true)}
+                className="flex items-center justify-center rounded-full p-2 opacity-85 shadow-sm transition-transform hover:opacity-100 active:scale-90"
                 style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
-                aria-label="更多"
-                title="更多"
+                aria-label="场景背景设置"
+                title="场景背景设置"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <ImageIcon className="h-3.5 w-3.5" />
               </button>
+            )}
 
-              {showMoreMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-[65]"
-                    onClick={() => setShowMoreMenu(false)}
-                  />
-                  <div
-                    className="absolute right-0 top-full z-[66] mt-2 w-44 overflow-hidden rounded-2xl shadow-xl backdrop-blur-xl animate-fade-in-up"
-                    style={{ background: 'var(--card-bg-gradient)', border: '1px solid var(--card-border)' }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowMoreMenu(false);
-                        setShowSceneSettings(true);
-                      }}
-                      className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[11px] font-medium transition-opacity hover:opacity-70"
-                      style={{ color: 'var(--text-main)' }}
-                    >
-                      <ImageIcon className="h-3.5 w-3.5" />
-                      场景背景设置
-                    </button>
-
-                    <div className="h-px" style={{ background: 'var(--divider)' }} />
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowMoreMenu(false);
-                        void handleEndSession();
-                      }}
-                      className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[11px] font-medium text-red-500 transition-opacity hover:opacity-70"
-                    >
-                      <LogOut className="h-3.5 w-3.5" />
-                      结束这次见面
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="w-9" />
-          )}
+            {!isReadonly ? (
+              <button
+                type="button"
+                onClick={handleEndSession}
+                className="flex items-center gap-1 rounded-full px-3 py-2 text-[10px] font-semibold opacity-85 shadow-sm transition-transform hover:opacity-100 active:scale-95"
+                style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                结束
+              </button>
+            ) : (
+              <div className="w-9" />
+            )}
+          </div>
         </div>
 
         {/* 沉浸式大头像 + 可编辑签名 */}
@@ -406,46 +377,61 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
             {session.sceneLabel}
             {isReadonly ? ' · 已结束' : ''}
           </span>
+
+          {/* 状态栏收起来，点这个小胶囊按钮才展开 */}
+          {hasStatusContent && (
+            <button
+              type="button"
+              onClick={() => setShowStatusPanel((previous) => !previous)}
+              className="mt-2 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium shadow-sm transition-transform active:scale-95"
+              style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
+            >
+              <Sparkles className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
+              <span>此刻状态</span>
+              <ChevronDown
+                className={`h-3 w-3 transition-transform duration-300 ${showStatusPanel ? 'rotate-180' : ''}`}
+              />
+            </button>
+          )}
+
+          {hasStatusContent && showStatusPanel && (
+            <div
+              className="mt-2 w-full max-w-[280px] space-y-1.5 rounded-2xl px-3 py-2 shadow-sm backdrop-blur-md animate-fade-in-up"
+              style={{ background: 'var(--control-soft-bg)', border: '1px solid var(--card-border)' }}
+            >
+              {session.sceneDescription && (
+                <div className="truncate text-[10px] opacity-70">
+                  {session.sceneDescription}
+                </div>
+              )}
+
+              {hasSceneStatus && (
+                <div className="flex items-center justify-center gap-3 text-[10px]">
+                  {session.sceneWeather && (
+                    <span className="flex items-center gap-1 opacity-80">
+                      <CloudSun className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
+                      {session.sceneWeather}
+                    </span>
+                  )}
+
+                  {session.sceneMood && (
+                    <span className="flex items-center gap-1 opacity-80">
+                      <Smile className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
+                      {session.sceneMood}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {session.sceneMonologue && (
+                <div className="flex items-start gap-1 text-[10px] italic opacity-60">
+                  <Quote className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>{session.sceneMonologue}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-
-        {/* 状态栏：场景细节 + 每 10 条消息刷新一次的心情/天气/内心独白 */}
-        {(session.sceneDescription || hasSceneStatus) && (
-          <div
-            className="mt-2 space-y-1.5 rounded-2xl px-3 py-2 backdrop-blur-md"
-            style={{ background: 'var(--control-soft-bg)', border: '1px solid var(--card-border)' }}
-          >
-            {session.sceneDescription && (
-              <div className="truncate text-[10px] opacity-70">
-                {session.sceneDescription}
-              </div>
-            )}
-
-            {hasSceneStatus && (
-              <div className="flex items-center gap-3 text-[10px]">
-                {session.sceneWeather && (
-                  <span className="flex items-center gap-1 opacity-80">
-                    <CloudSun className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
-                    {session.sceneWeather}
-                  </span>
-                )}
-
-                {session.sceneMood && (
-                  <span className="flex items-center gap-1 opacity-80">
-                    <Smile className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
-                    {session.sceneMood}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {session.sceneMonologue && (
-              <div className="flex items-start gap-1 text-[10px] italic opacity-60">
-                <Quote className="mt-0.5 h-3 w-3 shrink-0" />
-                <span>{session.sceneMonologue}</span>
-              </div>
-            )}
-          </div>
-        )}
       </header>
 
       <section
