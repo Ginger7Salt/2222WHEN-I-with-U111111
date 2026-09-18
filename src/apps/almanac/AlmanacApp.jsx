@@ -59,6 +59,12 @@ export const AlmanacApp = ({ onBackHub }) => {
     [chats, selectedChatId]
   );
 
+  
+  // selectedChatId 来自 <select> 下拉框，始终是字符串；
+  // 但数据库里所有 almanac 表存的 chatId 都是数字（跟 db.chats 的 id 一致）。
+  // 这里统一转换成数字，所有查询数据库的地方都用这个，避免类型不匹配导致查不到任何记录。
+  const numericChatId = selectedChat?.id ?? null;
+
   const selectedCharacter = useMemo(
     () =>
       characters.find(
@@ -101,7 +107,7 @@ export const AlmanacApp = ({ onBackHub }) => {
     setIsLoading(true);
 
     try {
-      const nextConfig = await getAlmanacConfig(selectedChatId);
+            const nextConfig = await getAlmanacConfig(numericChatId);
 
       setConfig(nextConfig);
 
@@ -113,7 +119,7 @@ export const AlmanacApp = ({ onBackHub }) => {
 
       setShowInitialization(false);
 
-      const allRecords = await getAlmanacRecords(selectedChatId);
+            const allRecords = await getAlmanacRecords(numericChatId);
       const filteredRecords = filterAlmanacRecordsByConfig(allRecords, nextConfig);
 
       setRecords(Array.isArray(filteredRecords) ? filteredRecords : []);
@@ -123,7 +129,7 @@ export const AlmanacApp = ({ onBackHub }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedChatId]);
+    }, [selectedChatId, numericChatId]);
 
   const refreshAlmanac = async () => {
     if (isRefreshing) return;
@@ -158,7 +164,7 @@ export const AlmanacApp = ({ onBackHub }) => {
       return undefined;
     }
 
-    getRhythmObservation({ chatId: selectedChatId, records })
+    getRhythmObservation({ chatId: numericChatId, records })
       .then((result) => {
         if (active) setRhythmObservation(result);
       })
@@ -170,7 +176,7 @@ export const AlmanacApp = ({ onBackHub }) => {
     return () => {
       active = false;
     };
-  }, [selectedChatId, records]);
+  }, [selectedChatId, numericChatId, records]);
 
   const stats = useMemo(() => getAlmanacStats(records), [records]);
 
@@ -178,11 +184,10 @@ export const AlmanacApp = ({ onBackHub }) => {
     dataMode,
     firstMeetingDate = null,
   }) => {
-    if (!selectedChatId || !dataMode) return;
-
+      if (!numericChatId || !dataMode) return;
     const now = new Date().toISOString();
 
-    const savedConfig = await saveAlmanacConfig(selectedChatId, {
+       const savedConfig = await saveAlmanacConfig(numericChatId, {
       initializationCompleted: true,
       dataMode,
       observationStartedAt: dataMode === 'all_history' ? null : now,
@@ -195,8 +200,8 @@ export const AlmanacApp = ({ onBackHub }) => {
         './services/almanacImportantDateService'
       );
 
-      await createAlmanacImportantDate({
-        chatId: selectedChatId,
+            await createAlmanacImportantDate({
+        chatId: numericChatId,
         title: '第一次相遇',
         date: firstMeetingDate,
         isRecurringYearly: false,
@@ -206,14 +211,14 @@ export const AlmanacApp = ({ onBackHub }) => {
     setConfig(savedConfig);
     setShowInitialization(false);
 
-    const allRecords = await getAlmanacRecords(selectedChatId);
+        const allRecords = await getAlmanacRecords(numericChatId);
     const filteredRecords = filterAlmanacRecordsByConfig(allRecords, savedConfig);
 
     setRecords(Array.isArray(filteredRecords) ? filteredRecords : []);
   };
 
-  const handleRestartAlmanac = async () => {
-    if (!selectedChatId) return;
+    const handleRestartAlmanac = async () => {
+    if (!numericChatId) return;
 
     const confirmed = window.confirm(
       '确定从今天重新开始 Almanac 吗？\n\n旧记录会保留，但不会继续参与统计。'
@@ -223,7 +228,7 @@ export const AlmanacApp = ({ onBackHub }) => {
 
     const now = new Date().toISOString();
 
-    const savedConfig = await saveAlmanacConfig(selectedChatId, {
+        const savedConfig = await saveAlmanacConfig(numericChatId, {
       initializationCompleted: true,
       dataMode: 'fresh_start',
       observationStartedAt: now,
@@ -233,15 +238,15 @@ export const AlmanacApp = ({ onBackHub }) => {
 
     setConfig(savedConfig);
 
-    const allRecords = await getAlmanacRecords(selectedChatId);
+    const allRecords = await getAlmanacRecords(numericChatId);
     const filteredRecords = filterAlmanacRecordsByConfig(allRecords, savedConfig);
 
     setRecords(Array.isArray(filteredRecords) ? filteredRecords : []);
     setShowInitialization(false);
   };
 
-  const handleClearAlmanacRecords = async () => {
-    if (!selectedChatId) return;
+    const handleClearAlmanacRecords = async () => {
+    if (!numericChatId) return;
 
     const confirmed = window.confirm(
       '确定清空当前聊天的 Almanac 相处记录吗？\n\n聊天消息、长期记忆、角色资料和重要日期不会受到影响。'
@@ -249,16 +254,16 @@ export const AlmanacApp = ({ onBackHub }) => {
 
     if (!confirmed) return;
 
-    await clearAlmanacRecords(selectedChatId);
+       await clearAlmanacRecords(numericChatId);
 
     setRecords([]);
     setRhythmObservation(null);
   };
 
-  const handleSaveConfig = async (nextConfig, options = {}) => {
-    if (!selectedChatId || !nextConfig) return null;
+    const handleSaveConfig = async (nextConfig, options = {}) => {
+    if (!numericChatId || !nextConfig) return null;
 
-    const saved = await saveAlmanacConfig(selectedChatId, nextConfig);
+    const saved = await saveAlmanacConfig(numericChatId, nextConfig);
 
     setConfig(saved);
 
@@ -417,13 +422,13 @@ export const AlmanacApp = ({ onBackHub }) => {
 
             {activeTab === 'milestones' && (
               <section className="almanac-milestone-section almanac-reveal">
-                <AlmanacMilestones chatId={selectedChatId} />
+                                <AlmanacMilestones chatId={numericChatId} />
               </section>
             )}
 
             {activeTab === 'reminders' && (
               <section className="almanac-reminder-section almanac-reveal">
-                <AlmanacReminderManager chatId={selectedChatId} />
+                               <AlmanacReminderManager chatId={numericChatId} />
               </section>
             )}
 
