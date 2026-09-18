@@ -1,542 +1,437 @@
-/* ==========================================================================
-   ARCHIVE APP - BLACK & WHITE DIFFUSED STYLE (极简黑白弥散与 CD 实体盒美学)
-   ========================================================================== */
-
-:root {
-  --bg-page: #0d0d0f;
-  --text-main: #f5f5f7;
-  --text-muted: #86868b;
-  --text-sub: #515154;
-  --card-bg: rgba(255, 255, 255, 0.05);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --glass-specular: rgba(255, 255, 255, 0.15);
-}
+/*
+ * 存档室的视觉语言：完全跟随全局 theme.css 的变量走
+ * （--bg-main / --card-bg-gradient / --ink-card-bg / --text-main 等），
+ * 不写死任何颜色，主题切换 / 深色模式下都会自动跟着变。
+ * 质感上对齐 GlassCard 那套"磨砂玻璃 + 柔和弥散阴影"的风格
+ * （backdrop-filter: blur(22px) saturate(120%)），不做硬边框、
+ * 硬阴影的"手账/贴纸"式设计。
+ */
 
 .archive-app {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  max-width: 440px;
-  margin: 0 auto;
-  background-color: #000000;
-  color: var(--text-main);
+  position: fixed;
+  inset: 0;
+  z-index: 60;
   display: flex;
   flex-direction: column;
+  background: var(--bg-main);
+  color: var(--text-main);
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+}
+
+.archive-app * {
   box-sizing: border-box;
 }
 
-/* 顶部黑白微光弥散光斑 */
-.archive-diffused-light {
-  position: absolute;
-  top: -100px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 380px;
-  height: 320px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 45%, transparent 70%);
-  filter: blur(50px);
-  pointer-events: none;
-  z-index: 0;
+.archive-glass-blur {
+  backdrop-filter: blur(22px) saturate(120%);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
 }
 
-/* 顶部 HUD */
+/* ---------- 顶部通用 HUD ---------- */
+
 .archive-hud {
-  position: relative;
-  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px 8px;
+  padding: 20px 20px 0;
+  flex-shrink: 0;
 }
 
-.archive-hud-back,
-.archive-hud-settings-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #ededed;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
+.archive-hud-back {
   display: flex;
   align-items: center;
   gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-sub);
+  background: transparent;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 999px;
   cursor: pointer;
-  backdrop-filter: blur(12px);
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.archive-hud-back:hover {
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+}
+
+.archive-hud-title {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
 }
 
 .archive-hud-settings-btn {
-  padding: 7px;
-}
-
-.archive-hud-back:hover,
-.archive-hud-settings-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.25);
-}
-
-.archive-hud-tag {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: #a1a1aa;
-  font-weight: 600;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: var(--control-soft-bg);
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 3px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-sub);
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-/* 页面标题瘦身 */
+.archive-hud-settings-btn:hover {
+  background: var(--control-soft-hover);
+  color: var(--text-main);
+}
+
+/* ---------- 页面大标题（顶部文字） ---------- */
+
 .archive-page-title {
-  position: relative;
-  z-index: 5;
-  text-align: center;
-  padding: 4px 16px 8px;
+  flex-shrink: 0;
+  padding: 4px 24px 0;
+  text-align: left;
 }
 
 .archive-page-title h1 {
-  margin: 0;
-  font-size: 20px;
+  font-size: 26px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  color: #ffffff;
+  color: var(--text-main);
+  margin: 0;
 }
 
 .archive-page-title p {
-  margin: 3px 0 0;
-  font-size: 11px;
-  color: #71717a;
-  letter-spacing: 0.01em;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
 }
 
-/* 主内容容器：自适应高度，不挤压中间唱片 */
+/* ---------- Level 1：唱片轮播 + 记忆卡牌 + 概览 ---------- */
+
 .archive-carousel-wrap {
-  position: relative;
-  z-index: 5;
   flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  padding: 8px 0 20px;
+  overflow: hidden;
+}
+
+.archive-carousel-empty {
+  margin: auto;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 40px;
 }
 
 .archive-carousel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 12px;
 }
 
-/* ==========================================================================
-   唱片滑动轨道与亚克力 CD 包装盒（Jewel Case）
-   ========================================================================== */
+.archive-section-heading {
+  width: 100%;
+  text-align: center;
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 4px 0 0;
+}
 
 .archive-disc-track {
+  width: 100%;
   display: flex;
   align-items: center;
+  gap: 20px;
   overflow-x: auto;
+  overflow-y: visible;
   scroll-snap-type: x mandatory;
-  padding: 10px calc(50% - 135px);
-  gap: 24px;
-  scrollbar-width: none;
+  padding: 36px 50%;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-shrink: 0;
 }
 
 .archive-disc-track::-webkit-scrollbar {
   display: none;
 }
 
-/* 实体亚克力 CD 盒 (参考 P2) */
+/* 外面套的"唱片盒"：方形磨砂玻璃壳，圆形唱片嵌在里面，
+   壳上下各留一行小字（角色名 / 与谁的对话 · 条数），
+   呼应参考图里专辑盒 + 说明文字的排版，而不是光秃秃一个圆。 */
 .archive-disc-case {
-  position: relative;
-  flex-shrink: 0;
-  width: 270px;
-  height: 236px;
+  flex: 0 0 auto;
+  width: min(38vw, 168px);
   scroll-snap-align: center;
-  background: #111113;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 
-    0 16px 36px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.8);
-  display: flex;
-  overflow: hidden;
-  transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
-  transform: scale(0.9);
-  opacity: 0.55;
   cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px 12px;
+  border-radius: 1.3rem;
+  background: var(--card-bg-gradient);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1),
+              box-shadow 0.4s cubic-bezier(0.19, 1, 0.22, 1),
+              opacity 0.3s ease;
+  opacity: 0.55;
+  transform: scale(0.86);
 }
 
 .archive-disc-case.is-active {
-  transform: scale(1);
   opacity: 1;
-  box-shadow: 
-    0 20px 48px rgba(0, 0, 0, 0.85),
-    0 0 0 1px rgba(255, 255, 255, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transform: scale(1.04);
+  box-shadow: 0 20px 46px color-mix(in srgb, var(--text-main) 24%, transparent);
 }
 
-/* 左侧透光塑料书脊 (Spine) */
-.jewel-case-spine {
-  width: 22px;
-  height: 100%;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(0, 0, 0, 0.4) 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  box-sizing: border-box;
-}
-
-.spine-text {
-  font-size: 7px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: #666;
-}
-
-.spine-title {
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  color: #dedede;
-}
-
-/* 黑色 CD 托盘区 */
-.jewel-case-tray {
-  position: relative;
-  flex: 1;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at 45% 50%, #1e1e22 0%, #0d0d0f 75%);
-  overflow: hidden;
-}
-
-/* 圆形光盘（CD DISC） */
-.archive-disc {
-  position: relative;
-  width: 196px;
-  height: 196px;
-  border-radius: 50%;
-  background-color: #121214;
-  box-shadow: 
-    0 8px 24px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: disc-subtle-spin 40s linear infinite;
-}
-
-@keyframes disc-subtle-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* 盘面封面图层 */
-.disc-artwork-layer {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  filter: contrast(1.1) grayscale(0.2);
-  opacity: 0.75;
-}
-
-/* 盘面现代粗体排版（P2 风格） */
-.disc-typography-layer {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 18px 14px;
-  box-sizing: border-box;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.disc-curved-title {
-  font-size: 16px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
-  color: #ffffff;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-}
-
-.disc-center-meta {
-  font-size: 6.5px;
-  font-family: monospace;
-  color: rgba(255, 255, 255, 0.75);
-  display: flex;
-  justify-content: space-between;
-}
-
-.disc-dot-matrix {
-  letter-spacing: 2px;
-}
-
-/* CD 中心透明卡圈与圆孔 */
-.disc-spindle-hole {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(2px);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 4;
-}
-
-.disc-spindle-inner {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #09090b;
-  border: 1.5px solid rgba(255, 255, 255, 0.18);
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9);
-}
-
-/* 同心环纹理与高光 */
-.disc-grooves {
-  position: absolute;
-  inset: 12px;
-  border-radius: 50%;
-  border: 1px dashed rgba(255, 255, 255, 0.12);
-  pointer-events: none;
-  z-index: 2;
-}
-
-.disc-specular-light {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 45deg,
-    rgba(255, 255, 255, 0.18) 0deg,
-    transparent 45deg,
-    rgba(255, 255, 255, 0.15) 180deg,
-    transparent 225deg,
-    rgba(255, 255, 255, 0.18) 360deg
-  );
-  mix-blend-mode: overlay;
-  pointer-events: none;
-  z-index: 3;
-}
-
-/* 右侧 OBI 纸质贴签 (参考 P2 右侧长条) */
-.jewel-case-obi {
-  width: 58px;
-  height: 100%;
-  background: #f4f4f5;
-  color: #18181b;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 10px 6px;
-  box-sizing: border-box;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.35);
-  z-index: 5;
-}
-
-.obi-header {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.obi-badge {
-  font-size: 7px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  background: #18181b;
-  color: #fff;
-  padding: 1px 3px;
-  border-radius: 2px;
-  text-align: center;
-}
-
-.obi-code {
-  font-size: 6px;
-  font-family: monospace;
-  color: #71717a;
-}
-
-.obi-body {
-  margin: auto 0;
-}
-
-.obi-name {
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1.2;
-  word-break: break-all;
-}
-
-.obi-meta {
-  font-size: 7px;
-  color: #52525b;
-  margin-top: 3px;
-  line-height: 1.1;
-}
-
-.obi-barcode {
-  width: 100%;
-  height: 22px;
-  background: repeating-linear-gradient(
-    90deg,
-    #18181b 0px,
-    #18181b 1px,
-    transparent 1px,
-    transparent 2px,
-    #18181b 2px,
-    #18181b 4px
-  );
-  opacity: 0.85;
-}
-
-/* 自定义封面悬浮按钮 */
-.archive-disc-edit-btn {
-  position: absolute;
-  bottom: 8px;
-  left: 30px;
-  z-index: 10;
-  background: rgba(0, 0, 0, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #f4f4f5;
-  border-radius: 999px;
-  padding: 4px 9px;
-  font-size: 10px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-}
-
-.archive-disc-edit-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-}
-
-/* ==========================================================================
-   记忆卡片区域 (背单词卡叠放翻动动画美化)
-   ========================================================================== */
-
-.archive-deck-wrapper {
-  flex-shrink: 0;
-  padding: 4px 18px 0;
-  perspective: 1000px;
-}
-
-/* 覆盖 ArchiveMemoryDeck 内部卡片样式（背单词层叠微倾斜） */
-.archive-deck-wrapper > * {
-  transition: transform 0.3s ease;
-}
-
-.archive-deck-wrapper:active > * {
-  transform: translateY(-2px) scale(0.99);
-}
-
-/* ==========================================================================
-   底部极简信息条与按钮（消除原本沉重的过高设计）
-   ========================================================================== */
-
-.archive-summary-row {
-  margin: 8px 16px 14px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.archive-summary-narrative {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.archive-summary-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
-  flex-shrink: 0;
-}
-
-.archive-summary-narrative p {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.35;
-  color: #a1a1aa;
+.archive-disc-case-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-main);
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.archive-detail-enter-btn {
-  flex-shrink: 0;
-  background: #ffffff;
-  color: #000000;
-  border: none;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 6px 13px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.archive-disc-case-meta {
+  font-size: 9px;
+  color: var(--text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.archive-detail-enter-btn:hover {
-  background: #d4d4d8;
-  transform: scale(1.02);
-}
-
-.archive-detail-enter-btn:active {
-  transform: scale(0.96);
-}
-
-/* 动效与加载态 */
-.archive-carousel-empty {
-  margin: auto;
-  text-align: center;
-  color: #71717a;
-  font-size: 12px;
-}
-
-.archive-loading-disc {
-  width: 36px;
-  height: 36px;
+.archive-disc {
+  width: 100%;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #fff;
-  animation: disc-subtle-spin 1s linear infinite;
-  margin: 0 auto 10px;
+  position: relative;
+  background: var(--ink-card-bg);
+  border: 1px solid var(--ink-card-border);
+  box-shadow: var(--ink-card-shadow);
+  background-size: cover;
+  background-position: center;
 }
+
+.archive-disc::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    transparent 0%,
+    transparent 28%,
+    color-mix(in srgb, var(--text-on-ink) 55%, transparent) 29%,
+    color-mix(in srgb, var(--text-on-ink) 55%, transparent) 31%,
+    transparent 32%
+  );
+  opacity: 0.5;
+}
+
+.archive-disc-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--text-on-ink-muted);
+}
+
+.archive-disc-case.is-active .archive-disc::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-color);
+  opacity: 0.5;
+}
+
+.archive-disc-edit-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.archive-disc-edit-btn:hover {
+  color: var(--text-main);
+  background: var(--control-soft-hover);
+}
+
+/* ---------- 记忆卡牌（中间区块，填补空荡感） ---------- */
+
+.archive-memory-deck {
+  width: min(88vw, 380px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.archive-memory-deck-hud {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  margin-bottom: 10px;
+}
+
+.archive-memory-deck-counter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.archive-memory-deck-ring {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.archive-memory-deck-ring::before {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin: 3px;
+  border-radius: 50%;
+  background: var(--bg-main);
+}
+
+.archive-memory-deck-shuffle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.archive-memory-deck-stack {
+  position: relative;
+  width: 100%;
+  cursor: pointer;
+}
+
+.archive-memory-deck-shadow {
+  position: absolute;
+  inset: 0;
+  border-radius: 1.6rem;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
+
+.archive-memory-deck-shadow-1 {
+  transform: translateY(6px) scale(0.97);
+  opacity: 0.7;
+}
+
+.archive-memory-deck-shadow-2 {
+  transform: translateY(12px) scale(0.94);
+  opacity: 0.45;
+}
+
+.archive-memory-deck-card {
+  position: relative;
+  min-height: 104px;
+  border-radius: 1.4rem;
+  padding: 14px 16px;
+  background: var(--card-bg-gradient);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: archiveCardSlideIn 0.22s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.archive-memory-deck-card.is-flipping-out {
+  animation: archiveCardSlideOut 0.19s ease forwards;
+}
+
+@keyframes archiveCardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(22px) rotate(1.5deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
+@keyframes archiveCardSlideOut {
+  to {
+    opacity: 0;
+    transform: translateX(-22px) rotate(-2deg);
+  }
+}
+
+.archive-memory-deck-tag {
+  align-self: flex-start;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--ink-card-bg);
+  color: var(--text-on-ink);
+  letter-spacing: 0.4px;
+}
+
+.archive-memory-deck-content {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-main);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.archive-memory-deck-date {
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+.archive-memory-deck-hint {
+  margin-top: 6px;
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
 /* ---------- 概览行（叙述句 + 进入按钮） ---------- */
 
 .archive-summary-row {
@@ -1357,851 +1252,4 @@
   font-size: 10.5px;
   color: var(--text-muted);
   text-align: center;
-}
-/* ==========================================================================
-   MEMORY DECK - 物理手感背单词翻卡与黑白弥散设计
-   ========================================================================== */
-
-.archive-memory-deck {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 320px;
-  margin: 0 auto;
-  user-select: none;
-}
-
-/* 顶部轻量指示条 */
-.archive-memory-deck-hud {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 4px 6px;
-  box-sizing: border-box;
-}
-
-.archive-memory-deck-counter {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 3px 8px;
-  border-radius: 999px;
-}
-
-.archive-memory-deck-ring {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
-}
-
-.deck-counter-text {
-  font-size: 10px;
-  font-weight: 600;
-  color: #e4e4e7;
-  letter-spacing: 0.04em;
-}
-
-.deck-counter-divider {
-  color: #52525b;
-}
-
-.archive-memory-deck-shuffle {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #a1a1aa;
-  border-radius: 999px;
-  padding: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.archive-memory-deck-shuffle:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  transform: rotate(45deg);
-}
-
-/* 3D 舞台区域 */
-.archive-memory-deck-stage {
-  position: relative;
-  width: 100%;
-  height: 94px; /* 严格压紧高度，给唱片留出呼吸空间 */
-  perspective: 900px;
-  cursor: pointer;
-}
-
-/* 卡片统一基础层 */
-.deck-card-layer {
-  position: absolute;
-  inset: 0;
-  border-radius: 14px;
-  box-sizing: border-box;
-  transform-origin: center bottom;
-  will-change: transform, opacity;
-}
-
-/* 卡片内部包装与磨砂黑白弥散质感 */
-.deck-card-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding: 10px 14px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 14px;
-  box-shadow: 
-    0 10px 24px -4px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  overflow: hidden;
-}
-
-/* 最底部的第 3 张虚构垫片 */
-.deck-card-bottom {
-  z-index: 1;
-  transform: translateY(8px) scale(0.9);
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-}
-
-/* 准备登场的第 2 层卡片（平时稍微缩小下移，伪装成背后的牌） */
-.deck-card-next {
-  z-index: 2;
-  transform: translateY(4px) scale(0.95);
-  opacity: 0.65;
-  transition: transform 0.38s cubic-bezier(0.2, 0.8, 0.25, 1), opacity 0.38s ease;
-}
-
-/* 甩出时，第 2 层丝滑弹升为第 1 层 */
-.deck-card-next.is-promoting {
-  transform: translateY(0) scale(1);
-  opacity: 1;
-}
-
-/* 当前处于顶部的卡牌 */
-.deck-card-active {
-  z-index: 3;
-  transform: translateY(0) rotate(0deg) scale(1);
-  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.25, 1);
-}
-
-.archive-memory-deck-stage:hover .deck-card-active:not(.is-swiping-away) {
-  transform: translateY(-2px) scale(1.01);
-}
-
-/* ========== 核心真实手感：背单词卡片向左弧线甩出的物理动画 ========== */
-.deck-card-active.is-swiping-away {
-  pointer-events: none;
-  animation: cardSwipeFlyOut 0.38s cubic-bezier(0.18, 0.89, 0.32, 1.15) forwards;
-}
-
-@keyframes cardSwipeFlyOut {
-  0% {
-    transform: translate(0, 0) rotate(0deg) scale(1);
-    opacity: 1;
-  }
-  35% {
-    /* 模拟手指挑动：向右上微扬、倾斜 */
-    transform: translate(25px, -8px) rotate(4deg) scale(1.02);
-  }
-  100% {
-    /* 向左侧急速滑出屏幕边缘，同时逆时针大幅甩出并渐隐下潜 */
-    transform: translate(-140%, 15px) rotate(-18deg) scale(0.85);
-    opacity: 0;
-  }
-}
-
-/* 卡片内部排版细节 */
-.deck-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.archive-memory-deck-tag {
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #f4f4f5;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  padding: 1px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-.deck-card-glint {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 6px #ffffff;
-}
-
-.archive-memory-deck-content {
-  margin: 2px 0 0;
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: #f4f4f5;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.archive-memory-deck-date {
-  font-size: 8.5px;
-  color: #71717a;
-  font-family: monospace;
-}
-
-.archive-memory-deck-hint {
-  margin: 5px 0 0;
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  color: #52525b;
-  text-align: center;
-}
-
-/* ==========================================================================
-   ARCHIVE CABINET VIEW - P1 & P2 档案抽屉与机密卷宗设计
-   ========================================================================== */
-
-.cabinet-viewport {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  max-width: 440px;
-  margin: 0 auto;
-  background-color: #0c0c0e;
-  color: #e4e4e7;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-/* 顶部 HUD */
-.cabinet-hud {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 18px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(12, 12, 14, 0.95);
-  backdrop-filter: blur(12px);
-  z-index: 60;
-}
-
-.cabinet-hud-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #ededed;
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.cabinet-hud-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.cabinet-title-stamp {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.stamp-box {
-  font-size: 8px;
-  font-family: monospace;
-  letter-spacing: 0.15em;
-  background: #ffffff;
-  color: #000000;
-  padding: 1px 4px;
-  font-weight: 900;
-  border-radius: 2px;
-}
-
-.cabinet-char-name {
-  font-size: 12px;
-  font-weight: 700;
-  color: #f4f4f5;
-}
-
-.cabinet-stat-pill {
-  font-size: 10px;
-  color: #a1a1aa;
-  font-family: monospace;
-}
-
-/* 舞台容器 */
-.cabinet-stage {
-  flex: 1;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding: 16px 14px 20px;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-/* ==========================================================================
-   P1 视图：档案抽屉与错落标签耳（Manila Folder Tabs）
-   ========================================================================== */
-
-.drawer-box {
-  position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  perspective: 1200px;
-}
-
-.drawer-hanging-rail {
-  position: relative;
-  width: 100%;
-  flex: 1;
-  display: flex;
-  flex-direction: column-reverse; /* 最新的在最前 */
-  justify-content: flex-start;
-  overflow-y: auto;
-  padding-bottom: 24px;
-  scrollbar-width: none;
-}
-
-.drawer-hanging-rail::-webkit-scrollbar {
-  display: none;
-}
-
-/* 单个文件袋顶部折叠条 */
-.drawer-folder-item {
-  position: relative;
-  width: 100%;
-  height: 38px;
-  margin-top: -12px; /* 产生上下重叠层叠感 */
-  cursor: pointer;
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.drawer-folder-item:hover {
-  transform: translateY(-4px);
-}
-
-.drawer-folder-item.is-active-tab {
-  transform: translateY(-8px);
-}
-
-/* 标签耳（Tab）位置错落（仿 P1 左右错落） */
-.folder-protruding-tab {
-  position: absolute;
-  top: 0;
-  height: 22px;
-  background: #e4e4e7;
-  color: #18181b;
-  border: 1px solid #ffffff;
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.25);
-  font-family: -apple-system, BlinkMacSystemFont, monospace;
-}
-
-.tab-slot-0 .folder-protruding-tab { left: 16px; }
-.tab-slot-1 .folder-protruding-tab { left: 88px; }
-.tab-slot-2 .folder-protruding-tab { right: 88px; }
-.tab-slot-3 .folder-protruding-tab { right: 16px; }
-
-/* 选中的标签耳做反色高亮（如 P1 的黑底白字高亮块） */
-.drawer-folder-item.is-active-tab .folder-protruding-tab {
-  background: #09090b;
-  color: #ffffff;
-  border-color: #ffffff;
-}
-
-.tab-serial {
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-}
-
-.tab-date {
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.tab-note-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #f59e0b;
-}
-
-/* 文件袋的主体边缘唇线 */
-.folder-lip-edge {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 18px;
-  background: #27272a;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
-/* 抽屉下方的铁皮面板与金属拉手（P1 抽屉正面） */
-.cabinet-drawer-front {
-  position: relative;
-  width: 100%;
-  height: 64px;
-  background: #18181b;
-  border: 2px solid #3f3f46;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.8);
-  z-index: 40;
-}
-
-.drawer-metal-handle {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.handle-louver {
-  width: 44px;
-  height: 3px;
-  background: #71717a;
-  border-radius: 2px;
-  box-shadow: inset 0 1px 1px rgba(0,0,0,0.8);
-}
-
-.drawer-yellow-tag {
-  background: #fef08a;
-  color: #000000;
-  font-size: 9px;
-  font-weight: 800;
-  font-family: monospace;
-  padding: 1px 8px;
-  border-radius: 3px;
-  border: 1px solid #ca8a04;
-  letter-spacing: 0.05em;
-}
-
-/* ==========================================================================
-   P2 视图：向上抽拔半展开档案纸页（Dossier Sheet）
-   ========================================================================= */
-
-.extracted-dossier-card {
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  bottom: 12px;
-  height: 82%;
-  background: #f4f4f5;
-  color: #09090b;
-  border-radius: 8px;
-  box-shadow: 
-    0 -16px 40px rgba(0, 0, 0, 0.9),
-    0 0 0 1px rgba(255, 255, 255, 0.3);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  z-index: 55;
-  animation: dossierSlideUp 0.35s cubic-bezier(0.18, 0.9, 0.25, 1) forwards;
-  cursor: pointer;
-}
-
-/* 全屏沉浸模式 */
-.extracted-dossier-card.dossier-full-mode {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  max-width: 440px;
-  height: 100vh;
-  margin: 0 auto;
-  border-radius: 0;
-  z-index: 100;
-  cursor: default;
-}
-
-@keyframes dossierSlideUp {
-  from {
-    transform: translateY(60px);
-    opacity: 0.4;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* 档案顶部黑色横条 */
-.dossier-topbar {
-  background: #09090b;
-  color: #a1a1aa;
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.dossier-serial-code {
-  font-size: 8px;
-  font-family: monospace;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-}
-
-.dossier-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.dossier-icon-btn {
-  background: rgba(255, 255, 255, 0.12);
-  border: none;
-  color: #ffffff;
-  border-radius: 4px;
-  padding: 4px;
-  cursor: pointer;
-  display: flex;
-}
-
-.dossier-icon-btn.danger:hover {
-  background: #dc2626;
-}
-
-/* 档案纸张内部版式 */
-.dossier-paper-sheet {
-  flex: 1;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-}
-
-/* 封面大标题区 */
-.dossier-header-block {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  border-bottom: 2px solid #09090b;
-  padding-bottom: 8px;
-}
-
-.dossier-brand-title {
-  display: flex;
-  flex-direction: column;
-}
-
-.title-lead {
-  font-size: 20px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
-}
-
-.title-sub {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.25em;
-  color: #71717a;
-}
-
-.dossier-wireframe-box {
-  width: 44px;
-  height: 28px;
-  border: 1px solid #09090b;
-  position: relative;
-}
-
-.wireframe-cross {
-  position: absolute;
-  inset: 0;
-  background: 
-    linear-gradient(to top right, transparent calc(50% - 0.5px), #09090b, transparent calc(50% + 0.5px)),
-    linear-gradient(to bottom right, transparent calc(50% - 0.5px), #09090b, transparent calc(50% + 0.5px));
-}
-
-/* 日期印戳与网格图示（纯正 P2 结构） */
-.dossier-spec-row {
-  display: flex;
-  gap: 12px;
-  margin-top: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px dashed #d4d4d8;
-}
-
-.dossier-blueprint-grid {
-  width: 76px;
-  border: 1px solid #09090b;
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.blueprint-cells {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
-}
-
-.bp-cell {
-  height: 6px;
-  background: #e4e4e7;
-}
-
-.bp-cell.is-marked {
-  background: #09090b;
-}
-
-.blueprint-label {
-  font-size: 6px;
-  font-family: monospace;
-  font-weight: 800;
-  margin-top: 4px;
-  text-align: center;
-}
-
-.dossier-date-badge {
-  flex: 1;
-  background: #09090b;
-  color: #ffffff;
-  padding: 8px 12px;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.date-badge-label {
-  font-size: 7px;
-  letter-spacing: 0.15em;
-  color: #a1a1aa;
-}
-
-.date-badge-value {
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  font-family: monospace;
-}
-
-.date-badge-stat {
-  font-size: 8px;
-  color: #d4d4d8;
-  margin-top: 2px;
-}
-
-/* 备注手写栏 */
-.dossier-note-banner {
-  margin-top: 8px;
-  padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.04);
-  border-left: 3px solid #09090b;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.note-label {
-  font-weight: 800;
-  font-size: 10px;
-}
-
-.note-placeholder {
-  color: #a1a1aa;
-  font-style: italic;
-}
-
-.note-input-row {
-  display: flex;
-  gap: 6px;
-  flex: 1;
-}
-
-.note-input-row input {
-  flex: 1;
-  border: 1px solid #09090b;
-  padding: 2px 6px;
-  font-size: 11px;
-  background: #ffffff;
-}
-
-.note-input-row button {
-  background: #09090b;
-  color: #ffffff;
-  border: none;
-  font-size: 10px;
-  padding: 2px 8px;
-}
-
-/* 卷宗正文聊天列表 */
-.dossier-records-container {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  margin-top: 10px;
-}
-
-.records-header-line {
-  display: flex;
-  justify-content: space-between;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  color: #71717a;
-  border-bottom: 1px solid #e4e4e7;
-  padding-bottom: 3px;
-  margin-bottom: 6px;
-}
-
-.dossier-records-scroll {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-right: 4px;
-}
-
-.dossier-msg-row {
-  display: flex;
-  gap: 10px;
-  padding: 6px 0;
-  border-bottom: 1px solid #f4f4f5;
-  align-items: flex-start;
-}
-
-.msg-sidebar {
-  display: flex;
-  flex-direction: column;
-  min-width: 44px;
-}
-
-.msg-seq {
-  font-size: 9px;
-  font-weight: 800;
-  font-family: monospace;
-}
-
-.msg-time {
-  font-size: 8px;
-  color: #71717a;
-  font-family: monospace;
-}
-
-.msg-body {
-  flex: 1;
-}
-
-.msg-sender-tag {
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  color: #52525b;
-}
-
-.msg-text {
-  font-size: 12px;
-  line-height: 1.45;
-  color: #18181b;
-  margin-top: 1px;
-  word-break: break-word;
-}
-
-.msg-del-btn {
-  background: none;
-  border: none;
-  color: #a1a1aa;
-  cursor: pointer;
-  padding: 2px;
-}
-
-.msg-del-btn:hover {
-  color: #dc2626;
-}
-
-.dossier-click-hint {
-  padding: 8px 0 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #71717a;
-  letter-spacing: 0.05em;
-}
-
-/* 空状态与加载中 */
-.cabinet-loading,
-.cabinet-empty {
-  margin: auto;
-  text-align: center;
-  color: #71717a;
-  font-size: 11px;
-}
-
-.cabinet-loading-box {
-  width: 32px;
-  height: 22px;
-  border: 1.5px solid #fff;
-  border-radius: 3px;
-  margin: 0 auto 10px;
-  animation: pulse 1s infinite alternate;
-}
-
-.cabinet-empty-folder {
-  border: 1.5px dashed #3f3f46;
-  padding: 24px;
-  border-radius: 8px;
-}
-
-.empty-tab {
-  font-size: 8px;
-  background: #3f3f46;
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 2px;
 }

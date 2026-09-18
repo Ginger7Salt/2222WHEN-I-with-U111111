@@ -6,7 +6,7 @@ import React, {
   useState
 } from 'react';
 
-import { ArrowLeft, Camera, Settings, Sparkles } from 'lucide-react';
+import { ArrowLeft, Pencil, Settings } from 'lucide-react';
 
 import {
   getArchiveNarrativeLine,
@@ -130,24 +130,15 @@ const ArchiveApp = ({ onBackHub }) => {
 
   return (
     <div className="archive-app">
-      {/* 顶部黑白弥散流光 */}
-      <div className="archive-diffused-light" aria-hidden="true" />
-
-      {/* 顶部 HUD 导航栏 */}
-      <header className="archive-hud">
+      <div className="archive-hud">
         <button
           type="button"
           className="archive-hud-back"
           onClick={onBackHub}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>返回</span>
+          返回主页
         </button>
-
-        <div className="archive-hud-tag">
-          <Sparkles className="h-3 w-3" />
-          <span>TIME CAPSULE</span>
-        </div>
 
         <button
           type="button"
@@ -158,23 +149,21 @@ const ArchiveApp = ({ onBackHub }) => {
         >
           <Settings className="h-4 w-4" />
         </button>
-      </header>
+      </div>
 
       {showSettings && (
         <ArchiveSettingsPanel onClose={() => setShowSettings(false)} />
       )}
 
-      {/* 紧凑精致的标题区 */}
       <div className="archive-page-title">
         <h1>存档室</h1>
-        <p>封存的时光 · 静静存放在这里</p>
+        <p>封存的时光，静静存放在这里</p>
       </div>
 
-      <main className="archive-carousel-wrap">
+      <div className="archive-carousel-wrap">
         {isLoading && (
           <div className="archive-carousel-empty">
-            <div className="archive-loading-disc" />
-            <p>正在打开唱片柜...</p>
+            正在打开存档室的门。
           </div>
         )}
 
@@ -186,7 +175,12 @@ const ArchiveApp = ({ onBackHub }) => {
 
         {!isLoading && overview.length > 0 && (
           <div className="archive-carousel-scroll">
-            {/* 唱片展示滚动轨 */}
+            {activeItem && (
+              <h2 className="archive-section-heading">
+                {activeItem.characterName}
+              </h2>
+            )}
+
             <div
               className="archive-disc-track"
               ref={trackRef}
@@ -209,68 +203,29 @@ const ArchiveApp = ({ onBackHub }) => {
                       scrollToIndex(index);
                     }}
                   >
-                    {/* ===== P2 参考图同款：实体亚克力 CD 包装盒结构 ===== */}
-                    <div className="jewel-case-spine">
-                      <span className="spine-text">THE ARCHIVE MINI ALBUM</span>
-                      <span className="spine-title">{item.characterName}</span>
+                    <span className="archive-disc-case-label">
+                      {item.characterName}
+                    </span>
+
+                    <div
+                      className="archive-disc"
+                      style={
+                        coverImage
+                          ? { backgroundImage: `url(${coverImage})` }
+                          : undefined
+                      }
+                    >
+                      {!coverImage && (
+                        <span className="archive-disc-fallback">
+                          {(item.characterName || '?').slice(0, 1)}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="jewel-case-tray">
-                      {/* CD 光盘主体 */}
-                      <div
-                        className="archive-disc"
-                        style={
-                          coverImage
-                            ? { '--custom-cover': `url(${coverImage})` }
-                            : undefined
-                        }
-                      >
-                        {/* 自定义封面沉浸底图 */}
-                        {coverImage && (
-                          <div
-                            className="disc-artwork-layer"
-                            style={{ backgroundImage: `url(${coverImage})` }}
-                          />
-                        )}
+                    <span className="archive-disc-case-meta">
+                      与 {item.userName} · {item.totalMessages} 条
+                    </span>
 
-                        {/* 盘面印刷排版（还原 P2 现代粗体与同心微缩文字） */}
-                        <div className="disc-typography-layer">
-                          <div className="disc-curved-title">
-                            {item.characterName}
-                          </div>
-                          <div className="disc-center-meta">
-                            <span>LP-ROM 48kHz / 24-BIT</span>
-                            <span className="disc-dot-matrix">···· ··· ·· ·</span>
-                          </div>
-                        </div>
-
-                        {/* CD 中心透明卡圈与金属主轴孔 */}
-                        <div className="disc-spindle-hole">
-                          <div className="disc-spindle-inner" />
-                        </div>
-
-                        {/* CD 环形反光与同心细纹 */}
-                        <div className="disc-grooves" />
-                        <div className="disc-specular-light" />
-                      </div>
-                    </div>
-
-                    {/* 右侧 OBI 纸质侧封（仿 P2 右侧信息贴纸） */}
-                    <div className="jewel-case-obi">
-                      <div className="obi-header">
-                        <span className="obi-badge">RECORD</span>
-                        <span className="obi-code">CMCC-01</span>
-                      </div>
-                      <div className="obi-body">
-                        <div className="obi-name">{item.characterName}</div>
-                        <div className="obi-meta">
-                          共 {item.totalMessages} 条回忆对话
-                        </div>
-                      </div>
-                      <div className="obi-barcode" />
-                    </div>
-
-                    {/* 更换光盘封套按钮 */}
                     {isActive && (
                       <button
                         type="button"
@@ -279,11 +234,10 @@ const ArchiveApp = ({ onBackHub }) => {
                           event.stopPropagation();
                           handlePickDiscImage();
                         }}
-                        title="自定义唱片封面"
-                        aria-label="自定义唱片封面"
+                        title="更换唱片封面"
+                        aria-label="更换唱片封面"
                       >
-                        <Camera className="h-3.5 w-3.5" />
-                        <span>换盘面</span>
+                        <Pencil className="h-3 w-3" />
                       </button>
                     )}
                   </div>
@@ -299,25 +253,18 @@ const ArchiveApp = ({ onBackHub }) => {
               onChange={handleDiscImageChange}
             />
 
-            {/* 记忆卡片区域（配合 CSS 做成背单词卡片滑动质感） */}
             {activeItem && (
-              <div className="archive-deck-wrapper">
-                <ArchiveMemoryDeck chatId={activeItem.chatId} />
-              </div>
+              <ArchiveMemoryDeck chatId={activeItem.chatId} />
             )}
 
-            {/* 瘦身后紧凑现代的底部卡片信息栏 */}
             {activeItem && (
               <div className="archive-summary-row">
                 <div className="archive-summary-narrative">
-                  <div className="archive-summary-dot" />
-                  <p>
-                    {getArchiveNarrativeLine({
-                      chattedDays: activeItem.chattedDays,
-                      totalArchivedDays: activeItem.totalArchivedDays,
-                      characterName: activeItem.characterName
-                    })}
-                  </p>
+                  {getArchiveNarrativeLine({
+                    chattedDays: activeItem.chattedDays,
+                    totalArchivedDays: activeItem.totalArchivedDays,
+                    characterName: activeItem.characterName
+                  })}
                 </div>
 
                 <button
@@ -325,13 +272,17 @@ const ArchiveApp = ({ onBackHub }) => {
                   className="archive-detail-enter-btn"
                   onClick={() => setEnteredChatId(activeItem.chatId)}
                 >
-                  打开档案
+                  进入档案柜
                 </button>
               </div>
             )}
+
+            <p className="archive-carousel-hint">
+              左右滑动挑一张唱片，点击查看这段关系的记忆片段
+            </p>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };
