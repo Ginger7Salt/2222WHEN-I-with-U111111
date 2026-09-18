@@ -368,7 +368,7 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
             style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
           >
             <Sparkles className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
-            <span>此刻状态</span>
+            <span>所思所想</span>
             <ChevronDown
               className={`h-3 w-3 transition-transform duration-300 ${showStatusPanel ? 'rotate-180' : ''}`}
             />
