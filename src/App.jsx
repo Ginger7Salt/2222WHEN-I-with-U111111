@@ -8,9 +8,9 @@ import NotificationToast from './components/NotificationToast';
 import KeepAliveIndicator from './components/KeepAliveIndicator';
 import HouseManualModal from './components/manual/HouseManualModal';
 
-import ProfileHeader from './apps/hub/ProfileHeader';
-import PinnedGallery from './apps/hub/PinnedGallery';
+import HubHeader from './apps/hub/HubHeader';
 import QuickBoard from './apps/hub/QuickBoard';
+
 import AppGrid from './apps/hub/AppGrid';
 
 import ArchiveApp from './apps/archive/ArchiveApp';
@@ -887,12 +887,8 @@ const [hubBackground, setHubBackground] = useState('');
           <DailyOfferingHubGate
             onOpenSettings={() => openApp('settings')}
           >
-            <ErrorBoundary>
-              <ProfileHeader delay={100} />
-            </ErrorBoundary>
-
-            <ErrorBoundary>
-              <PinnedGallery delay={200} />
+                        <ErrorBoundary>
+              <HubHeader />
             </ErrorBoundary>
 
             <ErrorBoundary>

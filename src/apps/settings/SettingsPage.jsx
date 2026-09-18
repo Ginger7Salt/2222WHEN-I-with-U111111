@@ -31,6 +31,8 @@ import GlassCard from '../../components/GlassCard';
 import HubBackgroundSettings from '../../components/HubBackgroundSettings';
 import AppNameDisplaySettings from './AppNameDisplaySettings';
 import { APP_NAME_DISPLAY_EN } from '../hub/useAppNameDisplayMode';
+import HubHeaderLayoutSettings from './HubHeaderLayoutSettings';
+import { HUB_HEADER_LAYOUT_CLASSIC } from '../hub/hubHeaderLayouts/registry';
 
 import ConfirmModal from '../../components/ConfirmModal';
 import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
@@ -113,6 +115,14 @@ const [initialAppNameDisplayMode, setInitialAppNameDisplayMode] = useState(
   APP_NAME_DISPLAY_EN,
 );
 
+// 主页版式（资料卡 + 图片墙用哪种版式展示），跟应用名称显示模式一样
+// 直接读写 db.settings，首页通过 useHubHeaderLayout 订阅。
+const [draftHubHeaderLayout, setDraftHubHeaderLayout] = useState(
+  HUB_HEADER_LAYOUT_CLASSIC,
+);
+const [initialHubHeaderLayout, setInitialHubHeaderLayout] = useState(
+  HUB_HEADER_LAYOUT_CLASSIC,
+);
 
 const [preloaderQuoteConfig, setPreloaderQuoteConfig] = useState(
   DEFAULT_PRELOADER_QUOTE_CONFIG,
@@ -328,6 +338,11 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
   setInitialAppNameDisplayMode(settingMap.appNameDisplayMode);
 }
 
+        if (typeof settingMap.hubHeaderLayout === 'string') {
+  setDraftHubHeaderLayout(settingMap.hubHeaderLayout);
+  setInitialHubHeaderLayout(settingMap.hubHeaderLayout);
+}
+
 
         if (settingMap.preloaderQuoteConfig) {
   setPreloaderQuoteConfig(
@@ -424,8 +439,9 @@ setIsCompanionLoading(false);
   draftShowTitle !== showTitle ||
    draftHubBackground !== (currentHubBackground || '') ||
   draftAppNameDisplayMode !== initialAppNameDisplayMode ||
+  draftHubHeaderLayout !== initialHubHeaderLayout ||
   autoMessage !== false ||
-  frequency !== 'moderate' ||
+    frequency !== 'moderate' ||
   apiConfig.baseUrl !== '' ||
   apiConfig.apiKey !== '' ||
   apiConfig.model !== '';
@@ -749,9 +765,13 @@ const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
   key: 'hubBackground',
   value: draftHubBackground,
 },
-          {
+                  {
   key: 'appNameDisplayMode',
   value: draftAppNameDisplayMode,
+},
+          {
+  key: 'hubHeaderLayout',
+  value: draftHubHeaderLayout,
 },
           { key: 'autoMessage', value: autoMessage },
           { key: 'frequency', value: frequency },
@@ -782,8 +802,12 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
   onChangeHubBackground(draftHubBackground);
 }
 
-      if (draftAppNameDisplayMode !== initialAppNameDisplayMode) {
+            if (draftAppNameDisplayMode !== initialAppNameDisplayMode) {
   setInitialAppNameDisplayMode(draftAppNameDisplayMode);
+}
+
+      if (draftHubHeaderLayout !== initialHubHeaderLayout) {
+  setInitialHubHeaderLayout(draftHubHeaderLayout);
 }
 
       showSaveResult('success', '配置保存成功。');
@@ -1105,9 +1129,21 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
           <span>应用名称显示</span>
         </div>
 
-        <AppNameDisplaySettings
+                <AppNameDisplaySettings
           value={draftAppNameDisplayMode}
           onChange={setDraftAppNameDisplayMode}
+        />
+      </GlassCard>
+
+      <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <Palette className="h-4 w-4" />
+          <span>主页版式</span>
+        </div>
+
+        <HubHeaderLayoutSettings
+          value={draftHubHeaderLayout}
+          onChange={setDraftHubHeaderLayout}
         />
       </GlassCard>
 
