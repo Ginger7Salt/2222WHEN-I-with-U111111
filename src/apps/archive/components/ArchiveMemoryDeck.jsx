@@ -26,6 +26,7 @@ const ArchiveMemoryDeck = ({ chatId }) => {
   const [cards, setCards] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFlipping, setIsFlipping] = useState(false);
 
   const loadCards = async () => {
     setIsLoading(true);
@@ -64,7 +65,19 @@ const ArchiveMemoryDeck = ({ chatId }) => {
   }
 
   const handleAdvance = () => {
-    setActiveIndex((previous) => (previous + 1) % cards.length);
+    if (isFlipping || cards.length <= 1) {
+      setActiveIndex((previous) => (previous + 1) % Math.max(cards.length, 1));
+      return;
+    }
+
+    setIsFlipping(true);
+
+    // 先让当前卡片往左飞出去（像翻单词卡一样），
+    // 动画播完再真正切到下一张，下一张进场时会自带滑入动画。
+    setTimeout(() => {
+      setActiveIndex((previous) => (previous + 1) % cards.length);
+      setIsFlipping(false);
+    }, 190);
   };
 
   return (
@@ -100,7 +113,13 @@ const ArchiveMemoryDeck = ({ chatId }) => {
         <div className="archive-memory-deck-shadow archive-memory-deck-shadow-2" />
         <div className="archive-memory-deck-shadow archive-memory-deck-shadow-1" />
 
-        <div className="archive-memory-deck-card" key={activeCard?.id}>
+        <div
+          className={[
+            'archive-memory-deck-card',
+            isFlipping ? 'is-flipping-out' : ''
+          ].join(' ')}
+          key={activeCard?.id}
+        >
           <span className="archive-memory-deck-tag">
             {activeCard?.typeLabel}
           </span>

@@ -6,11 +6,12 @@ import React, {
   useState
 } from 'react';
 
-import { ArrowLeft, Settings } from 'lucide-react';
+import { ArrowLeft, Pencil, Settings } from 'lucide-react';
 
 import {
   getArchiveNarrativeLine,
-  getChatsArchiveOverview
+  getChatsArchiveOverview,
+  setChatDiscImage
 } from './archiveService';
 import ArchiveCabinetView from './components/ArchiveCabinetView';
 import ArchiveMemoryDeck from './components/ArchiveMemoryDeck';
@@ -26,6 +27,7 @@ const ArchiveApp = ({ onBackHub }) => {
 
   const trackRef = useRef(null);
   const discRefs = useRef([]);
+  const discImageInputRef = useRef(null);
 
   const loadOverview = useCallback(async () => {
     setIsLoading(true);
@@ -91,6 +93,29 @@ const ArchiveApp = ({ onBackHub }) => {
     });
 
     setActiveIndex(closestIndex);
+  };
+
+  const handlePickDiscImage = () => {
+    discImageInputRef.current?.click();
+  };
+
+  const handleDiscImageChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file || !activeItem) {
+      return;
+    }
+
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    await setChatDiscImage(activeItem.chatId, dataUrl);
+    await loadOverview();
   };
 
   if (enteredChatId && enteredOverview) {
@@ -161,34 +186,72 @@ const ArchiveApp = ({ onBackHub }) => {
               ref={trackRef}
               onScroll={handleTrackScroll}
             >
-              {overview.map((item, index) => (
-                <div
-                  key={item.chatId}
-                  ref={(node) => { discRefs.current[index] = node; }}
-                  className={[
-                    'archive-disc',
-                    index === activeIndex ? 'is-active' : ''
-                  ].join(' ')}
-                  style={
-                    item.characterAvatar || item.bgImage
-                      ? {
-                          backgroundImage: `url(${item.characterAvatar || item.bgImage})`
-                        }
-                      : undefined
-                  }
-                  onClick={() => {
-                    setActiveIndex(index);
-                    scrollToIndex(index);
-                  }}
-                >
-                  {!item.characterAvatar && !item.bgImage && (
-                    <span className="archive-disc-fallback">
-                      {(item.characterName || '?').slice(0, 1)}
+              {overview.map((item, index) => {
+                const coverImage = item.discImage || item.characterAvatar || item.bgImage;
+                const isActive = index === activeIndex;
+
+                return (
+                  <div
+                    key={item.chatId}
+                    ref={(node) => { discRefs.current[index] = node; }}
+                    className={[
+                      'archive-disc-case',
+                      isActive ? 'is-active' : ''
+                    ].join(' ')}
+                    onClick={() => {
+                      setActiveIndex(index);
+                      scrollToIndex(index);
+                    }}
+                  >
+                    <span className="archive-disc-case-label">
+                      {item.characterName}
                     </span>
-                  )}
-                </div>
-              ))}
+
+                    <div
+                      className="archive-disc"
+                      style={
+                        coverImage
+                          ? { backgroundImage: `url(${coverImage})` }
+                          : undefined
+                      }
+                    >
+                      {!coverImage && (
+                        <span className="archive-disc-fallback">
+                          {(item.characterName || '?').slice(0, 1)}
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="archive-disc-case-meta">
+                      与 {item.userName} · {item.totalMessages} 条
+                    </span>
+
+                    {isActive && (
+                      <button
+                        type="button"
+                        className="archive-disc-edit-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handlePickDiscImage();
+                        }}
+                        title="更换唱片封面"
+                        aria-label="更换唱片封面"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+
+            <input
+              type="file"
+              accept="image/*"
+              ref={discImageInputRef}
+              style={{ display: 'none' }}
+              onChange={handleDiscImageChange}
+            />
 
             {activeItem && (
               <ArchiveMemoryDeck chatId={activeItem.chatId} />

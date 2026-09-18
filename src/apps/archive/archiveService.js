@@ -206,6 +206,7 @@ export const getChatsArchiveOverview = async () => {
         characterId: chat.characterId,
         characterName: character?.name || chat.title || '未命名',
         characterAvatar: character?.avatar || '',
+        discImage: chat.archiveDiscImage || '',
         userName: chat.userName || '你',
         userAvatar: chat.userAvatar || character?.userAvatar || '',
         bgImage: chat.bgImage || '',
@@ -225,6 +226,21 @@ export const getChatsArchiveOverview = async () => {
   return overview.sort((a, b) => (
     (b.totalMessages || 0) - (a.totalMessages || 0)
   ));
+};
+
+/*
+ * 允许 user 给某个聊天的"唱片"自定义封面图（不用角色头像）。
+ * 直接存成 chats 表的一个附加字段（data URL），不新建表，
+ * 页面读取时优先用这张图，没有才回退到角色头像。
+ */
+export const setChatDiscImage = async (chatId, dataUrl) => {
+  if (!isValidChatId(chatId)) {
+    return false;
+  }
+
+  await db.chats.update(chatId, { archiveDiscImage: dataUrl || '' });
+
+  return true;
 };
 
 /*

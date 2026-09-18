@@ -146,11 +146,12 @@
 .archive-disc-track {
   width: 100%;
   display: flex;
-  gap: 22px;
+  align-items: center;
+  gap: 20px;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   scroll-snap-type: x mandatory;
-  padding: 10px 50%;
+  padding: 36px 50%;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   flex-shrink: 0;
@@ -160,24 +161,66 @@
   display: none;
 }
 
-.archive-disc {
+/* 外面套的"唱片盒"：方形磨砂玻璃壳，圆形唱片嵌在里面，
+   壳上下各留一行小字（角色名 / 与谁的对话 · 条数），
+   呼应参考图里专辑盒 + 说明文字的排版，而不是光秃秃一个圆。 */
+.archive-disc-case {
   flex: 0 0 auto;
-  width: min(34vw, 150px);
-  aspect-ratio: 1 / 1;
-  border-radius: 50%;
+  width: min(38vw, 168px);
   scroll-snap-align: center;
   cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px 12px;
+  border-radius: 1.3rem;
+  background: var(--card-bg-gradient);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1),
+              box-shadow 0.4s cubic-bezier(0.19, 1, 0.22, 1),
+              opacity 0.3s ease;
+  opacity: 0.55;
+  transform: scale(0.86);
+}
+
+.archive-disc-case.is-active {
+  opacity: 1;
+  transform: scale(1.04);
+  box-shadow: 0 20px 46px color-mix(in srgb, var(--text-main) 24%, transparent);
+}
+
+.archive-disc-case-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-main);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-disc-case-meta {
+  font-size: 9px;
+  color: var(--text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-disc {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
   position: relative;
   background: var(--ink-card-bg);
   border: 1px solid var(--ink-card-border);
   box-shadow: var(--ink-card-shadow);
   background-size: cover;
   background-position: center;
-  transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1),
-              box-shadow 0.4s cubic-bezier(0.19, 1, 0.22, 1),
-              opacity 0.3s ease;
-  opacity: 0.5;
-  transform: scale(0.82);
 }
 
 .archive-disc::after {
@@ -203,23 +246,38 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 32px;
+  font-size: 28px;
   color: var(--text-on-ink-muted);
 }
 
-.archive-disc.is-active {
-  opacity: 1;
-  transform: scale(1.05);
-  box-shadow: 0 20px 46px color-mix(in srgb, var(--text-main) 26%, transparent);
-}
-
-.archive-disc.is-active::before {
+.archive-disc-case.is-active .archive-disc::before {
   content: '';
   position: absolute;
-  inset: -8px;
+  inset: -7px;
   border-radius: 50%;
   border: 2px solid var(--accent-color);
   opacity: 0.5;
+}
+
+.archive-disc-edit-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.archive-disc-edit-btn:hover {
+  color: var(--text-main);
+  background: var(--control-soft-hover);
 }
 
 /* ---------- 记忆卡牌（中间区块，填补空荡感） ---------- */
@@ -306,34 +364,45 @@
 
 .archive-memory-deck-card {
   position: relative;
-  min-height: 150px;
-  border-radius: 1.6rem;
-  padding: 20px;
+  min-height: 104px;
+  border-radius: 1.4rem;
+  padding: 14px 16px;
   background: var(--card-bg-gradient);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  animation: archiveCardFade 0.35s ease;
+  gap: 6px;
+  animation: archiveCardSlideIn 0.22s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
-@keyframes archiveCardFade {
+.archive-memory-deck-card.is-flipping-out {
+  animation: archiveCardSlideOut 0.19s ease forwards;
+}
+
+@keyframes archiveCardSlideIn {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateX(22px) rotate(1.5deg);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
+@keyframes archiveCardSlideOut {
+  to {
+    opacity: 0;
+    transform: translateX(-22px) rotate(-2deg);
   }
 }
 
 .archive-memory-deck-tag {
   align-self: flex-start;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 3px 10px;
+  padding: 2px 9px;
   border-radius: 999px;
   background: var(--ink-card-bg);
   color: var(--text-on-ink);
@@ -341,20 +410,25 @@
 }
 
 .archive-memory-deck-content {
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  line-height: 1.5;
   color: var(--text-main);
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 .archive-memory-deck-date {
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--text-muted);
 }
 
 .archive-memory-deck-hint {
-  margin-top: 8px;
-  font-size: 10px;
+  margin-top: 6px;
+  font-size: 9.5px;
   color: var(--text-muted);
 }
 
@@ -364,15 +438,15 @@
   width: min(88vw, 380px);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .archive-summary-narrative {
-  font-size: 12.5px;
-  line-height: 1.6;
+  font-size: 11.5px;
+  line-height: 1.45;
   color: var(--text-sub);
-  padding: 12px 14px;
+  padding: 9px 14px;
   border-radius: 1rem;
   background: var(--control-soft-bg);
   text-align: center;
@@ -380,7 +454,7 @@
 
 .archive-detail-enter-btn {
   width: 100%;
-  padding: 11px;
+  padding: 9px;
   border-radius: 999px;
   border: none;
   background: var(--accent-color);
@@ -459,8 +533,8 @@
   gap: 10px;
   width: 100%;
   padding: 13px 18px;
-  margin-top: -10px;
-  border-radius: 1.1rem;
+  margin-top: 4px;
+  border-radius: 0.5rem 0.9rem 0.9rem 0.9rem;
   background: var(--card-bg-gradient);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
@@ -470,7 +544,23 @@
 }
 
 .archive-folder-stack .archive-folder-tab:first-child {
-  margin-top: 0;
+  margin-top: 10px;
+}
+
+/* 一个个小小凸出来的档案标签，贴着卡片顶边，呼应参考图里
+   "sam's secret files" 那种一沓文件夹挨个探出标签的感觉。 */
+.archive-folder-tab::before {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: 22px;
+  width: 44px;
+  height: 12px;
+  background: inherit;
+  border: 1px solid var(--card-border);
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  clip-path: polygon(16% 100%, 0 0, 100% 0, 84% 100%);
 }
 
 .archive-folder-tab--a {

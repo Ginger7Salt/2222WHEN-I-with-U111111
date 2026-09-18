@@ -1,0 +1,244 @@
+{
+  "id": "apple-watch-health-mcp",
+  "title": "Apple Watch 健康数据接入远程 MCP 服务",
+  "summary": "通过 Health Auto Export、Node.js、SQLite 与 Streamable HTTP MCP，将 Apple Watch 健康数据安全同步并提供给前端 AI 使用。",
+  "category": "MCP 教程",
+  "blocks": [
+    {
+      "type": "paragraph",
+      "title": "架构概览",
+      "text": "本教程介绍如何将 iPhone 上的 HealthKit 健康数据同步到远程 Node.js 服务，并通过 Model Context Protocol（MCP）向前端 AI 提供健康数据查询能力。数据源使用 Health Auto Export，服务端使用 Express 接收数据，使用 Node.js 原生 SQLite 持久化最近的健康摘要，再通过 Streamable HTTP MCP 接口提供 get_health_data 工具。前端业务数据库与健康数据数据库相互隔离。"
+    },
+    {
+      "type": "warning",
+      "title": "隐私与安全要求",
+      "text": "健康数据属于敏感个人信息。部署前请确认服务器、域名、访问权限和数据保存策略符合你的实际隐私要求。Webhook Token、服务器地址、域名和其他凭证必须使用自己的配置，不要将真实值提交到前端代码、公开仓库或教程文件中。"
+    },
+    {
+      "type": "checklist",
+      "title": "开始前的准备工作",
+      "items": [
+        "准备一台可运行 Node.js 22 或更高版本的云服务器。",
+        "准备一个可解析到服务器公网 IP 的域名或二级域名。",
+        "准备域名 DNS 管理权限，以便添加 A 记录和 DNS 验证所需的 TXT 记录。",
+        "在云厂商安全组和宝塔面板防火墙中放行计划使用的 HTTPS 非标准端口。",
+        "准备一个随机生成且仅用于 Webhook 鉴权的自定义 Token。",
+        "在 iPhone 上安装并配置 Health Auto Export。",
+        "确认前端项目支持配置远程 MCP 服务。"
+      ]
+    },
+    {
+      "type": "steps",
+      "title": "第一阶段：域名解析与服务器端口配置",
+      "items": [
+        {
+          "title": "添加 DNS A 记录",
+          "body": "在域名服务商的 DNS 控制台中添加 A 记录，将健康数据服务域名解析到服务器公网 IP。示例域名请使用你自己的域名，不要直接复制教程中的占位符。",
+          "code": "记录类型：A\n主机记录：health\n记录值：<YOUR_SERVER_IP>\n完整域名：health.<YOUR_DOMAIN>"
+        },
+        {
+          "title": "放行 HTTPS 非标准端口",
+          "body": "对于中国大陆机房或未完成备案的域名，可以使用非标准 HTTPS 端口。该端口必须同时在云厂商安全组和宝塔面板防火墙中放行。",
+          "code": "协议：TCP\n端口：<YOUR_HTTPS_PORT>\n来源：根据实际安全策略配置，建议不要无条件放开全部来源"
+        },
+        {
+          "title": "使用 DNS 验证申请 SSL 证书",
+          "body": "在宝塔站点的 SSL 设置中选择 Let's Encrypt 或其他证书服务商，并使用 DNS 验证方式。根据面板提示，在 DNS 控制台添加对应的 TXT 记录。验证完成后，等待证书签发。",
+          "note": "DNS 验证不依赖 80 端口。使用非标准 HTTPS 端口时，不建议开启会将请求重定向到标准 443 端口的强制 HTTPS 规则。"
+        },
+        {
+          "title": "修改站点监听端口",
+          "body": "在宝塔站点配置中，将默认的 HTTP/HTTPS 监听端口替换为你实际放行的 HTTPS 端口。以下仅为配置结构示例。",
+          "code": "listen <YOUR_HTTPS_PORT> ssl;\nlisten [::]:<YOUR_HTTPS_PORT> ssl;"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "title": "Nginx 反向代理配置",
+      "language": "nginx",
+      "code": "#PROXY-START/\nlocation ^~ /\n{\n    proxy_pass http://127.0.0.1:<YOUR_NODE_PORT>;\n    proxy_set_header Host $host:$server_port;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_http_version 1.1;\n\n    # MCP Streamable HTTP / SSE 长连接配置\n    proxy_buffering off;\n    proxy_cache off;\n    chunked_transfer_encoding off;\n    proxy_read_timeout 86400s;\n    proxy_send_timeout 86400s;\n    proxy_set_header Connection '';\n}\n#PROXY-END/"
+    },
+    {
+      "type": "note",
+      "title": "Nginx 长连接配置说明",
+      "text": "MCP 的 Streamable HTTP 或 SSE 通信可能需要长连接。proxy_buffering off、较长的 proxy_read_timeout 和 HTTP/1.1 配置可以减少流式响应被缓冲或提前断开的情况。请根据你的宝塔版本，将配置写入实际生效的站点或反向代理配置文件中。"
+    },
+    {
+      "type": "steps",
+      "title": "第二阶段：HealthKit 字段与数据清洗规则",
+      "items": [
+        {
+          "title": "处理睡眠数据",
+          "body": "Health Auto Export 的 sleep_analysis 数据中，asleep 与 inBed 可能为 0，实际有效时长通常需要优先读取 totalSleep。深睡、核心睡眠、REM 和清醒时长分别读取 deep、core、rem 和 awake，睡眠时间范围读取 sleepStart 与 sleepEnd。"
+        },
+        {
+          "title": "处理心率与统计型指标",
+          "body": "聚合数据通常使用 Avg、Min 和 Max 字段，逐条数据通常使用 qty 字段。心率、静息心率、HRV、步行平均心率、耳机音量、环境噪音、血氧和呼吸率等指标适合计算平均值及必要的最大值、最小值。"
+        },
+        {
+          "title": "处理累计型指标",
+          "body": "步数、爬楼层数、步行和跑步距离、活动能量、静息能量、锻炼时长、站立时长以及日光暴露时长等指标，应按照日期前缀进行分组并累加。"
+        },
+        {
+          "title": "处理健身记录",
+          "body": "workouts 数组中的训练名称、开始时间、持续时长和活动能量可以整理为最近几条训练记录，作为健康摘要的一部分提供给 MCP 工具。"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "title": "服务端依赖文件：package.json",
+      "language": "json",
+      "code": "{\n  \"name\": \"health-mcp\",\n  \"version\": \"1.0.0\",\n  \"type\": \"module\",\n  \"main\": \"server.js\",\n  \"dependencies\": {\n    \"@modelcontextprotocol/sdk\": \"^1.6.0\",\n    \"cors\": \"^2.8.5\",\n    \"dotenv\": \"^16.4.7\",\n    \"express\": \"^4.21.2\"\n  }\n}"
+    },
+    {
+      "type": "code",
+      "title": "环境变量文件：.env",
+      "language": "bash",
+      "code": "PORT=<YOUR_NODE_PORT>\nWEBHOOK_SECRET=<YOUR_SECRET_TOKEN>"
+    },
+    {
+      "type": "warning",
+      "title": "环境变量文件保护要求",
+      "text": ".env 文件只能保存在服务端，不要上传到 Git 仓库，不要放入前端 public 目录，也不要在教程、截图或日志中展示真实 Token。建议同时将 .env 加入 .gitignore。"
+    },
+    {
+      "type": "code",
+      "title": "核心服务文件：server.js",
+      "language": "javascript",
+      "code": "import express from 'express';\nimport { DatabaseSync } from 'node:sqlite';\nimport dotenv from 'dotenv';\nimport cors from 'cors';\nimport { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';\nimport { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';\n\ndotenv.config();\n\nconst app = express();\nconst PORT = process.env.PORT || <YOUR_NODE_PORT>;\nconst WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;\n\nif (!WEBHOOK_SECRET) {\n  throw new Error('缺少 WEBHOOK_SECRET 环境变量');\n}\n\nconst db = new DatabaseSync('health_data.sqlite');\ndb.exec(`\n  CREATE TABLE IF NOT EXISTS health_summary (\n    id INTEGER PRIMARY KEY CHECK (id = 1),\n    summary_text TEXT NOT NULL,\n    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n  )\n`);\n\napp.use(cors({\n  origin: '*',\n  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],\n  allowedHeaders: ['Content-Type', 'Authorization', 'x-token', 'mcp-session-id', 'last-event-id'],\n  exposedHeaders: ['mcp-session-id']\n}));\napp.use(express.json({ limit: '30mb' }));\n\nconst METRIC_NAMES = {\n  heart_rate: '心率',\n  resting_heart_rate: '静息心率',\n  heart_rate_variability: '心率变异性(HRV)',\n  walking_heart_rate_average: '步行平均心率',\n  step_count: '每日步数',\n  flights_climbed: '爬楼层数',\n  walking_running_distance: '步行+跑步距离',\n  running_distance: '跑步距离',\n  active_energy: '活动能量(千卡)',\n  basal_energy_burned: '静息能量(千卡)',\n  apple_exercise_time: '锻炼时长(分钟)',\n  apple_stand_time: '站立时长(分钟)',\n  apple_stand_hour: '站立达标小时数',\n  headphone_audio_exposure: '耳机音量暴露',\n  environmental_audio_exposure: '环境噪音水平',\n  oxygen_saturation: '血氧饱和度',\n  respiratory_rate: '呼吸频率',\n  time_in_daylight: '日光暴露时长(分钟)',\n  apple_sleeping_wrist_temperature: '睡眠手腕温度'\n};\n\nconst CUMULATIVE_METRICS = new Set([\n  'step_count', 'flights_climbed', 'walking_running_distance',\n  'running_distance', 'active_energy', 'basal_energy_burned',\n  'apple_exercise_time', 'apple_stand_time', 'apple_stand_hour',\n  'time_in_daylight'\n]);\n\nconst AVERAGING_METRICS = new Set([\n  'heart_rate', 'resting_heart_rate', 'heart_rate_variability',\n  'walking_heart_rate_average', 'headphone_audio_exposure',\n  'environmental_audio_exposure', 'oxygen_saturation',\n  'respiratory_rate', 'apple_sleeping_wrist_temperature'\n]);\n\nfunction cleanHealthData(payload) {\n  const metrics = payload?.data?.metrics || [];\n  const workouts = payload?.data?.workouts || [];\n\n  const sections = {\n    sleep: [],\n    cardio: [],\n    activity: [],\n    hearing: [],\n    vitals: [],\n    workouts: [],\n    others: []\n  };\n\n  for (const metric of metrics) {\n    const name = metric.name;\n    const units = metric.units || '';\n    const data = metric.data || [];\n\n    if (!data.length) continue;\n\n    const displayName = METRIC_NAMES[name] || name;\n\n    if (name === 'sleep_analysis') {\n      data.slice(-7).forEach((item) => {\n        const dateStr = (item.date || item.sleepEnd || '').split(' ')[0] || '未知';\n        const total = item.totalSleep\n          ? Number(item.totalSleep)\n          : (item.asleep ? Number(item.asleep) : 0);\n\n        if (total <= 0 && !item.inBed) return;\n\n        const phases = [];\n        if (item.deep) phases.push(`深睡 ${Number(item.deep).toFixed(1)}h`);\n        if (item.core) phases.push(`核心 ${Number(item.core).toFixed(1)}h`);\n        if (item.rem) phases.push(`REM ${Number(item.rem).toFixed(1)}h`);\n        if (item.awake) phases.push(`清醒 ${Number(item.awake).toFixed(1)}h`);\n\n        let timeRange = '';\n        if (item.sleepStart && item.sleepEnd) {\n          const start = item.sleepStart.split(' ')[1]?.substring(0, 5) || '';\n          const end = item.sleepEnd.split(' ')[1]?.substring(0, 5) || '';\n          if (start && end) timeRange = ` [${start} ~ ${end}]`;\n        }\n\n        const phaseText = phases.length ? ` (${phases.join(', ')})` : '';\n        sections.sleep.push(`  · ${dateStr}${timeRange}: 睡眠 ${total.toFixed(1)}小时${phaseText}`);\n      });\n      continue;\n    }\n\n    if (CUMULATIVE_METRICS.has(name)) {\n      const dayMap = {};\n\n      data.forEach((item) => {\n        const day = (item.date || '').split(' ')[0] || '未知';\n        const value = Number(item.qty !== undefined ? item.qty : (item.Avg || 0));\n        dayMap[day] = (dayMap[day] || 0) + value;\n      });\n\n      const daySummary = Object.entries(dayMap)\n        .slice(-7)\n        .map(([day, value]) => {\n          const formatted = name.includes('distance')\n            ? value.toFixed(2)\n            : Math.round(value);\n          return `${day}: ${formatted}`;\n        })\n        .join(', ');\n\n      sections.activity.push(`- ${displayName}: ${daySummary} ${units}`);\n      continue;\n    }\n\n    if (AVERAGING_METRICS.has(name)) {\n      const isAggregated = data.some((item) => item.Avg !== undefined);\n      let average;\n      let maximum;\n      let minimum;\n\n      if (isAggregated) {\n        const averageList = data\n          .map((item) => Number(item.Avg))\n          .filter((value) => !Number.isNaN(value));\n\n        if (averageList.length > 0) {\n          average = (averageList.reduce((a, b) => a + b, 0) / averageList.length).toFixed(1);\n        }\n\n        const maxList = data\n          .map((item) => Number(item.Max))\n          .filter((value) => !Number.isNaN(value));\n        const minList = data\n          .map((item) => Number(item.Min))\n          .filter((value) => !Number.isNaN(value));\n\n        maximum = maxList.length ? Math.max(...maxList).toFixed(0) : null;\n        minimum = minList.length ? Math.min(...minList).toFixed(0) : null;\n      } else {\n        const values = data\n          .map((item) => Number(item.qty))\n          .filter((value) => !Number.isNaN(value));\n\n        if (values.length > 0) {\n          average = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);\n          maximum = Math.max(...values).toFixed(0);\n          minimum = Math.min(...values).toFixed(0);\n        }\n      }\n\n      if (average !== undefined) {\n        let line = `- ${displayName}: 平均 ${average} ${units}`;\n\n        if (maximum && minimum && (name === 'heart_rate' || name.includes('exposure'))) {\n          line += ` (最高 ${maximum}, 最低 ${minimum})`;\n        }\n\n        if (name.includes('heart') || name === 'heart_rate_variability') {\n          sections.cardio.push(line);\n        } else if (name.includes('exposure')) {\n          sections.hearing.push(line);\n        } else {\n          sections.vitals.push(line);\n        }\n      }\n      continue;\n    }\n\n    const last = data[data.length - 1];\n    if (last) {\n      const value = last.qty !== undefined\n        ? Number(last.qty).toFixed(1)\n        : (last.Avg !== undefined ? Number(last.Avg).toFixed(1) : '');\n\n      if (value) sections.others.push(`- ${displayName}: 最近值 ${value} ${units}`);\n    }\n  }\n\n  if (workouts.length > 0) {\n    workouts.slice(-5).forEach((workout) => {\n      const type = workout.name || workout.activity || '体能训练';\n      const duration = workout.duration\n        ? `${(Number(workout.duration) / 60).toFixed(0)}分钟`\n        : '';\n      const calories = workout.activeEnergy\n        ? `${Math.round(workout.activeEnergy)}kcal`\n        : '';\n      const date = (workout.start || workout.date || '').split(' ')[0];\n      sections.workouts.push(`  · ${date} ${type}: ${duration} ${calories}`);\n    });\n  }\n\n  const report = [];\n  report.push(`【Apple Watch 最近 7 天健康体征全景（更新于 ${new Date().toLocaleString('zh-CN')}）】\\n`);\n\n  if (sections.sleep.length) {\n    report.push(`### 🛌 睡眠分析 (Sleep Analysis)\\n${sections.sleep.join('\\n')}\\n`);\n  }\n  if (sections.cardio.length) {\n    report.push(`### ❤️ 心血管与体能 (Cardio Health)\\n${sections.cardio.join('\\n')}\\n`);\n  }\n  if (sections.activity.length) {\n    report.push(`### 🏃 活动与消耗 (Daily Activity)\\n${sections.activity.join('\\n')}\\n`);\n  }\n  if (sections.hearing.length) {\n    report.push(`### 🎧 听力与环境 (Hearing & Environment)\\n${sections.hearing.join('\\n')}\\n`);\n  }\n  if (sections.vitals.length) {\n    report.push(`### 🫁 呼吸与生理体征 (Vitals)\\n${sections.vitals.join('\\n')}\\n`);\n  }\n  if (sections.workouts.length) {\n    report.push(`### 🏋️ 健身记录 (Workouts)\\n${sections.workouts.join('\\n')}\\n`);\n  }\n  if (sections.others.length) {\n    report.push(`### 📌 其他指标\\n${sections.others.join('\\n')}\\n`);\n  }\n\n  return report.join('\\n');\n}\n\napp.post('/api/health-webhook', (req, res) => {\n  const clientToken = req.headers['x-token'] || req.query.token;\n\n  if (!clientToken || clientToken !== WEBHOOK_SECRET) {\n    return res.status(401).json({ error: 'Unauthorized: Secret Token 无效' });\n  }\n\n  try {\n    const summaryText = cleanHealthData(req.body);\n    const statement = db.prepare(`\n      INSERT INTO health_summary (id, summary_text, updated_at)\n      VALUES (1, ?, CURRENT_TIMESTAMP)\n      ON CONFLICT(id) DO UPDATE SET\n        summary_text = excluded.summary_text,\n        updated_at = CURRENT_TIMESTAMP\n    `);\n\n    statement.run(summaryText);\n    console.log(`[${new Date().toISOString()}] 健康数据已成功入库更新`);\n    return res.json({ success: true, message: 'Health summary saved successfully' });\n  } catch (error) {\n    console.error('写入错误:', error);\n    return res.status(500).json({ error: '数据处理或存储失败' });\n  }\n});\n\nfunction createMcpServer() {\n  const server = new McpServer({\n    name: 'apple-watch-mcp-server',\n    version: '1.0.0'\n  });\n\n  server.tool(\n    'get_health_data',\n    '获取用户最近7天的 Apple Watch 全量健康数据汇总',\n    {},\n    async () => {\n      const statement = db.prepare(\n        'SELECT summary_text, updated_at FROM health_summary WHERE id = 1'\n      );\n      const row = statement.get();\n\n      if (!row) {\n        return {\n          content: [\n            {\n              type: 'text',\n              text: '暂无健康数据，请确认是否已完成数据同步。'\n            }\n          ]\n        };\n      }\n\n      return {\n        content: [\n          {\n            type: 'text',\n            text: `${row.summary_text}\\n\\n(数据入库时间: ${row.updated_at})`\n          }\n        ]\n      };\n    }\n  );\n\n  return server;\n}\n\nconst handleMcp = async (req, res) => {\n  try {\n    const transport = new StreamableHTTPServerTransport({\n      sessionIdGenerator: undefined\n    });\n    const mcpServer = createMcpServer();\n\n    await mcpServer.connect(transport);\n    await transport.handleRequest(req, res, req.body);\n  } catch (error) {\n    console.error('MCP Transport Error:', error);\n\n    if (!res.headersSent) {\n      res.status(500).json({ error: error.message });\n    }\n  }\n};\n\napp.all('/mcp', handleMcp);\napp.all('/sse', handleMcp);\napp.all('/', handleMcp);\n\napp.listen(PORT, '127.0.0.1', () => {\n  console.log(`服务已在 http://127.0.0.1:${PORT} 启动`);\n});"
+    },
+    {
+      "type": "note",
+      "title": "MCP Streamable HTTP 关键避坑",
+      "text": "Stateless 模式下，每个 HTTP 请求都应创建独立的 StreamableHTTPServerTransport 和 MCP Server 实例。调用 transport.handleRequest 时，需要显式传入 req.body。否则可能出现请求处理失败或 HTTP 500 错误。"
+    },
+    {
+      "type": "steps",
+      "title": "第三阶段：安装依赖与启动服务",
+      "items": [
+        {
+          "title": "进入服务端目录",
+          "body": "将 package.json、.env 和 server.js 放入服务器站点目录，例如 /www/wwwroot/<YOUR_SITE_DIRECTORY>/。",
+          "code": "cd /www/wwwroot/<YOUR_SITE_DIRECTORY>"
+        },
+        {
+          "title": "安装 Node.js 依赖",
+          "body": "Node.js 22 或更高版本内置 node:sqlite，因此不需要安装 better-sqlite3。",
+          "code": "npm install"
+        },
+        {
+          "title": "使用 PM2 启动服务",
+          "body": "使用 PM2 运行 Node.js 服务，并设置开机自动恢复。",
+          "code": "pm2 start server.js --name <YOUR_PM2_APP_NAME>\npm2 save\npm2 startup"
+        },
+        {
+          "title": "检查服务日志",
+          "body": "确认日志显示服务已经监听本地 Node.js 端口，且没有依赖安装、环境变量或 SQLite 初始化错误。",
+          "code": "pm2 logs <YOUR_PM2_APP_NAME>\npm2 status"
+        }
+      ]
+    },
+    {
+      "type": "steps",
+      "title": "第四阶段：配置 Health Auto Export",
+      "items": [
+        {
+          "title": "创建 REST API 自动导出流程",
+          "body": "打开 Health Auto Export，进入 Automations，创建 REST API 导出流程。将请求地址配置为你的 HTTPS 域名、非标准端口和 Webhook 路径。",
+          "code": "https://health.<YOUR_DOMAIN>:<YOUR_HTTPS_PORT>/api/health-webhook"
+        },
+        {
+          "title": "配置请求方法和鉴权请求头",
+          "body": "请求方法使用 POST，并添加 x-token 请求头。请求头的值必须与服务端 .env 中的 WEBHOOK_SECRET 完全一致。",
+          "code": "HTTP Method: POST\nHeader Name: x-token\nHeader Value: <YOUR_SECRET_TOKEN>"
+        },
+        {
+          "title": "配置导出参数",
+          "body": "导出格式选择 JSON，版本选择 v2，时间范围选择过去 7 天，并根据实际需要勾选心率、HRV、睡眠、活动能量、步数和健身记录等健康指标。",
+          "note": "请仅同步业务真正需要的健康指标，并根据隐私策略设置数据保留时间。"
+        },
+        {
+          "title": "手动执行一次上传",
+          "body": "在 Health Auto Export 中点击手动上传，确认服务端返回 HTTP 200，并检查 PM2 日志是否出现健康数据入库成功的记录。"
+        }
+      ]
+    },
+    {
+      "type": "steps",
+      "title": "第五阶段：在前端配置 MCP 服务",
+      "items": [
+        {
+          "title": "新增远程 MCP 服务",
+          "body": "在前端项目的工具调用管理页面中新增一个 MCP 服务，协议选择 Streamable HTTP 或项目支持的通用 HTTP 类型。",
+          "code": "服务名称：Apple Watch 健康助手\n服务器 URL：https://health.<YOUR_DOMAIN>:<YOUR_HTTPS_PORT>/mcp\n鉴权 Token：按照前端项目实际配置填写"
+        },
+        {
+          "title": "确认读取权限设计",
+          "body": "示例服务将写入接口通过 x-token 保护，而 MCP 读取接口未额外设置 Token。生产环境应根据实际需求为 MCP 端点增加鉴权、访问控制、限流或网关保护，避免健康数据被未授权读取。",
+          "note": "如果 MCP 端点配置为公开访问，任何知道地址的请求方都可能读取健康摘要，不建议直接用于生产环境。"
+        }
+      ]
+    },
+    {
+      "type": "checklist",
+      "title": "部署验收清单",
+      "items": [
+        "DNS A 记录已经解析到 <YOUR_SERVER_IP>。",
+        "SSL 证书已经签发，并覆盖 health.<YOUR_DOMAIN>。",
+        "云厂商安全组和宝塔防火墙都已放行 <YOUR_HTTPS_PORT>。",
+        "Node.js 服务仅监听本地地址和 <YOUR_NODE_PORT>。",
+        "Nginx 已将 HTTPS 请求反向代理到本地 Node.js 服务。",
+        "PM2 状态显示服务正在运行。",
+        "Health Auto Export 手动上传返回 HTTP 200。",
+        "health_data.sqlite 已在服务端生成并具有合适的文件权限。",
+        "MCP 客户端可以发现 get_health_data 工具。",
+        "前端 AI 调用工具时可以获得最近 7 天的健康摘要。",
+        "真实域名、IP、Token 和其他凭证没有出现在公开代码或教程文件中。"
+      ]
+    },
+    {
+      "type": "steps",
+      "title": "常见问题排查",
+      "items": [
+        {
+          "title": "上传请求返回 401",
+          "body": "检查 Health Auto Export 中的 x-token 请求头是否存在，并确认其值与服务端 .env 的 WEBHOOK_SECRET 完全一致。修改 .env 后需要重启 PM2 服务。",
+          "code": "pm2 restart <YOUR_PM2_APP_NAME>"
+        },
+        {
+          "title": "上传请求返回 502",
+          "body": "通常表示 Nginx 无法连接 Node.js 服务。检查 PM2 是否正在运行、Node.js 监听端口是否与 Nginx proxy_pass 使用的端口一致，以及 Node.js 是否监听 127.0.0.1。",
+          "code": "pm2 status\nss -lntp | grep <YOUR_NODE_PORT>"
+        },
+        {
+          "title": "MCP 请求返回 500",
+          "body": "检查是否为每个请求创建了独立的 StreamableHTTPServerTransport 和 MCP Server，并确认 transport.handleRequest(req, res, req.body) 的第三个参数没有遗漏。同时查看 PM2 日志中的完整错误信息。"
+        },
+        {
+          "title": "流式响应中断或长时间没有数据",
+          "body": "检查 Nginx 是否关闭了 proxy_buffering，是否使用 HTTP/1.1，proxy_read_timeout 是否足够长，以及是否错误设置了 Connection 请求头。"
+        },
+        {
+          "title": "证书申请失败或域名无法访问",
+          "body": "确认 DNS A 记录已经生效、域名解析到了正确的服务器 IP，并确认 DNS 验证所需的 TXT 记录已经按照证书服务商要求添加。非标准 HTTPS 端口也必须在云安全组和宝塔防火墙中放行。"
+        },
+        {
+          "title": "数据摘要为空",
+          "body": "检查 Health Auto Export 发送的 JSON 是否包含 data.metrics 或 data.workouts 字段，确认导出格式为兼容的数据版本，并查看服务端日志是否出现数据解析或 SQLite 写入异常。"
+        }
+      ]
+    },
+    {
+      "type": "note",
+      "title": "数据保留与备份建议",
+      "text": "当前示例使用单条 health_summary 记录覆盖保存最近一次健康摘要。如果需要历史趋势分析，应设计独立的按日期存储结构，并增加数据删除、备份、恢复和访问审计机制。SQLite 数据库文件属于敏感数据，必须限制文件权限，禁止通过 Nginx 静态目录直接访问。"
+    },
+    {
+      "type": "paragraph",
+      "title": "使用效果",
+      "text": "完成部署并成功同步数据后，前端 AI 可以通过 get_health_data 工具读取最近 7 天的睡眠、心率、HRV、活动、能量消耗、环境噪音、血氧、呼吸率和健身记录等摘要，并基于这些数据回答用户的健康趋势问题。该工具输出的是数据整理结果，不构成医疗诊断或治疗建议。"
+    }
+  ]
+}

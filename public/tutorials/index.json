@@ -1,10 +1,24 @@
 {
-  "id": "ios-pwa-web-push",
-  "title": "iOS PWA 离线主动推送（Web Push）全流程避坑指南",
-  "summary": "纯静态 PWA 实现 iOS 锁屏主动唤醒推送，覆盖 VAPID 签名、Node.js 守护服务、Nginx 反代及 Safari 跨域避坑全流程。",
-  "category": "部署教程",
-  "theme": "cloud",
-  "icon": "server",
-  "updatedAt": "2026-09-18",
-  "source": "./ios-pwa-web-push.json"
+  "tutorials": [
+    {
+      "id": "ios-pwa-web-push",
+      "title": "iOS PWA 离线主动推送（Web Push）全流程避坑指南",
+      "summary": "纯静态 PWA 实现 iOS 锁屏主动唤醒推送，覆盖 VAPID 签名、Node.js 守护服务、Nginx 反代及 Safari 跨域避坑全流程。",
+      "category": "部署教程",
+      "theme": "cloud",
+      "icon": "server",
+      "updatedAt": "2026-09-18",
+      "source": "./ios-pwa-web-push.json"
+    },
+    {
+      "id": "apple-watch-health-mcp",
+      "title": "Apple Watch 健康数据接入远程 MCP 服务",
+      "summary": "通过 Health Auto Export、Node.js、SQLite 与 Streamable HTTP MCP，将 Apple Watch 健康数据安全同步并提供给前端 AI 使用。",
+      "category": "MCP 教程",
+      "theme": "apple-health",
+      "icon": "health",
+      "updatedAt": "2026-09-18",
+      "source": "./apple-watch-health-mcp.json"
+    }
+  ]
 }
