@@ -1,14 +1,14 @@
 /* ============================================================
-   档案柜 —— 纸质文件袋质感 + CSS 3D 透视卡片目录
+   档案柜 —— 书架 + 纸质卷宗封面
    只覆盖 ArchiveCabinetView 用到的类名，不动 archive.css。
+   书架部分弃用了上一版的 CSS 3D 透视标签堆（效果不稳定），
+   改成更稳妥的"一排小书脊"布局。
    ============================================================ */
 
 .cabinet-viewport{
   --c-paper:#f1f1ef;
-  --c-paper-deep:#e2e2df;
   --c-ink:#111111;
   --c-muted:#7a7a76;
-  --c-soft:#cfcfca;
   --c-yellow:#e8d878;
   --c-ease:cubic-bezier(.2,.78,.18,1);
 
@@ -76,7 +76,7 @@
   white-space:nowrap;
 }
 
-/* ---------- 舞台：3D 透视容器 ---------- */
+/* ---------- 舞台 ---------- */
 .cabinet-stage{
   position:relative;
   flex:1;
@@ -135,142 +135,92 @@
   letter-spacing:.14em;
 }
 
-/* ---------- 抽屉整体：透视舞台 ---------- */
 .drawer-box{
   position:relative;
   width:100%;
   height:100%;
-  padding:26px 5% 90px;
-}
-
-/* ---------- 悬挂文件袋轨道：CSS 3D 透视，像斜着看过去的卡片目录 ---------- */
-.drawer-hanging-rail{
-  position:relative;
-  height:100%;
+  padding:30px 5% 90px;
   display:flex;
   flex-direction:column;
-  gap:2px;
-  perspective:1300px;
-  perspective-origin:50% -10%;
-  transform-style:preserve-3d;
-  transition:filter .5s var(--c-ease);
-}
-.drawer-box.has-extracted .drawer-hanging-rail{
-  filter:brightness(.94) blur(.3px);
-}
-
-.drawer-folder-item{
-  position:relative;
-  flex:1;
-  min-height:26px;
-  max-height:44px;
-  cursor:pointer;
-  transform-style:preserve-3d;
-  transform:
-    translateZ(calc(var(--depth-index) * -16px))
-    rotateX(calc(var(--depth-index) * -1deg))
-    translateY(calc(var(--depth-index) * 1.2px));
-  transform-origin:50% 0%;
-  transition:transform .4s var(--c-ease),filter .4s ease;
-  filter:brightness(calc(1 - var(--depth-index) * 0.012));
-}
-.drawer-folder-item.tab-slot-0,
-.drawer-folder-item.tab-slot-2{transform-origin:15% 0%}
-.drawer-folder-item.tab-slot-1,
-.drawer-folder-item.tab-slot-3{transform-origin:85% 0%}
-
-.drawer-folder-item.is-active-tab{
-  transform:
-    translateZ(60px)
-    rotateX(0deg)
-    translateY(-6px);
-  filter:brightness(1.04);
-}
-.drawer-folder-item:hover:not(.is-active-tab){
-  transform:
-    translateZ(calc(var(--depth-index) * -16px + 22px))
-    rotateX(calc(var(--depth-index) * -1deg))
-    translateY(calc(var(--depth-index) * 1.2px - 4px));
-}
-
-/* 文件袋脊背：像索引卡边缘一样的一整条纸边 */
-.folder-lip-edge{
-  position:absolute;
-  inset:0;
-  border-top:1px solid rgba(17,17,17,.55);
-  border-bottom:1px solid rgba(17,17,17,.12);
-  background:
-    linear-gradient(180deg,rgba(255,255,255,.5),transparent 45%),
-    var(--c-paper);
-  box-shadow:0 1px 0 rgba(255,255,255,.4) inset;
-}
-.drawer-folder-item.is-active-tab .folder-lip-edge{
-  background:
-    linear-gradient(180deg,rgba(255,255,255,.65),transparent 45%),
-    #f6f6f4;
-  box-shadow:0 8px 18px rgba(0,0,0,.14);
-}
-
-/* 凸出来的文件袋标签耳朵：真正的马尼拉纸夹感 —— 圆角 + 一侧斜切 */
-.folder-protruding-tab{
-  position:absolute;
-  top:0;
-  bottom:0;
-  width:44%;
-  min-width:180px;
-  max-width:280px;
-  display:flex;
   align-items:center;
-  gap:12px;
-  padding:0 18px;
-  border:1px solid #171717;
-  border-bottom:none;
-  background:#dfdfdc;
-  color:#161616;
-  font-size:11px;
-  letter-spacing:.03em;
-  white-space:nowrap;
-  overflow:hidden;
-  box-shadow:0 -2px 6px rgba(0,0,0,.05);
-}
-.tab-slot-0 .folder-protruding-tab,
-.tab-slot-2 .folder-protruding-tab{
-  left:6%;
-  border-radius:9px 3px 0 0;
-  clip-path:polygon(0 0,88% 0,100% 100%,0 100%);
-  padding-right:30px;
-}
-.tab-slot-1 .folder-protruding-tab,
-.tab-slot-3 .folder-protruding-tab{
-  right:6%;
-  border-radius:3px 9px 0 0;
-  clip-path:polygon(12% 0,100% 0,100% 100%,0 100%);
-  padding-left:30px;
 }
 
-/* 每 5 张出现一张分区黑标签，呼应参考图里的字母分隔卡 */
-.drawer-folder-item:nth-child(5n+1) .folder-protruding-tab{
-  background:#171717;
-  color:#fff;
-  border-color:#171717;
+/* ============================================================
+   书架：一排小书脊
+   ============================================================ */
+.cabinet-bookshelf{
+  position:relative;
+  width:100%;
+  max-width:640px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  gap:6px;
+  padding:0 4px 18px;
+  overflow-x:auto;
+  overflow-y:visible;
+  scrollbar-width:none;
 }
-.drawer-folder-item:nth-child(5n+1) .tab-date{color:#aaa}
-
-.drawer-folder-item.is-active-tab .folder-protruding-tab{
-  background:#f6f6f4;
-  box-shadow:0 10px 22px rgba(0,0,0,.16);
-}
-
-.tab-serial{font-variant-numeric:tabular-nums;font-weight:600}
-.tab-date{color:#6b6b67;font-size:9.5px}
-.drawer-folder-item.is-active-tab .tab-date{color:#8a8a86}
-.tab-note-dot{
-  width:6px;
+.cabinet-bookshelf::-webkit-scrollbar{display:none}
+.cabinet-bookshelf::after{
+  content:"";
+  position:absolute;
+  left:0;right:0;
+  bottom:12px;
   height:6px;
+  background:linear-gradient(180deg,rgba(0,0,0,.16),transparent);
+  border-radius:2px;
+}
+
+.cabinet-book{
+  position:relative;
+  flex:0 0 auto;
+  width:38px;
+  height:200px;
+  padding:14px 0 10px;
+  border:1px solid #171717;
+  border-radius:4px 4px 2px 2px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:space-between;
+  cursor:pointer;
+  transform:translateY(0);
+  transition:transform .3s var(--c-ease),box-shadow .3s var(--c-ease),height .3s var(--c-ease);
+  box-shadow:1px 0 0 rgba(255,255,255,.06) inset,-1px 0 4px rgba(0,0,0,.12);
+}
+.cabinet-book:hover{transform:translateY(-10px)}
+.cabinet-book.is-active{
+  height:216px;
+  transform:translateY(-18px);
+  box-shadow:0 14px 26px rgba(0,0,0,.28);
+  z-index:5;
+}
+
+/* 黑白灰四色书脊轮换，跟整体弥散风格统一，不引入彩色 */
+.cabinet-book:nth-child(4n+1){background:linear-gradient(180deg,#232323,#0d0d0d);color:#f2f2ef}
+.cabinet-book:nth-child(4n+2){background:linear-gradient(180deg,#f6f6f3,#e2e2de);color:#171717;border-color:#171717}
+.cabinet-book:nth-child(4n+3){background:linear-gradient(180deg,#83837e,#5c5c58);color:#f2f2ef}
+.cabinet-book:nth-child(4n+0){background:linear-gradient(180deg,#d6d6d1,#bcbcb7);color:#171717;border-color:#171717}
+
+.cabinet-book-index{
+  font-size:8px;
+  letter-spacing:.08em;
+  opacity:.7;
+}
+.cabinet-book-spine-label{
+  writing-mode:vertical-rl;
+  text-orientation:mixed;
+  font-size:10.5px;
+  letter-spacing:.1em;
+  white-space:nowrap;
+}
+.cabinet-book-note-dot{
+  width:5px;
+  height:5px;
   border-radius:50%;
-  background:#111;
-  opacity:.55;
-  flex-shrink:0;
+  background:currentColor;
+  opacity:.6;
 }
 
 /* ---------- 抽出后：半展开的档案封面（真正的纸质文件袋） ---------- */
@@ -280,7 +230,7 @@
   left:50%;
   top:8%;
   width:min(620px,84%);
-  height:78%;
+  height:74%;
   padding:16px 20px 18px;
   overflow:hidden;
   border:1px solid #111;
@@ -299,7 +249,6 @@
   transform:translate(-50%,-6px) rotate(0deg);
   box-shadow:16px 26px 0 rgba(0,0,0,.15),0 26px 55px rgba(0,0,0,.26);
 }
-/* 文件袋"衬纸"错位露出的效果 */
 .extracted-dossier-card:before{
   content:"";
   position:absolute;
@@ -329,7 +278,6 @@
   position:fixed;
   z-index:-2;
   inset:0;
-  left:0;right:0;top:0;bottom:0;
   border:0;
   background:rgba(15,15,15,.6);
   backdrop-filter:blur(10px);
@@ -552,7 +500,7 @@
   flex-shrink:0;
 }
 
-/* ---------- 底部：只留纸标签，去掉金属把手 ---------- */
+/* ---------- 底部：只留纸标签 ---------- */
 .cabinet-drawer-front{
   position:absolute;
   left:0;
@@ -578,11 +526,10 @@
 
 @media(max-width:700px){
   .cabinet-stage{margin:12px 10px 0}
-  .drawer-box{padding:18px 3% 80px}
-  .drawer-hanging-rail{perspective:900px}
-  .folder-protruding-tab{min-width:0;width:62%;padding:0 12px;font-size:9.5px}
-  .tab-slot-0 .folder-protruding-tab,.tab-slot-2 .folder-protruding-tab{left:3%;padding-right:22px}
-  .tab-slot-1 .folder-protruding-tab,.tab-slot-3 .folder-protruding-tab{right:3%;padding-left:22px}
+  .drawer-box{padding:22px 3% 80px}
+  .cabinet-book{width:32px;height:170px}
+  .cabinet-book.is-active{height:184px}
+  .cabinet-book-spine-label{font-size:9.5px}
   .extracted-dossier-card{width:92%;top:5%;height:80%;padding:12px 14px 14px}
   .dossier-wireframe-box{width:42px}
   .dossier-spec-row{grid-template-columns:1fr 38%;gap:8px}

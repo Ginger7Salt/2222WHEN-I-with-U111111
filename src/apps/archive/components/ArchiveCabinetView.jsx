@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   ChevronRight,
-  FileText,
   Maximize2,
   Minimize2,
   Pencil,
@@ -45,7 +45,7 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   // 三段式交互状态：
-  // selectedFolder: null 时为抽屉整体视角（P1）；有选中时为半展开封面（P2）
+  // selectedFolder: null 时为书架整体视角；有选中时为半展开封面
   // isFullscreen: true 时为全屏深度查阅卷宗内容
   const [selectedGroupKey, setSelectedGroupKey] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -76,10 +76,10 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
     [folders, selectedGroupKey]
   );
 
-  // 切换标签耳选中
-  const handleTabClick = (folder) => {
+  // 点击某本"书"
+  const handleBookClick = (folder) => {
     if (selectedGroupKey === folder.groupKey) {
-      // 再次点击同一张：直接进入全屏阅读
+      // 再次点击同一本：直接进入全屏阅读
       setIsFullscreen(true);
     } else {
       setSelectedGroupKey(folder.groupKey);
@@ -119,7 +119,7 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
     onStatsChanged?.();
   };
 
-  return (
+  const content = (
     <div className="cabinet-viewport">
       {/* 顶部极简 HUD 导航 */}
       <header className="cabinet-hud">
@@ -137,7 +137,7 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
           }}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>{isFullscreen ? '合上封面' : selectedGroupKey ? '推回抽屉' : '返回唱片架'}</span>
+          <span>{isFullscreen ? '合上封面' : selectedGroupKey ? '推回书架' : '返回唱片架'}</span>
         </button>
 
         <div className="cabinet-title-stamp">
@@ -150,12 +150,12 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
         </div>
       </header>
 
-      {/* 主体区域：抽屉舞台 */}
+      {/* 主体区域：书架舞台 */}
       <main className="cabinet-stage">
         {isLoading && (
           <div className="cabinet-loading">
             <div className="cabinet-loading-box" />
-            <p>正在拉开铁皮档案抽屉...</p>
+            <p>正在拉开档案抽屉...</p>
           </div>
         )}
 
@@ -169,61 +169,53 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
         )}
 
         {/* =========================================================================
-            P1 视图：档案抽屉内部与错落排列的文件袋凸出标签（Tabs）
+            书架视图：一排小书脊，点一本抽出来
             ========================================================================= */}
         {!isLoading && folders.length > 0 && (
           <div className={`drawer-box ${selectedGroupKey ? 'has-extracted' : ''}`}>
-            <div className="drawer-hanging-rail">
+            <div className="cabinet-bookshelf">
               {folders.map((folder, index) => {
                 const isSelected = folder.groupKey === selectedGroupKey;
-                // 模拟 P1 标签在 4 个槽位（左、偏左、偏右、右）错开排布的视觉节奏
-                const tabPosition = `tab-slot-${index % 4}`;
                 const folderIndexStr = String(folders.length - index).padStart(3, '0');
 
                 return (
-                  <div
+                  <button
                     key={folder.groupKey}
+                    type="button"
                     className={[
-                      'drawer-folder-item',
-                      tabPosition,
-                      isSelected ? 'is-active-tab' : ''
+                      'cabinet-book',
+                      isSelected ? 'is-active' : ''
                     ].join(' ')}
-                    style={{
-                      '--depth-index': index,
-                      zIndex: folders.length - index + (isSelected ? 50 : 0)
-                    }}
-                    onClick={() => handleTabClick(folder)}
+                    onClick={() => handleBookClick(folder)}
                   >
-                    {/* 凸出的耳朵标签（Tab） */}
-                    <div className="folder-protruding-tab">
-                      <span className="tab-serial">№ {folderIndexStr}</span>
-                      <span className="tab-date">{formatDisplayDate(folder.dayKey)}</span>
-                      {folder.note && <span className="tab-note-dot" title={folder.note} />}
-                    </div>
-
-                    {/* 文件袋脊背横条 */}
-                    <div className="folder-lip-edge" />
-                  </div>
+                    <span className="cabinet-book-index">№{folderIndexStr}</span>
+                    <span className="cabinet-book-spine-label">
+                      {formatDisplayDate(folder.dayKey)}
+                    </span>
+                    {folder.note && (
+                      <span className="cabinet-book-note-dot" title={folder.note} />
+                    )}
+                  </button>
                 );
               })}
             </div>
 
             {/* =========================================================================
-                P2 视图：向上抽拔半展开的【黑白工业档案报纸封面】
+                抽出的书：半展开的【黑白工业档案封面】
                 ========================================================================= */}
             {activeFolder && (
               <div
                 className={`extracted-dossier-card ${isFullscreen ? 'dossier-full-mode' : ''}`}
-                onClick={(e) => {
+                onClick={() => {
                   if (!isFullscreen) {
                     setIsFullscreen(true);
                   }
                 }}
               >
-                {/* 档案封面顶部把手条 / 工具条 */}
+                {/* 档案封面顶部工具条 */}
                 <div className="dossier-topbar">
                   <div className="dossier-serial-code">
-                    ARCHIVE DEPT. // CHAT-{chatId.slice(0, 6).toUpperCase()}
+                    ARCHIVE DEPT. // CHAT-{String(chatId).slice(0, 6).toUpperCase()}
                   </div>
                   <div className="dossier-actions" onClick={(e) => e.stopPropagation()}>
                     <button
@@ -249,16 +241,15 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
                         setSelectedGroupKey(null);
                         setIsFullscreen(false);
                       }}
-                      title="收纳回抽屉"
+                      title="收纳回书架"
                     >
                       <X className="h-3 w-3" />
                     </button>
                   </div>
                 </div>
 
-                {/* 封面纸张主体（参考 P2 的版式构图） */}
+                {/* 封面纸张主体 */}
                 <div className="dossier-paper-sheet">
-                  {/* 工业排版 Header */}
                   <div className="dossier-header-block">
                     <div className="dossier-brand-title">
                       <span className="title-lead">{characterName}</span>
@@ -269,7 +260,6 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
                     </div>
                   </div>
 
-                  {/* 核心时间印戳与网格图示（纯正 P2 风格） */}
                   <div className="dossier-spec-row">
                     <div className="dossier-blueprint-grid">
                       <div className="blueprint-cells">
@@ -292,7 +282,6 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
                     </div>
                   </div>
 
-                  {/* 备注手写条 */}
                   <div
                     className="dossier-note-banner"
                     onClick={(e) => {
@@ -322,9 +311,6 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
                     )}
                   </div>
 
-                  {/* =========================================================================
-                      P2 展开的卷宗正文：对话记录清单（全屏时完整展示；非全屏时做渐隐预览）
-                      ========================================================================= */}
                   <div className="dossier-records-container">
                     <div className="records-header-line">
                       <span>TRANSCRIPT LOG</span>
@@ -372,7 +358,7 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
               </div>
             )}
 
-            {/* P1 底部：只留一张挂着的黄色标签纸条，金属把手外壳整个去掉 */}
+            {/* 底部只留一张纸标签 */}
             <div className="cabinet-drawer-front">
               <div className="drawer-yellow-tag">
                 <span>{characterName.toLowerCase()}'s secret files</span>
@@ -383,6 +369,9 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
       </main>
     </div>
   );
+
+  // 同样用 Portal 挂到 body，避免被上层 max-w-[420px] 的容器关住。
+  return createPortal(content, document.body);
 };
 
 export default ArchiveCabinetView;

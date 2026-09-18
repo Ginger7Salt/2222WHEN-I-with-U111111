@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import { ArrowLeft, Pencil, Settings } from 'lucide-react';
 
@@ -154,7 +155,10 @@ const ArchiveApp = ({ onBackHub }) => {
     );
   }
 
-  return (
+  // 用 Portal 直接挂到 document.body：不管外层容器（页面切换动画那层
+  // max-w-[420px] 的 main）身上有没有 transform，都不会把 position:fixed
+  // 的存档室关在里面，保证真正铺满整个视口。
+  return createPortal(
     <div className="archive-app">
       <div className="archive-hud">
         <button
@@ -207,11 +211,11 @@ const ArchiveApp = ({ onBackHub }) => {
               </h2>
             )}
 
-            <div className="archive-carousel-outer">
+            <div className="arv-carousel-outer">
               {overview.length > 1 && (
                 <button
                   type="button"
-                  className="archive-carousel-btn prev"
+                  className="arv-carousel-btn prev"
                   onClick={handlePrevDisc}
                   aria-label="上一张唱片"
                 >
@@ -220,7 +224,7 @@ const ArchiveApp = ({ onBackHub }) => {
               )}
 
               <div
-                className="archive-disc-track"
+                className="arv-track"
                 ref={trackRef}
                 onScroll={handleTrackScroll}
               >
@@ -236,30 +240,30 @@ const ArchiveApp = ({ onBackHub }) => {
                       key={item.chatId}
                       ref={(node) => { discRefs.current[index] = node; }}
                       className={[
-                        'archive-disc-case',
+                        'arv-slide',
                         isActive ? 'is-active' : ''
                       ].join(' ')}
                       onClick={() => handleGoToDisc(index)}
                     >
-                      <div className="archive-disc-case-shell">
-                        <div className="archive-disc-case-spine">
+                      <div className="arv-slide-shell">
+                        <div className="arv-slide-spine">
                           <span>{item.characterName}</span>
                         </div>
 
-                        <div className="archive-disc-case-paper">
+                        <div className="arv-slide-paper">
                           <strong>{item.characterName}</strong>
                           <small>与 {item.userName}</small>
-                          <div className="archive-disc-case-paper-line" />
-                          <div className="archive-disc-case-paper-list">
+                          <div className="arv-slide-paper-line" />
+                          <div className="arv-slide-paper-list">
                             <span>MESSAGES　{item.totalMessages}</span>
                             <span>CHATTED　{item.chattedDays} DAYS</span>
                             <span>ARCHIVED　{item.totalArchivedDays} DAYS</span>
                           </div>
-                          <div className="archive-disc-case-paper-barcode" />
+                          <div className="arv-slide-paper-barcode" />
                         </div>
 
                         <div
-                          className="archive-disc"
+                          className="arv-slide-vinyl"
                           style={
                             coverImage
                               ? { backgroundImage: `url(${coverImage})` }
@@ -267,17 +271,17 @@ const ArchiveApp = ({ onBackHub }) => {
                           }
                         >
                           {!coverImage && (
-                            <span className="archive-disc-fallback">
+                            <span className="arv-slide-vinyl-fallback">
                               {firstChar}
                             </span>
                           )}
 
-                          <div className="archive-disc-label">
+                          <div className="arv-slide-label">
                             <strong>{discCode}</strong>
                             <span>ARCHIVE {archiveNo}</span>
                           </div>
 
-                          <div className="archive-disc-caption">
+                          <div className="arv-slide-caption">
                             <strong>{item.characterName}</strong>
                             <span>与 {item.userName} · {item.totalMessages} 条</span>
                           </div>
@@ -286,7 +290,7 @@ const ArchiveApp = ({ onBackHub }) => {
                         {isActive && (
                           <button
                             type="button"
-                            className="archive-disc-edit-btn"
+                            className="arv-slide-edit-btn"
                             onClick={(event) => {
                               event.stopPropagation();
                               handlePickDiscImage();
@@ -299,7 +303,7 @@ const ArchiveApp = ({ onBackHub }) => {
                         )}
                       </div>
 
-                      <div className="archive-disc-case-meta">
+                      <div className="arv-slide-meta">
                         与 {item.userName} · {item.totalMessages} 条消息 · 记录 {item.chattedDays} 天
                       </div>
                     </div>
@@ -310,7 +314,7 @@ const ArchiveApp = ({ onBackHub }) => {
               {overview.length > 1 && (
                 <button
                   type="button"
-                  className="archive-carousel-btn next"
+                  className="arv-carousel-btn next"
                   onClick={handleNextDisc}
                   aria-label="下一张唱片"
                 >
@@ -320,13 +324,13 @@ const ArchiveApp = ({ onBackHub }) => {
             </div>
 
             {overview.length > 1 && (
-              <div className="archive-carousel-dots">
+              <div className="arv-dots">
                 {overview.map((item, index) => (
                   <button
                     key={item.chatId}
                     type="button"
                     className={[
-                      'archive-carousel-dot',
+                      'arv-dot',
                       index === activeIndex ? 'is-active' : ''
                     ].join(' ')}
                     onClick={() => handleGoToDisc(index)}
@@ -374,7 +378,8 @@ const ArchiveApp = ({ onBackHub }) => {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
