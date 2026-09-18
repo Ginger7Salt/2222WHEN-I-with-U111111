@@ -1,80 +1,94 @@
 /* ==========================================================
    WHEN I with U — 空间说明书
-   白黑 · 控制室风格
-   所有主题变量都在 .manual-page / .house-manual-modal 这一层
-   重新定义，不会影响站点其它地方使用的同名变量。
+   白底黑字 · 教程中心 · 控制室风格
    ========================================================== */
 
 .manual-page {
-  /* -------- 本地主题变量（白底黑字） -------- */
-  --hm-bg: #f1efe8;
-  --hm-bg-soft: #fffdf9;
-  --hm-ink: #131210;
-  --hm-ink-dim: #58544c;
-  --hm-ink-faint: #918c81;
-  --hm-line: rgba(19, 18, 16, 0.12);
-  --hm-line-strong: rgba(19, 18, 16, 0.28);
-  --hm-surface: rgba(19, 18, 16, 0.035);
-  --hm-surface-hover: rgba(19, 18, 16, 0.07);
+  --hm-bg: #fff;
+  --hm-bg-soft: #fff;
+  --hm-ink: #000;
+  --hm-ink-dim: #000;
+  --hm-ink-faint: #000;
 
-  --text-main: var(--hm-ink);
-  --text-sub: var(--hm-ink-dim);
-  --text-muted: var(--hm-ink-faint);
+  --hm-line: rgba(0, 0, 0, 0.16);
+  --hm-line-strong: rgba(0, 0, 0, 0.36);
+
+  --hm-surface: #fff;
+  --hm-surface-hover: #f5f5f5;
+
+  --text-main: #000;
+  --text-sub: #000;
+  --text-muted: #000;
+
   --card-border: var(--hm-line);
-  --card-bg-gradient: linear-gradient(180deg, var(--hm-bg-soft), var(--hm-bg));
-  --card-shadow: 0 30px 70px -36px rgba(24, 20, 14, 0.22);
-  --control-soft-bg: var(--hm-surface);
-  --control-soft-hover: var(--hm-surface-hover);
+  --card-bg-gradient: #fff;
+  --card-shadow: none;
+
+  --control-soft-bg: #fff;
+  --control-soft-hover: #f5f5f5;
+
   --divider: var(--hm-line);
-  --accent-color: var(--hm-ink);
-  --accent-foreground: var(--hm-bg);
+  --accent-color: #000;
+  --accent-foreground: #fff;
 
   position: relative;
   isolation: isolate;
   width: 100%;
   min-height: 100dvh;
   padding: 1.5rem 1.25rem 2.5rem;
-  color: var(--text-main);
-  background: var(--hm-bg);
+  color: #000;
+  background: #fff;
   overflow-x: hidden;
 }
 
-/* 细网格纹理，缓慢漂移，只做背景氛围，不抢内容 */
+.manual-page *,
+.manual-page *::before,
+.manual-page *::after {
+  box-sizing: border-box;
+}
+
 .manual-page::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    linear-gradient(var(--hm-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--hm-line) 1px, transparent 1px);
-  background-size: 56px 56px;
-  opacity: 0.7;
-  -webkit-mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, black 0%, transparent 78%);
-  mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, black 0%, transparent 78%);
-  animation: hm-grid-drift 44s linear infinite;
+  display: none;
 }
 
-@keyframes hm-grid-drift {
-  from { background-position: 0 0, 0 0; }
-  to { background-position: 56px 112px, -56px 56px; }
-}
+/* ==========================================================
+   页面入场动画
+   ========================================================== */
 
-/* 首次进入时的整体入场序列（只播放一次，克制） */
 .manual-header,
 .manual-intro,
 .manual-index,
 .manual-page__footer {
   animation: hm-rise 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.manual-intro { animation-delay: 60ms; }
-.manual-index { animation-delay: 130ms; }
-.manual-page__footer { animation-delay: 260ms; }
+
+.manual-intro {
+  animation-delay: 60ms;
+}
+
+.manual-index {
+  animation-delay: 130ms;
+}
+
+.manual-page__footer {
+  animation-delay: 260ms;
+}
 
 @keyframes hm-rise {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+
+/* ==========================================================
+   顶部
+   ========================================================== */
 
 .manual-header {
   display: flex;
@@ -92,8 +106,8 @@
   place-items: center;
   border: 1px solid var(--card-border);
   border-radius: 999px;
-  color: var(--text-main);
-  background: var(--control-soft-bg);
+  color: #000;
+  background: #fff;
   transition:
     transform 180ms ease,
     background-color 180ms ease,
@@ -101,8 +115,8 @@
 }
 
 .manual-back-button:hover {
-  background: var(--control-soft-hover);
-  border-color: var(--hm-line-strong);
+  background: #f5f5f5;
+  border-color: #000;
   transform: translateX(-2px);
 }
 
@@ -112,10 +126,10 @@
 
 .manual-back-button:focus-visible,
 .manual-index__item:focus-visible,
-.house-manual-modal__close:focus-visible,
-.house-manual-modal__index-item:focus-visible,
-.house-manual-modal__pagination button:focus-visible {
-  outline: 2px solid var(--hm-ink);
+.tutorial-card:focus-visible,
+.tutorial-retry-button:focus-visible,
+.tutorial-code-block__copy:focus-visible {
+  outline: 2px solid #000;
   outline-offset: 2px;
 }
 
@@ -129,7 +143,7 @@
 .manual-index__label,
 .manual-article__topline,
 .manual-article__footer {
-  color: var(--text-muted);
+  color: #000;
   font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 9px;
   letter-spacing: 0.15em;
@@ -138,11 +152,16 @@
 
 .manual-header__title h1 {
   margin-top: 0.2rem;
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.1rem;
   font-weight: 600;
   letter-spacing: -0.04em;
 }
+
+/* ==========================================================
+   引导区域
+   ========================================================== */
 
 .manual-intro {
   position: relative;
@@ -168,32 +187,26 @@
   position: relative;
   z-index: 1;
   margin-top: 0.85rem;
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(2rem, 9vw, 2.8rem);
   font-weight: 500;
   line-height: 1.08;
   letter-spacing: -0.07em;
-  background: linear-gradient(100deg, var(--hm-ink) 30%, var(--hm-ink-faint) 46%, var(--hm-ink) 62%);
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: hm-shine 7s ease-in-out infinite;
-}
-
-@keyframes hm-shine {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
 }
 
 .manual-intro > p:last-child {
   max-width: 19rem;
   margin-top: 1rem;
-  color: var(--text-sub);
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.78rem;
   line-height: 1.8;
 }
+
+/* ==========================================================
+   目录
+   ========================================================== */
 
 .manual-index {
   padding: 1.25rem 0;
@@ -211,13 +224,16 @@
   align-items: center;
   gap: 0.65rem;
   padding: 0.72rem 0.35rem;
+  border: 0;
   border-bottom: 1px solid var(--divider);
-  color: var(--text-sub);
+  color: #000;
+  background: #fff;
   text-align: left;
   transition:
     color 180ms ease,
     padding 180ms ease,
-    background-color 180ms ease;
+    background-color 180ms ease,
+    border-color 180ms ease;
 }
 
 .manual-index__item .ml-auto {
@@ -230,40 +246,42 @@
 
 .manual-index__item:hover {
   padding-left: 0.7rem;
-  color: var(--text-main);
-  background: var(--control-soft-bg);
+  color: #000;
+  background: #f5f5f5;
 }
 
 .manual-index__item--active {
   padding-left: 0.7rem;
-  color: var(--hm-bg);
-  background: var(--hm-ink);
-  border-bottom-color: var(--hm-ink);
-}
-
-.manual-index__item--active .manual-index__number {
-  color: var(--hm-bg);
-  opacity: 0.6;
+  color: #000;
+  background: #fff;
+  border-bottom-color: #000;
+  box-shadow: inset 3px 0 0 #000;
 }
 
 .manual-index__number {
   width: 1.35rem;
-  color: var(--text-muted);
+  color: #000;
   font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 9px;
 }
 
 .manual-index__item span:not(.manual-index__number) {
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.82rem;
 }
 
+/* ==========================================================
+   文章主体
+   ========================================================== */
+
 .manual-article {
   position: relative;
   padding: 1.25rem;
-  border: 1px solid var(--card-border);
-  background: var(--card-bg-gradient);
-  box-shadow: var(--card-shadow);
+  border: 1px solid #000;
+  color: #000;
+  background: #fff;
+  box-shadow: none;
 }
 
 .manual-article__topline {
@@ -281,30 +299,41 @@
   height: 2.5rem;
   margin-top: 1.25rem;
   place-items: center;
-  border: 1px solid var(--card-border);
+  border: 1px solid #000;
   border-radius: 50%;
-  color: var(--accent-foreground);
-  background: var(--accent-color);
+  color: #000;
+  background: #fff;
 }
 
 .manual-article__icon::after {
-  content: '';
   position: absolute;
   inset: -6px;
   border: 1px solid var(--hm-line-strong);
   border-radius: 50%;
+  content: '';
   animation: hm-pulse-ring 3.4s ease-out infinite;
 }
 
 @keyframes hm-pulse-ring {
-  0% { transform: scale(0.86); opacity: 0.65; }
-  70% { transform: scale(1.28); opacity: 0; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 0.65;
+    transform: scale(0.86);
+  }
+
+  70% {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+
+  100% {
+    opacity: 0;
+  }
 }
 
 .manual-article h2 {
   max-width: 18rem;
   margin-top: 1rem;
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.8rem;
   font-weight: 500;
@@ -314,7 +343,7 @@
 
 .manual-article__body {
   margin-top: 1.25rem;
-  color: var(--text-sub);
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.88rem;
   line-height: 1.95;
@@ -333,6 +362,10 @@
   border-top: 1px solid var(--divider);
 }
 
+/* ==========================================================
+   普通说明项目
+   ========================================================== */
+
 .manual-item {
   padding-bottom: 0.9rem;
   border-bottom: 1px solid var(--divider);
@@ -344,17 +377,21 @@
 }
 
 .manual-item h3 {
-  color: var(--text-main);
+  color: #000;
   font-size: 0.82rem;
   font-weight: 600;
 }
 
 .manual-item p {
   margin-top: 0.25rem;
-  color: var(--text-sub);
+  color: #000;
   font-size: 0.76rem;
   line-height: 1.75;
 }
+
+/* ==========================================================
+   编号列表
+   ========================================================== */
 
 .manual-numbered-list {
   display: grid;
@@ -376,16 +413,16 @@
   width: 1.7rem;
   height: 1.7rem;
   place-items: center;
-  border: 1px solid var(--card-border);
+  border: 1px solid #000;
   border-radius: 50%;
-  color: var(--text-muted);
+  color: #000;
   content: counter(manual-step, decimal-leading-zero);
   font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 9px;
 }
 
 .manual-numbered-list strong {
-  color: var(--text-main);
+  color: #000;
   font-size: 0.82rem;
   font-weight: 600;
 }
@@ -393,10 +430,14 @@
 .manual-numbered-list span {
   grid-column: 2;
   margin-top: 0.2rem;
-  color: var(--text-sub);
+  color: #000;
   font-size: 0.76rem;
   line-height: 1.75;
 }
+
+/* ==========================================================
+   提示框
+   ========================================================== */
 
 .manual-note {
   display: flex;
@@ -404,16 +445,16 @@
   gap: 0.65rem;
   margin: 1.1rem 0;
   padding: 0.9rem;
-  border-left: 2px solid var(--accent-color);
-  color: var(--text-sub);
-  background: var(--control-soft-bg);
+  border-left: 2px solid #000;
+  color: #000;
+  background: #fff;
   font-size: 0.78rem;
   line-height: 1.75;
 }
 
 .manual-page__footer {
   margin: 1.5rem auto 0;
-  color: var(--text-muted);
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.75rem;
   font-style: italic;
@@ -421,20 +462,618 @@
   text-align: center;
 }
 
-/* 每次切换章节时，文章区域重新入场（key 变化触发重新挂载）
-   注意：themes.css 里已经有一个全局同名的 .animate-fade-in-up，
-   这里用父级作用域提高优先级，避免两条规则打架、谁生效要看引入顺序 */
-.manual-page .animate-fade-in-up,
-.house-manual-modal .animate-fade-in-up {
+/* ==========================================================
+   教程中心
+   ========================================================== */
+
+.tutorial-library {
+  width: 100%;
+  color: #000;
+}
+
+.tutorial-library__intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #000;
+}
+
+.tutorial-library__eyebrow {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: #000;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.tutorial-library__intro h3 {
+  margin: 0;
+  color: #000;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.tutorial-library__intro p {
+  max-width: 30rem;
+  margin-top: 0.45rem;
+  color: #000;
+  font-size: 0.76rem;
+  line-height: 1.75;
+}
+
+.tutorial-library__count {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  color: #000;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.tutorial-library__count strong {
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+.tutorial-library__count span {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.tutorial-library__layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.32fr) minmax(0, 0.68fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.tutorial-library__nav {
+  min-width: 0;
+}
+
+.tutorial-library__nav-title {
+  margin-bottom: 0.55rem;
+  color: #000;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.tutorial-library__cards {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tutorial-card {
+  position: relative;
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 0.65rem;
+  border: 1px solid var(--hm-line);
+  color: #000;
+  background: #fff;
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.tutorial-card:hover {
+  border-color: #000;
+  background: #f5f5f5;
+  transform: translateX(2px);
+}
+
+.tutorial-card--active {
+  border-color: #000;
+  background: #fff;
+  box-shadow: inset 3px 0 0 #000;
+}
+
+.tutorial-card__number {
+  color: #000;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+}
+
+.tutorial-card__icon {
+  display: grid;
+  width: 1.85rem;
+  height: 1.85rem;
+  place-items: center;
+  border: 1px solid #000;
+  border-radius: 50%;
+  color: #000;
+  background: #fff;
+}
+
+.tutorial-card__content {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.tutorial-card__content strong {
+  overflow: hidden;
+  color: #000;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tutorial-card__content small {
+  overflow: hidden;
+  color: #000;
+  font-size: 0.66rem;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tutorial-card__arrow {
+  color: #000;
+  transition: transform 180ms ease;
+}
+
+.tutorial-card:hover .tutorial-card__arrow,
+.tutorial-card--active .tutorial-card__arrow {
+  transform: translateX(3px);
+}
+
+.tutorial-library__content {
+  min-width: 0;
+}
+
+.tutorial-detail {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #000;
+  color: #000;
+  background: #fff;
+}
+
+.tutorial-detail::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 7rem;
+  height: 7rem;
+  border-bottom: 1px solid #000;
+  border-left: 1px solid #000;
+  content: '';
+  opacity: 0.4;
+}
+
+.tutorial-theme-cloud::before {
+  border-radius: 0 0 0 100%;
+}
+
+.tutorial-theme-apple-health::before {
+  border-radius: 0 0 0 50%;
+}
+
+.tutorial-theme-luckin::before {
+  border-style: dashed;
+  border-radius: 0;
+}
+
+.tutorial-theme-default::before {
+  border-radius: 0;
+}
+
+.tutorial-detail__header {
+  position: relative;
+  z-index: 1;
+  padding: 1.1rem 1.15rem;
+  border-bottom: 1px solid var(--hm-line);
+}
+
+.tutorial-detail__eyebrow {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #000;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.tutorial-detail__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+.tutorial-detail__icon {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #000;
+  border-radius: 50%;
+  color: #000;
+  background: #fff;
+}
+
+.tutorial-detail__identity h2 {
+  margin: 0;
+  color: #000;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.045em;
+}
+
+.tutorial-detail__identity p {
+  max-width: 34rem;
+  margin-top: 0.4rem;
+  color: #000;
+  font-size: 0.76rem;
+  line-height: 1.75;
+}
+
+.tutorial-detail__body {
+  position: relative;
+  z-index: 1;
+  padding: 1.2rem 1.15rem;
+}
+
+.tutorial-block {
+  margin-top: 1.2rem;
+}
+
+.tutorial-block:first-child {
+  margin-top: 0;
+}
+
+.tutorial-block h3 {
+  margin-bottom: 0.6rem;
+  color: #000;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.tutorial-block--paragraph p {
+  color: #000;
+  font-size: 0.8rem;
+  line-height: 1.85;
+  white-space: pre-wrap;
+}
+
+.tutorial-steps {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.tutorial-step {
+  display: grid;
+  grid-template-columns: 1.85rem 1fr;
+  gap: 0.7rem;
+  align-items: start;
+}
+
+.tutorial-step__number {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border: 1px solid #000;
+  border-radius: 50%;
+  color: #000;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+}
+
+.tutorial-step__content {
+  min-width: 0;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--hm-line);
+}
+
+.tutorial-step:last-child .tutorial-step__content {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.tutorial-step__content h4 {
+  color: #000;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.tutorial-step__content p {
+  margin-top: 0.25rem;
+  color: #000;
+  font-size: 0.76rem;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.tutorial-inline-note {
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-left: 2px solid #000;
+  color: #000;
+  background: #fff;
+  font-size: 0.72rem;
+  line-height: 1.7;
+}
+
+.tutorial-checklist {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tutorial-checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  color: #000;
+  font-size: 0.76rem;
+  line-height: 1.75;
+}
+
+.tutorial-checklist__mark {
+  display: grid;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #000;
+  border-radius: 50%;
+  color: #000;
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+.tutorial-code-block {
+  overflow: hidden;
+  margin-top: 0.65rem;
+  border: 1px solid #000;
+  background: #fff;
+}
+
+.tutorial-code-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid #000;
+  color: #000;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tutorial-code-block__copy {
+  padding: 0.2rem 0.4rem;
+  border: 1px solid #000;
+  color: #000;
+  background: #fff;
+  font-family: inherit;
+  font-size: 9px;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease;
+}
+
+.tutorial-code-block__copy:hover {
+  color: #fff;
+  background: #000;
+}
+
+.tutorial-code-block pre {
+  margin: 0;
+  padding: 0.8rem;
+  overflow-x: auto;
+  color: #000;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tutorial-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 1.1rem;
+  padding: 0.8rem;
+  border: 1px solid #000;
+  color: #000;
+  background: #fff;
+}
+
+.tutorial-callout__icon {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.tutorial-callout strong {
+  display: block;
+  color: #000;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.tutorial-callout p {
+  margin-top: 0.2rem;
+  color: #000;
+  font-size: 0.75rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+.tutorial-callout--warning {
+  border-style: dashed;
+}
+
+.tutorial-links {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.tutorial-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--hm-line);
+  color: #000;
+  background: #fff;
+  font-size: 0.75rem;
+  text-decoration: none;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.tutorial-link:hover {
+  border-color: #000;
+  background: #f5f5f5;
+}
+
+.tutorial-divider {
+  height: 1px;
+  margin: 1.25rem 0;
+  background: #000;
+}
+
+.tutorial-detail__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 1.15rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--divider);
+  color: #000;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tutorial-empty-state {
+  display: grid;
+  min-height: 15rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.5rem;
+  padding: 2rem 1rem;
+  border: 1px solid var(--hm-line);
+  color: #000;
+  text-align: center;
+}
+
+.tutorial-empty-state--error {
+  border-style: dashed;
+}
+
+.tutorial-empty-state__icon {
+  margin-bottom: 0.25rem;
+  color: #000;
+}
+
+.tutorial-empty-state h3 {
+  color: #000;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.tutorial-empty-state p {
+  max-width: 28rem;
+  color: #000;
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+
+.tutorial-library__loading {
+  display: flex;
+  min-height: 12rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 1px solid var(--hm-line);
+  color: #000;
+  font-size: 0.78rem;
+}
+
+.tutorial-retry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #000;
+  color: #000;
+  background: #fff;
+  font-size: 0.75rem;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease;
+}
+
+.tutorial-retry-button:hover {
+  color: #fff;
+  background: #000;
+}
+
+.tutorial-spin {
+  animation: tutorial-spin 1s linear infinite;
+}
+
+@keyframes tutorial-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==========================================================
+   文章切换动画
+   ========================================================== */
+
+.manual-page .animate-fade-in-up {
   animation: hm-fade-in-up 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes hm-fade-in-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* -------- 桌面端：撑满屏幕的双栏控制室布局 -------- */
+/* ==========================================================
+   桌面端
+   ========================================================== */
+
 @media (min-width: 900px) {
   .manual-page {
     display: grid;
@@ -442,14 +1081,16 @@
     grid-template-rows: auto auto 1fr auto;
     grid-template-areas:
       'header header'
-      'intro  article'
-      'nav    article'
+      'intro article'
+      'nav article'
       'footer footer';
     column-gap: 2.75rem;
     padding: 2rem 3rem 2.5rem;
   }
 
-  .manual-header { grid-area: header; }
+  .manual-header {
+    grid-area: header;
+  }
 
   .manual-intro {
     grid-area: intro;
@@ -457,10 +1098,10 @@
   }
 
   .manual-index {
-    grid-area: nav;
-    align-self: start;
     position: sticky;
     top: 2rem;
+    grid-area: nav;
+    align-self: start;
     max-height: calc(100dvh - 11rem);
     overflow-y: auto;
     padding-right: 0.5rem;
@@ -479,12 +1120,18 @@
     font-size: clamp(1.8rem, 2.6vw, 2.3rem);
   }
 
-  .manual-page__footer { grid-area: footer; }
+  .tutorial-library__layout {
+    grid-template-columns: minmax(210px, 0.32fr) minmax(0, 0.68fr);
+  }
+
+  .manual-page__footer {
+    grid-area: footer;
+  }
 }
 
-/* =========================================================
-   空间说明书弹窗
-   ========================================================= */
+/* ==========================================================
+   兼容说明书弹窗
+   ========================================================== */
 
 .house-manual-modal,
 .house-manual-modal *,
@@ -494,29 +1141,28 @@
 }
 
 .house-manual-modal {
-  --hm-bg: #f1efe8;
-  --hm-bg-soft: #fffdf9;
-  --hm-ink: #131210;
-  --hm-ink-dim: #58544c;
-  --hm-ink-faint: #918c81;
-  --hm-line: rgba(19, 18, 16, 0.12);
-  --hm-line-strong: rgba(19, 18, 16, 0.28);
-  --hm-surface: rgba(19, 18, 16, 0.035);
-  --hm-surface-hover: rgba(19, 18, 16, 0.07);
-
-  --text-main: var(--hm-ink);
-  --text-sub: var(--hm-ink-dim);
-  --text-muted: var(--hm-ink-faint);
+  --hm-bg: #fff;
+  --hm-bg-soft: #fff;
+  --hm-ink: #000;
+  --hm-ink-dim: #000;
+  --hm-ink-faint: #000;
+  --hm-line: rgba(0, 0, 0, 0.16);
+  --hm-line-strong: rgba(0, 0, 0, 0.36);
+  --hm-surface: #fff;
+  --hm-surface-hover: #f5f5f5;
+  --text-main: #000;
+  --text-sub: #000;
+  --text-muted: #000;
   --card-border: var(--hm-line);
-  --control-soft-bg: var(--hm-surface);
-  --control-soft-hover: var(--hm-surface-hover);
+  --control-soft-bg: #fff;
+  --control-soft-hover: #f5f5f5;
   --divider: var(--hm-line);
-  --accent-color: var(--hm-ink);
-  --accent-foreground: var(--hm-bg);
-  --modal-overlay: rgba(24, 20, 14, 0.42);
-  --modal-border: var(--hm-line-strong);
-  --modal-bg: linear-gradient(180deg, var(--hm-bg-soft), var(--hm-bg));
-  --modal-shadow: 0 60px 120px -44px rgba(24, 20, 14, 0.26);
+  --accent-color: #000;
+  --accent-foreground: #fff;
+  --modal-overlay: rgba(0, 0, 0, 0.42);
+  --modal-border: #000;
+  --modal-bg: #fff;
+  --modal-shadow: none;
 
   position: fixed;
   inset: 0;
@@ -525,7 +1171,7 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  color: var(--text-main);
+  color: #000;
 }
 
 .house-manual-modal__overlay {
@@ -547,9 +1193,9 @@
   overflow: hidden;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--modal-border);
-  background: var(--modal-bg);
-  box-shadow: var(--modal-shadow);
+  border: 1px solid #000;
+  background: #fff;
+  box-shadow: none;
   animation: house-manual-rise-in 260ms
     cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -576,7 +1222,7 @@
 .house-manual-modal__article-topline,
 .house-manual-modal__article-footer,
 .house-manual-modal__pagination {
-  color: var(--text-muted);
+  color: #000;
   font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 9px;
   letter-spacing: 0.15em;
@@ -585,6 +1231,7 @@
 
 .house-manual-modal__identity h1 {
   margin-top: 0.2rem;
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.1rem;
   font-weight: 600;
@@ -597,17 +1244,18 @@
   height: 2.25rem;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid var(--card-border);
+  border: 1px solid #000;
   border-radius: 999px;
-  color: var(--text-main);
-  background: var(--control-soft-bg);
+  color: #000;
+  background: #fff;
   transition:
     transform 180ms ease,
     background-color 180ms ease;
 }
 
 .house-manual-modal__close:hover {
-  background: var(--control-soft-hover);
+  color: #fff;
+  background: #000;
 }
 
 .house-manual-modal__close:active {
@@ -637,17 +1285,12 @@
   position: relative;
   z-index: 1;
   margin-top: 0.8rem;
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(2rem, 6vw, 3rem);
   font-weight: 500;
   line-height: 1.08;
   letter-spacing: -0.07em;
-  background: linear-gradient(100deg, var(--hm-ink) 30%, var(--hm-ink-faint) 46%, var(--hm-ink) 62%);
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: hm-shine 7s ease-in-out infinite;
 }
 
 .house-manual-modal__intro p {
@@ -655,7 +1298,7 @@
   z-index: 1;
   max-width: 20rem;
   margin-top: 0.85rem;
-  color: var(--text-sub);
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.78rem;
   line-height: 1.8;
@@ -691,8 +1334,10 @@
   align-items: center;
   gap: 0.55rem;
   padding: 0.72rem 0.4rem;
+  border: 0;
   border-bottom: 1px solid var(--divider);
-  color: var(--text-sub);
+  color: #000;
+  background: #fff;
   text-align: left;
   transition:
     color 180ms ease,
@@ -700,41 +1345,29 @@
     background-color 180ms ease;
 }
 
-.house-manual-modal__index-item .ml-auto {
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.house-manual-modal__index-item:hover .ml-auto {
-  transform: translateX(3px);
-}
-
 .house-manual-modal__index-item:hover {
   padding-left: 0.7rem;
-  color: var(--text-main);
-  background: var(--control-soft-bg);
+  background: #f5f5f5;
 }
 
 .house-manual-modal__index-item--active {
   padding-left: 0.7rem;
-  color: var(--hm-bg);
-  background: var(--hm-ink);
-  border-bottom-color: var(--hm-ink);
-}
-
-.house-manual-modal__index-item--active .house-manual-modal__index-number {
-  color: var(--hm-bg);
-  opacity: 0.6;
+  color: #000;
+  background: #fff;
+  border-bottom-color: #000;
+  box-shadow: inset 3px 0 0 #000;
 }
 
 .house-manual-modal__index-number {
   width: 1.25rem;
-  color: var(--text-muted);
+  color: #000;
   font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 9px;
 }
 
 .house-manual-modal__index-item
   > span:not(.house-manual-modal__index-number) {
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.8rem;
 }
@@ -761,24 +1394,25 @@
   height: 2.5rem;
   margin-top: 1.25rem;
   place-items: center;
-  border: 1px solid var(--card-border);
+  border: 1px solid #000;
   border-radius: 50%;
-  color: var(--accent-foreground);
-  background: var(--accent-color);
+  color: #000;
+  background: #fff;
 }
 
 .house-manual-modal__article-icon::after {
-  content: '';
   position: absolute;
   inset: -6px;
   border: 1px solid var(--hm-line-strong);
   border-radius: 50%;
+  content: '';
   animation: hm-pulse-ring 3.4s ease-out infinite;
 }
 
 .house-manual-modal__article h2 {
   max-width: 23rem;
   margin-top: 1rem;
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(1.65rem, 4vw, 2.2rem);
   font-weight: 500;
@@ -788,7 +1422,7 @@
 
 .house-manual-modal__article-body {
   margin-top: 1.25rem;
-  color: var(--text-sub);
+  color: #000;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.88rem;
   line-height: 1.95;
@@ -823,7 +1457,7 @@
 }
 
 .house-manual-modal__pagination button {
-  color: var(--text-sub);
+  color: #000;
   font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 9px;
   letter-spacing: 0.08em;
@@ -834,7 +1468,7 @@
 }
 
 .house-manual-modal__pagination button:hover:not(:disabled) {
-  color: var(--text-main);
+  color: #000;
 }
 
 .house-manual-modal__pagination button:disabled {
@@ -851,9 +1485,9 @@
   border-top: 1px solid var(--divider);
 }
 
-/* =========================================================
+/* ==========================================================
    动画
-   ========================================================= */
+   ========================================================== */
 
 @keyframes house-manual-fade-in {
   from {
@@ -877,30 +1511,98 @@
   }
 }
 
-/* 尊重“减少动态效果”系统设置 */
+/* ==========================================================
+   减少动态效果
+   ========================================================== */
+
 @media (prefers-reduced-motion: reduce) {
-  .manual-page::before,
   .manual-header,
   .manual-intro,
   .manual-index,
   .manual-page__footer,
-  .manual-intro h2,
-  .house-manual-modal__intro h2,
   .manual-page .animate-fade-in-up,
-  .house-manual-modal .animate-fade-in-up,
   .manual-article__icon::after,
   .house-manual-modal__article-icon::after,
   .house-manual-modal__overlay,
-  .house-manual-modal__window {
+  .house-manual-modal__window,
+  .tutorial-spin {
     animation: none !important;
   }
 }
 
-/* =========================================================
+/* ==========================================================
    手机端
-   ========================================================= */
+   ========================================================== */
+
+@media (max-width: 899px) {
+  .tutorial-library__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .tutorial-library__nav {
+    order: 1;
+  }
+
+  .tutorial-library__content {
+    order: 2;
+  }
+
+  .tutorial-library__cards {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    scrollbar-width: thin;
+  }
+
+  .tutorial-card {
+    min-width: min(78vw, 280px);
+  }
+}
 
 @media (max-width: 640px) {
+  .manual-page {
+    padding: 1rem 0.85rem 2rem;
+  }
+
+  .manual-article {
+    padding: 1rem;
+  }
+
+  .manual-article h2 {
+    font-size: 1.55rem;
+  }
+
+  .tutorial-library__intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tutorial-library__count {
+    align-items: flex-start;
+  }
+
+  .tutorial-detail__header {
+    padding: 0.95rem;
+  }
+
+  .tutorial-detail__body {
+    padding: 1rem 0.95rem;
+  }
+
+  .tutorial-detail__eyebrow {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .tutorial-detail__identity h2 {
+    font-size: 1.35rem;
+  }
+
+  .tutorial-detail__footer {
+    margin: 0 0.95rem;
+  }
+
   .house-manual-modal {
     align-items: flex-start;
     justify-content: center;
@@ -980,89 +1682,4 @@
     max-height: none;
     padding: 1.15rem 1rem 1.25rem;
   }
-  /* ==========================================================
-   说明书：纯白底色 / 黑色文字
-   ========================================================== */
-
-.manual-page,
-.house-manual-modal {
-  --hm-bg: #fff;
-  --hm-bg-soft: #fff;
-  --hm-ink: #000;
-  --hm-ink-dim: #000;
-  --hm-ink-faint: #000;
-  --hm-line: rgba(0, 0, 0, 0.16);
-  --hm-line-strong: rgba(0, 0, 0, 0.36);
-  --hm-surface: #fff;
-  --hm-surface-hover: #f5f5f5;
-  --text-main: #000;
-  --text-sub: #000;
-  --text-muted: #000;
-  --card-border: var(--hm-line);
-  --card-bg-gradient: #fff;
-  --card-shadow: none;
-  --control-soft-bg: #fff;
-  --control-soft-hover: #f5f5f5;
-  --divider: var(--hm-line);
-  --accent-color: #000;
-  --accent-foreground: #fff;
-  --modal-bg: #fff;
-  color: #000;
-}
-
-.manual-page {
-  background: #fff;
-}
-
-.manual-page::before {
-  display: none;
-}
-
-.manual-article,
-.house-manual-modal__window {
-  background: #fff;
-  box-shadow: none;
-}
-
-.manual-intro h2,
-.house-manual-modal__intro h2 {
-  background: none;
-  color: #000;
-  animation: none;
-  -webkit-text-fill-color: #000;
-}
-
-.manual-index__item--active,
-.house-manual-modal__index-item--active {
-  color: #000;
-  background: #fff;
-  border-bottom-color: #000;
-}
-
-.manual-index__item--active .manual-index__number,
-.house-manual-modal__index-item--active .house-manual-modal__index-number {
-  color: #000;
-  opacity: 0.6;
-}
-
-.manual-article__icon,
-.house-manual-modal__article-icon {
-  color: #000;
-  background: #fff;
-  border-color: #000;
-}
-
-.manual-back-button,
-.manual-header__mark,
-.house-manual-modal__close {
-  color: #000;
-  background: #fff;
-  border-color: var(--hm-line);
-}
-
-.manual-note {
-  color: #000;
-  background: #fff;
-}
-
 }

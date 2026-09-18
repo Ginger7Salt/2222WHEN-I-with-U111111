@@ -1,16 +1,795 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   ArrowLeft,
   BookOpen,
+  ChevronLeft,
   ChevronRight,
   CircleHelp,
   Database,
+  ExternalLink,
+  FileText,
+  GraduationCap,
   Heart,
   LockKeyhole,
   MessageCircle,
+  RefreshCw,
+  Server,
   Settings2,
   Sparkles,
 } from 'lucide-react';
+
+/**
+ * 教程目录地址。
+ *
+ * 对应项目目录：
+ * public/tutorials/index.json
+ */
+const TUTORIAL_INDEX_URL = '/tutorials/index.json';
+
+/**
+ * 教程图标。
+ *
+ * 不需要动态安装图标依赖。
+ * 以后在 index.json 中填写 icon 名称即可。
+ */
+const TUTORIAL_ICON_MAP = {
+  book: BookOpen,
+  server: Server,
+  health: Heart,
+  cloud: Server,
+  coffee: Sparkles,
+  settings: Settings2,
+  file: FileText,
+  default: FileText,
+};
+
+function getTutorialIcon(iconName) {
+  return (
+    TUTORIAL_ICON_MAP[iconName] ||
+    TUTORIAL_ICON_MAP.default
+  );
+}
+
+function normalizeTutorialEntry(item = {}) {
+  return {
+    id: String(
+      item.id ||
+      item.slug ||
+      item.title ||
+      `tutorial-${Date.now()}`,
+    ),
+    title: item.title || '未命名教程',
+    summary: item.summary || '暂无教程简介。',
+    category: item.category || '使用教程',
+    theme: item.theme || 'default',
+    icon: item.icon || 'book',
+    updatedAt: item.updatedAt || '',
+    source: item.source || '',
+    blocks: item.blocks || item.sections || item.content || null,
+  };
+}
+
+function resolveTutorialUrl(source) {
+  if (!source) {
+    return '';
+  }
+
+  if (
+    source.startsWith('http://') ||
+    source.startsWith('https://') ||
+    source.startsWith('/')
+  ) {
+    return source;
+  }
+
+  if (typeof window === 'undefined') {
+    return source;
+  }
+
+  return new URL(
+    source,
+    new URL(TUTORIAL_INDEX_URL, window.location.href),
+  ).toString();
+}
+
+async function fetchTutorialJson(url) {
+  const response = await fetch(url, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `教程文件加载失败：${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+function normalizeTutorialBlocks(tutorial) {
+  const blocks =
+    tutorial?.blocks ||
+    tutorial?.sections ||
+    tutorial?.content ||
+    [];
+
+  if (Array.isArray(blocks)) {
+    return blocks;
+  }
+
+  if (typeof blocks === 'string' && blocks.trim()) {
+    return [
+      {
+        type: 'paragraph',
+        text: blocks,
+      },
+    ];
+  }
+
+  return [];
+}
+
+function TutorialCodeBlock({ block }) {
+  const [copied, setCopied] = useState(false);
+
+  const code = block.code || block.text || '';
+
+  const handleCopy = async () => {
+    if (!navigator?.clipboard) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 1600);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <div className="tutorial-code-block">
+      <div className="tutorial-code-block__header">
+        <span>
+          {block.label || block.language || 'CODE'}
+        </span>
+
+        {code && (
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="tutorial-code-block__copy"
+          >
+            {copied ? '已复制' : '复制'}
+          </button>
+        )}
+      </div>
+
+      <pre>
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+function TutorialStep({ item, index }) {
+  return (
+    <div className="tutorial-step">
+      <div className="tutorial-step__number">
+        {String(index + 1).padStart(2, '0')}
+      </div>
+
+      <div className="tutorial-step__content">
+        {item.title && (
+          <h4>{item.title}</h4>
+        )}
+
+        {(item.body || item.description) && (
+          <p>
+            {item.body || item.description}
+          </p>
+        )}
+
+        {item.code && (
+          <TutorialCodeBlock
+            block={{
+              type: 'code',
+              code: item.code,
+              language: item.language,
+            }}
+          />
+        )}
+
+        {item.note && (
+          <div className="tutorial-inline-note">
+            {item.note}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TutorialBlock({ block, index }) {
+  if (!block) {
+    return null;
+  }
+
+  const type = block.type || 'paragraph';
+
+  if (type === 'steps' || type === 'step-list') {
+    return (
+      <section
+        className="tutorial-block tutorial-block--steps"
+        key={index}
+      >
+        {block.title && (
+          <h3>{block.title}</h3>
+        )}
+
+        <div className="tutorial-steps">
+          {(block.items || []).map((item, itemIndex) => (
+            <TutorialStep
+              key={`${index}-${itemIndex}`}
+              item={item}
+              index={itemIndex}
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (type === 'checklist') {
+    return (
+      <section
+        className="tutorial-block tutorial-block--checklist"
+        key={index}
+      >
+        {block.title && (
+          <h3>{block.title}</h3>
+        )}
+
+        <ul className="tutorial-checklist">
+          {(block.items || []).map((item, itemIndex) => (
+            <li key={`${index}-${itemIndex}`}>
+              <span className="tutorial-checklist__mark">
+                ✓
+              </span>
+
+              <span>
+                {typeof item === 'string'
+                  ? item
+                  : item.text || item.title}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+
+  if (type === 'code') {
+    return (
+      <section
+        className="tutorial-block"
+        key={index}
+      >
+        {block.title && (
+          <h3>{block.title}</h3>
+        )}
+
+        <TutorialCodeBlock block={block} />
+      </section>
+    );
+  }
+
+  if (type === 'note' || type === 'warning') {
+    const noteType =
+      type === 'warning'
+        ? 'tutorial-callout--warning'
+        : 'tutorial-callout--note';
+
+    return (
+      <aside
+        className={`tutorial-callout ${noteType}`}
+        key={index}
+      >
+        <AlertTriangle
+          className="tutorial-callout__icon"
+          size={17}
+          strokeWidth={1.7}
+        />
+
+        <div>
+          {block.title && (
+            <strong>{block.title}</strong>
+          )}
+
+          <p>
+            {block.text || block.body || block.content}
+          </p>
+        </div>
+      </aside>
+    );
+  }
+
+  if (type === 'links') {
+    return (
+      <section
+        className="tutorial-block"
+        key={index}
+      >
+        {block.title && (
+          <h3>{block.title}</h3>
+        )}
+
+        <div className="tutorial-links">
+          {(block.items || []).map((item, itemIndex) => (
+            <a
+              key={`${index}-${itemIndex}`}
+              href={item.url}
+              target="_blank"
+              rel="noreferrer"
+              className="tutorial-link"
+            >
+              <span>
+                {item.title || item.label || item.url}
+              </span>
+
+              <ExternalLink
+                size={14}
+                strokeWidth={1.6}
+              />
+            </a>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (type === 'divider') {
+    return (
+      <div
+        className="tutorial-divider"
+        key={index}
+      />
+    );
+  }
+
+  return (
+    <section
+      className="tutorial-block tutorial-block--paragraph"
+      key={index}
+    >
+      {block.title && (
+        <h3>{block.title}</h3>
+      )}
+
+      <p>
+        {block.text || block.body || block.content}
+      </p>
+    </section>
+  );
+}
+
+function TutorialDetail({ tutorial, isLoading, error }) {
+  if (isLoading) {
+    return (
+      <div className="tutorial-empty-state">
+        <RefreshCw
+          className="tutorial-empty-state__icon tutorial-spin"
+          size={24}
+          strokeWidth={1.5}
+        />
+
+        <h3>正在打开教程</h3>
+        <p>正在读取教程内容，请稍候。</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="tutorial-empty-state tutorial-empty-state--error">
+        <AlertTriangle
+          className="tutorial-empty-state__icon"
+          size={24}
+          strokeWidth={1.5}
+        />
+
+        <h3>教程暂时无法打开</h3>
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (!tutorial) {
+    return (
+      <div className="tutorial-empty-state">
+        <FileText
+          className="tutorial-empty-state__icon"
+          size={24}
+          strokeWidth={1.5}
+        />
+
+        <h3>选择一个教程</h3>
+        <p>从左侧选择教程后，这里会显示详细内容。</p>
+      </div>
+    );
+  }
+
+  const TutorialIcon = getTutorialIcon(tutorial.icon);
+  const blocks = normalizeTutorialBlocks(tutorial);
+  const theme = String(
+    tutorial.theme || 'default',
+  ).replace(/[^a-zA-Z0-9_-]/g, '');
+
+  return (
+    <article
+      className={`tutorial-detail tutorial-theme-${theme}`}
+    >
+      <header className="tutorial-detail__header">
+        <div className="tutorial-detail__eyebrow">
+          <span>{tutorial.category}</span>
+
+          {tutorial.updatedAt && (
+            <span>
+              更新于 {tutorial.updatedAt}
+            </span>
+          )}
+        </div>
+
+        <div className="tutorial-detail__identity">
+          <div className="tutorial-detail__icon">
+            <TutorialIcon
+              size={22}
+              strokeWidth={1.5}
+            />
+          </div>
+
+          <div>
+            <h2>{tutorial.title}</h2>
+            <p>{tutorial.summary}</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="tutorial-detail__body">
+        {blocks.length > 0 ? (
+          blocks.map((block, index) => (
+            <TutorialBlock
+              key={`${tutorial.id}-${index}`}
+              block={block}
+              index={index}
+            />
+          ))
+        ) : (
+          <div className="tutorial-empty-state">
+            <FileText
+              className="tutorial-empty-state__icon"
+              size={24}
+              strokeWidth={1.5}
+            />
+
+            <h3>教程内容为空</h3>
+            <p>
+              请在对应的 JSON 教程文件中添加 blocks。
+            </p>
+          </div>
+        )}
+      </div>
+
+      <footer className="tutorial-detail__footer">
+        <span>WHEN I with U</span>
+        <span>—</span>
+        <span>TUTORIALS</span>
+      </footer>
+    </article>
+  );
+}
+
+function TutorialLibrary() {
+  const [tutorials, setTutorials] = useState([]);
+  const [activeId, setActiveId] = useState('');
+  const [activeTutorial, setActiveTutorial] = useState(null);
+  const [isIndexLoading, setIsIndexLoading] = useState(true);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [indexError, setIndexError] = useState('');
+  const [detailError, setDetailError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadIndex = async () => {
+      setIsIndexLoading(true);
+      setIndexError('');
+
+      try {
+        const payload = await fetchTutorialJson(
+          TUTORIAL_INDEX_URL,
+        );
+
+        const list = Array.isArray(payload)
+          ? payload
+          : payload.tutorials || [];
+
+        const normalizedList = list.map(
+          normalizeTutorialEntry,
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setTutorials(normalizedList);
+
+        setActiveId((currentId) => {
+          const currentExists = normalizedList.some(
+            (item) => item.id === currentId,
+          );
+
+          return currentExists
+            ? currentId
+            : normalizedList[0]?.id || '';
+        });
+      } catch (error) {
+        if (!cancelled) {
+          setIndexError(
+            error?.message ||
+              '教程目录加载失败。',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsIndexLoading(false);
+        }
+      }
+    };
+
+    loadIndex();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  const activeEntry = useMemo(
+    () =>
+      tutorials.find(
+        (tutorial) => tutorial.id === activeId,
+      ) || null,
+    [tutorials, activeId],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDetail = async () => {
+      if (!activeEntry) {
+        setActiveTutorial(null);
+        return;
+      }
+
+      setDetailError('');
+
+      if (activeEntry.blocks) {
+        setActiveTutorial(activeEntry);
+        setIsDetailLoading(false);
+        return;
+      }
+
+      if (!activeEntry.source) {
+        setActiveTutorial(activeEntry);
+        setIsDetailLoading(false);
+        return;
+      }
+
+      setIsDetailLoading(true);
+      setActiveTutorial(null);
+
+      try {
+        const payload = await fetchTutorialJson(
+          resolveTutorialUrl(activeEntry.source),
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setActiveTutorial({
+          ...activeEntry,
+          ...payload,
+          id: payload.id || activeEntry.id,
+          title: payload.title || activeEntry.title,
+          summary:
+            payload.summary || activeEntry.summary,
+          category:
+            payload.category || activeEntry.category,
+          theme: payload.theme || activeEntry.theme,
+          icon: payload.icon || activeEntry.icon,
+        });
+      } catch (error) {
+        if (!cancelled) {
+          setDetailError(
+            error?.message ||
+              '教程内容加载失败。',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsDetailLoading(false);
+        }
+      }
+    };
+
+    loadDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeEntry]);
+
+  if (isIndexLoading) {
+    return (
+      <div className="tutorial-library">
+        <div className="tutorial-library__loading">
+          <RefreshCw
+            className="tutorial-spin"
+            size={20}
+            strokeWidth={1.5}
+          />
+
+          正在读取教程目录
+        </div>
+      </div>
+    );
+  }
+
+  if (indexError) {
+    return (
+      <div className="tutorial-library">
+        <div className="tutorial-empty-state tutorial-empty-state--error">
+          <AlertTriangle
+            className="tutorial-empty-state__icon"
+            size={24}
+            strokeWidth={1.5}
+          />
+
+          <h3>教程目录暂时无法读取</h3>
+          <p>{indexError}</p>
+
+          <button
+            type="button"
+            className="tutorial-retry-button"
+            onClick={() => setReloadKey((value) => value + 1)}
+          >
+            <RefreshCw
+              size={14}
+              strokeWidth={1.6}
+            />
+            重新加载
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tutorial-library">
+      <div className="tutorial-library__intro">
+        <div>
+          <span className="tutorial-library__eyebrow">
+            A SMALL WORKSHOP
+          </span>
+
+          <h3>把复杂配置，拆成清晰步骤</h3>
+
+          <p>
+            教程内容独立存放在 tutorials 文件夹中。
+            以后添加新教程时，不需要修改说明书 JSX。
+          </p>
+        </div>
+
+        <div className="tutorial-library__count">
+          <strong>{tutorials.length}</strong>
+          <span>篇教程</span>
+        </div>
+      </div>
+
+      {tutorials.length === 0 ? (
+        <div className="tutorial-empty-state">
+          <FileText
+            className="tutorial-empty-state__icon"
+            size={24}
+            strokeWidth={1.5}
+          />
+
+          <h3>还没有教程</h3>
+          <p>
+            请在 public/tutorials/index.json
+            中添加教程目录。
+          </p>
+        </div>
+      ) : (
+        <div className="tutorial-library__layout">
+          <aside className="tutorial-library__nav">
+            <div className="tutorial-library__nav-title">
+              TUTORIAL INDEX
+            </div>
+
+            <div className="tutorial-library__cards">
+              {tutorials.map((tutorial, index) => {
+                const TutorialIcon = getTutorialIcon(
+                  tutorial.icon,
+                );
+
+                const isActive =
+                  tutorial.id === activeId;
+
+                return (
+                  <button
+                    type="button"
+                    key={tutorial.id}
+                    className={`tutorial-card ${
+                      isActive
+                        ? 'tutorial-card--active'
+                        : ''
+                    } tutorial-card--${String(
+                      tutorial.theme || 'default',
+                    ).replace(
+                      /[^a-zA-Z0-9_-]/g,
+                      '',
+                    )}`}
+                    onClick={() =>
+                      setActiveId(tutorial.id)
+                    }
+                  >
+                    <span className="tutorial-card__number">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+
+                    <span className="tutorial-card__icon">
+                      <TutorialIcon
+                        size={17}
+                        strokeWidth={1.5}
+                      />
+                    </span>
+
+                    <span className="tutorial-card__content">
+                      <strong>{tutorial.title}</strong>
+                      <small>{tutorial.summary}</small>
+                    </span>
+
+                    <ChevronRight
+                      className="tutorial-card__arrow"
+                      size={15}
+                      strokeWidth={1.5}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          <div className="tutorial-library__content">
+            <TutorialDetail
+              tutorial={activeTutorial}
+              isLoading={isDetailLoading}
+              error={detailError}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export const MANUAL_SECTIONS = [
   {
@@ -219,6 +998,48 @@ export const MANUAL_SECTIONS = [
   },
 
   {
+    id: 'mcp',
+    label: 'MCP 支持',
+    eyebrow: 'MCP INTEGRATIONS',
+    title: '让外部服务进入对话',
+    icon: Server,
+    content: (
+      <div className="space-y-4">
+        <p>
+          现在可以通过 MCP 连接更多外部服务，并在 Messages
+          的一对一沟通中渲染对应的小卡片。
+        </p>
+
+        <ManualItem
+          title="当前兼容的 MCP 服务"
+          description="麦当劳、滴滴打车、Apple Watch、天气、Apple 健康、网易云音乐、瑞幸咖啡。"
+        />
+
+        <div className="manual-note">
+          <p>
+            MCP 可以将外部服务中的信息以渲染小卡片的形式带入对话，
+            让角色与你的日常生活、出行、饮食、健康和音乐更加自然地连接起来。
+          </p>
+        </div>
+
+        <p>
+          不同 MCP 服务可能需要单独配置服务器地址、授权信息或其他权限。
+          具体配置步骤请进入“教程中心”查看。
+        </p>
+      </div>
+    ),
+  },
+
+  {
+    id: 'tutorials',
+    label: '教程中心',
+    eyebrow: 'THE WORKSHOP',
+    title: '配置教程与使用指南',
+    icon: GraduationCap,
+    content: <TutorialLibrary />,
+  },
+
+  {
     id: 'daily-offering',
     label: '今日留物',
     eyebrow: 'A SMALL OFFERING',
@@ -347,6 +1168,11 @@ export const MANUAL_SECTIONS = [
         <ManualItem
           title="刷新后内容不见了怎么办？"
           description="大多数内容会保存在本地数据库中。请先确认浏览器没有处于无痕模式，也没有清除站点数据。"
+        />
+
+        <ManualItem
+          title="教程为什么没有显示？"
+          description="请确认 public/tutorials/index.json 文件存在，并且 JSON 格式正确。教程中的 source 路径需要和实际文件路径对应。"
         />
       </div>
     ),
@@ -505,5 +1331,3 @@ export const ManualApp = ({ onBack }) => {
 };
 
 export default ManualApp;
-
-
