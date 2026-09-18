@@ -4,6 +4,7 @@ import { Settings as SettingsIcon } from 'lucide-react';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import Preloader from './components/Preloader';
+import PageLoadingBar from './components/PageLoadingBar';
 import NotificationToast from './components/NotificationToast';
 import KeepAliveIndicator from './components/KeepAliveIndicator';
 import HouseManualModal from './components/manual/HouseManualModal';
@@ -748,8 +749,10 @@ const [hubBackground, setHubBackground] = useState('');
         </ErrorBoundary>
       )}
 
-      <NotificationToast />
+      <PageLoadingBar activeKey={currentApp} />
 
+      <NotificationToast />
+      
       <AppUpdatePrompt
         isAppReady={!showPreloader}
         isInsideChatRoom={isInsideChatRoom}
