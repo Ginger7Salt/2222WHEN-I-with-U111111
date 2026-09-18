@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Pencil,
   Check,
+  Package,
 } from 'lucide-react';
 
 import db from '../../db';
@@ -218,8 +219,9 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
   const offlineBgOpacity = chat?.offlineBgOpacity ?? 0.3;
   const offlineIsBgDimmed = chat?.offlineIsBgDimmed ?? true;
 
-  const hasSceneStatus = Boolean(
-    session.sceneMood || session.sceneWeather || session.sceneMonologue
+   const hasSceneStatus = Boolean(
+    session.sceneMood || session.sceneWeather || session.sceneMonologue ||
+    (Array.isArray(session.sceneProps) && session.sceneProps.length > 0)
   );
 
   return (
@@ -403,10 +405,25 @@ const OfflineChatRoom = ({ chatId, offlineSessionId, onBack, readonly = false })
                     )}
                   </div>
 
-                  {session.sceneMonologue && (
+                                    {session.sceneMonologue && (
                     <div className="flex items-start gap-1 text-[10px] italic opacity-60">
                       <Quote className="mt-0.5 h-3 w-3 shrink-0" />
                       <span>{session.sceneMonologue}</span>
+                    </div>
+                  )}
+
+                  {Array.isArray(session.sceneProps) && session.sceneProps.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {session.sceneProps.map((prop, index) => (
+                        <span
+                          key={`${prop}-${index}`}
+                          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] opacity-80"
+                          style={{ background: 'var(--card-bg-gradient)' }}
+                        >
+                          <Package className="h-2.5 w-2.5" style={{ color: 'var(--accent-color)' }} />
+                          {prop}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </>

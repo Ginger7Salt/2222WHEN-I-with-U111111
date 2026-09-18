@@ -1,9 +1,9 @@
 // src/apps/offline/offlineSceneStatusService.js
 //
 // 线下场景状态栏的"每 10 条消息刷新一次"逻辑：
-// 生成角色此刻的心情 / 场景天气状态 / 一句内心独白，
+// 生成角色此刻的心情 / 场景天气状态 / 一句内心独白 / 场景里的小道具，
 // 写回 db.offlineSessions（sceneMood / sceneWeather / sceneMonologue /
-// statusUpdatedAtMessageCount），不需要新增数据表或数据库升级版本。
+// sceneProps / statusUpdatedAtMessageCount），不需要新增数据表或数据库升级版本。
 //
 // 只负责判断"要不要生成 + 生成 + 落库"，UI 展示交给 OfflineChatRoom.jsx。
 import db from '../../db';
@@ -30,6 +30,14 @@ const buildRecentDialogueText = (messages, limit = 10) => (
     .join('\n')
 );
 
+const sanitizeProps = (rawProps) => {
+  if (!Array.isArray(rawProps)) return [];
+  return rawProps
+    .filter((item) => typeof item === 'string' && item.trim())
+    .map((item) => item.trim().slice(0, 6))
+    .slice(0, 3);
+};
+
 const parseStatusResponse = (rawText, defaults) => {
   if (!rawText || typeof rawText !== 'string') {
     return defaults;
@@ -43,10 +51,13 @@ const parseStatusResponse = (rawText, defaults) => {
 
   try {
     const parsed = JSON.parse(cleaned);
+    const props = sanitizeProps(parsed.props);
+
     return {
       sceneMood: parsed.mood || defaults.sceneMood,
       sceneWeather: parsed.weather || defaults.sceneWeather,
       sceneMonologue: parsed.monologue || defaults.sceneMonologue,
+      sceneProps: props.length > 0 ? props : defaults.sceneProps,
     };
   } catch {
     return defaults;
@@ -90,6 +101,7 @@ export const maybeUpdateOfflineSceneStatus = async ({
     sceneMood: session.sceneMood || '平静自在',
     sceneWeather: session.sceneWeather || '微风和煦',
     sceneMonologue: session.sceneMonologue || '',
+    sceneProps: Array.isArray(session.sceneProps) ? session.sceneProps : [],
   };
 
   try {
@@ -113,16 +125,17 @@ export const maybeUpdateOfflineSceneStatus = async ({
 ${dialogueText || '（暂无对话）'}
 
 【任务】：
-请基于以上场景与对话氛围，输出你此刻（角色视角）的状态。必须是合法 JSON，包含三个字段：
+请基于以上场景与对话氛围，输出你此刻（角色视角）的状态。必须是合法 JSON，包含四个字段：
 - "mood": 角色此刻的心情，8字以内，例如"雀跃又有点紧张"；
 - "weather": 这个场景此刻的天气/环境氛围，10字以内，例如"傍晚微凉，风里有桂花香"；
-- "monologue": 角色此刻一句简短的内心独白，20字以内，第一人称，不要引号包裹。
+- "monologue": 角色此刻一句简短的内心独白，20字以内，第一人称，不要引号包裹；
+- "props": 这个场景里此刻比较有存在感的 1~3 件小道具或摆设，每个不超过6个字的字符串数组，例如 ["拿铁咖啡", "老式留声机"]，找不到合适的就给空数组 []。
 
 绝对禁止输出 Markdown 语法、禁止使用任何 Emoji，只输出纯 JSON。`;
 
     const rawText = await generateResponse([
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: '请给出你此刻的心情、天气与内心独白。' },
+      { role: 'user', content: '请给出你此刻的心情、天气、内心独白，以及场景里的小道具。' },
     ]);
 
     const statusFields = parseStatusResponse(rawText, defaults);
