@@ -961,18 +961,20 @@ export const DesktopPetWidget = () => {
             isDragging ? 'scale-95' : 'active:scale-90'
           }`}
           style={{
-            width: dockSide ? HANDLE_WIDTH : WIDGET_SIZE,
-            height: WIDGET_SIZE,
-            borderRadius: dockSide === 'left'
-              ? '0 18px 18px 0'
-              : dockSide === 'right'
-                ? '18px 0 0 18px'
-                : '9999px',
-            color: 'var(--text-main)',
-            backgroundColor: 'var(--card-bg)',
-            borderColor: 'var(--text-main)',
-            boxShadow: '0 10px 24px color-mix(in srgb, var(--text-main) 16%, transparent)',
-          }}
+  width: dockSide ? HANDLE_WIDTH : WIDGET_SIZE,
+  height: WIDGET_SIZE,
+  borderRadius: dockSide === 'left'
+    ? '0 18px 18px 0'
+    : dockSide === 'right'
+      ? '18px 0 0 18px'
+      : '9999px',
+  color: 'var(--text-main)',
+  backgroundColor: dockSide ? 'var(--card-bg)' : 'transparent',
+  borderColor: dockSide ? 'var(--text-main)' : 'transparent',
+  boxShadow: dockSide
+    ? '0 10px 24px color-mix(in srgb, var(--text-main) 16%, transparent)'
+    : 'none',
+}}
           aria-label={dockSide ? '展开桌宠' : (isMenuOpen ? '收起桌宠' : '打开桌宠')}
           title={character?.name || '桌宠'}
         >
