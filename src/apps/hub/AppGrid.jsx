@@ -14,9 +14,11 @@ import {
   listHomeWidgets,
   addHomeWidget,
   removeHomeWidget,
+  updateHomeWidgetConfig,
 } from './widgets/homeWidgetsStore';
 import { buildHomeWidgetItems, parseWidgetRecordId } from './widgets/buildHomeWidgetItems';
 import AddWidgetModal from './widgets/AddWidgetModal';
+import EditWidgetModal from './widgets/EditWidgetModal';
 import db from '../../db';
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
@@ -27,6 +29,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [widgets, setWidgets] = useState([]);
   const [isAddWidgetModalOpen, setIsAddWidgetModalOpen] = useState(false);
+  const [editingWidget, setEditingWidget] = useState(null);
   const nameMode = useAppNameDisplayMode();
 
   const reloadWidgets = useCallback(async () => {
@@ -96,9 +99,17 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
     [onOpenApp, nameMode, habitatCount, askCount, activeWorkflowCount]
   );
 
+  const handleOpenEditWidget = useCallback((widget) => {
+    setEditingWidget(widget);
+  }, []);
+
   const widgetItems = useMemo(
-    () => buildHomeWidgetItems(widgets, { onOpenApp }),
-    [widgets, onOpenApp]
+    () =>
+      buildHomeWidgetItems(widgets, {
+        onOpenApp,
+        onEditWidget: handleOpenEditWidget,
+      }),
+    [widgets, onOpenApp, handleOpenEditWidget]
   );
 
   // 应用图标 + 用户自己添加的小组件，混在同一个数组里参与排序
@@ -132,6 +143,15 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
       await addHomeWidget({ type, config });
       await reloadWidgets();
       setIsAddWidgetModalOpen(false);
+    },
+    [reloadWidgets]
+  );
+
+  const handleSaveWidgetConfig = useCallback(
+    async (widgetId, config) => {
+      await updateHomeWidgetConfig(widgetId, config);
+      await reloadWidgets();
+      setEditingWidget(null);
     },
     [reloadWidgets]
   );
@@ -232,6 +252,14 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
         <AddWidgetModal
           onAdd={handleAddWidget}
           onClose={() => setIsAddWidgetModalOpen(false)}
+        />
+      )}
+
+      {editingWidget && (
+        <EditWidgetModal
+          widget={editingWidget}
+          onSave={handleSaveWidgetConfig}
+          onClose={() => setEditingWidget(null)}
         />
       )}
     </div>

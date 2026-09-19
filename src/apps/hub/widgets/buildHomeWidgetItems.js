@@ -29,7 +29,7 @@ export const parseWidgetRecordId = (itemId) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-export const buildHomeWidgetItems = (widgetRecords, { onOpenApp }) =>
+export const buildHomeWidgetItems = (widgetRecords, { onOpenApp, onEditWidget }) =>
   widgetRecords
     .map((widget) => {
       const definition = WIDGET_TYPES[widget.type];
@@ -39,7 +39,7 @@ export const buildHomeWidgetItems = (widgetRecords, { onOpenApp }) =>
         id: toWidgetItemId(widget.id),
         colSpan: definition.colSpan,
         removable: true,
-        content: definition.renderContent({ widget, onOpenApp }),
+        content: definition.renderContent({ widget, onOpenApp, onEditWidget }),
       };
     })
     .filter(Boolean);
