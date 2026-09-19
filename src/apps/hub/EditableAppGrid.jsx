@@ -17,8 +17,9 @@
 // 排布规则；拖拽时"手指现在悬停在第几行第几列"这一步的换算逻辑在
 // gridLayout.js 里，两边保持一致。
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
+import { Plus, X } from 'lucide-react';
 import { computeGridLayout, findInsertionIndex, pointToCell } from './gridLayout';
 
 const COLUMNS = 2;
@@ -41,11 +42,51 @@ const remToPx = (rem) => {
 const sameOrder = (a, b) =>
   a.length === b.length && a.every((item, index) => item.id === b[index].id);
 
-export const EditableAppGrid = ({ items, onReorder, onExit }) => {
+export const EditableAppGrid = ({
+  items,
+  onReorder,
+  onExit,
+  onRemoveItem,
+  onRequestAddWidget,
+}) => {
   const [localItems, setLocalItems] = useState(items);
   const [draggingId, setDraggingId] = useState(null);
   const containerRef = useRef(null);
   const prefersReducedMotion = useReducedMotion();
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
+  // 编辑模式期间，如果通过"+"添加或删除了小组件，items 这个 prop
+  // 会跟着变，但正常拖拽过程中的实时排序（localItems）不应该被这个
+  // 同步打断。这里只在"items 里到底有哪些 id"这件事真正变化时才
+  // 去合并——用户手动拖出来的顺序会保留，新增的追加在最后，被删掉的
+  // 直接摘掉。纯粹的顺序变化（比如刚拖完一次、父组件把新顺序传回来）
+  // 不会触发这里，因为下面的 key 是排过序后比较的，只关心"集合"变了
+  // 没有。
+  const itemIdsKey = useMemo(
+    () => items.map((item) => item.id).sort().join('|'),
+    [items]
+  );
+
+  useEffect(() => {
+    const latestItems = itemsRef.current;
+
+    setLocalItems((current) => {
+      const currentIds = new Set(current.map((item) => item.id));
+      const nextIds = new Set(latestItems.map((item) => item.id));
+      const itemsById = new Map(latestItems.map((item) => [item.id, item]));
+
+      const kept = current
+        .filter((item) => nextIds.has(item.id))
+        .map((item) => itemsById.get(item.id) || item);
+
+      const added = latestItems.filter((item) => !currentIds.has(item.id));
+
+      return [...kept, ...added];
+    });
+    // itemIdsKey 变了才需要重新合并，latestItems 通过 ref 拿最新值即可
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemIdsKey]);
 
   // 每张卡片一个固定的抖动延迟，让所有卡片不是同步抖动，看起来更自然
   const jiggleDelays = useMemo(() => {
@@ -135,7 +176,7 @@ export const EditableAppGrid = ({ items, onReorder, onExit }) => {
         const jiggleDelay = jiggleDelays.get(item.id) || 0;
 
         return (
-                   <motion.div
+          <motion.div
             key={item.id}
             layout={!isDragging}
             drag
@@ -150,7 +191,7 @@ export const EditableAppGrid = ({ items, onReorder, onExit }) => {
                 ? { rotate: 0 }
                 : { rotate: [-JIGGLE_DEGREES, JIGGLE_DEGREES, -JIGGLE_DEGREES] }
             }
-                        transition={
+            transition={
               isDragging || prefersReducedMotion
                 ? { layout: { duration: 0.2, ease: 'easeOut' }, rotate: { duration: 0.15 } }
                 : {
@@ -173,18 +214,55 @@ export const EditableAppGrid = ({ items, onReorder, onExit }) => {
               borderRadius: '2rem',
             }}
           >
-            <div
-              onClickCapture={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-              }}
-              className="h-full"
-            >
-              {item.content}
+            <div className="relative h-full">
+              {/* 这一层专门吞掉点击，防止编辑模式下点到卡片本体触发跳转；
+                  删除角标是它的兄弟节点、不在这层里面，点击不会被一起吞掉 */}
+              <div
+                onClickCapture={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                className="h-full"
+              >
+                {item.content}
+              </div>
+
+              {item.removable && (
+                <button
+                  type="button"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onRemoveItem?.(item.id);
+                  }}
+                  aria-label="移除这个小组件"
+                  className="absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full shadow-md"
+                  style={{
+                    backgroundColor: 'var(--text-main)',
+                    color: 'var(--card-bg, #fff)',
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                </button>
+              )}
             </div>
           </motion.div>
         );
       })}
+
+      {/* 编辑模式末尾固定的"+"添加小组件入口，不参与拖拽排序 */}
+      <button
+        type="button"
+        onClick={onRequestAddWidget}
+        className="col-span-1 flex h-full flex-col items-center justify-center gap-1.5 rounded-[2rem] border border-dashed opacity-60 transition-opacity active:scale-[0.98] hover:opacity-100"
+        style={{ borderColor: 'var(--text-muted, var(--card-border))' }}
+      >
+        <Plus className="h-5 w-5" style={{ color: 'var(--text-main)' }} />
+        <span className="text-[10px] uppercase tracking-wider opacity-70">
+          添加小组件
+        </span>
+      </button>
     </div>
   );
 };

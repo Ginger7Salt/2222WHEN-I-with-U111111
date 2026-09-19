@@ -10,6 +10,13 @@ import EditableAppGrid from './EditableAppGrid';
 import buildAppGridItems from './appGridItems';
 import useAppNameDisplayMode from './useAppNameDisplayMode';
 import { applySavedOrder, loadAppGridOrder, saveAppGridOrder } from './appGridOrderStore';
+import {
+  listHomeWidgets,
+  addHomeWidget,
+  removeHomeWidget,
+} from './widgets/homeWidgetsStore';
+import { buildHomeWidgetItems, parseWidgetRecordId } from './widgets/buildHomeWidgetItems';
+import AddWidgetModal from './widgets/AddWidgetModal';
 import db from '../../db';
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
@@ -18,7 +25,18 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
   const [activeWorkflowCount, setActiveWorkflowCount] = useState(0);
   const [savedOrder, setSavedOrder] = useState([]);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [widgets, setWidgets] = useState([]);
+  const [isAddWidgetModalOpen, setIsAddWidgetModalOpen] = useState(false);
   const nameMode = useAppNameDisplayMode();
+
+  const reloadWidgets = useCallback(async () => {
+    const list = await listHomeWidgets();
+    setWidgets(list);
+  }, []);
+
+  useEffect(() => {
+    void reloadWidgets();
+  }, [reloadWidgets]);
 
   // 首页应用区自定义顺序：只在挂载时读一次，编辑模式里的实时排序
   // 变化走 setSavedOrder，不需要重复去读数据库。
@@ -78,10 +96,21 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
     [onOpenApp, nameMode, habitatCount, askCount, activeWorkflowCount]
   );
 
+  const widgetItems = useMemo(
+    () => buildHomeWidgetItems(widgets, { onOpenApp }),
+    [widgets, onOpenApp]
+  );
+
+  // 应用图标 + 用户自己添加的小组件，混在同一个数组里参与排序
+  const combinedItems = useMemo(
+    () => [...swiperItems, ...widgetItems],
+    [swiperItems, widgetItems]
+  );
+
   // 把保存过的自定义顺序套用到当前这一版的卡片定义上
   const orderedItems = useMemo(
-    () => applySavedOrder(swiperItems, savedOrder),
-    [swiperItems, savedOrder]
+    () => applySavedOrder(combinedItems, savedOrder),
+    [combinedItems, savedOrder]
   );
 
   const handleEnterEditMode = useCallback(() => {
@@ -97,6 +126,28 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
     setSavedOrder(newOrderIds);
     void saveAppGridOrder(newOrderIds);
   }, []);
+
+  const handleAddWidget = useCallback(
+    async ({ type, config }) => {
+      await addHomeWidget({ type, config });
+      await reloadWidgets();
+      setIsAddWidgetModalOpen(false);
+    },
+    [reloadWidgets]
+  );
+
+  const handleRemoveItem = useCallback(
+    async (itemId) => {
+      // 应用图标不能被移除，这里只处理小组件；parseWidgetRecordId
+      // 认不出的 id（也就是应用图标）会返回 null，安静忽略。
+      const widgetRecordId = parseWidgetRecordId(itemId);
+      if (widgetRecordId === null) return;
+
+      await removeHomeWidget(widgetRecordId);
+      await reloadWidgets();
+    },
+    [reloadWidgets]
+  );
 
   return (
     <div className="space-y-4">
@@ -167,6 +218,8 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           items={orderedItems}
           onReorder={handleReorder}
           onExit={handleExitEditMode}
+          onRemoveItem={handleRemoveItem}
+          onRequestAddWidget={() => setIsAddWidgetModalOpen(true)}
         />
       ) : (
         <AppSwiper items={orderedItems} onLongPressApp={handleEnterEditMode} />
@@ -174,6 +227,13 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
 
       <KeepAlivePlayer delay={delay + 160} />
       <PreloaderSelector delay={delay + 170} />
+
+      {isAddWidgetModalOpen && (
+        <AddWidgetModal
+          onAdd={handleAddWidget}
+          onClose={() => setIsAddWidgetModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

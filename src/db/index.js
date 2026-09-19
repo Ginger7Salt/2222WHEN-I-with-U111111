@@ -4280,6 +4280,26 @@ db.version(50).stores({
   }
 });
 
+// ============================================================
+// 【局部替换说明】
+// 位置：src/db/index.js
+// 操作：在现有 `db.version(50).stores({...});` 代码块之后、
+//       `export default db;` 之前，插入下面这一整段 `db.version(51)`。
+// 不要动 v50 及之前的任何代码，也不要删除 export default db; 之后的内容。
+// ============================================================
+
+db.version(51).stores({
+  // 首页小组件实例：用户在首页编辑模式里自己添加的小组件。
+  // type 对应 src/apps/hub/widgets/widgetRegistry.js 里的某个类型，
+  // config 是该类型自己的配置（比如纪念日倒数存 { importantDateId }）。
+  // 全新的表，没有旧数据需要迁移。
+  homeWidgets: `
+    ++id,
+    type,
+    createdAt
+  `,
+});
+
 export default db;
 
 
