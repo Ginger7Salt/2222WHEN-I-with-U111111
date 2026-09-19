@@ -20,7 +20,6 @@ import { getLocationPromptContext } from '../apps/location/locationPromptContext
 import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDirective';
 import { getReactionLabel } from '../apps/messages/reactionLabels';
 import { getActiveCallAwarenessNote } from './callService';
-
 import { proposeOfflineSessionByCharacter } from '../apps/offline/offlineSessionService';
 
 import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptContext';
@@ -377,6 +376,7 @@ export const parseAiResponseToMessages = async (text = '') => {
 };
 
 
+// 将各种类型的消息转化为 AI 大模型能理解的文本
 // 把用户对某条消息点过的反应，转成一句括号提示塞进喂给 AI 的历史
 // 文本里，让角色能"感知"到用户点了反应。只暴露用户自己点的那个
 // 反应，不回喂 AI 自己点过的反应——避免它对着自己的旧动作纠结。
@@ -480,7 +480,7 @@ export const buildHistoryContext = (messages) => {
       continue;
     }
 
-     let content = String(
+    let content = String(
       formatMsgContentForPrompt(message)
     ).trim();
 
@@ -983,7 +983,7 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
     ? `【核心总提示词（用户自定义指导方针）】:\n${userCustomPrompt}`
     : `【核心总提示词（默认方针）】:\n${chat.mode === 'rp' ? defaultRpPrompt : defaultRealPrompt}`;
 
-       const innerWorldPasswordContext = await getSafeInnerWorldPasswordContext({
+    const innerWorldPasswordContext = await getSafeInnerWorldPasswordContext({
     chatId,
     characterId: character.id,
     character,

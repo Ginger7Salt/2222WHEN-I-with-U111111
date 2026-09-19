@@ -393,7 +393,7 @@ const [hubBackground, setHubBackground] = useState('');
     startScheduledMessageScheduler();
     startParallelOrbitScheduler();
     startWorkflowScheduler();
-       startOfflineSessionScheduler();
+    startOfflineSessionScheduler();
     startOfflineCountdownLockscreenScheduler();
     startRhythmScheduler();
     startCallScheduler();
@@ -416,6 +416,7 @@ const [hubBackground, setHubBackground] = useState('');
         stopOfflineCountdownLockscreenScheduler();
     stopSnapshotGlobalScheduler();
     stopRhythmScheduler();
+    stopCallScheduler();
        stopArchiveScheduler();
   };
 }, []);
@@ -807,6 +808,7 @@ const [hubBackground, setHubBackground] = useState('');
       <DesktopPetWidget />
 
       <CallOverlayHost />
+
                   <div
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden transition-colors duration-700"
         style={{

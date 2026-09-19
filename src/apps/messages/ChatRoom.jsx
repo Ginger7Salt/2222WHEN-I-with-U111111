@@ -23,6 +23,7 @@ import {
   Plus,
   PawPrint,
   Ticket,
+  Phone,
 } from 'lucide-react';
 
 import {
@@ -170,6 +171,7 @@ export const ChatRoom = ({
   const [showBubbleCustomizer, setShowBubbleCustomizer] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
   const [showScheduledArchive, setShowScheduledArchive] = useState(false);
+  const [showCallModeMenu, setShowCallModeMenu] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
@@ -802,7 +804,7 @@ useLayoutEffect(() => {
       updatedAt: new Date().toISOString(),
     });
 
-       void checkForCrossChatCheckIn({
+    void checkForCrossChatCheckIn({
       activeChatId: chatId,
       onDelivered: (delivery) => {
         setCheckInDelivery(delivery);
@@ -894,13 +896,13 @@ useLayoutEffect(() => {
       previous.filter((message) => message.id !== messageId)
     ));
 
-       loadedMessageCountRef.current = Math.max(
+    loadedMessageCountRef.current = Math.max(
       0,
       loadedMessageCountRef.current - 1,
     );
   }, []);
 
-   const handleStartCall = useCallback((mode) => {
+  const handleStartCall = useCallback((mode) => {
     if (!character?.id) return;
     void startOutgoingCall({ chatId, characterId: character.id, mode });
   }, [chatId, character]);
@@ -1235,6 +1237,66 @@ useLayoutEffect(() => {
           </div>
 
                  <div className="flex items-center gap-2">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowCallModeMenu((previous) => !previous)}
+                className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
+                style={{
+                  background: 'var(--control-soft-bg)',
+                  color: 'var(--text-main)',
+                }}
+                title="发起语音通话"
+                aria-label="发起语音通话"
+              >
+                <Phone className="h-4 w-4" />
+              </button>
+
+              {showCallModeMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setShowCallModeMenu(false)}
+                  />
+
+                  <div
+                    className="absolute right-0 top-full z-40 mt-1.5 w-40 overflow-hidden rounded-2xl py-1 shadow-xl"
+                    style={{
+                      background: 'var(--card-bg-gradient)',
+                      color: 'var(--text-main)',
+                      border: '1px solid var(--card-border)',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCallModeMenu(false);
+                        handleStartCall('text');
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                    >
+                      <Phone className="h-4 w-4" />
+                      <span>文字语气通话</span>
+                    </button>
+
+                    {isRealVoiceAvailableForCharacter(character) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCallModeMenu(false);
+                          handleStartCall('real');
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Volume2 className="h-4 w-4" />
+                        <span>真实语音通话</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={() => setShowScheduledArchive(true)}
@@ -1261,6 +1323,8 @@ useLayoutEffect(() => {
           chat={chat}
           onOpenSettings={onOpenCharacterEditor}
           onSaveSummary={handleSaveSummary}
+          onStartCall={handleStartCall}
+          realVoiceAvailable={isRealVoiceAvailableForCharacter(character)}
         />
       </header>
 
@@ -1277,14 +1341,14 @@ useLayoutEffect(() => {
           activeUserName={activeUserName}
           isAiTyping={isAiTyping}
           mcpTrace={mcpTrace}
-                    typingText={chat.typingText || ''}
+          typingText={chat.typingText || ''}
           typingStyle={chat.typingStyle || 'default'}
           hasMoreOlderMessages={hasMoreOlderMessages}
           onReroll={handleRerollMessage}
           onDelete={handleDeleteMessage}
           onQuote={setQuotedMsg}
           onSwitchVersion={handleSwitchVersion}
-                                    onResolvedInteraction={loadChatData}
+                   onResolvedInteraction={loadChatData}
           onEnterOfflineScene={(sessionId) => setActiveOfflineSessionId(sessionId)}
           onToggleReaction={handleToggleReaction}
         />
