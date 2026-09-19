@@ -135,9 +135,9 @@ export const EditableAppGrid = ({ items, onReorder, onExit }) => {
         const jiggleDelay = jiggleDelays.get(item.id) || 0;
 
         return (
-          <motion.div
+                   <motion.div
             key={item.id}
-            layout
+            layout={!isDragging}
             drag
             dragMomentum={false}
             dragElastic={0}
