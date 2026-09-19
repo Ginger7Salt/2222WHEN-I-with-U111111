@@ -120,6 +120,22 @@ const updateTurn = async ({ messageId, turnId, patch }) => {
   dispatchCallStateChanged();
 };
 
+// 显式的"对方正在想怎么回"标记，写进 metadata 里，而不是让 UI 自己
+// 猜（比如"最后一条是用户轮次就当作在思考"）——开场白、用户发言之后
+// 都要经过这里，单一出口，UI 不用关心是哪种情况触发的。
+const setAiThinking = async ({ messageId, aiThinking }) => {
+  await db.transaction('rw', db.messages, async () => {
+    const message = await db.messages.get(messageId);
+    if (!message) return;
+
+    await db.messages.update(messageId, {
+      metadata: { ...message.metadata, aiThinking },
+    });
+  });
+
+  dispatchCallStateChanged();
+};
+
 const fetchAiChatCompletion = async (apiConfig, chatMessages, maxTokens = 160) => {
   const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
 
@@ -191,66 +207,74 @@ const generateCallReply = async ({ messageId }) => {
     return;
   }
 
-  const character = await db.characters.get(message.characterId);
-  if (!character) return;
-
-  const apiSettings = await db.settings.get('apiConfig');
-  const apiConfig = apiSettings?.value || {};
-  if (!apiConfig.baseUrl || !apiConfig.apiKey) return;
-
-  const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
-  const turns = Array.isArray(message.metadata.turns) ? message.metadata.turns : [];
-  const isOpeningLine = turns.length === 0;
-
-  let systemPrompt = buildCallSystemPrompt({ character, worldBookText, extraNotesText });
-
-  if (isOpeningLine) {
-    systemPrompt += '\n\n现在电话刚刚接通，请你先开口说第一句话（比如打招呼，或者说明这通电话想说的事）。';
-  }
-
-  const chatMessages = [
-    { role: 'system', content: systemPrompt },
-    ...turns.slice(-16).map((turn) => ({
-      role: turn.by === 'user' ? 'user' : 'assistant',
-      content: turn.content,
-    })),
-  ];
-
-  let replyText = '';
+  await setAiThinking({ messageId, aiThinking: true });
 
   try {
-    replyText = await fetchAiChatCompletion(apiConfig, chatMessages);
-  } catch (error) {
-    console.error('[callService] 生成通话回复失败：', error);
-    return;
-  }
+    const character = await db.characters.get(message.characterId);
+    if (!character) return;
 
-  if (!replyText) return;
+    const apiSettings = await db.settings.get('apiConfig');
+    const apiConfig = apiSettings?.value || {};
+    if (!apiConfig.baseUrl || !apiConfig.apiKey) return;
 
-  const mode = message.metadata.mode;
+    const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
+    const turns = Array.isArray(message.metadata.turns) ? message.metadata.turns : [];
+    const isOpeningLine = turns.length === 0;
 
-  const aiTurn = {
-    id: makeTurnId(),
-    by: 'ai',
-    content: replyText,
-    mode,
-    audioStatus: mode === 'real' ? 'pending' : null,
-    audio: null,
-    at: new Date().toISOString(),
-  };
+    let systemPrompt = buildCallSystemPrompt({ character, worldBookText, extraNotesText });
 
-  await appendTurn({ messageId, turn: aiTurn });
+    if (isOpeningLine) {
+      systemPrompt += '\n\n现在电话刚刚接通，请你先开口说第一句话（比如打招呼，或者说明这通电话想说的事）。';
+    }
 
-  if (mode === 'real') {
-    const synthesized = await synthesizeTurnAudio(character, replyText);
+    const chatMessages = [
+      { role: 'system', content: systemPrompt },
+      ...turns.slice(-16).map((turn) => ({
+        role: turn.by === 'user' ? 'user' : 'assistant',
+        content: turn.content,
+      })),
+    ];
 
-    await updateTurn({
-      messageId,
-      turnId: aiTurn.id,
-      patch: synthesized
-        ? { audioStatus: 'ready', audio: synthesized }
-        : { audioStatus: 'failed', audio: null },
-    });
+    let replyText = '';
+
+    try {
+      replyText = await fetchAiChatCompletion(apiConfig, chatMessages);
+    } catch (error) {
+      console.error('[callService] 生成通话回复失败：', error);
+      return;
+    }
+
+    if (!replyText) return;
+
+    const mode = message.metadata.mode;
+
+    const aiTurn = {
+      id: makeTurnId(),
+      by: 'ai',
+      content: replyText,
+      mode,
+      audioStatus: mode === 'real' ? 'pending' : null,
+      audio: null,
+      at: new Date().toISOString(),
+    };
+
+    await appendTurn({ messageId, turn: aiTurn });
+
+    if (mode === 'real') {
+      const synthesized = await synthesizeTurnAudio(character, replyText);
+
+      await updateTurn({
+        messageId,
+        turnId: aiTurn.id,
+        patch: synthesized
+          ? { audioStatus: 'ready', audio: synthesized }
+          : { audioStatus: 'failed', audio: null },
+      });
+    }
+  } finally {
+    // 无论成功、提前 return 还是抛异常，"正在思考"的状态都要收掉，
+    // 不然一次失败的请求会让打字指示器永远转下去。
+    await setAiThinking({ messageId, aiThinking: false });
   }
 };
 
@@ -314,6 +338,7 @@ export const startOutgoingCall = async ({ chatId, characterId, mode }) => {
       connectedAt: null,
       endedAt: null,
       declined: false,
+      aiThinking: false,
       turns: [],
     },
     isRead: true,
@@ -354,6 +379,7 @@ export const startIncomingCall = async ({ chatId, characterId }) => {
       connectedAt: null,
       endedAt: null,
       declined: false,
+      aiThinking: false,
       turns: [],
     },
     isRead: false,
