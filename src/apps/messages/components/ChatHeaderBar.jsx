@@ -7,13 +7,23 @@ import {
   Sparkles,
   Loader2,
   Radio,
-  ListOrdered
+  ListOrdered,
+  Phone,
+  Volume2
 } from 'lucide-react';
 import { subscribeSummaryStatus } from '../../../services/aiService';
 
-export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }) => {
+export const ChatHeaderBar = ({
+  character,
+  chat,
+  onOpenSettings,
+  onSaveSummary,
+  onStartCall,
+  realVoiceAvailable,
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [showCallModeMenu, setShowCallModeMenu] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeSummaryStatus(({ chatId, isSummarizing: nextIsSummarizing }) => {
@@ -314,6 +324,61 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
             </div>
 
             <div className="flex items-center gap-1.5">
+              {onStartCall && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowCallModeMenu((previous) => !previous)}
+                    className="rounded-full border p-2 transition-all active:scale-95 hover:opacity-80"
+                    style={{
+                      background: 'var(--control-soft-bg)',
+                      borderColor: 'var(--divider)',
+                      color: 'var(--text-main)'
+                    }}
+                    title="发起语音通话"
+                    aria-label="发起语音通话"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                  </button>
+
+                  {showCallModeMenu && (
+                    <div
+                      className="absolute right-0 top-full z-10 mt-1.5 w-40 overflow-hidden rounded-xl border shadow-lg"
+                      style={{
+                        background: 'var(--card-bg-gradient)',
+                        borderColor: 'var(--card-border)'
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCallModeMenu(false);
+                          onStartCall('text');
+                        }}
+                        className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-[11px] hover:opacity-80"
+                      >
+                        <Phone className="h-3 w-3" />
+                        文字语气通话
+                      </button>
+
+                      {realVoiceAvailable && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCallModeMenu(false);
+                            onStartCall('real');
+                          }}
+                          className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-[11px] hover:opacity-80"
+                        >
+                          <Volume2 className="h-3 w-3" />
+                          真实语音通话
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={onOpenSettings}

@@ -43,6 +43,11 @@ import {
 import { maybeGenerateAiReaction } from '../../services/messageReactionService';
 
 import {
+  startOutgoingCall,
+  isRealVoiceAvailableForCharacter,
+} from '../../services/callService';
+
+import {
   recordAlmanacEvent,
   ALMANAC_EVENT_TYPES,
 } from '../almanac/services/almanacService';
@@ -894,6 +899,11 @@ useLayoutEffect(() => {
       loadedMessageCountRef.current - 1,
     );
   }, []);
+
+   const handleStartCall = useCallback((mode) => {
+    if (!character?.id) return;
+    void startOutgoingCall({ chatId, characterId: character.id, mode });
+  }, [chatId, character]);
 
   const handleToggleReaction = useCallback(async (messageId, typeId) => {
     const target = await db.messages.get(messageId);

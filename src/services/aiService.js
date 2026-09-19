@@ -19,6 +19,7 @@ import {
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
 import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDirective';
 import { getReactionLabel } from '../apps/messages/reactionLabels';
+import { getActiveCallAwarenessNote } from './callService';
 
 import { proposeOfflineSessionByCharacter } from '../apps/offline/offlineSessionService';
 
@@ -982,11 +983,13 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
     ? `【核心总提示词（用户自定义指导方针）】:\n${userCustomPrompt}`
     : `【核心总提示词（默认方针）】:\n${chat.mode === 'rp' ? defaultRpPrompt : defaultRealPrompt}`;
 
-    const innerWorldPasswordContext = await getSafeInnerWorldPasswordContext({
+       const innerWorldPasswordContext = await getSafeInnerWorldPasswordContext({
     chatId,
     characterId: character.id,
     character,
   });
+
+  const activeCallNote = await getActiveCallAwarenessNote(chatId);
 
   return `${finalBasePrompt}
 
@@ -1102,7 +1105,7 @@ ${stickerInstruction}
 4. 不是每次回复都需要触发，只有在情境自然、符合角色性格与当前关系进展时才使用，绝大多数回复不应使用该指令。
 5. 该指令不会出现在用户可见的正文中。
 6. 用户是否同意这个时间由用户自行决定，你只负责提出邀约。
-
+${activeCallNote}
 
 `;
 };

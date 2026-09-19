@@ -15,6 +15,7 @@ import {
 import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
 import OfflineInviteCard from '../../offline/OfflineInviteCard';
 import RealVoiceCard from '../../../features/real-voice/components/RealVoiceCard';
+import CallLogEntry from './CallLogEntry';
 
 import LocationCard from './cards/LocationCard';
 
@@ -89,7 +90,8 @@ const MessageRow = ({
 
   const canReact = !isErrorMsg
     && msg.type !== 'interaction'
-    && msg.type !== 'offline_invite';
+    && msg.type !== 'offline_invite'
+    && msg.type !== 'call';
 
   // 长按消息气泡弹出反应选择面板：用 pointer 事件统一处理鼠标和
   // 触屏，按住超过 REACTION_LONG_PRESS_MS 才算长按，普通点击（比如
@@ -250,6 +252,8 @@ const MessageRow = ({
               onEnterScene={onEnterOfflineScene}
               onRefresh={onResolvedInteraction}
             />
+          ) : msg.type === 'call' ? (
+            <CallLogEntry message={msg} isUser={isUser} />
           ) : (
             <div
               className={`relative p-3 shadow-sm transition-all chat-font ${
@@ -394,7 +398,7 @@ const MessageRow = ({
             />
           )}
 
-          {/*  Apple 日历专属卡片 */}
+          {/*  Apple 日历专属卡片 */}
           {!isUser && messageOrderCard?.kind === 'apple_calendar' && (
             <AppleCalendarCard
               card={messageOrderCard}
