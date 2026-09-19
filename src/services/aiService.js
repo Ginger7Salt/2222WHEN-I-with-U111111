@@ -1,3 +1,4 @@
+import Dexie from 'dexie';
 import db from '../db';
 import { updateLockscreenMediaSession } from './lockscreenService';
 import {
@@ -52,7 +53,27 @@ import {
 
 
 
-
+/*
+ * 只靠 messages 表的 [chatId+timestamp] 复合索引，从后往前取最近的一批
+ * 消息，而不是把这个聊天框的全部历史都读出来、在内存里排序、再截尾。
+ * 后一种写法（db.messages.where('chatId').equals(chatId).sortBy(...)）
+ * 的开销跟"这个聊天框总共聊了多少条"成正比——聊得越久，越到后面每次
+ * 发消息、每次触发主动消息/自动摘要就越卡，因为每次都要把全部历史
+ * 读一遍才能拿到最后那十几条。
+ *
+ * 这里改成直接从复合索引里倒着取够 limit 条就停，读取量跟聊天框总长度
+ * 无关，返回顺序仍然是按时间从旧到新（跟原来 sortBy('timestamp') 的
+ * 结果顺序一致），调用方不用跟着改。
+ */
+const getRecentChatMessages = (chatId, limit) => (
+  db.messages
+    .where('[chatId+timestamp]')
+    .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
+    .reverse()
+    .limit(limit)
+    .toArray()
+    .then((rows) => rows.reverse())
+);
 
 const listeners = new Set();
 const summaryStatusListeners = new Set();
@@ -1929,10 +1950,8 @@ if (character.voiceProfile?.enabled && character.voiceProfile?.aiMaySendVoice) {
 }
 
 
-    const recentMsgs = (await db.messages
-  .where('chatId')
-  .equals(chatId)
-  .sortBy('timestamp')).filter((m) => m.mode !== 'offline');
+    const recentMsgs = (await getRecentChatMessages(chatId, 60))
+      .filter((m) => m.mode !== 'offline');
 const userReturnContext = buildUserReturnContext(recentMsgs);
 
 const historyContext = buildHistoryContext(
@@ -2619,7 +2638,7 @@ export const generateCompanionProactiveMessage = async (chatId, options = {}) =>
     const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
 
     // 1. 获取近期聊天记录上下文（获取最后 15 条消息作为短期记忆）
-      const msgs = (await db.messages.where('chatId').equals(chatId).sortBy('timestamp')).filter((m) => m.mode !== 'offline');
+           const msgs = (await getRecentChatMessages(chatId, 60)).filter((m) => m.mode !== 'offline');
     const recentMessages = msgs.slice(-15);
     
     // 如果最后一条消息已经是 AI 刚才发的，或者距离最后一条消息发送还没有过去 5 分钟，
@@ -2938,8 +2957,8 @@ const checkAndTriggerAutoSummary = async (chatId, character, apiConfig) => {
     try {
       if (apiConfig.baseUrl && apiConfig.apiKey) {
         const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
-        const msgs = await db.messages.where('chatId').equals(chatId).sortBy('timestamp');
-        const recentHistory = msgs.slice(-20).map(m => `${m.sender === 'user' ? '用户' : character.name}: ${m.content}`).join('\n');
+               const msgs = await getRecentChatMessages(chatId, 20);
+        const recentHistory = msgs.map(m => `${m.sender === 'user' ? '用户' : character.name}: ${m.content}`).join('\n');
 
         const summaryRes = await fetch(`${baseUrl}/chat/completions`, {
           method: 'POST',
