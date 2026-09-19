@@ -59,6 +59,28 @@
   white-space: pre;
 }
 
+/* 重 roll / 切换版本的小按钮：常驻但很淡，不抢"歌词"本身的注意力，
+   点按时才明显起来。 */
+.call-active__turn-controls {
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+}
+
+.call-active__turn-controls:active {
+  opacity: 0.9;
+}
+
+.call-active__turn-control-btn {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.12);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.call-active__turn-control-btn:active:not(:disabled) {
+  transform: scale(0.88);
+  background: rgba(255, 255, 255, 0.22);
+}
+
 .call-active__thinking {
   padding-top: 0.25rem;
 }

@@ -21,6 +21,38 @@ const makeTurnId = () => (
   `turn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 );
 
+const sleep = (ms) => new Promise((resolve) => {
+  window.setTimeout(resolve, ms);
+});
+
+// AI 一次回复里如果想连着说好几句短话，用主聊天室同款的 "|||" 分隔符
+// 隔开——parseAiResponseToMessages 里对普通文字消息就是这么拆的，
+// 这里复用同一个约定，拆出来的每一段各自变成一条独立的通话轮次。
+const splitCallReplySegments = (text) => (
+  String(text || '')
+    .split(/\s*\|\|\|\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+);
+
+// 连发多条时，让"上一句"有足够时间在屏幕上把字打完，再出现下一句，
+// 不然歌词流动区会因为"最新轮次"瞬间切换而把上一句直接截断显示。
+// 这里只是按字数估个大概时长，不需要跟 CallScreen.jsx 里打字机的
+// 速度精确对齐。
+const CALL_TURN_READ_MS_PER_CHAR = 70;
+const CALL_TURN_MIN_READ_DELAY_MS = 900;
+const CALL_TURN_MAX_READ_DELAY_MS = 4200;
+const CALL_TURN_BREATH_PAUSE_MS = 550;
+
+const estimateCallTurnReadDelay = (text) => {
+  const length = String(text || '').length;
+
+  return Math.min(
+    CALL_TURN_MAX_READ_DELAY_MS,
+    Math.max(CALL_TURN_MIN_READ_DELAY_MS, length * CALL_TURN_READ_MS_PER_CHAR),
+  );
+};
+
 const dispatchCallStateChanged = () => {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent('call-state-changed'));
@@ -171,10 +203,23 @@ const buildCallSystemPrompt = ({ character, worldBookText, extraNotesText }) => 
 - 每次只说一两句话，像真实电话里那样简短、口语化、自然；
 - 不要使用任何文字表情、颜文字，也不要写"*笑了笑*"这类动作描写——电话里对方只能"听到"声音，看不到文字动作；
 - 不要输出任何格式符号（markdown、列表、引号包裹整句等），直接说人话；
+- 如果这次想像真实电话里那样连着说两三句短话（比如先应一声、停顿一下再说重点），可以用 "|||" 把每句隔开，我会把它们当成一句一句依次说出来；不需要分开就不要用，不要随意堆砌；
 - 保持你一贯的人设语气和说话习惯。
 
 请直接输出这句话本身，不要加任何前缀、解释或旁白。
 `;
+
+// 把系统提示词 + 一段轮次历史拼成 chat completion 需要的 messages
+// 数组。generateCallReply（说下一句）和 rerollCallTurn（重新说某一句）
+// 共用这同一个拼装逻辑，保证"重roll出来的话"和"正常往下说的话"是在
+// 同一套上下文规则下生成的。
+const buildCallChatMessages = ({ systemPrompt, contextTurns }) => ([
+  { role: 'system', content: systemPrompt },
+  ...contextTurns.slice(-16).map((turn) => ({
+    role: turn.by === 'user' ? 'user' : 'assistant',
+    content: turn.content,
+  })),
+]);
 
 const synthesizeTurnAudio = async (character, text) => {
   const profile = normalizeVoiceProfile(character?.voiceProfile);
@@ -228,13 +273,7 @@ const generateCallReply = async ({ messageId }) => {
       systemPrompt += '\n\n现在电话刚刚接通，请你先开口说第一句话（比如打招呼，或者说明这通电话想说的事）。';
     }
 
-    const chatMessages = [
-      { role: 'system', content: systemPrompt },
-      ...turns.slice(-16).map((turn) => ({
-        role: turn.by === 'user' ? 'user' : 'assistant',
-        content: turn.content,
-      })),
-    ];
+    const chatMessages = buildCallChatMessages({ systemPrompt, contextTurns: turns });
 
     let replyText = '';
 
@@ -245,32 +284,50 @@ const generateCallReply = async ({ messageId }) => {
       return;
     }
 
-    if (!replyText) return;
+    const segments = splitCallReplySegments(replyText);
+    if (segments.length === 0) return;
 
     const mode = message.metadata.mode;
 
-    const aiTurn = {
-      id: makeTurnId(),
-      by: 'ai',
-      content: replyText,
-      mode,
-      audioStatus: mode === 'real' ? 'pending' : null,
-      audio: null,
-      at: new Date().toISOString(),
-    };
+    // 一次回复可能被 "|||" 拆成好几句——依次追加成独立的轮次，句间
+    // 留一小段"喘气"停顿和按字数估算的阅读时长，让歌词流动区一句
+    // 一句地浮现，而不是一次性全部糊在一起。
+    for (let index = 0; index < segments.length; index += 1) {
+      if (index > 0) {
+        await setAiThinking({ messageId, aiThinking: true });
+        await sleep(CALL_TURN_BREATH_PAUSE_MS);
+      }
 
-    await appendTurn({ messageId, turn: aiTurn });
+      const segment = segments[index];
 
-    if (mode === 'real') {
-      const synthesized = await synthesizeTurnAudio(character, replyText);
+      const aiTurn = {
+        id: makeTurnId(),
+        by: 'ai',
+        content: segment,
+        mode,
+        audioStatus: mode === 'real' ? 'pending' : null,
+        audio: null,
+        at: new Date().toISOString(),
+      };
 
-      await updateTurn({
-        messageId,
-        turnId: aiTurn.id,
-        patch: synthesized
-          ? { audioStatus: 'ready', audio: synthesized }
-          : { audioStatus: 'failed', audio: null },
-      });
+      await appendTurn({ messageId, turn: aiTurn });
+      await setAiThinking({ messageId, aiThinking: false });
+
+      if (mode === 'real') {
+        const synthesized = await synthesizeTurnAudio(character, segment);
+
+        await updateTurn({
+          messageId,
+          turnId: aiTurn.id,
+          patch: synthesized
+            ? { audioStatus: 'ready', audio: synthesized }
+            : { audioStatus: 'failed', audio: null },
+        });
+      }
+
+      if (index < segments.length - 1) {
+        await sleep(estimateCallTurnReadDelay(segment));
+      }
     }
   } finally {
     // 无论成功、提前 return 还是抛异常，"正在思考"的状态都要收掉，
@@ -299,6 +356,183 @@ export const sendCallTurn = async ({ messageId, text }) => {
   await appendTurn({ messageId, turn: userTurn });
 
   void generateCallReply({ messageId });
+};
+
+/**
+ * 重 roll 通话里的某一句 AI 轮次——跟主聊天室的 rerollAiResponse 是
+ * 同一个思路：只用这句话之前的上下文重新生成一遍，不管它后面还有
+ * 没有别的轮次，生成结果作为新版本追加进这条轮次自己的 versions
+ * 数组，可以用 switchCallTurnVersion 来回切换，原来那句话不会丢。
+ */
+export const rerollCallTurn = async ({ messageId, turnId }) => {
+  const message = await db.messages.get(messageId);
+  if (!message || message.type !== 'call') return;
+
+  const turns = Array.isArray(message.metadata?.turns) ? message.metadata.turns : [];
+  const turnIndex = turns.findIndex((turn) => turn.id === turnId);
+  const targetTurn = turns[turnIndex];
+
+  if (!targetTurn || targetTurn.by !== 'ai') return;
+
+  const character = await db.characters.get(message.characterId);
+  if (!character) return;
+
+  const apiSettings = await db.settings.get('apiConfig');
+  const apiConfig = apiSettings?.value || {};
+  if (!apiConfig.baseUrl || !apiConfig.apiKey) return;
+
+  const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
+  const isOpeningLine = turnIndex === 0;
+
+  let systemPrompt = buildCallSystemPrompt({ character, worldBookText, extraNotesText });
+
+  if (isOpeningLine) {
+    systemPrompt += '\n\n现在电话刚刚接通，请你先开口说第一句话（比如打招呼，或者说明这通电话想说的事）。';
+  }
+
+  const contextTurns = turns.slice(0, turnIndex);
+  const chatMessages = buildCallChatMessages({ systemPrompt, contextTurns });
+
+  let replyText = '';
+
+  try {
+    replyText = await fetchAiChatCompletion(apiConfig, chatMessages);
+  } catch (error) {
+    console.error('[callService] 重 roll 通话轮次失败：', error);
+    return;
+  }
+
+  // 重 roll 只针对这一句轮次本身，就算模型这次又用 "|||" 说了好几句，
+  // 也只取第一句——真想让它连着说好几句，应该重 roll 之后再手动继续
+  // 通话，而不是让一次重 roll 意外多出好几条新轮次。
+  const [newContent] = splitCallReplySegments(replyText);
+  if (!newContent) return;
+
+  const mode = targetTurn.mode;
+  const nowIso = new Date().toISOString();
+
+  const existingVersions = Array.isArray(targetTurn.versions) && targetTurn.versions.length > 0
+    ? targetTurn.versions
+    : [{
+      content: targetTurn.content,
+      mode: targetTurn.mode,
+      audioStatus: targetTurn.audioStatus,
+      audio: targetTurn.audio,
+      at: targetTurn.at,
+    }];
+
+  const newVersion = {
+    content: newContent,
+    mode,
+    audioStatus: mode === 'real' ? 'pending' : null,
+    audio: null,
+    at: nowIso,
+  };
+
+  const nextVersions = [...existingVersions, newVersion];
+  const nextIndex = nextVersions.length - 1;
+
+  await updateTurn({
+    messageId,
+    turnId,
+    patch: {
+      content: newVersion.content,
+      audioStatus: newVersion.audioStatus,
+      audio: newVersion.audio,
+      versions: nextVersions,
+      currentVersionIndex: nextIndex,
+    },
+  });
+
+  if (mode === 'real') {
+    const synthesized = await synthesizeTurnAudio(character, newContent);
+
+    await db.transaction('rw', db.messages, async () => {
+      const latestMessage = await db.messages.get(messageId);
+      if (!latestMessage) return;
+
+      const latestTurns = Array.isArray(latestMessage.metadata?.turns)
+        ? latestMessage.metadata.turns
+        : [];
+
+      const nextTurns = latestTurns.map((turn) => {
+        if (turn.id !== turnId) return turn;
+
+        const versions = Array.isArray(turn.versions) ? [...turn.versions] : [];
+
+        if (versions[nextIndex]) {
+          versions[nextIndex] = {
+            ...versions[nextIndex],
+            audioStatus: synthesized ? 'ready' : 'failed',
+            audio: synthesized || null,
+          };
+        }
+
+        // 只有用户这段时间里没有手动切换到别的版本，才把顶层（当前
+        // 展示用）字段也一起补上语音——不然合成慢一点，用户已经翻回
+        // 旧版本了，语音反而会安错地方。
+        const isStillOnThisVersion = (
+          (turn.currentVersionIndex ?? versions.length - 1) === nextIndex
+        );
+
+        return {
+          ...turn,
+          versions,
+          ...(isStillOnThisVersion
+            ? { audioStatus: synthesized ? 'ready' : 'failed', audio: synthesized || null }
+            : {}),
+        };
+      });
+
+      await db.messages.update(messageId, {
+        metadata: { ...latestMessage.metadata, turns: nextTurns },
+      });
+    });
+
+    dispatchCallStateChanged();
+  }
+};
+
+/**
+ * 在某一句轮次已经有的多个版本之间切换（上一条 / 下一条），跟主聊天室
+ * 的 handleSwitchVersion 是同一个思路。
+ */
+export const switchCallTurnVersion = async ({ messageId, turnId, direction }) => {
+  await db.transaction('rw', db.messages, async () => {
+    const message = await db.messages.get(messageId);
+    if (!message) return;
+
+    const turns = Array.isArray(message.metadata?.turns) ? message.metadata.turns : [];
+
+    const nextTurns = turns.map((turn) => {
+      if (turn.id !== turnId) return turn;
+
+      const versions = Array.isArray(turn.versions) ? turn.versions : [];
+      if (versions.length <= 1) return turn;
+
+      const currentIndex = turn.currentVersionIndex ?? (versions.length - 1);
+      const nextIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+
+      if (nextIndex < 0 || nextIndex >= versions.length) return turn;
+
+      const targetVersion = versions[nextIndex];
+
+      return {
+        ...turn,
+        content: targetVersion.content,
+        mode: targetVersion.mode,
+        audioStatus: targetVersion.audioStatus,
+        audio: targetVersion.audio,
+        currentVersionIndex: nextIndex,
+      };
+    });
+
+    await db.messages.update(messageId, {
+      metadata: { ...message.metadata, turns: nextTurns },
+    });
+  });
+
+  dispatchCallStateChanged();
 };
 
 const connectOutgoingCall = async ({ messageId }) => {
@@ -502,13 +736,35 @@ export const setAudioRetention = async ({ messageId, keepAudio }) => {
 
     const turns = Array.isArray(message.metadata?.turns) ? message.metadata.turns : [];
 
+    // 重 roll 之后一句轮次可能带着好几个版本，每个版本都可能各自
+    // 合成过语音——"只留文字、删掉语音"要把每个版本里的音频都清掉，
+    // 不能只清当前显示的这一个，不然切回旧版本时语音又冒出来了。
+    const stripTurnAudio = (turn) => {
+      const strippedVersions = Array.isArray(turn.versions)
+        ? turn.versions.map((version) => (
+          version.audio
+            ? {
+              ...version,
+              audio: null,
+              audioStatus: version.audioStatus === 'ready' ? 'removed' : version.audioStatus,
+            }
+            : version
+        ))
+        : turn.versions;
+
+      if (!turn.audio && strippedVersions === turn.versions) return turn;
+
+      return {
+        ...turn,
+        audio: null,
+        audioStatus: turn.audioStatus === 'ready' ? 'removed' : turn.audioStatus,
+        ...(strippedVersions ? { versions: strippedVersions } : {}),
+      };
+    };
+
     const nextTurns = keepAudio
       ? turns
-      : turns.map((turn) => (
-        turn.audio
-          ? { ...turn, audio: null, audioStatus: turn.audioStatus === 'ready' ? 'removed' : turn.audioStatus }
-          : turn
-      ));
+      : turns.map(stripTurnAudio);
 
     await db.messages.update(messageId, {
       metadata: {

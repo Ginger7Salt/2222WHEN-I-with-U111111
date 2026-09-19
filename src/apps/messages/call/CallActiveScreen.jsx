@@ -1,5 +1,5 @@
-import React from 'react';
-import { Loader2, PhoneOff, Send, Volume2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, Loader2, PhoneOff, RotateCw, Send, Volume2 } from 'lucide-react';
 
 import './call-active-screen.css';
 
@@ -23,7 +23,28 @@ const CallActiveScreen = ({
   onSend,
   isSending,
   onHangUp,
-}) => (
+  onRerollTurn,
+  onSwitchTurnVersion,
+}) => {
+  // 重 roll 是异步的（要等一次 AI 请求），这里只用本地状态标记"当前
+  // 正在重 roll 哪一句"，防止同一句被连点好几次、也让按钮能转起来。
+  // 不用全局的 aiThinking，因为那个是给"角色要说下一句了"用的，跟
+  // "正在重说某一句旧话"是两件不搭边的事。
+  const [pendingRerollId, setPendingRerollId] = useState(null);
+
+  const handleRerollClick = async (turnId) => {
+    if (pendingRerollId) return;
+
+    setPendingRerollId(turnId);
+
+    try {
+      await onRerollTurn(turnId);
+    } finally {
+      setPendingRerollId(null);
+    }
+  };
+
+  return (
   <div className="call-active flex h-full flex-col items-center">
     <div className="flex shrink-0 flex-col items-center gap-2.5 pb-2">
       <div className="call-active__avatar-ring relative flex h-28 w-28 items-center justify-center rounded-full">
@@ -97,6 +118,58 @@ const CallActiveScreen = ({
                 ))
                 : displayText}
             </p>
+
+            {turn.by === 'ai' && (() => {
+              const versions = Array.isArray(turn.versions) ? turn.versions : [];
+              const hasVersions = versions.length > 1;
+              const versionIndex = turn.currentVersionIndex ?? (versions.length - 1);
+              const isRerolling = pendingRerollId === turn.id;
+
+              return (
+                <div className="call-active__turn-controls mt-1 flex items-center justify-center gap-2">
+                  {hasVersions && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => onSwitchTurnVersion(turn.id, 'prev')}
+                        disabled={versionIndex <= 0}
+                        className="call-active__turn-control-btn flex h-5 w-5 items-center justify-center rounded-full disabled:opacity-30"
+                        aria-label="上一个版本"
+                        title="上一个版本"
+                      >
+                        <ChevronLeft className="h-3 w-3" />
+                      </button>
+
+                      <span className="font-mono text-[9px] tracking-wide opacity-60">
+                        {versionIndex + 1}/{versions.length}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => onSwitchTurnVersion(turn.id, 'next')}
+                        disabled={versionIndex >= versions.length - 1}
+                        className="call-active__turn-control-btn flex h-5 w-5 items-center justify-center rounded-full disabled:opacity-30"
+                        aria-label="下一个版本"
+                        title="下一个版本"
+                      >
+                        <ChevronRight className="h-3 w-3" />
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => handleRerollClick(turn.id)}
+                    disabled={Boolean(pendingRerollId) || aiThinking}
+                    className="call-active__turn-control-btn flex h-5 w-5 items-center justify-center rounded-full disabled:opacity-30"
+                    aria-label="重 roll 这句"
+                    title="重 roll 这句"
+                  >
+                    <RotateCw className={`h-3 w-3 ${isRerolling ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         );
       })}
@@ -162,6 +235,7 @@ const CallActiveScreen = ({
       </button>
     </div>
   </div>
-);
+  );
+};
 
 export default CallActiveScreen;

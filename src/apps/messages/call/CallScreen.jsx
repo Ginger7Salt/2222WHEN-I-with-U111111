@@ -6,7 +6,9 @@ import {
   declineCall,
   endCall,
   isRealVoiceAvailableForCharacter,
+  rerollCallTurn,
   sendCallTurn,
+  switchCallTurnVersion,
 } from '../../../services/callService';
 
 import CallRingingScreen from './CallRingingScreen';
@@ -145,6 +147,14 @@ const CallScreen = ({ call, onMinimize }) => {
     void endCall({ messageId: message.id });
   };
 
+  const handleRerollTurn = (turnId) => (
+    rerollCallTurn({ messageId: message.id, turnId })
+  );
+
+  const handleSwitchTurnVersion = (turnId, direction) => {
+    void switchCallTurnVersion({ messageId: message.id, turnId, direction });
+  };
+
   const handleSend = async () => {
     const text = draftText.trim();
     if (!text || isSending) return;
@@ -218,6 +228,8 @@ const CallScreen = ({ call, onMinimize }) => {
             onSend={handleSend}
             isSending={isSending}
             onHangUp={handleHangUp}
+            onRerollTurn={handleRerollTurn}
+            onSwitchTurnVersion={handleSwitchTurnVersion}
           />
         ) : (
           <CallRingingScreen
