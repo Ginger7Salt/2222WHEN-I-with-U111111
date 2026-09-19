@@ -81,7 +81,7 @@ const getDayPeriod = (hours) => {
   return '深夜';
 };
 
-const getCurrentWeekNum = async () => {
+export const getCurrentWeekNum = async () => {
   const saved = await db.settings.get('term_start_date');
 
   if (!saved?.value) {

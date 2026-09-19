@@ -67,8 +67,9 @@ import {
 
 import RhythmApp from './apps/rhythm/RhythmApp';
 import {
-  triggerRhythmActiveReminder,
-} from './services/rhythmReminderService';
+  startRhythmScheduler,
+  stopRhythmScheduler,
+} from './services/rhythmScheduler';
 
 import db from './db';
 
@@ -375,13 +376,14 @@ const [hubBackground, setHubBackground] = useState('');
    (async () => {
     if (cancelled) return;
 
-    startAutoMessageScheduler();
+        startAutoMessageScheduler();
     startTravelPostcardScheduler();
     startScheduledMessageScheduler();
     startParallelOrbitScheduler();
     startWorkflowScheduler();
     startOfflineSessionScheduler();
     startOfflineCountdownLockscreenScheduler();
+    startRhythmScheduler();
 
       startArchiveScheduler();
 
@@ -397,8 +399,10 @@ const [hubBackground, setHubBackground] = useState('');
     stopParallelOrbitScheduler();
     stopWorkflowScheduler();
     stopOfflineSessionScheduler();
-    stopOfflineCountdownLockscreenScheduler();
+    
+        stopOfflineCountdownLockscreenScheduler();
     stopSnapshotGlobalScheduler();
+    stopRhythmScheduler();
        stopArchiveScheduler();
   };
 }, []);
@@ -446,7 +450,11 @@ const [hubBackground, setHubBackground] = useState('');
   }, []);
 
   useEffect(() => {
-    const handleCheckReminder = async () => {
+    // 注意：寄语本身的触发已经交给 rhythmScheduler.js 的独立定时器了。
+    // 这里只保留"记住最近活跃的是哪个角色"这一件事——
+    // Rhythm（时光作息）页面靠 activeCharacterId 知道当前该显示谁的课表，
+    // 这是它在整个 App 里唯一的写入来源，所以不能连同寄语逻辑一起删掉。
+    const syncActiveCharacterForRhythm = async () => {
       try {
         const latestChat = await db.chats
           .orderBy('updatedAt')
@@ -466,32 +474,19 @@ const [hubBackground, setHubBackground] = useState('');
         }
 
         setActiveCharacterId(character.id);
-
-        const result =
-          await triggerRhythmActiveReminder(
-            latestChat.id,
-            character,
-            false
-          );
-
-        if (result?.status === 'success') {
-          console.log(
-            `[RhythmScheduler] AI 已主动留下提醒消息: "${result.text}"`
-          );
-        }
       } catch (err) {
         console.warn(
-          '[RhythmScheduler] 提醒自检未通过或暂无可用角色:',
+          '[App] 获取最近活跃角色失败:',
           err
         );
       }
     };
 
-    void handleCheckReminder();
+    void syncActiveCharacterForRhythm();
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        void handleCheckReminder();
+        void syncActiveCharacterForRhythm();
       }
     };
 

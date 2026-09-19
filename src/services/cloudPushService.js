@@ -1,6 +1,87 @@
 // src/services/cloudPushService.js
 import Dexie from 'dexie';
 import db from '../db';
+import { getCurrentWeekNum } from './rhythmReminderService';
+
+/**
+ * 计算某个角色"今天剩余"的日程边界（开始/结束时刻），转换成绝对时间戳。
+ *
+ * 只在客户端计算一次，云端拿到的就是现成的绝对时间点，不需要在服务端
+ * 重新实现一遍星期几/学周匹配的排课逻辑——那套逻辑只在这里维护一份。
+ * 只保留"这次同步时刻之后"的边界，已经过去的不用同步给云端。
+ */
+async function computeTodayScheduleBoundaries(characterId) {
+  try {
+    const now = new Date();
+    const todayDayOfWeek = now.getDay() || 7;
+    const currentWeek = await getCurrentWeekNum();
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const todayDateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    const allSchedules = await db.schedules
+      .where('characterId')
+      .equals(Number(characterId))
+      .toArray();
+
+    const activeSchedules = allSchedules.filter((schedule) => {
+      if (!schedule) return false;
+
+      if (schedule.isRepeating) {
+        if (Number(schedule.dayOfWeek) !== todayDayOfWeek) return false;
+
+        if (schedule.category === 'course') {
+          return Array.isArray(schedule.weeks) && schedule.weeks.includes(currentWeek);
+        }
+
+        return true;
+      }
+
+      return schedule.date === todayDateStr;
+    });
+
+    const toAbsoluteTime = (hhmm) => {
+      const [hours, minutes] = String(hhmm || '').split(':').map(Number);
+
+      if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+        return null;
+      }
+
+      const date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
+      return date.getTime();
+    };
+
+    const boundaries = [];
+
+    activeSchedules.forEach((schedule) => {
+      const startAt = toAbsoluteTime(schedule.startTime);
+      const endAt = toAbsoluteTime(schedule.endTime);
+
+      if (startAt && startAt > now.getTime()) {
+        boundaries.push({
+          at: startAt,
+          kind: 'start',
+          title: schedule.title || '',
+          location: schedule.location || '',
+        });
+      }
+
+      if (endAt && endAt > now.getTime()) {
+        boundaries.push({
+          at: endAt,
+          kind: 'end',
+          title: schedule.title || '',
+          location: schedule.location || '',
+        });
+      }
+    });
+
+    return boundaries;
+  } catch (err) {
+    console.warn('[CloudPush] 计算今日日程边界失败:', err);
+    return [];
+  }
+}
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -892,7 +973,7 @@ export async function syncAllChatContextsToCloud({
 
       const chatContextUpdates = [];
 
-      for (const chat of allChats) {
+            for (const chat of allChats) {
         const charId = Number(chat.characterId || 1);
         const charObj = characterMap.get(charId) || {};
 
@@ -901,10 +982,16 @@ export async function syncAllChatContextsToCloud({
           latestMessageAt,
         } = await readRecentChatContext(chat, charObj);
 
+        // 寄语开关 + 今日剩余日程边界：跟着这条已有的切后台/回前台心跳
+        // 一起捎带给云端，不新开一条同步通道，也不影响原有的 recentContext 逻辑。
+        const scheduleBoundaries = await computeTodayScheduleBoundaries(charId);
+
         chatContextUpdates.push({
           chatId: Number(chat.id),
           recentContext,
           latestMessageAt,
+          rhythmEnabled: chat.rhythmEnabled !== false,
+          scheduleBoundaries,
         });
       }
 
