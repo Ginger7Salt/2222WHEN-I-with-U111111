@@ -9,6 +9,9 @@ const ReactionBadge = ({ type, tone }) => {
 
   const { Icon, label, color } = reactionType;
   const isAiTone = tone === 'ai';
+  // 图标的颜色/填色必须直接写在 <Icon> 自己身上——写在外层 <span>
+  // 上不会可靠地继承下去（之前就是这么踩的坑，图标全变灰/黑）。
+  const iconColor = isAiTone ? '#fff' : color;
 
   return (
     <span
@@ -17,10 +20,9 @@ const ReactionBadge = ({ type, tone }) => {
       style={{
         background: isAiTone ? color : `${color}26`,
         borderColor: color,
-        color: isAiTone ? '#fff' : color,
       }}
     >
-      <Icon className="h-3 w-3" fill="currentColor" />
+      <Icon className="h-3 w-3" style={{ color: iconColor }} fill={iconColor} />
     </span>
   );
 };

@@ -1,4 +1,4 @@
-import { Heart, ThumbsUp, Laugh, Flame, Frown } from 'lucide-react';
+import { Heart, ThumbsUp, Laugh, Flame, HeartCrack } from 'lucide-react';
 
 // 消息反应的固定类型表：全站零 Emoji，反应用 lucide 图标表达，
 // 跟这个项目一贯"图标而不是表情符号"的视觉风格保持一致。

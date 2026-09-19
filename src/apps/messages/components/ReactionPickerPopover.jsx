@@ -33,6 +33,11 @@ const ReactionPickerPopover = ({ open, isUser, selectedType, onPick, onClose }) 
           {REACTION_TYPES.map((reactionType, index) => {
             const isSelected = selectedType === reactionType.id;
             const ReactionIcon = reactionType.Icon;
+            // 选中态：白色实心图标 + 彩色底；未选中：该反应自己颜色的
+            // 描边图标 + 中性底。颜色和填色都直接写在 <ReactionIcon>
+            // 自己身上——写在外层 <motion.button> 上不会可靠地继承下去
+            // （之前就是这么踩的坑，弹出来的图标全是灰色）。
+            const iconColor = isSelected ? '#fff' : reactionType.color;
 
             return (
               <motion.button
@@ -49,12 +54,12 @@ const ReactionPickerPopover = ({ open, isUser, selectedType, onPick, onClose }) 
                 className="flex h-8 w-8 items-center justify-center rounded-full"
                 style={{
                   background: isSelected ? reactionType.color : 'var(--control-soft-bg)',
-                  color: isSelected ? '#fff' : reactionType.color,
                 }}
               >
                 <ReactionIcon
                   className="h-4 w-4"
-                  fill={isSelected ? 'currentColor' : 'none'}
+                  style={{ color: iconColor }}
+                  fill={isSelected ? iconColor : 'none'}
                 />
               </motion.button>
             );
