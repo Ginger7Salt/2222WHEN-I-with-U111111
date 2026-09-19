@@ -67,6 +67,43 @@ const dispatchCompanionArrival = (chatId) => {
   }));
 };
 
+// aiService.js 里已经有一份一模一样的 isDocumentVisible / 系统通知逻辑，
+// 但那个文件已经很大了，为了不在两个互相 import 的文件之间绕圈子
+// （aiService.js 本身会 import callService.js 的 getActiveCallAwarenessNote），
+// 这里就地放一份精简版，只管"来电"这一种通知，不需要抽公共模块。
+const isCallDocumentVisible = () => {
+  if (typeof document === 'undefined') return false;
+  return document.visibilityState === 'visible';
+};
+
+// App 还活着但标签页不在前台（切到别的应用、锁屏、最小化）时，
+// 单靠一段循环铃声用户很可能听不见/看不见，补一条系统通知横幅。
+// 注意：这只在浏览器 / PWA 进程本身还存活的前提下有效——App 被系统
+// 彻底杀掉之后，是没有任何本地代码能再运行的，那种情况需要云端
+// 推送服务器主动推送，不是这里能解决的。
+const triggerIncomingCallNotification = async (character, chatId) => {
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  if (!('serviceWorker' in navigator)) return;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+
+    // data.chatId 是 sw.js 的 notificationclick 处理器认的字段——跟
+    // 现有的普通消息通知走的是同一套跳转逻辑，点开就直接定位到这个
+    // 聊天窗（这个聊天窗一打开，来电全屏界面会跟平时一样自动弹出）。
+    await registration.showNotification(`${character?.name || '对方'} 来电`, {
+      body: '点开 App 接听这通语音通话',
+      icon: character?.avatar || '/favicon.ico',
+      tag: 'incoming-call',
+      requireInteraction: true,
+      data: { chatId },
+    });
+  } catch (err) {
+    console.warn('[callService] 来电系统通知触发失败：', err);
+  }
+};
+
 export const isRealVoiceAvailableForCharacter = (character) => (
   hasUsableMiniMaxVoiceProfile(character?.voiceProfile)
 );
@@ -630,6 +667,11 @@ export const startIncomingCall = async ({ chatId, characterId }) => {
   await db.chats.update(chatId, { updatedAt: timestamp });
   dispatchCallStateChanged();
   dispatchCompanionArrival(chatId);
+
+  if (!isCallDocumentVisible()) {
+    const character = await db.characters.get(characterId);
+    void triggerIncomingCallNotification(character, chatId);
+  }
 
   return messageId;
 };

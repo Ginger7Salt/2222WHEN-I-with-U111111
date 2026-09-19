@@ -6,6 +6,7 @@ import {
 import GlassCard from '../../components/GlassCard';
 import db from "../../db";
 import VoiceProfilePanel from '../../features/real-voice/components/VoiceProfilePanel';
+import RingtonePanel from '../../features/real-voice/components/RingtonePanel';
 import { normalizeVoiceProfile } from '../../features/real-voice/realVoiceDefaults';
 
 
@@ -26,6 +27,7 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     userAvatar: characterData?.userAvatar || '',
     statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此'],
 voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
+    ringtone: characterData?.ringtone || '',
 
 
   });
@@ -244,6 +246,16 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
           setCharacter((previous) => ({
             ...previous,
             voiceProfile,
+          }));
+        }}
+      />
+
+      <RingtonePanel
+        value={character.ringtone}
+        onChange={(ringtone) => {
+          setCharacter((previous) => ({
+            ...previous,
+            ringtone,
           }));
         }}
       />
@@ -600,4 +612,3 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
 };
 
 export default CharacterEditor;
-
