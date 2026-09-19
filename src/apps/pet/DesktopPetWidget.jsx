@@ -1,13 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { liveQuery } from 'dexie';
 import {
-  ChevronLeft,
-  ChevronRight,
   Heart,
   Loader2,
+  MessageCircle,
   PawPrint,
   Send,
-  Sparkles,
   X,
 } from 'lucide-react';
 
@@ -35,9 +33,26 @@ const WIDGET_SIZE = 56;
 const HANDLE_WIDTH = 22;
 const EDGE_ZONE = 28;
 const MAX_FEED_MESSAGES = 6;
+const MOOD_PREVIEW_COUNT = 4;
 const CANNED_BUBBLE_DURATION = 4200;
 
 const DEFAULT_POSITION = { x: null, y: null };
+
+/*
+ * 三张"错落卡片"各自相对悬浮球的位置/尺寸上限/旋转角度——数值来自
+ * 可视化稿里调好的那版摆法（心情卡左上、聊天卡中间偏右、说话卡偏
+ * 下方，各转了不同角度），做出"随手摆开"而不是居中弹窗的感觉。
+ * width/maxHeight 只用来做屏幕边界的夹紧计算，卡片内部真实内容
+ * 超出时会自己滚动，不会把布局撑坏。
+ */
+const CARD_SPECS = {
+  mood: { width: 236, maxHeight: 340, offsetX: -230, offsetY: -420, rotate: -3 },
+  chat: { width: 272, maxHeight: 300, offsetX: -272, offsetY: -378, rotate: 2 },
+  send: { width: 252, maxHeight: 250, offsetX: -220, offsetY: -300, rotate: -1.5 },
+};
+
+const MENU_WIDTH = 128;
+const MENU_HEIGHT = 176;
 
 const getDefaultPosition = () => ({
   x: Math.max(16, window.innerWidth - 72),
@@ -71,6 +86,24 @@ const getDockSide = (x) => {
   return null;
 };
 
+/*
+ * 卡片/入口菜单都用同一种"贴着悬浮球、但绝不超出屏幕"的夹紧算法：
+ * 先算出"理想中应该摆在悬浮球哪个方向"的原始坐标，再夹到
+ * [12, 屏幕边界 - 自身尺寸 - 12] 这个范围里。悬浮球拖到屏幕任何角落，
+ * 弹出来的东西都不会被裁掉，只是不一定还保持原来那个"错落"的相对
+ * 位置——这点和旧版面板的 popupLeft/popupTop 算法是一个思路。
+ */
+const clampBoxPosition = (rawLeft, rawTop, width, height) => ({
+  left: Math.min(
+    Math.max(12, rawLeft),
+    Math.max(12, window.innerWidth - width - 12)
+  ),
+  top: Math.min(
+    Math.max(12, rawTop),
+    Math.max(12, window.innerHeight - height - 12)
+  ),
+});
+
 const getMessagePreview = (message) => {
   const content = String(message?.content || '').trim();
   if (!content) return '（发送了一条消息）';
@@ -81,9 +114,12 @@ export const DesktopPetWidget = () => {
   const [config, setConfig] = useState(null);
   const [chatContext, setChatContext] = useState(null);
 
-  const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState(DEFAULT_POSITION);
   const [isDragging, setIsDragging] = useState(false);
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeCard, setActiveCard] = useState(null);
+  const [isMoodExpanded, setIsMoodExpanded] = useState(false);
 
   const [moodState, setMoodState] = useState(null);
   const [isMoodLoading, setIsMoodLoading] = useState(false);
@@ -180,7 +216,8 @@ export const DesktopPetWidget = () => {
 
   useEffect(() => {
     if (!isVisible) {
-      setIsOpen(false);
+      setIsMenuOpen(false);
+      setActiveCard(null);
     }
   }, [isVisible]);
 
@@ -247,11 +284,11 @@ export const DesktopPetWidget = () => {
   };
 
   useEffect(() => {
-    if (isOpen && chatId) {
+    if (activeCard === 'mood' && chatId) {
       void refreshMood();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, chatId]);
+  }, [activeCard, chatId]);
 
   /*
    * 绑定了新的消息框（或者第一次加载）时，先把"已读到哪条"的基线定下
@@ -298,14 +335,12 @@ export const DesktopPetWidget = () => {
   }, [chatId]);
 
   /*
-   * 面板里的迷你聊天流：直接订阅这个消息框自己的 db.messages，跟完整
-   * 聊天页面共用同一份数据，桌宠这边发的话、完整聊天页面里发的话，
-   * 都会实时同步显示。
+   * 聊天卡里的迷你聊天流：直接订阅这个消息框自己的 db.messages，跟完整
+   * 聊天页面共用同一份数据。
    *
-   * 这里不再只在面板打开时订阅——面板关着的时候也要能"发现"这个消息
-   * 框里冒出了一条新的角色消息（比如项目里已有的"跨聊天关心"功能在
-   * 用户去别的消息框聊天时，往这里补的一句话），这样桌宠才能在没人点
-   * 开它的时候自己"说句话"。
+   * 聊天卡没开着的时候也订阅——这样才能"发现"这个消息框里冒出了一条
+   * 新的角色消息（比如"跨聊天关心"功能补的一句话），把它当成桌宠自己
+   * 冒出来说了一句话，用小气泡提醒用户。
    */
   useEffect(() => {
     if (!chatId) {
@@ -325,7 +360,7 @@ export const DesktopPetWidget = () => {
         const latest = list[list.length - 1];
 
         if (
-          !isOpen &&
+          activeCard !== 'chat' &&
           latest &&
           latest.sender === 'character' &&
           typeof latest.id === 'number' &&
@@ -344,14 +379,14 @@ export const DesktopPetWidget = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [chatId, isOpen]);
+  }, [chatId, activeCard]);
 
   /*
-   * 面板一打开，就认为用户已经看到了这个消息框目前为止的所有消息——
+   * 聊天卡一打开，就认为用户已经看到了这个消息框目前为止的所有消息——
    * 清掉待展示的"桌宠主动说的话"气泡，并把已读标记推进到最新一条。
    */
   useEffect(() => {
-    if (!isOpen || !chatId) return;
+    if (activeCard !== 'chat' || !chatId) return;
 
     setProactiveMessage('');
     setHasUnseenProactive(false);
@@ -363,7 +398,7 @@ export const DesktopPetWidget = () => {
       void setPetLastSeenMessageId(chatId, latestId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [activeCard]);
 
   useEffect(() => {
     if (!chatId) return undefined;
@@ -405,6 +440,11 @@ export const DesktopPetWidget = () => {
     }, CANNED_BUBBLE_DURATION);
   };
 
+  const closeCluster = () => {
+    setIsMenuOpen(false);
+    setActiveCard(null);
+  };
+
   const handlePointerDown = (event) => {
     if (event.button !== undefined && event.button !== 0) return;
 
@@ -427,9 +467,14 @@ export const DesktopPetWidget = () => {
     const deltaX = event.clientX - drag.startX;
     const deltaY = event.clientY - drag.startY;
 
-    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+    if (!drag.moved && (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)) {
       drag.moved = true;
       setIsDragging(true);
+      // 一旦真的开始拖动悬浮球，先把弹出来的入口/卡片收掉，
+      // 不然拖着拖着卡片会跟着飘，观感很奇怪。
+      if (isMenuOpen || activeCard) {
+        closeCluster();
+      }
     }
 
     if (!drag.moved) return;
@@ -472,8 +517,8 @@ export const DesktopPetWidget = () => {
 
       if (restingDockSide) {
         /*
-         * 贴边状态下点一下，先把它从边上"拉出来"，不直接开面板——
-         * 这样贴边的小把手不会一碰就弹出一整个面板，符合"先露出来
+         * 贴边状态下点一下，先把它从边上"拉出来"，不直接展开入口——
+         * 这样贴边的小把手不会一碰就弹一堆东西出来，符合"先露出来
          * 再互动"的直觉。
          */
         const undockedX = restingDockSide === 'left'
@@ -491,7 +536,11 @@ export const DesktopPetWidget = () => {
         return;
       }
 
-      setIsOpen((current) => !current);
+      if (isMenuOpen) {
+        closeCluster();
+      } else {
+        setIsMenuOpen(true);
+      }
       return;
     }
 
@@ -508,6 +557,11 @@ export const DesktopPetWidget = () => {
 
     setIsDragging(false);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  const handleSelectCard = (cardId) => {
+    setActiveCard((current) => (current === cardId ? null : cardId));
+    setCannedBubble('');
   };
 
   const handleCannedReaction = async (reactionId) => {
@@ -542,7 +596,6 @@ export const DesktopPetWidget = () => {
     if (!trimmed || !chatId) return;
 
     setInputText('');
-    setCannedBubble('');
 
     try {
       await sendPetLightMessage({
@@ -561,6 +614,19 @@ export const DesktopPetWidget = () => {
 
   const dominantIntensity = Math.round((moodState?.intensity || 0) * 100);
 
+  const moodItems = MOOD_KEYS
+    .map((key) => ({
+      key,
+      label: EMOTION_LABELS[key] || key,
+      value: moodState?.mood?.[key] ?? 0,
+      isDominant: key === moodState?.dominantEmotion,
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const visibleMoodItems = isMoodExpanded
+    ? moodItems
+    : moodItems.slice(0, MOOD_PREVIEW_COUNT);
+
   const dockSide = isDragging ? null : getDockSide(position.x);
 
   const bubbleLeft = dockSide === 'left'
@@ -569,317 +635,314 @@ export const DesktopPetWidget = () => {
       ? window.innerWidth - HANDLE_WIDTH
       : position.x;
 
-  const popupWidth = Math.min(320, window.innerWidth - 24);
-  const popupMaxHeight = Math.min(540, window.innerHeight - 24);
-
-  const popupLeft = Math.min(
-    Math.max(12, position.x - popupWidth + WIDGET_SIZE),
-    Math.max(12, window.innerWidth - popupWidth - 12)
+  const menuBox = clampBoxPosition(
+    position.x - MENU_WIDTH + WIDGET_SIZE,
+    position.y - MENU_HEIGHT - 12,
+    MENU_WIDTH,
+    MENU_HEIGHT
   );
 
-  const popupTop = Math.min(
-    Math.max(12, position.y - popupMaxHeight - 12),
-    Math.max(12, window.innerHeight - popupMaxHeight - 12)
-  );
+  const getCardBox = (cardId) => {
+    const spec = CARD_SPECS[cardId];
+    return clampBoxPosition(
+      position.x + spec.offsetX,
+      position.y + spec.offsetY,
+      spec.width,
+      spec.maxHeight
+    );
+  };
+
+  const renderCardChrome = (cardId, label, children) => {
+    const spec = CARD_SPECS[cardId];
+    const box = getCardBox(cardId);
+
+    return (
+      <div
+        key={cardId}
+        className="fixed z-[57]"
+        style={{
+          left: box.left,
+          top: box.top,
+          width: spec.width,
+          maxHeight: spec.maxHeight,
+          transform: `rotate(${spec.rotate}deg)`,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setActiveCard(null)}
+          className="absolute -top-3 right-4 z-[1] flex h-[30px] w-[30px] items-center justify-center rounded-full border"
+          style={{
+            backgroundColor: 'var(--card-bg)',
+            borderColor: 'var(--text-main)',
+            color: 'var(--text-main)',
+          }}
+          aria-label="关闭"
+        >
+          <X className="h-3 w-3" strokeWidth={2.4} />
+        </button>
+
+        <div
+          className="overflow-y-auto rounded-[22px] border p-[18px]"
+          style={{
+            maxHeight: spec.maxHeight,
+            backgroundColor: 'var(--card-bg)',
+            borderColor: 'var(--text-main)',
+            color: 'var(--text-main)',
+            boxShadow: '0 16px 32px color-mix(in srgb, var(--text-main) 14%, transparent)',
+          }}
+        >
+          <p
+            className="text-[10px] font-bold uppercase tracking-[0.12em]"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {label}
+          </p>
+
+          {children}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
-      {isOpen && (
-        <section
-          className="fixed z-[60] flex flex-col overflow-hidden border shadow-2xl"
-          style={{
-            left: popupLeft,
-            top: popupTop,
-            width: popupWidth,
-            maxHeight: popupMaxHeight,
-            borderRadius: '28px',
-            color: 'var(--text-main)',
-            background: 'var(--modal-bg)',
-            borderColor: 'var(--modal-border)',
-            boxShadow: 'var(--modal-shadow)',
-          }}
-          aria-label="桌宠面板"
-        >
-          <div
-            className="relative flex items-center justify-between gap-3 px-4 py-3.5"
-            style={{
-              background:
-                'linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 22%, transparent), transparent)',
-              borderBottom: '1px solid var(--divider)',
-            }}
+      {/* 心情卡 */}
+      {activeCard === 'mood' && renderCardChrome('mood', 'MOOD · 心情', (
+        <>
+          <p
+            className="mt-1 text-[20px] font-extrabold"
+            style={{ color: 'var(--text-main)' }}
           >
-            <div className="flex min-w-0 items-center gap-2.5">
-              <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2"
-                style={{
-                  borderColor: 'var(--accent-color)',
-                  backgroundColor: 'var(--control-soft-bg)',
-                }}
-              >
-                {config?.customAvatar ? (
-                  <img
-                    src={config.customAvatar}
-                    alt={character?.name || '桌宠'}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ) : (
-                  <PawPrint className="h-5 w-5 opacity-60" strokeWidth={1.6} />
-                )}
-              </div>
+            {dominantLabel
+              ? `${dominantLabel} · 强度 ${dominantIntensity}`
+              : isMoodLoading ? '正在读取心情……' : '心情很平稳'}
+          </p>
 
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">
-                  {character?.name || '桌宠'}
-                </p>
-                <p
-                  className="truncate text-[10px]"
-                  style={{ color: 'var(--text-muted)' }}
+          <div className="mt-3.5">
+            {visibleMoodItems.map((item) => (
+              <div
+                key={item.key}
+                className="mb-2.5 flex items-center gap-2"
+                style={{ opacity: item.isDominant ? 1 : 0.55 }}
+              >
+                <span
+                  className="w-10 shrink-0 text-[11px] font-bold"
+                  style={{ color: 'var(--text-main)' }}
                 >
-                  {chatContext?.chat?.title || '未命名聊天'}
+                  {item.label}
+                </span>
+                <div
+                  className="h-1 flex-grow overflow-hidden rounded-full"
+                  style={{ backgroundColor: 'var(--control-soft-bg)' }}
+                >
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.round(item.value * 100)}%`,
+                      backgroundColor: 'var(--text-main)',
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsMoodExpanded((current) => !current)}
+            className="mt-1.5 w-full rounded-full border py-2 text-[10px] font-bold tracking-wide"
+            style={{ borderColor: 'var(--text-main)', color: 'var(--text-main)' }}
+          >
+            {isMoodExpanded ? '收起' : `查看全部 ${MOOD_KEYS.length} 项`}
+          </button>
+        </>
+      ))}
+
+      {/* 聊天卡：只读的最近消息，用来"保留聊天"这个场景 */}
+      {activeCard === 'chat' && renderCardChrome('chat', `CHAT · ${chatContext?.chat?.title || '未命名聊天'}`, (
+        <div className="mt-3">
+          {recentMessages.length === 0 && (
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              还没有聊天记录。
+            </p>
+          )}
+
+          {recentMessages.map((message) => {
+            const isUser = message.sender === 'user';
+
+            return (
+              <div
+                key={message.id}
+                className={`mb-2.5 flex ${isUser ? 'justify-end' : 'justify-start'}`}
+              >
+                <p
+                  className="max-w-[78%] rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-snug"
+                  style={{
+                    backgroundColor: isUser ? 'var(--text-main)' : 'var(--card-bg)',
+                    color: isUser ? 'var(--accent-foreground)' : 'var(--text-main)',
+                    border: isUser ? 'none' : '1.5px solid var(--text-main)',
+                  }}
+                >
+                  {getMessagePreview(message)}
                 </p>
+              </div>
+            );
+          })}
+
+          {isReplying && (
+            <div className="flex justify-start">
+              <div
+                className="flex items-center gap-1 rounded-2xl border px-3.5 py-2.5"
+                style={{ borderColor: 'var(--text-main)' }}
+              >
+                <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} style={{ color: 'var(--text-main)' }} />
               </div>
             </div>
+          )}
+        </div>
+      ))}
 
+      {/* 说话卡：只是发一句话，或者戳一戳/打招呼/抱一抱这类小动作 */}
+      {activeCard === 'send' && renderCardChrome('send', 'SAY SOMETHING · 说句话', (
+        <div className="mt-3">
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(event) => setInputText(event.target.value)}
+              placeholder="跟它说点什么"
+              className="min-w-0 flex-grow rounded-full border px-3.5 py-2.5 text-[11px] outline-none"
+              style={{
+                borderColor: 'var(--text-main)',
+                backgroundColor: 'var(--card-bg)',
+                color: 'var(--text-main)',
+              }}
+            />
             <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="shrink-0 rounded-full p-1.5"
-              style={{ color: 'var(--text-sub)' }}
-              aria-label="关闭桌宠面板"
+              type="submit"
+              disabled={!inputText.trim()}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
+              style={{ backgroundColor: 'var(--text-main)' }}
+              aria-label="发送"
             >
-              <X className="h-4 w-4" strokeWidth={1.7} />
+              <Send className="h-3.5 w-3.5" strokeWidth={2.2} style={{ color: 'var(--card-bg)' }} />
             </button>
-          </div>
+          </form>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-            <section>
-              <div className="flex items-center justify-between">
-                <p
-                  className="text-[10px] uppercase tracking-[0.16em]"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  此刻的心情
-                </p>
-
-                <Heart className="h-3.5 w-3.5 opacity-50" strokeWidth={1.6} />
-              </div>
-
-              {moodState && (
-                <p className="mt-1.5 text-xs">
-                  {dominantLabel
-                    ? `整体偏向"${dominantLabel}"，强度 ${dominantIntensity} / 100`
-                    : '心情很平稳，没有特别突出的状态。'}
-                </p>
-              )}
-
-              {isMoodLoading && !moodState && (
-                <p
-                  className="mt-1.5 text-xs"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  正在读取心情……
-                </p>
-              )}
-
-              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
-                {MOOD_KEYS.map((key) => {
-                  const value = moodState?.mood?.[key] ?? 0;
-                  const isDominant = key === moodState?.dominantEmotion;
-
-                  return (
-                    <div key={key} className="min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span
-                          className="truncate text-[10px]"
-                          style={{
-                            color: isDominant
-                              ? 'var(--text-main)'
-                              : 'var(--text-muted)',
-                            fontWeight: isDominant ? 600 : 400,
-                          }}
-                        >
-                          {EMOTION_LABELS[key] || key}
-                        </span>
-                      </div>
-
-                      <div
-                        className="mt-1 h-2 w-full overflow-hidden rounded-full"
-                        style={{ backgroundColor: 'var(--control-soft-bg)' }}
-                      >
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${Math.round(value * 100)}%`,
-                            backgroundColor: 'var(--accent-color)',
-                            opacity: isDominant ? 1 : 0.5,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section
-              className="pt-3"
-              style={{ borderTop: '1px dashed var(--divider)' }}
-            >
-              <div className="flex flex-wrap gap-2">
-                {CANNED_REACTIONS.map((reaction) => (
-                  <button
-                    key={reaction.id}
-                    type="button"
-                    onClick={() => handleCannedReaction(reaction.id)}
-                    disabled={isReactionLoading}
-                    className="flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[11px] font-medium transition-transform active:scale-95 disabled:opacity-50"
-                    style={{
-                      borderColor: 'var(--card-border)',
-                      backgroundColor:
-                        'color-mix(in srgb, var(--accent-color) 12%, var(--control-soft-bg))',
-                      color: 'var(--text-main)',
-                    }}
-                  >
-                    {reaction.label}
-                  </button>
-                ))}
-              </div>
-
-              {(cannedBubble || isReactionLoading) && (
-                <div className="relative mt-3 ml-2">
-                  <div
-                    className="inline-block max-w-full rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-xs"
-                    style={{
-                      backgroundColor:
-                        'color-mix(in srgb, var(--accent-color) 16%, var(--control-soft-bg))',
-                      color: 'var(--text-main)',
-                    }}
-                  >
-                    {isReactionLoading ? (
-                      <span className="flex items-center gap-1.5">
-                        <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />
-                        想一下……
-                      </span>
-                    ) : (
-                      cannedBubble
-                    )}
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <section
-              className="pt-3"
-              style={{ borderTop: '1px dashed var(--divider)' }}
-            >
-              <div className="flex items-center justify-between">
-                <p
-                  className="text-[10px] uppercase tracking-[0.16em]"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  说句话
-                </p>
-
-                {isReplying && (
-                  <span
-                    className="flex items-center gap-1 text-[10px]"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
-                    <Sparkles className="h-3 w-3 animate-pulse" strokeWidth={1.6} />
-                    对方正在回复……
-                  </span>
-                )}
-              </div>
-
-              {recentMessages.length > 0 && (
-                <div className="mt-2 space-y-1.5">
-                  {recentMessages.map((message) => {
-                    const isUser = message.sender === 'user';
-
-                    return (
-                      <div
-                        key={message.id}
-                        className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <p
-                          className="max-w-[80%] truncate rounded-2xl px-3 py-1.5 text-[11px]"
-                          style={{
-                            backgroundColor: isUser
-                              ? 'var(--control-soft-bg)'
-                              : 'color-mix(in srgb, var(--accent-color) 14%, var(--control-soft-bg))',
-                            color: 'var(--text-main)',
-                          }}
-                        >
-                          {getMessagePreview(message)}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <form onSubmit={handleSendMessage} className="mt-2 flex gap-2">
-                <input
-                  type="text"
-                  value={inputText}
-                  onChange={(event) => setInputText(event.target.value)}
-                  placeholder="跟它说点什么"
-                  className="min-w-0 flex-1 rounded-full border px-3.5 py-2 text-xs outline-none"
-                  style={{
-                    color: 'var(--text-main)',
-                    backgroundColor: 'var(--control-soft-bg)',
-                    borderColor: 'var(--card-border)',
-                  }}
-                />
-
-                <button
-                  type="submit"
-                  disabled={!inputText.trim()}
-                  className="flex shrink-0 items-center justify-center rounded-full px-3.5 disabled:opacity-40"
-                  style={{
-                    color: 'var(--accent-foreground)',
-                    backgroundColor: 'var(--accent-color)',
-                  }}
-                  aria-label="发送"
-                >
-                  <Send className="h-3.5 w-3.5" strokeWidth={1.8} />
-                </button>
-              </form>
-
-              <p
-                className="mt-2 text-[10px] leading-relaxed"
-                style={{ color: 'var(--text-muted)' }}
+          <div className="mt-3 flex gap-2">
+            {CANNED_REACTIONS.map((reaction) => (
+              <button
+                key={reaction.id}
+                type="button"
+                onClick={() => handleCannedReaction(reaction.id)}
+                disabled={isReactionLoading}
+                className="flex-1 rounded-full border py-2 text-[10px] font-bold disabled:opacity-50"
+                style={{ borderColor: 'var(--text-main)', color: 'var(--text-main)' }}
               >
-                这里发的话会进入"{chatContext?.chat?.title || '未命名聊天'}"这个消息框，跟完整聊天页面共用同一份记录和记忆。
-              </p>
-            </section>
+                {reaction.label}
+              </button>
+            ))}
           </div>
-        </section>
+
+          {(cannedBubble || isReactionLoading) && (
+            <div
+              className="mt-3 rounded-2xl border px-3.5 py-2.5 text-xs"
+              style={{ borderColor: 'var(--text-main)', color: 'var(--text-main)' }}
+            >
+              {isReactionLoading ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />
+                  想一下……
+                </span>
+              ) : (
+                cannedBubble
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* 三个小入口：心情 / 聊天 / 说话，点桌宠悬浮球之后才出现 */}
+      {isMenuOpen && (
+        <div
+          className="fixed z-[56] flex flex-col items-end gap-2.5"
+          style={{ left: menuBox.left, top: menuBox.top, width: MENU_WIDTH }}
+        >
+          <button
+            type="button"
+            onClick={() => handleSelectCard('mood')}
+            className="flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold"
+            style={{
+              borderColor: 'var(--text-main)',
+              backgroundColor: activeCard === 'mood' ? 'var(--text-main)' : 'var(--card-bg)',
+              color: activeCard === 'mood' ? 'var(--accent-foreground)' : 'var(--text-main)',
+            }}
+          >
+            <Heart className="h-3.5 w-3.5" strokeWidth={1.8} fill={activeCard === 'mood' ? 'currentColor' : 'none'} />
+            心情
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSelectCard('chat')}
+            className="relative flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold"
+            style={{
+              borderColor: 'var(--text-main)',
+              backgroundColor: activeCard === 'chat' ? 'var(--text-main)' : 'var(--card-bg)',
+              color: activeCard === 'chat' ? 'var(--accent-foreground)' : 'var(--text-main)',
+            }}
+          >
+            <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.8} />
+            聊天
+            {hasUnseenProactive && activeCard !== 'chat' && (
+              <span
+                className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border"
+                style={{ backgroundColor: 'var(--text-main)', borderColor: 'var(--card-bg)' }}
+              />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSelectCard('send')}
+            className="flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold"
+            style={{
+              borderColor: 'var(--text-main)',
+              backgroundColor: activeCard === 'send' ? 'var(--text-main)' : 'var(--card-bg)',
+              color: activeCard === 'send' ? 'var(--accent-foreground)' : 'var(--text-main)',
+            }}
+          >
+            <Send className="h-3.5 w-3.5" strokeWidth={1.9} fill={activeCard === 'send' ? 'currentColor' : 'none'} />
+            说话
+          </button>
+        </div>
       )}
 
-      {!isOpen && proactiveMessage && (
+      {/* 桌宠没被点开、且有条没看过的话时，冒一个小气泡预览 */}
+      {!isMenuOpen && proactiveMessage && (
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={() => {
+            setIsMenuOpen(true);
+            setActiveCard('chat');
+          }}
           className="fixed z-[55] max-w-[220px] rounded-2xl border px-3.5 py-2.5 text-left text-xs shadow-xl transition-transform active:scale-95"
           style={{
             left: dockSide === 'left'
               ? HANDLE_WIDTH + 10
               : Math.max(12, Math.min(bubbleLeft - 160, window.innerWidth - 232)),
             top: Math.max(12, position.y - 8),
-            borderColor: 'var(--card-border)',
-            backgroundColor:
-              'color-mix(in srgb, var(--accent-color) 18%, var(--modal-bg))',
+            borderColor: 'var(--text-main)',
+            backgroundColor: 'var(--card-bg)',
             color: 'var(--text-main)',
-            boxShadow: 'var(--modal-shadow)',
           }}
         >
           <span className="line-clamp-3">{proactiveMessage}</span>
         </button>
       )}
 
+      {/* 桌宠悬浮球本体 */}
       <div
         className="fixed z-50"
         style={{
@@ -894,7 +957,7 @@ export const DesktopPetWidget = () => {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
-          className={`relative flex items-center justify-center border shadow-xl transition-transform ${
+          className={`relative flex items-center justify-center border transition-transform ${
             isDragging ? 'scale-95' : 'active:scale-90'
           }`}
           style={{
@@ -905,50 +968,28 @@ export const DesktopPetWidget = () => {
               : dockSide === 'right'
                 ? '18px 0 0 18px'
                 : '9999px',
-            color: 'var(--accent-foreground)',
-            backgroundColor: 'var(--accent-color)',
-            borderColor: 'var(--card-border)',
-            boxShadow:
-              '0 12px 30px color-mix(in srgb, var(--accent-color) 30%, transparent)',
+            color: 'var(--text-main)',
+            backgroundColor: 'var(--card-bg)',
+            borderColor: 'var(--text-main)',
+            boxShadow: '0 10px 24px color-mix(in srgb, var(--text-main) 16%, transparent)',
           }}
-          aria-label={dockSide ? '展开桌宠' : '打开桌宠面板'}
+          aria-label={dockSide ? '展开桌宠' : (isMenuOpen ? '收起桌宠' : '打开桌宠')}
           title={character?.name || '桌宠'}
         >
           {dockSide ? (
             <>
-              {dockSide === 'left' ? (
-                <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-              ) : (
-                <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} />
-              )}
-
+              <PawPrint className="h-3 w-3" strokeWidth={2} />
               {hasUnseenProactive && (
                 <span
                   className="pointer-events-none absolute -top-0.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full border"
-                  style={{
-                    backgroundColor: '#ff5d7a',
-                    borderColor: 'var(--card-bg)',
-                  }}
+                  style={{ backgroundColor: 'var(--text-main)', borderColor: 'var(--card-bg)' }}
                 />
               )}
             </>
+          ) : isMenuOpen ? (
+            <X className="h-5 w-5" strokeWidth={1.8} />
           ) : (
             <>
-              <span
-                className="pointer-events-none absolute -top-1.5 left-2 h-3 w-3 rounded-full border"
-                style={{
-                  backgroundColor: 'var(--accent-color)',
-                  borderColor: 'var(--card-border)',
-                }}
-              />
-              <span
-                className="pointer-events-none absolute -top-1.5 right-2 h-3 w-3 rounded-full border"
-                style={{
-                  backgroundColor: 'var(--accent-color)',
-                  borderColor: 'var(--card-border)',
-                }}
-              />
-
               {config?.customAvatar ? (
                 <img
                   src={config.customAvatar}
@@ -964,20 +1005,14 @@ export const DesktopPetWidget = () => {
               {isReplying && (
                 <span
                   className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border"
-                  style={{
-                    backgroundColor: 'var(--card-bg)',
-                    borderColor: 'var(--accent-color)',
-                  }}
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--text-main)' }}
                 />
               )}
 
-              {hasUnseenProactive && (
+              {hasUnseenProactive && !isReplying && (
                 <span
                   className="pointer-events-none absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border"
-                  style={{
-                    backgroundColor: '#ff5d7a',
-                    borderColor: 'var(--card-bg)',
-                  }}
+                  style={{ backgroundColor: 'var(--text-main)', borderColor: 'var(--card-bg)' }}
                 />
               )}
             </>
