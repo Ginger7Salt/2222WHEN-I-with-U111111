@@ -291,10 +291,12 @@ const generateCallReply = async ({ messageId }) => {
 
     // 一次回复可能被 "|||" 拆成好几句——依次追加成独立的轮次，句间
     // 留一小段"喘气"停顿和按字数估算的阅读时长，让歌词流动区一句
-    // 一句地浮现，而不是一次性全部糊在一起。
+    // 一句地浮现，而不是一次性全部糊在一起。"思考中"三个点只在等第一句
+    // 话的时候用；同一次回复里后面几句之间只是安静地停顿一下，不再
+    // 重新亮起三个点——那样在歌词界面上看起来像句子中间插了个奇怪的
+    // 连接件，不像真人说话中间的停顿。
     for (let index = 0; index < segments.length; index += 1) {
       if (index > 0) {
-        await setAiThinking({ messageId, aiThinking: true });
         await sleep(CALL_TURN_BREATH_PAUSE_MS);
       }
 

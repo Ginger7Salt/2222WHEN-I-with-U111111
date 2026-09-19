@@ -59,21 +59,45 @@
   white-space: pre;
 }
 
-/* 重 roll / 切换版本的小按钮：常驻但很淡，不抢"歌词"本身的注意力，
-   点按时才明显起来。 */
+/* 重 roll / 切换版本的小图标：跟在这句话最后一个字后面、同一行内联，
+   不再另起一行——避免在"歌词"之间插进一整条控制栏，把句与句的间距
+   撑得忽大忽小。整组默认很淡，按下时才明显起来，字号也明显小于正文，
+   不抢阅读的注意力。 */
 .call-active__turn-controls {
-  opacity: 0.45;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: 0.4em;
+  vertical-align: middle;
+  opacity: 0.4;
   transition: opacity 0.2s ease;
 }
 
 .call-active__turn-controls:active {
-  opacity: 0.9;
+  opacity: 0.85;
+}
+
+.call-active__turn-version-count {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  opacity: 0.75;
 }
 
 .call-active__turn-control-btn {
+  display: inline-flex;
+  height: 16px;
+  width: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
   color: rgba(255, 255, 255, 0.85);
   background: rgba(255, 255, 255, 0.12);
   transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.call-active__turn-control-btn:disabled {
+  opacity: 0.3;
 }
 
 .call-active__turn-control-btn:active:not(:disabled) {

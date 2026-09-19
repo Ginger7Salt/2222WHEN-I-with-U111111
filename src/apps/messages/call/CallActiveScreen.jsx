@@ -117,30 +117,29 @@ const CallActiveScreen = ({
                   </span>
                 ))
                 : displayText}
-            </p>
 
-            {turn.by === 'ai' && (() => {
+              {turn.by === 'ai' && (!isLatestAi || displayText.length >= turn.content.length) && (() => {
               const versions = Array.isArray(turn.versions) ? turn.versions : [];
               const hasVersions = versions.length > 1;
               const versionIndex = turn.currentVersionIndex ?? (versions.length - 1);
               const isRerolling = pendingRerollId === turn.id;
 
               return (
-                <div className="call-active__turn-controls mt-1 flex items-center justify-center gap-2">
+                <span className="call-active__turn-controls">
                   {hasVersions && (
                     <>
                       <button
                         type="button"
                         onClick={() => onSwitchTurnVersion(turn.id, 'prev')}
                         disabled={versionIndex <= 0}
-                        className="call-active__turn-control-btn flex h-5 w-5 items-center justify-center rounded-full disabled:opacity-30"
+                        className="call-active__turn-control-btn"
                         aria-label="上一个版本"
                         title="上一个版本"
                       >
-                        <ChevronLeft className="h-3 w-3" />
+                        <ChevronLeft className="h-2.5 w-2.5" />
                       </button>
 
-                      <span className="font-mono text-[9px] tracking-wide opacity-60">
+                      <span className="call-active__turn-version-count">
                         {versionIndex + 1}/{versions.length}
                       </span>
 
@@ -148,11 +147,11 @@ const CallActiveScreen = ({
                         type="button"
                         onClick={() => onSwitchTurnVersion(turn.id, 'next')}
                         disabled={versionIndex >= versions.length - 1}
-                        className="call-active__turn-control-btn flex h-5 w-5 items-center justify-center rounded-full disabled:opacity-30"
+                        className="call-active__turn-control-btn"
                         aria-label="下一个版本"
                         title="下一个版本"
                       >
-                        <ChevronRight className="h-3 w-3" />
+                        <ChevronRight className="h-2.5 w-2.5" />
                       </button>
                     </>
                   )}
@@ -161,15 +160,16 @@ const CallActiveScreen = ({
                     type="button"
                     onClick={() => handleRerollClick(turn.id)}
                     disabled={Boolean(pendingRerollId) || aiThinking}
-                    className="call-active__turn-control-btn flex h-5 w-5 items-center justify-center rounded-full disabled:opacity-30"
+                    className="call-active__turn-control-btn"
                     aria-label="重 roll 这句"
                     title="重 roll 这句"
                   >
-                    <RotateCw className={`h-3 w-3 ${isRerolling ? 'animate-spin' : ''}`} />
+                    <RotateCw className={`h-2.5 w-2.5 ${isRerolling ? 'animate-spin' : ''}`} />
                   </button>
-                </div>
+                </span>
               );
             })()}
+            </p>
           </div>
         );
       })}
