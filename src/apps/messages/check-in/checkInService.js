@@ -84,7 +84,7 @@ const normalizeConfig = (value = {}) => {
   };
 };
 
-const isInQuietHours = (quietConfig) => {
+export const isInQuietHours = (quietConfig) => {
   if (!quietConfig || quietConfig.enabled !== true) {
     return false;
   }

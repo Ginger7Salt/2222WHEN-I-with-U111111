@@ -50,9 +50,15 @@ export const ChatSettingsModal = ({
   // 本聊天窗专属的 AI 总提示词设定
   const [systemPrompt, setSystemPrompt] = useState(chat?.systemPrompt || '');
 
-    // 本窗专属的人格分析 / 角色反应指导
+     // 本窗专属的人格分析 / 角色反应指导
   const [characterAnalysisEnabled, setCharacterAnalysisEnabled] = useState(
     chat?.characterAnalysisEnabled === true
+  );
+
+  // 本聊天窗是否接收 Rhythm 主动寄语。
+  // 未设置时默认视为开启，避免老用户升级后被无声关掉。
+  const [rhythmEnabled, setRhythmEnabled] = useState(
+    chat?.rhythmEnabled !== false
   );
   const [characterAnalysisPrompt, setCharacterAnalysisPrompt] = useState(
     chat?.characterAnalysisPrompt || ''
@@ -238,6 +244,19 @@ const handleToggleLocation = async () => {
 
     if (onUpdatedUserPersona) {
       onUpdatedUserPersona({ typingStyle: nextTypingStyle });
+    }
+  };
+
+    const handleToggleRhythmEnabled = async () => {
+    if (!chat?.id) return;
+
+    const nextEnabled = !rhythmEnabled;
+    setRhythmEnabled(nextEnabled);
+
+    await db.chats.update(chat.id, { rhythmEnabled: nextEnabled });
+
+    if (onUpdatedUserPersona) {
+      onUpdatedUserPersona({ rhythmEnabled: nextEnabled });
     }
   };
 
@@ -743,6 +762,45 @@ const handleToggleLocation = async () => {
 </button>
 
 </div>
+
+        {/* Rhythm 主动寄语 */}
+        <div
+          className="flex items-center justify-between gap-4 rounded-2xl border p-3"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)',
+          }}
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-medium">Rhythm 主动寄语</p>
+            <p className="mt-1 text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              开启后，{character?.name || '角色'} 会结合日程、待办和自己的生活状态，偶尔主动给这个聊天窗发一句寄语。关闭后这个聊天窗不会再收到。
+            </p>
+          </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={rhythmEnabled}
+            onClick={handleToggleRhythmEnabled}
+            className="relative h-5 w-10 shrink-0 overflow-hidden rounded-full transition-colors"
+            style={{
+              background: rhythmEnabled
+                ? 'var(--accent-color)'
+                : 'var(--divider)'
+            }}
+          >
+            <span
+              className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition-transform"
+              style={{
+                background: 'var(--bg-main)',
+                transform: rhythmEnabled
+                  ? 'translateX(20px)'
+                  : 'translateX(0)'
+              }}
+            />
+          </button>
+        </div>
 
         {/* 阶段性多条目事实总结 */}
         <div

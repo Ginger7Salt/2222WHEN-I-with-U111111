@@ -1,4 +1,75 @@
 import db from '../db';
+import { isInQuietHours } from '../apps/messages/check-in/checkInService';
+import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
+
+// 距离上一条消息（不论发送方）多久以内，视为"用户正在这个对话里"，
+// 此时不主动插入提醒消息，避免打断正在进行的对话。
+const ACTIVE_CHAT_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * 拼一段轻量的"完整人设"补充文本：世界书 + 角色补充设定 + 角色眼中的用户。
+ * 不复用 aiService.js 里那个面向正式回复的大 Prompt（里面混了表情包语法等
+ * 跟寄语无关的指令），这里只取跟"这个人是谁、TA怎么看用户"相关的部分。
+ */
+const buildRhythmPersonaBrief = async (character) => {
+  const enabledWorldBooks = await db.worldBooks
+    .where('isEnabled')
+    .equals(1)
+    .toArray();
+
+  const worldBookPieces = enabledWorldBooks
+    .map((wb) => wb.content)
+    .filter((content) => typeof content === 'string' && content.trim());
+
+  if (character?.worldBook && character.worldBook.trim()) {
+    worldBookPieces.push(character.worldBook.trim());
+  }
+
+  const worldBookText = worldBookPieces.length > 0
+    ? `\n【世界背景设定】：${worldBookPieces.join('；')}`
+    : '';
+
+  const extraNotesText = character?.extraNotes && character.extraNotes.trim()
+    ? `\n【角色补充设定】：${character.extraNotes.trim()}`
+    : '';
+
+  return { worldBookText, extraNotesText };
+};
+
+/**
+ * 取角色最近一条"平行轨迹"记录，仅提炼成一句背景氛围参考，
+ * 不做具体引用——寄语只应该"带着这份心情"，不应该"复述这件事"。
+ */
+const buildOrbitFlavorContext = async (chatId) => {
+  try {
+    const orbitLogs = await db.parallelOrbits
+      .where('chatId')
+      .equals(chatId)
+      .toArray();
+
+    if (orbitLogs.length === 0) {
+      return '';
+    }
+
+    const latest = orbitLogs.reduce((a, b) => {
+      const aTime = new Date(a?.timestamp || 0).getTime();
+      const bTime = new Date(b?.timestamp || 0).getTime();
+      return bTime > aTime ? b : a;
+    });
+
+    const pieces = [
+      latest?.activity,
+      latest?.thoughts,
+      latest?.weather,
+      latest?.location
+    ].filter((value) => typeof value === 'string' && value.trim());
+
+    return pieces.join('；');
+  } catch (err) {
+    console.warn('[RhythmReminder] 读取平行轨迹背景失败:', err);
+    return '';
+  }
+};
 
 const getDayPeriod = (hours) => {
   if (hours >= 5 && hours < 8) return '清晨';
@@ -58,6 +129,17 @@ export async function triggerRhythmActiveReminder(
   const cooldownMs = 4 * 60 * 60 * 1000;
 
   try {
+    const chat = await db.chats.get(chatId);
+
+    // 寄语现在是每个聊天窗独立的开关，跟角色的其他 AI 主动行为
+    // （平行轨迹独白、快照等共用的 isAutoMessageActive）解耦。
+    // 未设置时默认视为开启，避免老用户升级后被无声关闭。
+    if (chat?.rhythmEnabled === false) {
+      return {
+        status: 'rhythm_disabled_for_chat'
+      };
+    }
+
        const cooldownKey = `lastRhythmReminderTime_${character.id}`;
     const lastTimeSetting = await db.settings.get(cooldownKey);
     const lastTime = Number(lastTimeSetting?.value || 0);
@@ -68,6 +150,40 @@ export async function triggerRhythmActiveReminder(
       };
     }
 
+    // 用户设定的全局勿扰时段：命中则不主动发送。
+    const quietHoursSetting = await db.settings.get('quietHours');
+
+    if (isInQuietHours(quietHoursSetting?.value)) {
+      return {
+        status: 'quiet_hours'
+      };
+    }
+
+    // 用户最近仍在这个对话里活动（不论是谁发的最后一条），
+    // 此时插入一条不相关的主动提醒会显得很突兀，先跳过。
+    const recentMessages = await db.messages
+      .where('chatId')
+      .equals(chatId)
+      .toArray();
+
+    let lastMessage = null;
+
+    for (const msg of recentMessages) {
+      const msgTime = new Date(msg?.timestamp || 0).getTime();
+
+      if (
+        Number.isFinite(msgTime) &&
+        (!lastMessage || msgTime > lastMessage.time)
+      ) {
+        lastMessage = { time: msgTime };
+      }
+    }
+
+    if (lastMessage && now - lastMessage.time < ACTIVE_CHAT_WINDOW_MS) {
+      return {
+        status: 'chat_recently_active'
+      };
+    }
 
     const apiSettings = await db.settings.get('apiConfig');
     const apiConfig = apiSettings?.value || {};
@@ -188,8 +304,20 @@ export async function triggerRhythmActiveReminder(
         }》这一${typeText}。`;
     }
 
+    const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
+
+    const userPersonaText = (chat?.userPersona || character.userPersona || '').trim();
+    const userPersonaContext = userPersonaText
+      ? `\n【角色眼中的用户】：${userPersonaText}`
+      : '';
+
+    const orbitFlavor = await buildOrbitFlavorContext(chatId);
+    const orbitContext = orbitFlavor
+      ? `\n【角色近期私下生活的一点心情底色，只用来感受氛围，绝不能在寄语里直接提及、复述或暗示具体内容】：${orbitFlavor}`
+      : '';
+
     const systemPrompt = `你是一个深爱并陪伴用户的虚拟角色「${character.name}」。
-性格人设：${character.bio || '体贴细腻'}。
+性格人设：${character.bio || '体贴细腻'}。${worldBookText}${extraNotesText}${userPersonaContext}${orbitContext}
 
 现在是 ${periodStr} 的 ${currentHHMM}。
 ${
@@ -206,6 +334,7 @@ ${todoContext ? `【用户待办提醒】：${todoContext}` : ''}
 - 充满生活气与浪漫感，不能表现得像系统日程弹窗。
 - 如果用户处于工作、通勤或课程中，送上温和叮咛或表达你在等他或她。
 - 如果有未完成待办，可以用生活化的方式自然关切地提起它。
+- 你自己也有独立的生活，语气里可以自然带一点"我这边也在过我的日子，同时想着你"的味道，但不要具体交代自己在做什么、在哪、和谁在一起。
 - 不要提及系统、日程表、提醒、API、模型、定时器或任何技术实现。
 - 直接输出完整寄语内容，不要带格式、标题、发件人标签或 Markdown。`;
 
@@ -336,6 +465,10 @@ ${todoContext ? `【用户待办提醒】：${todoContext}` : ''}
         });
       }
     );
+
+    // 记忆整理是独立、延迟、非阻塞的后台任务，跟普通 AI 回复走同一套流程，
+    // 这样寄语也会被记住，而不是发完就飘走。
+    void scheduleMemoryProcessing(chatId);
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
