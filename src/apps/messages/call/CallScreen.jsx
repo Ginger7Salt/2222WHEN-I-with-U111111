@@ -18,7 +18,7 @@ import './call-screen.css';
 // 只对刚落地的新轮次做逐字动画，翻旧记录、缩小再展开悬浮球时不会
 // 把已经说完的话重新打一遍。跟 specialMessageEffects.js 里
 // "最近消息才播放特效"是同一个思路。
-const TYPEWRITER_MS_PER_CHAR = 32;
+const TYPEWRITER_MS_PER_CHAR = 68;
 const TYPEWRITER_FRESH_WINDOW_MS = 6000;
 
 const formatElapsed = (seconds) => {

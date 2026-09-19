@@ -4,8 +4,12 @@ import { Loader2, PhoneOff, Send, Volume2 } from 'lucide-react';
 import './call-active-screen.css';
 
 // 通话进行中的独立视觉层，从 CallScreen 里拆出来单独维护。
-// 头像比旧版更大、光环呼吸更明显；"歌词流动"逐字显示机制完全不变，
-// 只是新到达的整行加了一次柔和的浮入动画，让它感觉更梦幻一点。
+// 头像比旧版更大、光环呼吸更明显；"歌词流动"的字不再是整段一次性
+// 换掉，而是拆成一个个字符，新出现的字带一次轻柔的淡入 + 上浮，
+// 制造缓慢浮现的感觉——逐字揭示的节奏仍然由 CallScreen 里的打字机
+// 定时器控制，这里只负责把已经揭示出来的字符逐个渲染成带动画的元素。
+// 底部输入条上方加了一条常驻的装饰性声波，填一下原来太空的下半屏，
+// 纯装饰，不跟真实音量绑定。
 const CallActiveScreen = ({
   character,
   statusLabel,
@@ -21,20 +25,22 @@ const CallActiveScreen = ({
   onHangUp,
 }) => (
   <div className="call-active flex h-full flex-col items-center">
-    <div className="flex shrink-0 flex-col items-center gap-2 pb-2">
-      <div className="call-active__avatar-ring relative flex h-20 w-20 items-center justify-center rounded-full">
+    <div className="flex shrink-0 flex-col items-center gap-2.5 pb-2">
+      <div className="call-active__avatar-ring relative flex h-28 w-28 items-center justify-center rounded-full">
+        <span className="call-active__avatar-glow absolute inset-0 rounded-full" aria-hidden="true" />
+
         {character?.avatar ? (
           <img
             src={character.avatar}
             alt={character.name}
-            className="h-[4.5rem] w-[4.5rem] rounded-full border object-cover"
+            className="relative h-24 w-24 rounded-full border object-cover"
             style={{ borderColor: 'rgba(255,255,255,0.5)' }}
             loading="lazy"
             decoding="async"
           />
         ) : (
           <div
-            className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border font-serif text-2xl font-semibold"
+            className="relative flex h-24 w-24 items-center justify-center rounded-full border font-serif text-3xl font-semibold"
             style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.5)' }}
           >
             {character?.name?.[0] || 'C'}
@@ -70,7 +76,7 @@ const CallActiveScreen = ({
             key={turn.id}
             className={`call-active__line text-center ${
               turn.by === 'ai' ? 'call-active__line--ai' : 'call-active__line--user'
-            } ${isLatestAi ? 'call-active__line--fresh' : ''}`}
+            }`}
           >
             {turn.by === 'ai' && turn.mode === 'real' && (
               <div className="mb-1 flex items-center justify-center gap-1 text-[9px] uppercase tracking-[0.14em] opacity-60">
@@ -82,7 +88,15 @@ const CallActiveScreen = ({
                 语音
               </div>
             )}
-            <p>{displayText}</p>
+            <p>
+              {isLatestAi
+                ? displayText.split('').map((char, index) => (
+                  <span key={index} className="call-active__char">
+                    {char === ' ' ? ' ' : char}
+                  </span>
+                ))
+                : displayText}
+            </p>
           </div>
         );
       })}
@@ -96,7 +110,17 @@ const CallActiveScreen = ({
       )}
     </div>
 
-    <div className="mt-6 flex w-full max-w-sm shrink-0 items-center gap-2">
+    <div className="call-active__ambient-wave flex shrink-0 items-end justify-center gap-[3px]" aria-hidden="true">
+      {Array.from({ length: 22 }).map((_, index) => (
+        <span
+          key={index}
+          className="call-active__ambient-bar"
+          style={{ animationDelay: `${index * 0.09}s` }}
+        />
+      ))}
+    </div>
+
+    <div className="mt-3 flex w-full max-w-sm shrink-0 items-center gap-2">
       <input
         type="text"
         value={draftText}

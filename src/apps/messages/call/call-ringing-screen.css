@@ -30,12 +30,29 @@
   opacity: 0.4;
 }
 
+/* 中下段的声波区域：撑满头像和按钮之间剩下的空间，是这个屏幕的
+   视觉主体，不再是挤在文字下面的一条细线。 */
+.call-ringing__wave-zone {
+  min-height: 0;
+  padding: 0 1.5rem;
+}
+
+.call-ringing__wave {
+  height: 88px;
+  width: 100%;
+  max-width: 20rem;
+}
+
 .call-ringing__wave-bar {
-  width: 3px;
-  height: 6px;
+  width: 5px;
+  height: 10px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-color) 65%, white 25%);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--accent-color) 55%, transparent);
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--accent-color) 55%, transparent) 0%,
+    color-mix(in srgb, var(--accent-color) 80%, white 25%) 100%
+  );
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent-color) 55%, transparent);
 }
 
 .call-ringing__pill {
@@ -64,7 +81,9 @@
   }
 
   .call-ringing__wave-bar {
-    animation: call-ringing-wave 1s ease-in-out infinite;
+    animation-name: call-ringing-wave;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
   }
 }
 
@@ -96,11 +115,11 @@
 @keyframes call-ringing-wave {
   0%,
   100% {
-    height: 6px;
+    height: 10px;
   }
 
   50% {
-    height: 22px;
+    height: 84px;
   }
 }
 
@@ -113,6 +132,21 @@
   .call-ringing__avatar {
     width: 116px;
     height: 116px;
+  }
+
+  .call-ringing__wave {
+    height: 68px;
+  }
+
+  @keyframes call-ringing-wave {
+    0%,
+    100% {
+      height: 8px;
+    }
+
+    50% {
+      height: 64px;
+    }
   }
 }
 

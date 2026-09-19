@@ -8,6 +8,9 @@ import './call-ringing-screen.css';
 // 操作区），但配色完全走 app 自己的主题变量（--accent-color 等），
 // 不带参考图原本的暖橙色调。用户呼出、角色呼入两个方向共用同一层，
 // 只有底部按钮组不同。
+//
+// 布局分三段：顶部头像+名字，中下段是一整块声波可视化区域（占满
+// 剩余空间，视觉上是屏幕主体），底部是操作按钮。
 const CallRingingScreen = ({
   character,
   direction,
@@ -21,7 +24,7 @@ const CallRingingScreen = ({
 
   return (
     <div className="call-ringing flex h-full flex-col items-center">
-      <div className="call-ringing__stage flex flex-1 flex-col items-center justify-center gap-5">
+      <div className="call-ringing__top flex shrink-0 flex-col items-center gap-5 pt-4">
         <div className="call-ringing__avatar-wrap relative flex items-center justify-center">
           <span className="call-ringing__ring call-ringing__ring--1" aria-hidden="true" />
           <span className="call-ringing__ring call-ringing__ring--2" aria-hidden="true" />
@@ -57,13 +60,18 @@ const CallRingingScreen = ({
             {statusLabel}
           </p>
         </div>
+      </div>
 
-        <div className="call-ringing__wave flex items-end gap-[3px]" aria-hidden="true">
-          {Array.from({ length: 12 }).map((_, index) => (
+      <div className="call-ringing__wave-zone flex w-full flex-1 items-center justify-center">
+        <div className="call-ringing__wave flex items-center justify-center gap-[5px]" aria-hidden="true">
+          {Array.from({ length: 26 }).map((_, index) => (
             <span
               key={index}
               className="call-ringing__wave-bar"
-              style={{ animationDelay: `${index * 0.08}s` }}
+              style={{
+                animationDelay: `${index * 0.07}s`,
+                animationDuration: `${1.1 + (index % 5) * 0.14}s`,
+              }}
             />
           ))}
         </div>
