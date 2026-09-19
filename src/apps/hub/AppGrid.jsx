@@ -1,20 +1,38 @@
 // src/apps/hub/AppGrid.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MessageSquare, ArrowUpRight } from 'lucide-react';
 
 import GlassCard from '../../components/GlassCard';
 import KeepAlivePlayer from './KeepAlivePlayer';
 import PreloaderSelector from './PreloaderSelector';
 import AppSwiper from './AppSwiper';
+import EditableAppGrid from './EditableAppGrid';
 import buildAppGridItems from './appGridItems';
 import useAppNameDisplayMode from './useAppNameDisplayMode';
+import { applySavedOrder, loadAppGridOrder, saveAppGridOrder } from './appGridOrderStore';
 import db from '../../db';
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
   const [habitatCount, setHabitatCount] = useState(0);
   const [askCount, setAskCount] = useState(0);
   const [activeWorkflowCount, setActiveWorkflowCount] = useState(0);
+  const [savedOrder, setSavedOrder] = useState([]);
+  const [isEditMode, setIsEditMode] = useState(false);
   const nameMode = useAppNameDisplayMode();
+
+  // 首页应用区自定义顺序：只在挂载时读一次，编辑模式里的实时排序
+  // 变化走 setSavedOrder，不需要重复去读数据库。
+  useEffect(() => {
+    let isMounted = true;
+
+    loadAppGridOrder().then((order) => {
+      if (isMounted) setSavedOrder(order);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -60,6 +78,26 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
     [onOpenApp, nameMode, habitatCount, askCount, activeWorkflowCount]
   );
 
+  // 把保存过的自定义顺序套用到当前这一版的卡片定义上
+  const orderedItems = useMemo(
+    () => applySavedOrder(swiperItems, savedOrder),
+    [swiperItems, savedOrder]
+  );
+
+  const handleEnterEditMode = useCallback(() => {
+    setIsEditMode(true);
+  }, []);
+
+  const handleExitEditMode = useCallback(() => {
+    setIsEditMode(false);
+  }, []);
+
+  const handleReorder = useCallback((reorderedItems) => {
+    const newOrderIds = reorderedItems.map((item) => item.id);
+    setSavedOrder(newOrderIds);
+    void saveAppGridOrder(newOrderIds);
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between px-2">
@@ -68,21 +106,41 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             Applications
           </h3>
           <p className="mt-1 text-[10px] opacity-35">
-            Things kept close, and places to return to.
+            {isEditMode
+              ? '长按并拖动，调整应用的顺序'
+              : 'Things kept close, and places to return to.'}
           </p>
         </div>
 
-        <span className="font-mono text-[9px] uppercase tracking-widest opacity-30">
-          Personal Index
-        </span>
+        {isEditMode ? (
+          <button
+            type="button"
+            onClick={handleExitEditMode}
+            className="rounded-full px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest transition-transform active:scale-95"
+            style={{
+              backgroundColor: 'var(--accent-color)',
+              color: 'var(--accent-foreground)',
+            }}
+          >
+            完成
+          </button>
+        ) : (
+          <span className="font-mono text-[9px] uppercase tracking-widest opacity-30">
+            Personal Index
+          </span>
+        )}
       </div>
 
-      {/* 主入口：Messages，固定在滑块上方，不参与翻页 */}
+      {/* 主入口：Messages，固定在滑块上方，不参与翻页、也不参与排序 */}
       <GlassCard
         delay={delay}
         tone="ink"
-        onClick={() => onOpenApp('messages')}
-        className="group flex cursor-pointer items-center justify-between overflow-hidden p-4 text-left"
+        onClick={() => {
+          if (!isEditMode) onOpenApp('messages');
+        }}
+        className={`group flex items-center justify-between overflow-hidden p-4 text-left ${
+          isEditMode ? 'pointer-events-none opacity-50' : 'cursor-pointer'
+        }`}
       >
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black/10 dark:bg-white/10">
@@ -102,8 +160,17 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
         <ArrowUpRight className="h-4 w-4 text-[var(--text-on-ink)] opacity-35 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </GlassCard>
 
-      {/* 其余应用：左右滑动查看的分页滑块 */}
-      <AppSwiper items={swiperItems} />
+      {/* 其余应用：正常态是左右滑动的分页滑块；长按任意卡片进入编辑
+          模式后，换成不分页的连续网格，可以自由拖拽调整顺序。 */}
+      {isEditMode ? (
+        <EditableAppGrid
+          items={orderedItems}
+          onReorder={handleReorder}
+          onExit={handleExitEditMode}
+        />
+      ) : (
+        <AppSwiper items={orderedItems} onLongPressApp={handleEnterEditMode} />
+      )}
 
       <KeepAlivePlayer delay={delay + 160} />
       <PreloaderSelector delay={delay + 170} />

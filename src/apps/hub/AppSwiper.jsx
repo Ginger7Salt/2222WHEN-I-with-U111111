@@ -6,6 +6,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { buildPages } from './paginateGridItems';
+import { useLongPress } from './useLongPress';
 
 const COLUMNS = 2;
 const ROWS_PER_PAGE = 4;
@@ -18,10 +19,17 @@ const COL_SPAN_CLASS = {
   2: 'col-span-2',
 };
 
-export const AppSwiper = ({ items }) => {
+export const AppSwiper = ({ items, onLongPressApp }) => {
   const scrollerRef = useRef(null);
   const [activePage, setActivePage] = useState(0);
   const isProgrammaticScroll = useRef(false);
+
+  // 长按任意一张卡片超过阈值，进入首页应用区的拖动排序编辑模式。
+  // 只在这里调用一次，同一组事件处理函数绑定到每一张卡片上（详见
+  // useLongPress.js 里的说明）。
+  const longPress = useLongPress(() => {
+    if (onLongPressApp) onLongPressApp();
+  });
 
   const pages = useMemo(
     () =>
@@ -89,6 +97,7 @@ export const AppSwiper = ({ items }) => {
               <div
                 key={item.id}
                 className={COL_SPAN_CLASS[item.colSpan] || 'col-span-1'}
+                {...(onLongPressApp ? longPress : null)}
               >
                 {item.content}
               </div>
