@@ -17,8 +17,8 @@ export const PetWidgetSettings = () => {
     enabled: false,
     chatId: null,
     customAvatar: null,
+    aiReactionsEnabled: false,
   });
-
   const [bindableChats, setBindableChats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -132,6 +132,23 @@ export const PetWidgetSettings = () => {
     }
   };
 
+  const handleToggleAiReactions = async (event) => {
+    const aiReactionsEnabled = event.target.checked;
+
+    setConfig((previous) => ({ ...previous, aiReactionsEnabled }));
+
+    try {
+      await savePetWidgetConfig({ aiReactionsEnabled });
+    } catch (error) {
+      console.error('[PetWidgetSettings] 保存 AI 反应开关失败:', error);
+      triggerGlobalToast({
+        title: '桌宠',
+        content: '这个开关暂时没保存上，稍后再试试。',
+        duration: 4000,
+      });
+    }
+  };
+
   const handleResetAvatar = async () => {
     setConfig((previous) => ({ ...previous, customAvatar: null }));
 
@@ -178,6 +195,34 @@ export const PetWidgetSettings = () => {
           className="h-4 w-4 shrink-0 cursor-pointer"
           style={{ accentColor: 'var(--accent-color)' }}
           aria-label="显示桌宠悬浮球"
+        />
+      </div>
+
+            <div
+        className="flex items-center justify-between gap-4 rounded-2xl border p-3"
+        style={{
+          background: 'var(--control-soft-bg)',
+          borderColor: 'var(--card-border)',
+          color: 'var(--text-main)',
+        }}
+      >
+        <div className="min-w-0">
+          <p className="text-xs font-medium">戳一戳等小动作用 AI 生成回复</p>
+          <p
+            className="mt-1 text-[10px] leading-relaxed"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            关闭时（默认）用固定的几句话瞬间回应，不花 API 额度；打开后会调用你配置的 API，为每次小动作单独生成一句符合角色性格和当下心情的话，会有几秒等待，也会消耗一点 API 用量。没配置 API 时会自动退回固定回应。
+          </p>
+        </div>
+
+        <input
+          type="checkbox"
+          checked={config.aiReactionsEnabled}
+          onChange={handleToggleAiReactions}
+          className="h-4 w-4 shrink-0 cursor-pointer"
+          style={{ accentColor: 'var(--accent-color)' }}
+          aria-label="戳一戳等小动作用 AI 生成回复"
         />
       </div>
 

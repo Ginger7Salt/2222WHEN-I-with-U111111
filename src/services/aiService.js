@@ -776,7 +776,7 @@ const getSafeAlmanacPromptContext = async (chatId) => {
 
 
 
-const buildChatSystemPrompt = async (chatId, chat, character) => {
+export const buildChatSystemPrompt = async (chatId, chat, character) => {
   const enabledWorldBooks = await db.worldBooks
     .where('isEnabled')
     .equals(1)
