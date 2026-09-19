@@ -95,15 +95,16 @@ export const runParallelOrbitScheduler = async () => {
           result
         );
 
-        // "今日安排"和它的碎碎念按角色维度存储，跟平行轨迹是同一个
-        // "角色有自己独立生活"的精神，顺路挂在同一个小时级调度器上检查，
-        // 不需要单独再起一个定时器。已存在当天安排时这两步都只是轻量读取。
+              // "今日安排"和它的碎碎念按聊天窗维度存储，跟平行轨迹是同一个
+        // "这个聊天窗里的角色有自己独立生活"的精神，顺路挂在同一个
+        // 小时级调度器上检查，不需要单独再起一个定时器。
+        // 已存在当天安排时这两步都只是轻量读取。
         try {
-          await generateDailyPlanIfNeeded(chat.characterId);
-          await maybeGenerateCharacterMurmur(chat.characterId);
+          await generateDailyPlanIfNeeded(chat.id);
+          await maybeGenerateCharacterMurmur(chat.id);
         } catch (dailyPlanErr) {
           console.error(
-            `[parallelOrbitScheduler] characterId=${chat.characterId} 今日安排检查失败：`,
+            `[parallelOrbitScheduler] chatId=${chat.id} 今日安排检查失败：`,
             dailyPlanErr
           );
         }

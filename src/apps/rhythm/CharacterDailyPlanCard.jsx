@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import db from '../../db';
 import {
   getTodayDailyPlan,
   generateDailyPlanIfNeeded,
@@ -7,35 +8,47 @@ import {
 } from '../../services/characterDailyPlanService';
 
 /**
- * "今日安排"：角色自己对今天的大致想法，独立于用户的真实课表，
- * 只在 Rhythm App 里作为一个小小的趣味模块展示。
+ * "今日安排"：角色在这个聊天窗里对今天的大致想法，独立于用户的
+ * 真实课表，只在 Rhythm App 里作为一个小小的趣味模块展示。
+ *
+ * 按聊天窗（chatId）绑定，而不是按角色：同一个角色如果挂在多个
+ * 聊天窗下，每个聊天窗会各自拥有一份独立的"今日安排"，
+ * 更贴近"平行的关系线各自有各自的今天"这种感觉。
  *
  * 视觉上延续 RhythmApp 已有的纸质/时光感——复用同一套
  * CSS 变量（--rhythm-serif、--rhythm-mono、--rhythm-spring、
  * --rhythm-elastic）和入场动效关键帧命名习惯，
  * 不引入新的动效语言。
  */
-export default function CharacterDailyPlanCard({ characterId }) {
+export default function CharacterDailyPlanCard({ chatId }) {
   const [plan, setPlan] = useState(null);
+  const [chatTitle, setChatTitle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const checkedCharacterIdRef = useRef(null);
+  const checkedChatIdRef = useRef(null);
 
   useEffect(() => {
-    if (!characterId) {
+    if (!chatId) {
       setPlan(null);
+      setChatTitle('');
       return;
     }
 
-    if (checkedCharacterIdRef.current === characterId) {
+    if (checkedChatIdRef.current === chatId) {
       return;
     }
 
-    checkedCharacterIdRef.current = characterId;
+    checkedChatIdRef.current = chatId;
 
     let cancelled = false;
 
     const load = async () => {
-      const existing = await getTodayDailyPlan(characterId);
+      const chat = await db.chats.get(chatId);
+
+      if (!cancelled) {
+        setChatTitle(chat?.title || '');
+      }
+
+      const existing = await getTodayDailyPlan(chatId);
 
       if (cancelled) return;
 
@@ -44,7 +57,7 @@ export default function CharacterDailyPlanCard({ characterId }) {
       } else {
         setIsLoading(true);
 
-        const result = await generateDailyPlanIfNeeded(characterId);
+        const result = await generateDailyPlanIfNeeded(chatId);
 
         if (!cancelled) {
           if (result?.plan) {
@@ -56,10 +69,10 @@ export default function CharacterDailyPlanCard({ characterId }) {
 
       // 碎碎念是否生成由冷却时间和是否已有安排共同决定，
       // 这里只是给它一个"检查一次"的机会，不代表一定会写入新内容。
-      const murmurResult = await maybeGenerateCharacterMurmur(characterId);
+      const murmurResult = await maybeGenerateCharacterMurmur(chatId);
 
       if (!cancelled && murmurResult?.status === 'success') {
-        const refreshed = await getTodayDailyPlan(characterId);
+        const refreshed = await getTodayDailyPlan(chatId);
 
         if (!cancelled && refreshed) {
           setPlan(refreshed);
@@ -72,9 +85,9 @@ export default function CharacterDailyPlanCard({ characterId }) {
     return () => {
       cancelled = true;
     };
-  }, [characterId]);
+  }, [chatId]);
 
-  if (!characterId) {
+  if (!chatId) {
     return null;
   }
 
@@ -100,12 +113,29 @@ export default function CharacterDailyPlanCard({ characterId }) {
           margin-bottom: 2px;
         }
 
+        .rhythm-daily-plan__header-row {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+
         .rhythm-daily-plan__title {
           font-family: var(--rhythm-serif);
           font-size: 14px;
           font-weight: 600;
           color: var(--text-main);
-          margin-bottom: 10px;
+        }
+
+        .rhythm-daily-plan__chat-tag {
+          font-family: var(--rhythm-mono);
+          font-size: 9px;
+          color: var(--text-sub);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 40%;
         }
 
         .rhythm-daily-plan__loading {
@@ -199,7 +229,15 @@ export default function CharacterDailyPlanCard({ characterId }) {
       `}</style>
 
       <p className="rhythm-daily-plan__eyebrow">Today, Elsewhere</p>
-      <h2 className="rhythm-daily-plan__title">今日安排</h2>
+
+      <div className="rhythm-daily-plan__header-row">
+        <h2 className="rhythm-daily-plan__title">今日安排</h2>
+        {chatTitle && (
+          <span className="rhythm-daily-plan__chat-tag" title={chatTitle}>
+            来自「{chatTitle}」
+          </span>
+        )}
+      </div>
 
       {isLoading && !plan && (
         <p className="rhythm-daily-plan__loading">正在写下今天的打算……</p>

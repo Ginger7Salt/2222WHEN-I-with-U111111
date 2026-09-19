@@ -32,7 +32,7 @@ const formatShortDate = (dateObj) => {
   return `${pad2(dateObj.getMonth() + 1)}.${pad2(dateObj.getDate())}`;
 };
 
-export default function RhythmApp({ onBackHub, currentCharacterId }) {
+export default function RhythmApp({ onBackHub, currentCharacterId, currentChatId }) {
   const [character, setCharacter] = useState(null);
   const [schedules, setSchedules] = useState([]);
   const [notesMap, setNotesMap] = useState({});
@@ -1653,12 +1653,19 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
               Rhythm & Ephemera
             </p>
 
-            <h1
+                       <h1
               className="font-serif text-[26px] font-semibold leading-none tracking-[0.06em]"
               style={{ color: 'var(--text-main)' }}
             >
               时光作息
             </h1>
+
+            <p
+              className="mt-1.5 font-mono text-[10px] tracking-wide"
+              style={{ color: 'var(--text-sub)' }}
+            >
+              绑定角色：{character?.name || '未绑定角色'}
+            </p>
           </div>
 
           <p
@@ -1669,9 +1676,7 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
           </p>
         </div>
         
-      </header>
-
-      <CharacterDailyPlanCard characterId={currentCharacterId} />
+       </header>
 
       {showConfig && (
         <div
@@ -2481,13 +2486,15 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
                 className="px-3 py-1 font-serif text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 transition-colors"
               >
                 撕去
+
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <CharacterDailyPlanCard chatId={currentChatId} />
     </div>
   );
 }
-
 

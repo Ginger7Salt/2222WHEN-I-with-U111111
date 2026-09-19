@@ -200,6 +200,11 @@ const [hubBackground, setHubBackground] = useState('');
     setActiveCharacterId,
   ] = useState(null);
 
+  const [
+    activeChatId,
+    setActiveChatId,
+  ] = useState(null);
+
     // 云端离线推送消息开屏/切回前台无感补齐 + 监听 ServiceWorker 点击直达 + 伴侣新消息提示音
   useEffect(() => {
     void syncPendingPushMessages();
@@ -473,7 +478,8 @@ const [hubBackground, setHubBackground] = useState('');
           return;
         }
 
-        setActiveCharacterId(character.id);
+               setActiveCharacterId(character.id);
+        setActiveChatId(latestChat.id);
       } catch (err) {
         console.warn(
           '[App] 获取最近活跃角色失败:',
@@ -1061,9 +1067,10 @@ const [hubBackground, setHubBackground] = useState('');
 
         {currentApp === 'rhythm' && (
           <ErrorBoundary>
-            <RhythmApp
+                       <RhythmApp
               onBackHub={() => openApp('hub')}
               currentCharacterId={activeCharacterId}
+              currentChatId={activeChatId}
             />
           </ErrorBoundary>
         )}

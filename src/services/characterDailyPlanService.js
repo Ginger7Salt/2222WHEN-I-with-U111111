@@ -6,9 +6,9 @@ import { inspectMemorySignals } from '../apps/memory/memorySignals';
 // 也刻意跟用户的真实课表/工作日程完全独立——这是角色自己的一天，
 // 跟平行轨迹的"独立生活"是同一个精神，只是从"事后记录"变成"当下的打算"。
 //
-// 数据按角色维度存储（characterId），跟 Rhythm App 本身按
-// currentCharacterId 展示的方式保持一致。一个角色如果同时挂在
-// 多个聊天窗下，共用同一份"今日安排"。
+// 数据按聊天窗（chatId）维度存储：同一个角色如果挂在多个聊天窗下，
+// 每个聊天窗各自拥有一份独立的"今日安排"和碎碎念，而不是共用一份。
+// 这样多个聊天窗才会像多条平行的关系线一样，各自有各自的今天。
 
 // 一天分成 5 个大时段，覆盖完整 24 小时，不重不漏。
 const PERIOD_DEFS = [
@@ -152,75 +152,54 @@ const parseDailyPlanResponse = (rawText) => {
 };
 
 /**
- * 判断这个角色是否已经有过任何一次用户互动（跨所有聊天窗）。
- * 避免刚创建、从没聊过的角色也被自动写一份"今日安排"，白白消耗 Token。
+ * 判断这个聊天窗是否已经有过任何一次用户互动。
+ * 避免刚创建、从没聊过的聊天窗也被自动写一份"今日安排"，白白消耗 Token。
  */
-const hasAnyCharacterActivity = async (characterId) => {
-  const chats = await db.chats.where('characterId').equals(characterId).toArray();
+const hasAnyChatActivity = async (chatId) => {
+  const hasUserMessage = await db.messages
+    .where('chatId')
+    .equals(chatId)
+    .filter((message) => message?.sender === 'user')
+    .first();
 
-  for (const chat of chats) {
-    const hasUserMessage = await db.messages
-      .where('chatId')
-      .equals(chat.id)
-      .filter((message) => message?.sender === 'user')
-      .first();
-
-    if (hasUserMessage) {
-      return true;
-    }
-  }
-
-  return false;
+  return Boolean(hasUserMessage);
 };
 
 /**
- * 取这个角色下"最近更新"的聊天窗，作为碎碎念读取用户情绪信号的来源。
- * 一个角色如果挂在多个聊天窗下，只用最活跃的那个来判断用户状态。
+ * 读取这个聊天窗今天的安排（不生成，只读）。
  */
-const resolvePrimaryChatForCharacter = async (characterId) => {
-  const chats = await db.chats.where('characterId').equals(characterId).toArray();
-
-  if (chats.length === 0) {
-    return null;
-  }
-
-  return chats.reduce((latest, chat) => {
-    const latestTime = new Date(latest?.updatedAt || 0).getTime();
-    const currentTime = new Date(chat?.updatedAt || 0).getTime();
-
-    return currentTime > latestTime ? chat : latest;
-  }, chats[0]);
-};
-
-/**
- * 读取角色今天的安排（不生成，只读）。
- */
-export const getTodayDailyPlan = async (characterId) => {
-  if (!characterId) {
+export const getTodayDailyPlan = async (chatId) => {
+  if (!chatId) {
     return null;
   }
 
   const todayStr = getTodayDateStr();
 
   const plan = await db.characterDailyPlans
-    .where('[characterId+dateStr]')
-    .equals([characterId, todayStr])
+    .where('[chatId+dateStr]')
+    .equals([chatId, todayStr])
     .first();
 
   return plan || null;
 };
 
 /**
- * 如果角色今天还没有"今日安排"，生成一份。
+ * 如果这个聊天窗今天还没有"今日安排"，生成一份。
  * 已存在则直接返回已有记录，不重复生成。
  */
-export const generateDailyPlanIfNeeded = async (characterId) => {
-  if (!characterId) {
-    return { status: 'no_character' };
+export const generateDailyPlanIfNeeded = async (chatId) => {
+  if (!chatId) {
+    return { status: 'no_chat' };
   }
 
   try {
-    const character = await db.characters.get(characterId);
+    const chat = await db.chats.get(chatId);
+
+    if (!chat) {
+      return { status: 'no_chat' };
+    }
+
+    const character = await db.characters.get(chat.characterId);
 
     if (!character) {
       return { status: 'no_character' };
@@ -229,15 +208,15 @@ export const generateDailyPlanIfNeeded = async (characterId) => {
     const todayStr = getTodayDateStr();
 
     const existing = await db.characterDailyPlans
-      .where('[characterId+dateStr]')
-      .equals([characterId, todayStr])
+      .where('[chatId+dateStr]')
+      .equals([chatId, todayStr])
       .first();
 
     if (existing) {
       return { status: 'already_exists', plan: existing };
     }
 
-    const hasActivity = await hasAnyCharacterActivity(characterId);
+    const hasActivity = await hasAnyChatActivity(chatId);
 
     if (!hasActivity) {
       return { status: 'no_user_activity' };
@@ -264,7 +243,8 @@ export const generateDailyPlanIfNeeded = async (characterId) => {
     const nowIso = new Date().toISOString();
 
     const newPlan = {
-      characterId,
+      chatId,
+      characterId: character.id,
       dateStr: todayStr,
       generatedAt: nowIso,
       items,
@@ -322,20 +302,20 @@ ${
 };
 
 /**
- * 视情况为角色今天的安排生成一句碎碎念。
+ * 视情况为这个聊天窗今天的安排生成一句碎碎念。
  *
  * 触发节奏：只受冷却时间限制（默认 2 小时），不要求必须检测到
  * 用户情绪信号——检测到时，碎碎念会带一点隐约的关切；
  * 没检测到时，就是单纯"想到你了"式的念头，保持更高的出现频率。
  */
-export const maybeGenerateCharacterMurmur = async (characterId) => {
-  if (!characterId) {
-    return { status: 'no_character' };
+export const maybeGenerateCharacterMurmur = async (chatId) => {
+  if (!chatId) {
+    return { status: 'no_chat' };
   }
 
   try {
     const now = Date.now();
-    const cooldownKey = `lastDailyPlanMurmurTime_${characterId}`;
+    const cooldownKey = `lastDailyPlanMurmurTime_${chatId}`;
     const lastTimeSetting = await db.settings.get(cooldownKey);
     const lastTime = Number(lastTimeSetting?.value || 0);
 
@@ -343,7 +323,13 @@ export const maybeGenerateCharacterMurmur = async (characterId) => {
       return { status: 'cooldown' };
     }
 
-    const character = await db.characters.get(characterId);
+    const chat = await db.chats.get(chatId);
+
+    if (!chat) {
+      return { status: 'no_chat' };
+    }
+
+    const character = await db.characters.get(chat.characterId);
 
     if (!character) {
       return { status: 'no_character' };
@@ -352,35 +338,26 @@ export const maybeGenerateCharacterMurmur = async (characterId) => {
     const todayStr = getTodayDateStr();
 
     const plan = await db.characterDailyPlans
-      .where('[characterId+dateStr]')
-      .equals([characterId, todayStr])
+      .where('[chatId+dateStr]')
+      .equals([chatId, todayStr])
       .first();
 
     if (!plan || !Array.isArray(plan.items) || plan.items.length === 0) {
       return { status: 'no_plan' };
     }
 
-    const chat = await resolvePrimaryChatForCharacter(characterId);
+    const recentMessages = await db.messages
+      .where('chatId')
+      .equals(chatId)
+      .reverse()
+      .limit(EMOTION_SIGNAL_LOOKBACK)
+      .toArray();
 
-    let moodContext = '';
+    recentMessages.reverse();
 
-    if (chat) {
-      const recentMessages = await db.messages
-        .where('chatId')
-        .equals(chat.id)
-        .reverse()
-        .limit(EMOTION_SIGNAL_LOOKBACK)
-        .toArray();
-
-      recentMessages.reverse();
-
-      const { signals } = inspectMemorySignals(recentMessages);
-      const emotionSignal = signals.find((signal) => signal.type === 'emotion');
-
-      if (emotionSignal?.excerpt) {
-        moodContext = emotionSignal.excerpt;
-      }
-    }
+    const { signals } = inspectMemorySignals(recentMessages);
+    const emotionSignal = signals.find((signal) => signal.type === 'emotion');
+    const moodContext = emotionSignal?.excerpt || '';
 
     const apiSettings = await db.settings.get('apiConfig');
     const apiConfig = apiSettings?.value || {};
