@@ -1695,7 +1695,6 @@ useLayoutEffect(() => {
     isOpen={showCalendar}
     chatId={chatId}
     character={character}
-    messages={messages}
     onClose={() => setShowCalendar(false)}
   />
 )}

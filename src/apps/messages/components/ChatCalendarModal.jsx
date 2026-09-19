@@ -19,8 +19,8 @@ import {
   deleteXinjiEntry,
   updateXinjiEntry,
 } from '../../../services/xinjiService';
+import db from '../../../db';
 import './chat-calendar.css';
-
 const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
 const MINI_HEAT_DAYS = 28;
 
@@ -67,7 +67,6 @@ const ChatCalendarModal = ({
   isOpen,
   chatId,
   character,
-  messages,
   onClose,
 }) => {
   const [mounted, setMounted] = useState(false);
@@ -77,6 +76,7 @@ const ChatCalendarModal = ({
   const [selectedDayKey, setSelectedDayKey] = useState(null);
 
   const [xinjiEntries, setXinjiEntries] = useState([]);
+  const [allMessages, setAllMessages] = useState([]);
   const [isReflecting, setIsReflecting] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState({
@@ -110,18 +110,43 @@ const ChatCalendarModal = ({
     setXinjiEntries(list);
   }, [chatId]);
 
+  /*
+   * 日历要看到的是这个聊天框从头到尾的全部记录（哪天聊过、哪天有
+   * 心记），跟聊天区主界面"只保留最近一批在内存里"的分页逻辑是
+   * 两种不同的需求，所以这里打开日历时单独、完整地查一次数据库，
+   * 不依赖聊天区传进来的（已经被分页裁剪过的）消息列表。
+   */
+  const loadAllMessages = useCallback(async () => {
+    if (!chatId) return;
+
+    try {
+      const list = await db.messages
+        .where('chatId')
+        .equals(chatId)
+        .toArray();
+
+      setAllMessages(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error(
+        '[ChatCalendarModal] 加载完整聊天记录失败：',
+        error,
+      );
+    }
+  }, [chatId]);
+
   useEffect(() => {
     if (isOpen) {
       setViewDate(new Date());
       setSelectedDayKey(null);
       void loadXinjiEntries();
+      void loadAllMessages();
     }
-  }, [isOpen, loadXinjiEntries]);
+  }, [isOpen, loadXinjiEntries, loadAllMessages]);
 
   const messagesByDay = useMemo(() => {
     const map = new Map();
 
-    (messages || []).forEach((message) => {
+    allMessages.forEach((message) => {
       const date = parseMessageDate(message.timestamp);
       if (!date) return;
 
@@ -135,7 +160,7 @@ const ChatCalendarModal = ({
     });
 
     return map;
-  }, [messages]);
+  }, [allMessages]);
 
   const {
     xinjiByExactDate,
