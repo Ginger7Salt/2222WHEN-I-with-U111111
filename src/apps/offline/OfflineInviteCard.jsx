@@ -54,10 +54,15 @@ const useCountdownText = (scheduledFor, isActive) => {
   return `${parts.join('')}后`;
 };
 
-// 黑白极简风格的邀约卡片外壳
+// 黑白为主体，accent 仅作为状态强调色。
 const CardShell = ({ children, tone = 'default', accentBorder = false }) => (
   <div
-    className="relative mx-auto my-3 flex w-full max-w-[310px] flex-col gap-2.5 overflow-hidden rounded-[1.5rem] p-4 text-xs leading-relaxed shadow-[0_12px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl"
+    className={[
+      'mx-auto my-3 flex w-[calc(100%-1rem)] max-w-[340px] flex-col gap-3',
+      'overflow-hidden rounded-[1.75rem] p-4',
+      'text-[13px] leading-relaxed tracking-[0.01em]',
+      'backdrop-blur-xl transition-all duration-200',
+    ].join(' ')}
     style={{
       background:
         tone === 'muted'
@@ -65,21 +70,14 @@ const CardShell = ({ children, tone = 'default', accentBorder = false }) => (
           : 'var(--card-bg-gradient)',
       color: 'var(--text-main)',
       border: `1px solid ${
-        accentBorder ? 'var(--text-main)' : 'var(--card-border)'
+        accentBorder ? 'var(--accent-color)' : 'var(--card-border)'
       }`,
-      opacity: tone === 'muted' ? 0.72 : 1,
+      opacity: tone === 'muted' ? 0.68 : 1,
+      boxShadow: accentBorder
+        ? '0 12px 32px rgba(0, 0, 0, 0.12)'
+        : '0 8px 24px rgba(0, 0, 0, 0.08)',
     }}
   >
-    <div
-      className="pointer-events-none absolute inset-x-5 top-0 h-px"
-      style={{
-        background: accentBorder
-          ? 'var(--text-main)'
-          : 'var(--card-border)',
-        opacity: accentBorder ? 0.7 : 0.5,
-      }}
-    />
-
     {children}
   </div>
 );
@@ -122,26 +120,33 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
   if (status === 'pending_review' && proposedBy === 'user') {
     return (
       <CardShell tone="muted">
-        <div className="flex items-center gap-2 text-[11px] tracking-wide opacity-70">
-          <span
-            className="flex h-7 w-7 items-center justify-center rounded-xl"
-            style={{ background: 'var(--card-border)' }}
+        <div className="flex items-start gap-3">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border"
+            style={{
+              borderColor: 'var(--card-border)',
+              background: 'var(--card-bg-gradient)',
+            }}
           >
-            <Ticket className="h-3.5 w-3.5 animate-pulse" />
-          </span>
-          <span>等待对方回应你的邀约…</span>
-        </div>
-
-        <div className="text-[15px] font-semibold tracking-tight">
-          {sceneLabel}
-        </div>
-
-        {scheduledForText && (
-          <div className="flex items-center gap-1.5 text-[11px] opacity-60">
-            <Clock className="h-3 w-3" />
-            <span>{scheduledForText}</span>
+            <Ticket className="h-4 w-4 animate-pulse opacity-70" />
           </div>
-        )}
+
+          <div className="min-w-0 flex-1">
+            <div className="font-medium opacity-70">
+              等待对方回应你的邀约…
+            </div>
+
+            <div className="mt-1.5 truncate text-[14px] font-semibold">
+              {sceneLabel}
+            </div>
+
+            {scheduledForText && (
+              <div className="mt-1 text-[12px] opacity-60">
+                {scheduledForText}
+              </div>
+            )}
+          </div>
+        </div>
       </CardShell>
     );
   }
@@ -150,30 +155,34 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
     return (
       <CardShell accentBorder>
         <div className="flex items-start gap-3">
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl"
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
             style={{
-              background: 'var(--text-main)',
-              color: 'var(--accent-foreground)',
+              background: 'var(--control-soft-bg)',
+              color: 'var(--accent-color)',
             }}
           >
-            <BookMarked className="h-4 w-4" />
-          </span>
+            <BookMarked className="h-[18px] w-[18px]" />
+          </div>
 
-          <div className="min-w-0 flex-1 pt-0.5">
-            <div className="text-[15px] font-semibold tracking-tight">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[15px] font-semibold">
               {sceneLabel}
             </div>
-            <div className="mt-0.5 text-[10px] uppercase tracking-[0.16em] opacity-45">
-              Invitation
+
+            <div className="mt-0.5 text-[12px] opacity-55">
+              邀请你赴约
             </div>
           </div>
         </div>
 
         {sceneDescription && (
           <div
-            className="rounded-2xl px-3 py-2.5 text-[12px] leading-relaxed opacity-80"
-            style={{ background: 'var(--control-soft-bg)' }}
+            className="rounded-2xl border px-3 py-2.5 text-[12px] opacity-75"
+            style={{
+              borderColor: 'var(--card-border)',
+              background: 'var(--control-soft-bg)',
+            }}
           >
             {sceneDescription}
           </div>
@@ -181,22 +190,22 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
 
         {scheduledForText && (
           <div
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] opacity-75"
+            className="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-[12px] opacity-75"
             style={{ background: 'var(--control-soft-bg)' }}
           >
-            <Clock className="h-3.5 w-3.5" />
+            <Clock className="h-3.5 w-3.5 shrink-0" />
             <span>{scheduledForText}</span>
           </div>
         )}
 
-        <div className="mt-1 grid grid-cols-2 gap-2">
+        <div className="mt-0.5 flex gap-2">
           <button
             type="button"
             disabled={isResponding}
             onClick={handleAccept}
-            className="flex h-10 items-center justify-center gap-1.5 rounded-xl font-semibold transition-all active:scale-[0.97] disabled:opacity-50"
+            className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-2xl font-semibold transition-all active:scale-[0.97] disabled:opacity-50"
             style={{
-              background: 'var(--text-main)',
+              background: 'var(--accent-color)',
               color: 'var(--accent-foreground)',
             }}
           >
@@ -208,14 +217,13 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
             type="button"
             disabled={isResponding}
             onClick={handleDecline}
-            className="flex h-10 items-center justify-center gap-1.5 rounded-xl font-medium transition-all active:scale-[0.97] disabled:opacity-50"
+            className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-2xl font-medium transition-all active:scale-[0.97] disabled:opacity-50"
             style={{
-              background: 'transparent',
+              background: 'var(--control-soft-bg)',
               color: 'var(--text-main)',
-              border: '1px solid var(--card-border)',
             }}
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3.5 w-3.5 opacity-70" />
             改天吧
           </button>
         </div>
@@ -226,57 +234,53 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
   if (status === 'scheduled') {
     return (
       <CardShell accentBorder>
-        <div className="flex items-start gap-3">
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl"
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
             style={{
-              background: 'var(--text-main)',
-              color: 'var(--accent-foreground)',
+              background: 'var(--control-soft-bg)',
+              color: 'var(--accent-color)',
             }}
           >
-            <Ticket className="h-4 w-4" />
-          </span>
+            <Ticket className="h-[18px] w-[18px]" />
+          </div>
 
-          <div className="min-w-0 flex-1 pt-0.5">
-            <div className="text-[15px] font-semibold tracking-tight">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[15px] font-semibold">
               {sceneLabel}
             </div>
-            <div className="mt-0.5 text-[10px] uppercase tracking-[0.16em] opacity-45">
-              Scheduled
+
+            <div className="mt-0.5 text-[12px] opacity-55">
+              已确认的邀约
             </div>
           </div>
         </div>
 
         {scheduledForText && (
           <div
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] opacity-75"
+            className="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-[12px] opacity-75"
             style={{ background: 'var(--control-soft-bg)' }}
           >
-            <Clock className="h-3.5 w-3.5" />
+            <Clock className="h-3.5 w-3.5 shrink-0" />
             <span>{scheduledForText}</span>
           </div>
         )}
 
         <div
-          className="flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-medium"
+          className="flex items-center justify-between rounded-2xl px-3 py-2.5 font-mono text-[11px]"
           style={{
             background: 'var(--text-main)',
             color: 'var(--accent-foreground)',
           }}
         >
-          <span className="relative flex h-1.5 w-1.5">
-            <span
-              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-              style={{ background: 'currentColor' }}
-            />
-            <span
-              className="relative inline-flex h-1.5 w-1.5 rounded-full"
-              style={{ background: 'currentColor' }}
-            />
+          <span className="flex items-center gap-2">
+            <Clock className="h-3.5 w-3.5" />
+            距离赴约
           </span>
 
-          <Clock className="h-3.5 w-3.5" />
-          <span>{countdownText}</span>
+          <span className="font-semibold">
+            {countdownText}
+          </span>
         </div>
       </CardShell>
     );
@@ -288,53 +292,45 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
         <button
           type="button"
           onClick={() => onEnterScene?.(offlineSessionId)}
-          className="flex items-center justify-between gap-3 text-left transition-opacity active:opacity-70"
+          className="flex w-full items-center justify-between gap-3 rounded-2xl text-left transition-opacity active:opacity-70"
         >
           <div className="flex min-w-0 items-center gap-3">
-            <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl"
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
               style={{
-                background: 'var(--text-main)',
-                color: 'var(--accent-foreground)',
+                background: 'var(--control-soft-bg)',
+                color: 'var(--accent-color)',
               }}
             >
-              <BookMarked className="h-4 w-4" />
-            </span>
+              <BookMarked className="h-[18px] w-[18px]" />
+            </div>
 
             <div className="min-w-0">
-              <div className="truncate text-[15px] font-semibold tracking-tight">
+              <div className="truncate text-[15px] font-semibold">
                 {sceneLabel}
               </div>
-              <div className="mt-0.5 text-[10px] uppercase tracking-[0.16em] opacity-45">
-                Now available
+
+              <div
+                className="mt-0.5 flex items-center gap-1.5 text-[12px]"
+                style={{ color: 'var(--accent-color)' }}
+              >
+                <span className="relative flex h-1.5 w-1.5">
+                  <span
+                    className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                    style={{ background: 'var(--accent-color)' }}
+                  />
+                  <span
+                    className="relative inline-flex h-1.5 w-1.5 rounded-full"
+                    style={{ background: 'var(--accent-color)' }}
+                  />
+                </span>
+                时间到了，点这里赴约
               </div>
             </div>
           </div>
 
           <ChevronRight className="h-5 w-5 shrink-0 opacity-50" />
         </button>
-
-        <div
-          className="flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-medium"
-          style={{
-            background: 'var(--text-main)',
-            color: 'var(--accent-foreground)',
-          }}
-        >
-          <span className="relative flex h-1.5 w-1.5">
-            <span
-              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-              style={{ background: 'currentColor' }}
-            />
-            <span
-              className="relative inline-flex h-1.5 w-1.5 rounded-full"
-              style={{ background: 'currentColor' }}
-            />
-          </span>
-
-          <span>时间到了，点这里赴约</span>
-          <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-70" />
-        </div>
       </CardShell>
     );
   }
@@ -342,19 +338,23 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
   if (status === 'declined' || status === 'cancelled') {
     return (
       <CardShell tone="muted">
-        <div className="flex items-start gap-3">
-          <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl opacity-60"
-            style={{ background: 'var(--card-border)' }}
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border"
+            style={{
+              borderColor: 'var(--card-border)',
+              background: 'var(--card-bg-gradient)',
+            }}
           >
-            <X className="h-3.5 w-3.5" />
-          </span>
+            <X className="h-4 w-4 opacity-60" />
+          </div>
 
-          <div className="min-w-0 pt-0.5">
-            <div className="text-[14px] font-semibold tracking-tight opacity-65">
+          <div className="min-w-0">
+            <div className="truncate text-[14px] font-semibold opacity-60">
               {sceneLabel}
             </div>
-            <div className="mt-1 text-[11px] opacity-50">
+
+            <div className="mt-0.5 text-[12px] opacity-50">
               {status === 'declined' ? '这次没能约成' : '邀约已取消'}
             </div>
           </div>
@@ -369,27 +369,31 @@ const OfflineInviteCard = ({ message, onEnterScene, onRefresh }) => {
         <button
           type="button"
           onClick={() => onEnterScene?.(offlineSessionId, { readonly: true })}
-          className="flex items-center justify-between gap-3 text-left opacity-75 transition-opacity active:opacity-50"
+          className="flex w-full items-center justify-between gap-3 text-left opacity-75 transition-opacity active:opacity-50"
         >
           <div className="flex min-w-0 items-center gap-3">
-            <span
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
-              style={{ background: 'var(--card-border)' }}
+            <div
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border"
+              style={{
+                borderColor: 'var(--card-border)',
+                background: 'var(--card-bg-gradient)',
+              }}
             >
-              <BookMarked className="h-3.5 w-3.5" />
-            </span>
+              <BookMarked className="h-4 w-4" />
+            </div>
 
             <div className="min-w-0">
-              <div className="truncate text-[14px] font-semibold tracking-tight">
+              <div className="truncate text-[14px] font-semibold">
                 {sceneLabel}
               </div>
-              <div className="mt-1 text-[11px] opacity-50">
-                已结束的一次见面 · 点击回看
+
+              <div className="mt-0.5 text-[12px] opacity-50">
+                已经结束的一次见面 · 点击回看
               </div>
             </div>
           </div>
 
-          <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />
+          <ChevronRight className="h-5 w-5 shrink-0 opacity-40" />
         </button>
       </CardShell>
     );
