@@ -18,6 +18,8 @@ import {
 
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
 import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDirective';
+import { getReactionLabel } from '../apps/messages/reactionLabels';
+
 import { proposeOfflineSessionByCharacter } from '../apps/offline/offlineSessionService';
 
 import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptContext';
@@ -374,7 +376,29 @@ export const parseAiResponseToMessages = async (text = '') => {
 };
 
 
-// 将各种类型的消息转化为 AI 大模型能理解的文本
+// 把用户对某条消息点过的反应，转成一句括号提示塞进喂给 AI 的历史
+// 文本里，让角色能"感知"到用户点了反应。只暴露用户自己点的那个
+// 反应，不回喂 AI 自己点过的反应——避免它对着自己的旧动作纠结。
+const describeUserReactionForPrompt = (msg) => {
+  if (!msg || !Array.isArray(msg.reactions)) {
+    return '';
+  }
+
+  const userReaction = msg.reactions.find((reaction) => reaction.by === 'user');
+
+  if (!userReaction) {
+    return '';
+  }
+
+  const label = getReactionLabel(userReaction.type);
+
+  if (!label) {
+    return '';
+  }
+
+  return `（对方对这句话点了"${label}"的反应）`;
+};
+
 const formatMsgContentForPrompt = (msg) => {
   if (!msg) {
     return '';
@@ -455,13 +479,15 @@ export const buildHistoryContext = (messages) => {
       continue;
     }
 
-    const content = String(
+     let content = String(
       formatMsgContentForPrompt(message)
     ).trim();
 
     if (!content) {
       continue;
     }
+
+    content += describeUserReactionForPrompt(message);
 
     const previousMessage =
       historyContext[historyContext.length - 1];

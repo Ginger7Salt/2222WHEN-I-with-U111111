@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   RotateCw,
@@ -19,6 +19,7 @@ import RealVoiceCard from '../../../features/real-voice/components/RealVoiceCard
 import LocationCard from './cards/LocationCard';
 
 import MessageReactions from './MessageReactions';
+import ReactionPickerPopover from './ReactionPickerPopover';
 import { matchSpecialMessageEffect, RECENT_MESSAGE_EFFECT_WINDOW_MS } from './specialMessageEffects';
 
 import TextCard from './cards/TextCard';
@@ -42,6 +43,9 @@ import NeteaseMusicCard from './cards/NeteaseMusicCard';
 import { DidiRideCard } from './cards/DidiRideCard';
 import WeatherCard from './cards/WeatherCard';
 
+// 长按多久才算"长按"、弹出反应面板。太短容易跟正常点击冲突，
+// 太长又会显得迟钝，420ms 是比较常见的手感。
+const REACTION_LONG_PRESS_MS = 420;
 
 const MessageRow = ({
   msg,
@@ -86,6 +90,49 @@ const MessageRow = ({
   const canReact = !isErrorMsg
     && msg.type !== 'interaction'
     && msg.type !== 'offline_invite';
+
+  // 长按消息气泡弹出反应选择面板：用 pointer 事件统一处理鼠标和
+  // 触屏，按住超过 REACTION_LONG_PRESS_MS 才算长按，普通点击（比如
+  // 点图片看大图、点链接）不会被误触发。
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const reactionPressTimerRef = useRef(null);
+
+  const clearReactionPressTimer = useCallback(() => {
+    if (reactionPressTimerRef.current) {
+      window.clearTimeout(reactionPressTimerRef.current);
+      reactionPressTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => clearReactionPressTimer(), [clearReactionPressTimer]);
+
+  const handleBubblePointerDown = useCallback(() => {
+    if (!canReact) return;
+
+    clearReactionPressTimer();
+    reactionPressTimerRef.current = window.setTimeout(() => {
+      setShowReactionPicker(true);
+    }, REACTION_LONG_PRESS_MS);
+  }, [canReact, clearReactionPressTimer]);
+
+  const handleBubblePointerRelease = useCallback(() => {
+    clearReactionPressTimer();
+  }, [clearReactionPressTimer]);
+
+  const handleBubbleContextMenu = useCallback((event) => {
+    if (canReact) {
+      event.preventDefault();
+    }
+  }, [canReact]);
+
+  const userReactionType = Array.isArray(msg.reactions)
+    ? msg.reactions.find((reaction) => reaction.by === 'user')?.type
+    : undefined;
+
+  const handlePickReaction = useCallback((typeId) => {
+    onToggleReaction(msg.id, typeId);
+    setShowReactionPicker(false);
+  }, [msg.id, onToggleReaction]);
 
   const messageMcpTrace = isUser
     ? null
@@ -204,12 +251,25 @@ const MessageRow = ({
               onRefresh={onResolvedInteraction}
             />
           ) : (
-                        <div
+            <div
               className={`relative p-3 shadow-sm transition-all chat-font ${
                 isUser ? 'user-bubble' : 'ai-bubble'
               }`}
+              onPointerDown={handleBubblePointerDown}
+              onPointerUp={handleBubblePointerRelease}
+              onPointerLeave={handleBubblePointerRelease}
+              onPointerCancel={handleBubblePointerRelease}
+              onContextMenu={handleBubbleContextMenu}
             >
               {showSpecialEffect && <specialEffectRule.Effect />}
+
+              <ReactionPickerPopover
+                open={showReactionPicker}
+                isUser={isUser}
+                selectedType={userReactionType}
+                onPick={handlePickReaction}
+                onClose={() => setShowReactionPicker(false)}
+              />
 
               {msg.type === 'text' && (
                 <TextCard content={msg.content} />
@@ -296,14 +356,13 @@ const MessageRow = ({
 
 
             </div>
-                   )}
+          )}
 
-          {/* 消息反应：展示已有反应 + 点反应入口 */}
+          {/* 消息反应展示条：长按气泡弹出的选择面板见上方 ReactionPickerPopover */}
           {canReact && (
             <MessageReactions
               reactions={msg.reactions}
               isUser={isUser}
-              onToggle={(typeId) => onToggleReaction(msg.id, typeId)}
             />
           )}
 
@@ -335,7 +394,7 @@ const MessageRow = ({
             />
           )}
 
-          {/*  Apple 日历专属卡片 */}
+          {/*  Apple 日历专属卡片 */}
           {!isUser && messageOrderCard?.kind === 'apple_calendar' && (
             <AppleCalendarCard
               card={messageOrderCard}
