@@ -15,7 +15,6 @@ import {
   setChatDiscImage,
   setChatDiscLabel
 } from './archiveService';
-
 import ArchiveCabinetView from './components/ArchiveCabinetView';
 import ArchiveMemoryDeck from './components/ArchiveMemoryDeck';
 import ArchiveSettingsPanel from './components/ArchiveSettingsPanel';
@@ -28,6 +27,11 @@ const ArchiveApp = ({ onBackHub }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [enteredChatId, setEnteredChatId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+
+  const [showDiscLabelEditor, setShowDiscLabelEditor] = useState(false);
+  const [discLabelDraft, setDiscLabelDraft] = useState('');
+  const [isSavingDiscLabel, setIsSavingDiscLabel] = useState(false);
+  const [discLabelError, setDiscLabelError] = useState('');
 
   const trackRef = useRef(null);
   const discRefs = useRef([]);
@@ -57,6 +61,27 @@ const ArchiveApp = ({ onBackHub }) => {
     () => overview.find((item) => item.chatId === enteredChatId) || null,
     [overview, enteredChatId]
   );
+
+  useEffect(() => {
+    if (!showDiscLabelEditor) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape' || isSavingDiscLabel) {
+        return;
+      }
+
+      setShowDiscLabelEditor(false);
+      setDiscLabelError('');
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showDiscLabelEditor, isSavingDiscLabel]);
 
   const scrollToIndex = (index) => {
     const disc = discRefs.current[index];
@@ -118,13 +143,57 @@ const ArchiveApp = ({ onBackHub }) => {
 
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
+
       reader.onload = () => resolve(reader.result);
       reader.onerror = reject;
+
       reader.readAsDataURL(file);
     });
 
     await setChatDiscImage(activeItem.chatId, dataUrl);
     await loadOverview();
+  };
+
+  const handleOpenDiscLabelEditor = () => {
+    if (!activeItem) {
+      return;
+    }
+
+    setDiscLabelDraft(activeItem.discLabel ?? '');
+    setDiscLabelError('');
+    setShowDiscLabelEditor(true);
+  };
+
+  const handleCloseDiscLabelEditor = () => {
+    if (isSavingDiscLabel) {
+      return;
+    }
+
+    setShowDiscLabelEditor(false);
+    setDiscLabelError('');
+  };
+
+  const handleSaveDiscLabel = async (event) => {
+    event.preventDefault();
+
+    if (!activeItem || isSavingDiscLabel) {
+      return;
+    }
+
+    setIsSavingDiscLabel(true);
+    setDiscLabelError('');
+
+    try {
+      await setChatDiscLabel(activeItem.chatId, discLabelDraft);
+      await loadOverview();
+
+      setShowDiscLabelEditor(false);
+    } catch (error) {
+      console.error('[Archive] 保存唱片文字失败：', error);
+      setDiscLabelError('保存失败，请稍后再试。');
+    } finally {
+      setIsSavingDiscLabel(false);
+    }
   };
 
   if (enteredChatId && enteredOverview) {
@@ -136,31 +205,6 @@ const ArchiveApp = ({ onBackHub }) => {
       />
     );
   }
-
-
-  const handleEditDiscLabel = async () => {
-  if (!activeItem) {
-    return;
-  }
-
-  const nextLabel = window.prompt(
-    '请输入唱片上的文字，直接留空即可隐藏文字。',
-    activeItem.discLabel ?? activeItem.characterName ?? ''
-  );
-
-  // 用户点击取消
-  if (nextLabel === null) {
-    return;
-  }
-
-  try {
-    await setChatDiscLabel(activeItem.chatId, nextLabel);
-    await loadOverview();
-  } catch (error) {
-    console.error('[Archive] 保存唱片文字失败：', error);
-  }
-};
-
 
   return createPortal(
     <div className="archive-app">
@@ -186,7 +230,115 @@ const ArchiveApp = ({ onBackHub }) => {
       </div>
 
       {showSettings && (
-        <ArchiveSettingsPanel onClose={() => setShowSettings(false)} />
+        <ArchiveSettingsPanel
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {showDiscLabelEditor && (
+        <div
+          className="archive-disc-label-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseDiscLabelEditor();
+            }
+          }}
+        >
+          <div
+            className="archive-disc-label-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="archive-disc-label-title"
+            onMouseDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <div className="archive-disc-label-modal-header">
+              <div>
+                <span className="archive-disc-label-modal-eyebrow">
+                  ARCHIVE LABEL
+                </span>
+
+                <h2 id="archive-disc-label-title">
+                  编辑唱片文字
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                className="archive-disc-label-modal-close"
+                onClick={handleCloseDiscLabelEditor}
+                disabled={isSavingDiscLabel}
+                aria-label="关闭弹窗"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDiscLabel}>
+              <label
+                className="archive-disc-label-input-label"
+                htmlFor="archive-disc-label-input"
+              >
+                唱片上显示的文字
+              </label>
+
+              <input
+                id="archive-disc-label-input"
+                type="text"
+                value={discLabelDraft}
+                maxLength={40}
+                autoFocus
+                placeholder="输入文字，或者留空"
+                onChange={(event) => {
+                  setDiscLabelDraft(event.target.value);
+                }}
+                disabled={isSavingDiscLabel}
+              />
+
+              <div className="archive-disc-label-modal-hint">
+                默认是角色的名字，也可以改成其他文字或留空。
+              </div>
+
+              {discLabelError && (
+                <div className="archive-disc-label-modal-error">
+                  {discLabelError}
+                </div>
+              )}
+
+              <div className="archive-disc-label-modal-actions">
+                <button
+                  type="button"
+                  className="archive-disc-label-clear-btn"
+                  onClick={() => setDiscLabelDraft('')}
+                  disabled={isSavingDiscLabel}
+                >
+                  清空文字
+                </button>
+
+                <div className="archive-disc-label-modal-main-actions">
+                  <button
+                    type="button"
+                    className="archive-disc-label-cancel-btn"
+                    onClick={handleCloseDiscLabelEditor}
+                    disabled={isSavingDiscLabel}
+                  >
+                    取消
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="archive-disc-label-save-btn"
+                    disabled={isSavingDiscLabel}
+                  >
+                    {isSavingDiscLabel ? '保存中…' : '保存'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       <div className="archive-page-title">
@@ -216,16 +368,21 @@ const ArchiveApp = ({ onBackHub }) => {
                 onScroll={handleTrackScroll}
               >
                 {overview.map((item, index) => {
-                  const coverImage = item.discImage || item.characterAvatar || item.bgImage;
+                  const coverImage =
+                    item.discImage ||
+                    item.characterAvatar ||
+                    item.bgImage;
+
                   const isActive = index === activeIndex;
                   const firstChar = (item.characterName || '?').slice(0, 1);
-const archiveNo = String(index + 1).padStart(3, '0');
-
+                  const archiveNo = String(index + 1).padStart(3, '0');
 
                   return (
                     <div
                       key={item.chatId}
-                      ref={(node) => { discRefs.current[index] = node; }}
+                      ref={(node) => {
+                        discRefs.current[index] = node;
+                      }}
                       className={[
                         'arv-slide',
                         isActive ? 'is-active' : ''
@@ -240,12 +397,23 @@ const archiveNo = String(index + 1).padStart(3, '0');
                         <div className="arv-slide-paper">
                           <strong>{item.characterName}</strong>
                           <small>与 {item.userName}</small>
+
                           <div className="arv-slide-paper-line" />
+
                           <div className="arv-slide-paper-list">
-                            <span>MESSAGES　{item.totalMessages}</span>
-                            <span>CHATTED　{item.chattedDays} DAYS</span>
-                            <span>ARCHIVED　{item.totalArchivedDays} DAYS</span>
+                            <span>
+                              MESSAGES　{item.totalMessages}
+                            </span>
+
+                            <span>
+                              CHATTED　{item.chattedDays} DAYS
+                            </span>
+
+                            <span>
+                              ARCHIVED　{item.totalArchivedDays} DAYS
+                            </span>
                           </div>
+
                           <div className="arv-slide-paper-barcode" />
                         </div>
 
@@ -253,7 +421,9 @@ const archiveNo = String(index + 1).padStart(3, '0');
                           className="arv-slide-vinyl"
                           style={
                             coverImage
-                              ? { backgroundImage: `url(${coverImage})` }
+                              ? {
+                                  backgroundImage: `url(${coverImage})`
+                                }
                               : undefined
                           }
                         >
@@ -264,49 +434,52 @@ const archiveNo = String(index + 1).padStart(3, '0');
                           )}
 
                           <div className="arv-slide-label">
-  {item.discLabel && (
-    <strong>{item.discLabel}</strong>
-  )}
-  <span>ARCHIVE {archiveNo}</span>
-</div>
+                            {item.discLabel && (
+                              <strong>{item.discLabel}</strong>
+                            )}
 
+                            <span>
+                              ARCHIVE {archiveNo}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
-{isActive && (
-  <div className="arv-slide-toolbar">
-    <button
-      type="button"
-      className="arv-slide-edit-btn"
-      onClick={(event) => {
-        event.stopPropagation();
-        handlePickDiscImage();
-      }}
-      title="更换唱片封面"
-      aria-label="更换唱片封面"
-    >
-      <Pencil className="h-3 w-3" />
-      换封面
-    </button>
+                      {isActive && (
+                        <div className="arv-slide-toolbar">
+                          <button
+                            type="button"
+                            className="arv-slide-edit-btn"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handlePickDiscImage();
+                            }}
+                            title="更换唱片封面"
+                            aria-label="更换唱片封面"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            换封面
+                          </button>
 
-    <button
-      type="button"
-      className="arv-slide-edit-btn"
-      onClick={(event) => {
-        event.stopPropagation();
-        void handleEditDiscLabel();
-      }}
-      title="编辑唱片文字"
-      aria-label="编辑唱片文字"
-    >
-      <Pencil className="h-3 w-3" />
-      编辑文字
-    </button>
-  </div>
-)}
+                          <button
+                            type="button"
+                            className="arv-slide-edit-btn"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleOpenDiscLabelEditor();
+                            }}
+                            title="编辑唱片文字"
+                            aria-label="编辑唱片文字"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            编辑文字
+                          </button>
+                        </div>
+                      )}
 
                       <div className="arv-slide-meta">
-                        与 {item.userName} · {item.totalMessages} 条消息 · 记录 {item.chattedDays} 天
+                        与 {item.userName} · {item.totalMessages} 条消息 ·
+                        记录 {item.chattedDays} 天
                       </div>
                     </div>
                   );
