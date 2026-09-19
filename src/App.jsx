@@ -711,9 +711,28 @@ const [hubBackground, setHubBackground] = useState('');
     }
   }, []);
 
+
+   /*
+   * isKeepAliveActive 驱动的是"后台静音音频要不要播放"，它需要在
+   * 有预约消息等待发送时也保持开启，否则页面被系统挂起后预约可能
+   * 无法按时触发——这个 OR 条件是故意的，不是 bug。
+   *
+   * 但悬浮球（KeepAliveIndicator）只应该反映"用户自己在某个消息框
+   * 里打开了后台音频保活"这一件事。如果悬浮球也用 isKeepAliveActive
+   * 来决定显示与否，就会出现用户明明关掉了所有消息框的保活开关，
+   * 却因为还有一条预约消息在排队，悬浮球死活关不掉的问题——这正是
+   * 之前反馈的"关闭音频保活，悬浮球还在"。
+ *
+   * 所以这里拆成两个变量：音频是否播放看 isKeepAliveActive，悬浮球
+   * 是否显示只看用户主动打开的 activeKeepAliveChats。
+ */
+
   const isKeepAliveActive =
     activeKeepAliveChats.length > 0 ||
     pendingScheduledCount > 0;
+
+    const isKeepAliveWidgetVisible =
+  activeKeepAliveChats.length > 0;
 
   const activeAudioTrack = audioConfig.playlist.find(
     (track) => track.id === audioConfig.activeTrackId
@@ -752,7 +771,7 @@ const [hubBackground, setHubBackground] = useState('');
       <PageLoadingBar activeKey={currentApp} />
 
       <NotificationToast />
-      
+
       <AppUpdatePrompt
         isAppReady={!showPreloader}
         isInsideChatRoom={isInsideChatRoom}
@@ -769,7 +788,7 @@ const [hubBackground, setHubBackground] = useState('');
       />
 
       <KeepAliveIndicator
-        isVisible={isKeepAliveActive}
+        isVisible={isKeepAliveWidgetVisible}
         activeChats={activeKeepAliveChats}
         audioConfig={audioConfig}
         onAudioConfigChange={setAudioConfig}

@@ -34,6 +34,8 @@ import { APP_NAME_DISPLAY_EN } from '../hub/useAppNameDisplayMode';
 import HubHeaderLayoutSettings from './HubHeaderLayoutSettings';
 import { HUB_HEADER_LAYOUT_CLASSIC } from '../hub/hubHeaderLayouts/registry';
 
+import PetWidgetSettings from '../pet/PetWidgetSettings';
+
 import ConfirmModal from '../../components/ConfirmModal';
 import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
 import GitHubBackupSettings from './github-backup/GitHubBackupSettings';
@@ -1800,6 +1802,8 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
 
       {/* 5. 今日留物设置组件（已装配） */}
       <DailyOfferingSettings />
+
+<PetWidgetSettings />
 
       <BondConnection />
 

@@ -9,7 +9,7 @@ const HOUR = 60 * 60 * 1000;
  * 不安就是 security（安全感/信任）偏低时的样子，用一个维度的两端表达，
  * 比再开一个和 security 高度重叠的维度更干净，避免两个数值互相打架。
  */
-const MOOD_KEYS = [
+export const MOOD_KEYS = [
   'warmth',
   'calm',
   'joy',
@@ -41,7 +41,7 @@ const DEFAULT_MOOD = {
   loneliness: 0.15
 };
 
-const EMOTION_LABELS = {
+export const EMOTION_LABELS = {
   warmth: '温柔而安定',
   calm: '平静',
   joy: '愉悦',
