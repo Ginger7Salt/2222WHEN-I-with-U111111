@@ -150,14 +150,17 @@ export const EditableAppGrid = ({ items, onReorder, onExit }) => {
                 ? { rotate: 0 }
                 : { rotate: [-JIGGLE_DEGREES, JIGGLE_DEGREES, -JIGGLE_DEGREES] }
             }
-            transition={
+                        transition={
               isDragging || prefersReducedMotion
-                ? { duration: 0.15 }
+                ? { layout: { duration: 0.2, ease: 'easeOut' }, rotate: { duration: 0.15 } }
                 : {
-                    repeat: Infinity,
-                    duration: 0.26,
-                    ease: 'easeInOut',
-                    delay: jiggleDelay,
+                    layout: { duration: 0.22, ease: 'easeOut' },
+                    rotate: {
+                      repeat: Infinity,
+                      duration: 0.26,
+                      ease: 'easeInOut',
+                      delay: jiggleDelay,
+                    },
                   }
             }
             className={COL_SPAN_CLASS[item.colSpan] || 'col-span-1'}
