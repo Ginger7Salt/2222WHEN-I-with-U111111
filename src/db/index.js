@@ -4250,7 +4250,36 @@ db.version(49).stores({
   }
 });
 
-export default db;
+// ============================================================
+// v50：一次性数据修复
+// messages 表结构本身不变（索引跟 v46 一致），单纯为了挂一个
+// upgrade 钩子，所以照抄一遍现有的 messages 索引声明。
+// ============================================================
+db.version(50).stores({
+  messages:
+    '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex, mode, offlineSessionId, [chatId+timestamp], [chatId+mode]',
+}).upgrade(async (tx) => {
+  // ---- 迁移：把 messages 表里数字型 timestamp（少数几处旧代码路径
+  // 遗留下来的，比如发表情贴纸、提问箱转发消息）统一转换成字符串型
+  // ISO 时间戳，跟其余绝大多数消息保持同一类型。
+  // 原因：IndexedDB 的复合索引 [chatId+timestamp] 是先比较数据类型、
+  // 再比较值的，数字和字符串混在一起会导致同一个聊天框里的消息
+  // 按索引查询时整体分成两堆，顺序错乱。这里只改类型，不改语义上
+  // 代表的具体时刻。 ----
+  try {
+    let fixedCount = 0;
+    await tx.table('messages').toCollection().modify((msg) => {
+      if (typeof msg.timestamp === 'number') {
+        msg.timestamp = new Date(msg.timestamp).toISOString();
+        fixedCount += 1;
+      }
+    });
+    console.log(`[db v50 迁移] 已修复 ${fixedCount} 条消息的 timestamp 类型`);
+  } catch (err) {
+    console.error('[db v50 迁移] 修复 messages timestamp 类型失败:', err);
+  }
+});
 
+export default db;
 
 

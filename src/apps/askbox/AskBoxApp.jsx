@@ -190,11 +190,10 @@ export default function AskBoxApp({ onBackHub }) {
             sender: 'character',
             type: 'text',
             metadata: { askBoxRef: qId },
-            content: `「在提问箱收到了你的${anonymityLabel}提问：${newQuestion.content}」\n\n我的回答是：\n${reply}`,
+                       content: `「在提问箱收到了你的${anonymityLabel}提问：${newQuestion.content}」\n\n我的回答是：\n${reply}`,
             isRead: 0,
-            timestamp: Date.now()
+            timestamp: new Date().toISOString()
           });
-
           await db.chats.update(selectedChat.id, {
             updatedAt: Date.now()
           });
@@ -382,9 +381,9 @@ export default function AskBoxApp({ onBackHub }) {
         sender: 'user',
         type: 'text',
         metadata: { askBoxRef: selectedIncoming.id },
-        content: `「在提问箱答复了${displaySenderName}的提问：${selectedIncoming.content}」\n\n我的回答：${resolvedReply}`,
+               content: `「在提问箱答复了${displaySenderName}的提问：${selectedIncoming.content}」\n\n我的回答：${resolvedReply}`,
         isRead: 1,
-        timestamp: Date.now()
+        timestamp: new Date().toISOString()
       });
 
       await db.chats.update(activeChat.id, {

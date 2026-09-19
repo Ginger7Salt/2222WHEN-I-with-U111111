@@ -256,8 +256,8 @@ const [showInputMenu, setShowInputMenu] = useState(false);
         name: sticker.name,
         url: sticker.url,
       },
-      isRead: true,
-      timestamp: Date.now(),
+            isRead: true,
+      timestamp: new Date().toISOString(),
     };
 
    await db.messages.add(newMsg);
