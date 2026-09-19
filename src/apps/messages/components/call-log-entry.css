@@ -1,0 +1,55 @@
+.call-log-entry {
+  background: var(--card-bg-gradient, var(--card-bg));
+  border: 1px solid var(--card-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.call-log-entry--static {
+  opacity: 0.85;
+}
+
+.call-log-entry--missed {
+  border-color: color-mix(in srgb, #ef4444 35%, var(--card-border));
+}
+
+.call-log-entry__avatar-ring {
+  box-shadow:
+    0 0 0 2px var(--card-bg),
+    0 0 0 3.5px color-mix(in srgb, var(--accent-color) 55%, transparent);
+}
+
+.call-log-entry__badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: flex;
+  height: 16px;
+  width: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px solid var(--card-bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .call-log-entry__badge--pulse {
+    animation: call-log-badge-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes call-log-badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-log-entry__badge--pulse {
+    animation: none;
+  }
+}

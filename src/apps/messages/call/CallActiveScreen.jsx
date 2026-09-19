@@ -1,0 +1,143 @@
+import React from 'react';
+import { Loader2, PhoneOff, Send, Volume2 } from 'lucide-react';
+
+import './call-active-screen.css';
+
+// 通话进行中的独立视觉层，从 CallScreen 里拆出来单独维护。
+// 头像比旧版更大、光环呼吸更明显；"歌词流动"逐字显示机制完全不变，
+// 只是新到达的整行加了一次柔和的浮入动画，让它感觉更梦幻一点。
+const CallActiveScreen = ({
+  character,
+  statusLabel,
+  turns,
+  latestTurn,
+  revealedText,
+  aiThinking,
+  transcriptRef,
+  draftText,
+  onDraftChange,
+  onSend,
+  isSending,
+  onHangUp,
+}) => (
+  <div className="call-active flex h-full flex-col items-center">
+    <div className="flex shrink-0 flex-col items-center gap-2 pb-2">
+      <div className="call-active__avatar-ring relative flex h-20 w-20 items-center justify-center rounded-full">
+        {character?.avatar ? (
+          <img
+            src={character.avatar}
+            alt={character.name}
+            className="h-[4.5rem] w-[4.5rem] rounded-full border object-cover"
+            style={{ borderColor: 'rgba(255,255,255,0.5)' }}
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div
+            className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border font-serif text-2xl font-semibold"
+            style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.5)' }}
+          >
+            {character?.name?.[0] || 'C'}
+          </div>
+        )}
+      </div>
+
+      <h2
+        className="font-serif text-base font-semibold"
+        style={{ textShadow: '0 1px 10px rgba(0,0,0,0.45)' }}
+      >
+        {character?.name}
+      </h2>
+
+      <p
+        className="font-mono text-[11px] tracking-[0.08em]"
+        style={{ color: 'rgba(255,255,255,0.75)' }}
+      >
+        {statusLabel}
+      </p>
+    </div>
+
+    <div
+      ref={transcriptRef}
+      className="call-active__flow mt-2 w-full max-w-sm flex-1 space-y-5 overflow-y-auto no-scrollbar"
+    >
+      {turns.map((turn) => {
+        const isLatestAi = turn.id === latestTurn?.id && turn.by === 'ai';
+        const displayText = isLatestAi ? revealedText : turn.content;
+
+        return (
+          <div
+            key={turn.id}
+            className={`call-active__line text-center ${
+              turn.by === 'ai' ? 'call-active__line--ai' : 'call-active__line--user'
+            } ${isLatestAi ? 'call-active__line--fresh' : ''}`}
+          >
+            {turn.by === 'ai' && turn.mode === 'real' && (
+              <div className="mb-1 flex items-center justify-center gap-1 text-[9px] uppercase tracking-[0.14em] opacity-60">
+                {turn.audioStatus === 'pending' ? (
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                ) : (
+                  <Volume2 className="h-2.5 w-2.5" />
+                )}
+                语音
+              </div>
+            )}
+            <p>{displayText}</p>
+          </div>
+        );
+      })}
+
+      {aiThinking && (
+        <div className="call-active__thinking flex items-center justify-center gap-1.5">
+          <span />
+          <span />
+          <span />
+        </div>
+      )}
+    </div>
+
+    <div className="mt-6 flex w-full max-w-sm shrink-0 items-center gap-2">
+      <input
+        type="text"
+        value={draftText}
+        onChange={(event) => onDraftChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            onSend();
+          }
+        }}
+        placeholder="在通话中打字说话..."
+        className="call-active__input min-w-0 flex-1 rounded-full px-4 py-3 text-[13px] outline-none"
+      />
+
+      <button
+        type="button"
+        onClick={onSend}
+        disabled={isSending || !draftText.trim()}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-transform active:scale-95 disabled:opacity-40"
+        style={{ background: 'rgba(255,255,255,0.16)', color: '#fff' }}
+        aria-label="发送"
+        title="发送"
+      >
+        {isSending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Send className="h-4 w-4" />
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={onHangUp}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-500/90 text-white transition-transform active:scale-95"
+        aria-label="挂断"
+        title="挂断"
+      >
+        <PhoneOff className="h-4 w-4" />
+      </button>
+    </div>
+  </div>
+);
+
+export default CallActiveScreen;

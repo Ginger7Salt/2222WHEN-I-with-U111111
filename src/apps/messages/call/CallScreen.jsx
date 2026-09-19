@@ -1,12 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ChevronDown,
-  Loader2,
-  Phone,
-  PhoneOff,
-  Send,
-  Volume2,
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 import {
   acceptCall,
@@ -15,6 +8,9 @@ import {
   isRealVoiceAvailableForCharacter,
   sendCallTurn,
 } from '../../../services/callService';
+
+import CallRingingScreen from './CallRingingScreen';
+import CallActiveScreen from './CallActiveScreen';
 
 import './call-screen.css';
 
@@ -31,9 +27,10 @@ const formatElapsed = (seconds) => {
   return `${minutes}:${String(remaining).padStart(2, '0')}`;
 };
 
-// 沉浸式通话界面：背景继承这个聊天窗自己的背景图，没有顶部横条，
-// 对话不是气泡列表，而是一行行居中的文字像歌词一样往上飘走
-// （用 CSS mask 做渐隐，DOM 里还在，可以向上滚动回看）。
+// 通话最外层容器：只负责背景/缩小按钮这些两种状态共用的东西，以及
+// 通话数据、计时、打字机效果这些跟视觉无关的逻辑。"来电中"和
+// "通话中"两种截然不同的视觉分别交给 CallRingingScreen /
+// CallActiveScreen 两个独立组件。
 const CallScreen = ({ call, onMinimize }) => {
   const { message, character, chat } = call;
   const metadata = message.metadata || {};
@@ -206,177 +203,32 @@ const CallScreen = ({ call, onMinimize }) => {
         <ChevronDown className="h-4 w-4" />
       </button>
 
-      <div className="relative z-0 flex h-full flex-col items-center px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-[calc(env(safe-area-inset-top,0px)+3.25rem)]">
-        <div className="flex shrink-0 flex-col items-center gap-2">
-          <div className="call-screen__avatar-ring flex h-16 w-16 items-center justify-center rounded-full">
-            {character?.avatar ? (
-              <img
-                src={character.avatar}
-                alt={character.name}
-                className="h-14 w-14 rounded-full border object-cover"
-                style={{ borderColor: 'rgba(255,255,255,0.5)' }}
-                loading="lazy"
-                decoding="async"
-              />
-            ) : (
-              <div
-                className="flex h-14 w-14 items-center justify-center rounded-full border font-serif text-xl font-semibold"
-                style={{
-                  background: 'rgba(255,255,255,0.1)',
-                  borderColor: 'rgba(255,255,255,0.5)',
-                }}
-              >
-                {character?.name?.[0] || 'C'}
-              </div>
-            )}
-          </div>
-
-          <h2
-            className="font-serif text-base font-semibold"
-            style={{ textShadow: '0 1px 10px rgba(0,0,0,0.45)' }}
-          >
-            {character?.name}
-          </h2>
-
-          <p
-            className="font-mono text-[11px] tracking-[0.08em]"
-            style={{ color: 'rgba(255,255,255,0.75)' }}
-          >
-            {statusLabel}
-          </p>
-        </div>
-
+      <div className="relative z-0 h-full px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-[calc(env(safe-area-inset-top,0px)+3.25rem)]">
         {status === 'active' ? (
-          <>
-            <div
-              ref={transcriptRef}
-              className="call-screen__flow mt-6 w-full max-w-sm flex-1 space-y-5 overflow-y-auto no-scrollbar"
-            >
-              {turns.map((turn) => {
-                const isLatestAi = turn.id === latestTurn?.id && turn.by === 'ai';
-                const displayText = isLatestAi ? revealedText : turn.content;
-
-                return (
-                  <div
-                    key={turn.id}
-                    className={`call-screen__line text-center ${
-                      turn.by === 'ai' ? 'call-screen__line--ai' : 'call-screen__line--user'
-                    }`}
-                  >
-                    {turn.by === 'ai' && turn.mode === 'real' && (
-                      <div className="mb-1 flex items-center justify-center gap-1 text-[9px] uppercase tracking-[0.14em] opacity-60">
-                        {turn.audioStatus === 'pending' ? (
-                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                        ) : (
-                          <Volume2 className="h-2.5 w-2.5" />
-                        )}
-                        语音
-                      </div>
-                    )}
-                    <p>{displayText}</p>
-                  </div>
-                );
-              })}
-
-              {aiThinking && (
-                <div className="call-screen__thinking flex items-center justify-center gap-1.5">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 flex w-full max-w-sm shrink-0 items-center gap-2">
-              <input
-                type="text"
-                value={draftText}
-                onChange={(event) => setDraftText(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    void handleSend();
-                  }
-                }}
-                placeholder="在通话中打字说话..."
-                className="call-screen__input min-w-0 flex-1 rounded-full px-4 py-3 text-[13px] outline-none"
-              />
-
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={isSending || !draftText.trim()}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-transform active:scale-95 disabled:opacity-40"
-                style={{ background: 'rgba(255,255,255,0.16)', color: '#fff' }}
-                aria-label="发送"
-                title="发送"
-              >
-                {isSending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleHangUp}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-500/90 text-white transition-transform active:scale-95"
-                aria-label="挂断"
-                title="挂断"
-              >
-                <PhoneOff className="h-4 w-4" />
-              </button>
-            </div>
-          </>
-        ) : status === 'ringing' && direction === 'incoming' ? (
-          <div className="mt-auto flex flex-col items-center gap-4 pb-4">
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => handleAccept('text')}
-                className="flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[12px] font-semibold transition-transform active:scale-95"
-                style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}
-              >
-                <Phone className="h-3.5 w-3.5" />
-                接听（文字语气）
-              </button>
-
-              {realVoiceAvailable && (
-                <button
-                  type="button"
-                  onClick={() => handleAccept('real')}
-                  className="flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[12px] font-semibold transition-transform active:scale-95"
-                  style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}
-                >
-                  <Volume2 className="h-3.5 w-3.5" />
-                  接听（真实语音）
-                </button>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={handleDecline}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/90 text-white shadow-lg transition-transform active:scale-95"
-              aria-label="拒绝通话"
-              title="拒绝通话"
-            >
-              <PhoneOff className="h-5 w-5" />
-            </button>
-          </div>
+          <CallActiveScreen
+            character={character}
+            statusLabel={statusLabel}
+            turns={turns}
+            latestTurn={latestTurn}
+            revealedText={revealedText}
+            aiThinking={aiThinking}
+            transcriptRef={transcriptRef}
+            draftText={draftText}
+            onDraftChange={setDraftText}
+            onSend={handleSend}
+            isSending={isSending}
+            onHangUp={handleHangUp}
+          />
         ) : (
-          <div className="mt-auto flex justify-center pb-4">
-            <button
-              type="button"
-              onClick={handleHangUp}
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/90 text-white shadow-lg transition-transform active:scale-95"
-              aria-label="取消呼叫"
-              title="取消呼叫"
-            >
-              <PhoneOff className="h-6 w-6" />
-            </button>
-          </div>
+          <CallRingingScreen
+            character={character}
+            direction={direction}
+            statusLabel={statusLabel}
+            realVoiceAvailable={realVoiceAvailable}
+            onAccept={handleAccept}
+            onDecline={handleDecline}
+            onCancel={handleHangUp}
+          />
         )}
       </div>
     </div>

@@ -258,6 +258,7 @@ const MessageRow = ({
               isUser={isUser}
               character={character}
               userName={activeUserName}
+              userAvatar={activeUserAvatar}
             />
           ) : (
             <div
