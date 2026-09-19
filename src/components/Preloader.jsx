@@ -6,7 +6,7 @@ import AstrologyDice from './AstrologyDice';
 import VinylLoader from './VinylLoader';
 import PolaroidLoader from './PolaroidLoader';
 import LetterLoader from './LetterLoader';
-
+import PebbleLoader from './PebbleLoader';
 import {
   getPreloaderQuote,
   getPreloaderQuoteSync,
@@ -50,9 +50,12 @@ const LOADER_MAP = {
   letter: {
     Component: LetterLoader,
     status: 'Opening a private frequency'
+  },
+  pebble: {
+    Component: PebbleLoader,
+    status: 'Stones settling into balance'
   }
 };
-
 export const Preloader = ({ onFinish }) => {
   const [quote, setQuote] = useState(getPreloaderQuoteSync);
   const [isFading, setIsFading] = useState(false);

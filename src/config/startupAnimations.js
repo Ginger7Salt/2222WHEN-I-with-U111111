@@ -43,9 +43,9 @@ export const STARTUP_ANIMATIONS = [
     id: 'pebble',
     title: 'Pebble Balance',
     description: 'Small stones settle into a quiet and steady arrangement.',
-    archiveDescription: 'Reserved for future development',
-    status: 'SOON',
-    isAvailable: false
+    archiveDescription: 'A small cairn settles into balance',
+    status: 'READY',
+    isAvailable: true
   }
 ];
 
