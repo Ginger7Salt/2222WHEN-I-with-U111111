@@ -31,6 +31,7 @@ import {
 } from 'lucide-animated';
 
 
+import Dexie from 'dexie';
 import db from '../../db';
 import {
   triggerAiResponse,
@@ -109,6 +110,42 @@ const LOAD_MORE_MESSAGE_BATCH = 200;
 const LOAD_MORE_SCROLL_THRESHOLD_PX = 150;
 const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 80;
 
+/*
+ * 只从 messages 表的 [chatId+timestamp] 复合索引里，取某个聊天框
+ * 最近的一批消息（按时间正序返回），而不是把整个聊天历史都读出来、
+ * 在内存里排序、再截尾——避免聊天记录越堆越多之后每次打开/刷新
+ * 聊天框都变卡。
+ */
+const getRecentMessagesWindow = (chatId, limit) => (
+  db.messages
+    .where('[chatId+timestamp]')
+    .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
+    .reverse()
+    .limit(limit)
+    .toArray()
+    .then((rows) => rows.reverse())
+);
+
+/*
+ * 加载“比当前已加载的最早一条消息还要更早”的一批消息，用于
+ * 下拉到顶部时的增量分页；同样走 [chatId+timestamp] 索引，
+ * 不会把整个聊天历史都读一遍。
+ */
+const getOlderMessagesBefore = (chatId, beforeTimestamp, limit) => (
+  db.messages
+    .where('[chatId+timestamp]')
+    .between(
+      [chatId, Dexie.minKey],
+      [chatId, beforeTimestamp],
+      true,
+      false,
+    )
+    .reverse()
+    .limit(limit)
+    .toArray()
+    .then((rows) => rows.reverse())
+);
+
 export const ChatRoom = ({
   chatId,
   onBack,
@@ -131,9 +168,8 @@ export const ChatRoom = ({
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [checkInDelivery, setCheckInDelivery] = useState(null);
   const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
-  const [visibleMessageCount, setVisibleMessageCount] = useState(
-    INITIAL_VISIBLE_MESSAGE_COUNT,
-  );
+    const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
+  const loadedMessageCountRef = useRef(INITIAL_VISIBLE_MESSAGE_COUNT);
 
   /*
    * 当前尚未持久化到 messages.metadata 的实时 MCP 调用轨迹。
@@ -219,9 +255,19 @@ const [showInputMenu, setShowInputMenu] = useState(false);
 
   const loadChatData = useCallback(async () => {
     try {
+      /*
+       * 每次刷新都只按“当前已经加载到的条数”重新取最近一批消息，
+       * 而不是整个聊天历史；这样用户如果已经下拉加载过更早的消息，
+       * 刷新时不会把已经展开的那部分丢掉，但也不会去扫全表。
+       */
+      const limit = Math.max(
+        loadedMessageCountRef.current,
+        INITIAL_VISIBLE_MESSAGE_COUNT,
+      );
+
       const [chatRecord, msgList] = await Promise.all([
         db.chats.get(chatId),
-        db.messages.where('chatId').equals(chatId).sortBy('timestamp'),
+        getRecentMessagesWindow(chatId, limit),
       ]);
 
       if (!chatRecord) return;
@@ -234,7 +280,11 @@ const [showInputMenu, setShowInputMenu] = useState(false);
         setCharacter(charRecord);
       }
 
-      setMessages(Array.isArray(msgList) ? msgList : []);
+      const safeMsgList = Array.isArray(msgList) ? msgList : [];
+
+      setMessages(safeMsgList);
+      loadedMessageCountRef.current = safeMsgList.length;
+      setHasMoreOlderMessages(safeMsgList.length >= limit);
     } catch (error) {
       console.error(
         '[ChatRoom] loadChatData batch query failed safely:',
@@ -384,12 +434,13 @@ await db.chats.update(chat.id, {
   setIsAiTyping(false);
   setCheckInDelivery(null);
   setMcpTrace(null);
-  setVisibleMessageCount(INITIAL_VISIBLE_MESSAGE_COUNT);
+  setHasMoreOlderMessages(true);
+  loadedMessageCountRef.current = INITIAL_VISIBLE_MESSAGE_COUNT;
   previousScrollHeightRef.current = null;
   hasScrolledToLatestRef.current = false;
    isLoadingMoreRef.current = false;
-
-  const openChatAndMarkMessagesAsRead = async () => {
+   
+   const openChatAndMarkMessagesAsRead = async () => {
   try {
     // 将当前聊天中角色发送的未读消息标记为已读
     await db.messages
@@ -609,13 +660,44 @@ void openChatAndMarkMessagesAsRead();
     return map;
   }, [messages]);
 
-  const hasMoreOlderMessages = visibleMessageCount < messages.length;
+   const visibleMessages = messages;
 
-  const visibleMessages = useMemo(() => {
-    if (visibleMessageCount >= messages.length) return messages;
+const handleLoadOlderMessages = useCallback(async () => {
+  if (isLoadingMoreRef.current || !hasMoreOlderMessages) return;
 
-    return messages.slice(messages.length - visibleMessageCount);
-  }, [messages, visibleMessageCount]);
+  const oldestLoaded = messages[0];
+  if (!oldestLoaded) return;
+
+  isLoadingMoreRef.current = true;
+
+  const scrollArea = scrollAreaRef.current;
+  if (scrollArea) {
+    previousScrollHeightRef.current = scrollArea.scrollHeight;
+  }
+
+  try {
+    const olderBatch = await getOlderMessagesBefore(
+      chatId,
+      oldestLoaded.timestamp,
+      LOAD_MORE_MESSAGE_BATCH,
+    );
+
+    if (olderBatch.length > 0) {
+      setMessages((previous) => [...olderBatch, ...previous]);
+      loadedMessageCountRef.current += olderBatch.length;
+    }
+
+    setHasMoreOlderMessages(olderBatch.length >= LOAD_MORE_MESSAGE_BATCH);
+  } catch (error) {
+    console.error('[ChatRoom] 加载更早消息失败：', error);
+    isLoadingMoreRef.current = false;
+    return;
+  }
+
+  if (!scrollArea) {
+    isLoadingMoreRef.current = false;
+  }
+}, [chatId, messages, hasMoreOlderMessages]);
 
 const handleMessagesScroll = useCallback((event) => {
   const scrollArea = event.currentTarget;
@@ -623,18 +705,13 @@ const handleMessagesScroll = useCallback((event) => {
   if (
     isLoadingMoreRef.current
     || scrollArea.scrollTop > LOAD_MORE_SCROLL_THRESHOLD_PX
-    || visibleMessageCount >= messages.length
+    || !hasMoreOlderMessages
   ) {
     return;
   }
 
-  isLoadingMoreRef.current = true;
-  previousScrollHeightRef.current = scrollArea.scrollHeight;
-
-  setVisibleMessageCount((previous) => (
-    Math.min(previous + LOAD_MORE_MESSAGE_BATCH, messages.length)
-  ));
-}, [messages.length, visibleMessageCount]);
+  void handleLoadOlderMessages();
+}, [hasMoreOlderMessages, handleLoadOlderMessages]);
 
 useLayoutEffect(() => {
   const scrollArea = scrollAreaRef.current;
@@ -649,7 +726,7 @@ useLayoutEffect(() => {
 
   previousScrollHeightRef.current = null;
   isLoadingMoreRef.current = false;
-}, [visibleMessageCount]);
+}, [messages]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() && selectedType === 'text') return;
@@ -801,13 +878,19 @@ useLayoutEffect(() => {
     setMessages((previous) => (
       previous.filter((message) => message.id !== messageId)
     ));
+
+    loadedMessageCountRef.current = Math.max(
+      0,
+      loadedMessageCountRef.current - 1,
+    );
   }, []);
 
   const handleClearHistory = async () => {
     await db.messages.where('chatId').equals(chatId).delete();
     setMessages([]);
     setMcpTrace(null);
-    setVisibleMessageCount(INITIAL_VISIBLE_MESSAGE_COUNT);
+    loadedMessageCountRef.current = INITIAL_VISIBLE_MESSAGE_COUNT;
+    setHasMoreOlderMessages(false);
   };
 
   const handleSaveCustomCss = async (cssCode) => {
