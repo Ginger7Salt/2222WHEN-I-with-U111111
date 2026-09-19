@@ -4301,22 +4301,33 @@ db.version(51).stores({
 });
 
 
+db.version(52).stores({
+    characterDailyPlans: `
+    ++id,
+    chatId,
+    characterId,
+    dateStr,
+    [chatId+dateStr]
+  `,
+});
+
 // ============================================================
 // 【局部替换说明】
 // 位置：src/db/index.js
-// 操作：在现有 `db.version(51).stores({...});` 代码块之后、
-//       `export default db;` 之前，插入下面这一整段 `db.version(52)`。
-// 不要动 v51 及之前的任何代码，也不要删除 export default db; 之后的内容。
+// 操作：在现有 `db.version(52).stores({...});` 代码块之后、
+//       `export default db;` 之前，插入下面这一整段 `db.version(53)`。
+// 不要动 v52 及之前的任何代码，也不要删除 export default db; 之后的内容。
+//
+// 背景：如果浏览器里已经把 v52 走成了旧的 characterId 索引结构，
+// 光是修改 v52 那一段代码本身不会生效——IndexedDB 只认版本号
+// 有没有往上涨，不会因为同一个版本号里的内容变了就重新升级。
+// 这里通过一个新的版本号，让 Dexie 真正跑一次升级，
+// 把索引从旧的 [characterId+dateStr] 改成新的 [chatId+dateStr]，
+// 并顺手清空这张表里可能存在的、按旧结构生成的今日安排
+// （反正只是当天的自动生成内容，重新打开一次就会用新结构重建）。
 // ============================================================
 
-db.version(52).stores({
-  // 角色的"今日安排"：改成按聊天窗（chatId）维度存储，而不是按角色。
-  // 同一个角色如果挂在多个聊天窗下，每个聊天窗会各自拥有一份独立的
-  // "今日安排"和碎碎念——这样多个聊天窗之间才会像多条平行的
-  // 关系线一样，各自有各自的今天，而不是共用同一份。
-  // characterId 仍然保留作为普通字段，方便必要时按角色反查，
-  // 但不再是主要的查询维度。
-  // 全新的表，没有旧数据需要迁移。
+db.version(53).stores({
   characterDailyPlans: `
     ++id,
     chatId,
@@ -4324,6 +4335,13 @@ db.version(52).stores({
     dateStr,
     [chatId+dateStr]
   `,
+}).upgrade(async (tx) => {
+  try {
+    await tx.table('characterDailyPlans').clear();
+    console.log('[db v53 迁移] 已清空旧结构的今日安排缓存，下次进入 Rhythm 会按新结构重新生成。');
+  } catch (err) {
+    console.error('[db v53 迁移] 清空今日安排缓存失败:', err);
+  }
 });
 
 

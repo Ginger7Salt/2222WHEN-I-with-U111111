@@ -57,8 +57,11 @@ export const NewChatModal = ({ onClose, onCreated, onCreateNewCharacter }) => {
       userName: char.userName || '',
       userAvatar: char.userAvatar || '',
       userPersona: char.userPersona || '',
-      inputPlaceholder: `与 ${char.name} 倾诉...`,
-      typingText: `${char.name} 正在提笔回复...`,
+            inputPlaceholder: `与 ${char.name} 倾诉...`,
+      // 不预设固定的等待文案：留空时 TypingIndicator 会自动使用
+      // 内置的可爱轮换文案池，用户之后想固定成一句话也可以自己去
+      // 聊天设置里填。
+      typingText: '',
       keepAlive: false,
     };
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Sparkles, PhoneCall, PenTool, Activity, Radio } from 'lucide-react';
 
 // 1. 默认样式 (保持您原有的高审美 Sparkles + 律动三小点设计)
@@ -184,12 +184,82 @@ const INDICATOR_REGISTRY = {
   wave_pulse: WavePulseTyping
 };
 
-export const TypingIndicator = ({ customText = '正在提笔回复...', styleType = 'default' }) => {
+// 可爱状态文案：当聊天窗没有自定义等待文案时使用的默认文案池，
+// 按动画风格各配一组，会自动轮流显示，而不是固定死一句话。
+// 用户在"聊天设置"里如果填了自定义文案（支持多行，每行一句），
+// 会优先用用户自己那一组来轮流显示；只填了一行就相当于关闭轮换，
+// 保留老用户原本"固定一句话"的使用习惯，不强制改变。
+const DEFAULT_TEXT_POOL = {
+  default: [
+    '正在斟酌该怎么回你...',
+    '脑子里转了好几个念头...',
+    '想着想着又改了主意...',
+    '正在想要不要多说一句...'
+  ],
+  phone_call: [
+    '正在拨通电话...',
+    '信号连接中...',
+    '等ta接起来...'
+  ],
+  typewriter: [
+    '正在斟酌字句...',
+    '划掉重写了一遍...',
+    '想找个更合适的说法...'
+  ],
+  wave_pulse: [
+    '在认真听你说...',
+    '心里有点小波动...',
+    '正在消化这句话...'
+  ]
+};
+
+// 每隔多久切换一次轮换文案。
+const TEXT_ROTATE_INTERVAL_MS = 2600;
+
+// 把 customText 拆成候选文案池：按换行拆分，每行一条，
+// 过滤空行；如果最终什么都没有，退回对应风格的默认文案池。
+const resolveTextPool = (customText, styleType) => {
+  const fallbackPool = DEFAULT_TEXT_POOL[styleType] || DEFAULT_TEXT_POOL.default;
+
+  if (!customText) return fallbackPool;
+
+  const lines = String(customText)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.length > 0 ? lines : fallbackPool;
+};
+
+export const TypingIndicator = ({ customText = '', styleType = 'default' }) => {
   const Component = INDICATOR_REGISTRY[styleType] || INDICATOR_REGISTRY.default;
+
+  const textPool = useMemo(
+    () => resolveTextPool(customText, styleType),
+    [customText, styleType]
+  );
+
+  const [textIndex, setTextIndex] = useState(0);
+
+  useEffect(() => {
+    setTextIndex(0);
+
+    if (textPool.length <= 1) return undefined;
+
+    const timer = window.setInterval(() => {
+      setTextIndex((previous) => (previous + 1) % textPool.length);
+    }, TEXT_ROTATE_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [textPool]);
+
+  const displayText = textPool[textIndex] || textPool[0];
 
   return (
     <div className="w-fit max-w-[88%]">
-      <Component text={customText} />
+      {/* key={textIndex} 让每次切换文案时子组件重新挂载一次，
+          顺带借用它自带的 animate-fade-in-up 做一次轻微的淡入过渡 */}
+      <Component key={textIndex} text={displayText} />
 
       <style>{`
         @keyframes typingDot {
@@ -212,4 +282,3 @@ export const TypingIndicator = ({ customText = '正在提笔回复...', styleTyp
 };
 
 export default TypingIndicator;
-

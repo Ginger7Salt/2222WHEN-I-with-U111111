@@ -40,6 +40,8 @@ import {
   playMessageSound,
 } from '../../services/aiService';
 
+import { maybeGenerateAiReaction } from '../../services/messageReactionService';
+
 import {
   recordAlmanacEvent,
   ALMANAC_EVENT_TYPES,
@@ -795,11 +797,19 @@ useLayoutEffect(() => {
       updatedAt: new Date().toISOString(),
     });
 
-    void checkForCrossChatCheckIn({
+       void checkForCrossChatCheckIn({
       activeChatId: chatId,
       onDelivered: (delivery) => {
         setCheckInDelivery(delivery);
       },
+    });
+
+    // 非阻塞：让角色有机会不动声色地给这条消息点个反应，
+    // 不影响正常发送流程，也不等它跑完。
+    void maybeGenerateAiReaction(chatId, newMsg).then((result) => {
+      if (result?.status === 'success') {
+        loadChatData();
+      }
     });
   };
 
@@ -879,11 +889,39 @@ useLayoutEffect(() => {
       previous.filter((message) => message.id !== messageId)
     ));
 
-    loadedMessageCountRef.current = Math.max(
+       loadedMessageCountRef.current = Math.max(
       0,
       loadedMessageCountRef.current - 1,
     );
   }, []);
+
+  const handleToggleReaction = useCallback(async (messageId, typeId) => {
+    const target = await db.messages.get(messageId);
+    if (!target) return;
+
+    const existingReactions = Array.isArray(target.reactions)
+      ? target.reactions
+      : [];
+
+    const hadSameType = existingReactions.some(
+      (reaction) => reaction.by === 'user' && reaction.type === typeId,
+    );
+
+    const nextReactions = existingReactions.filter(
+      (reaction) => reaction.by !== 'user',
+    );
+
+    if (!hadSameType) {
+      nextReactions.push({
+        type: typeId,
+        by: 'user',
+        at: new Date().toISOString(),
+      });
+    }
+
+    await db.messages.update(messageId, { reactions: nextReactions });
+    await loadChatData();
+  }, [loadChatData]);
 
   const handleClearHistory = async () => {
     await db.messages.where('chatId').equals(chatId).delete();
@@ -1229,17 +1267,16 @@ useLayoutEffect(() => {
           activeUserName={activeUserName}
           isAiTyping={isAiTyping}
           mcpTrace={mcpTrace}
-          typingText={
-            chat.typingText || `${character?.name || '伴侣'} 正在思考...`
-          }
+                    typingText={chat.typingText || ''}
           typingStyle={chat.typingStyle || 'default'}
           hasMoreOlderMessages={hasMoreOlderMessages}
           onReroll={handleRerollMessage}
           onDelete={handleDeleteMessage}
           onQuote={setQuotedMsg}
           onSwitchVersion={handleSwitchVersion}
-                   onResolvedInteraction={loadChatData}
+                                    onResolvedInteraction={loadChatData}
           onEnterOfflineScene={(sessionId) => setActiveOfflineSessionId(sessionId)}
+          onToggleReaction={handleToggleReaction}
         />
       </section>
 

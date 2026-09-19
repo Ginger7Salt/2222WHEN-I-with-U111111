@@ -506,17 +506,17 @@ const handleToggleLocation = async () => {
               />
             </div>
 
-            <div>
+                        <div>
               <label className="block text-[10px] opacity-60 mb-1">
-                自定义打字中提示
+                自定义打字中提示（每行一句，会自动轮流显示；只留一行就固定显示那一句）
               </label>
-              <input
-                type="text"
+              <textarea
                 value={typingText}
-                placeholder={`${character?.name || '伴侣'} 正在思考...`}
+                placeholder={'不填的话会自动使用内置的可爱轮换文案\n想固定住可以只填一行，比如：\n' + `${character?.name || '伴侣'} 正在思考...`}
                 onChange={(e) => setTypingText(e.target.value)}
                 onBlur={() => handleSaveUserIdentity()}
-                className="w-full px-2.5 py-1.5 rounded-xl border outline-none text-xs"
+                rows={3}
+                className="w-full px-2.5 py-1.5 rounded-xl border outline-none text-xs resize-none"
                 style={{
                   background: 'var(--bg-main)',
                   borderColor: 'var(--card-border)',

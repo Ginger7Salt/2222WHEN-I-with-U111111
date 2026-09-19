@@ -18,6 +18,9 @@ import RealVoiceCard from '../../../features/real-voice/components/RealVoiceCard
 
 import LocationCard from './cards/LocationCard';
 
+import MessageReactions from './MessageReactions';
+import { matchSpecialMessageEffect, RECENT_MESSAGE_EFFECT_WINDOW_MS } from './specialMessageEffects';
+
 import TextCard from './cards/TextCard';
 import ImageCard from './cards/ImageCard';
 import VoiceCard from './cards/VoiceCard';
@@ -53,6 +56,7 @@ const MessageRow = ({
   onSwitchVersion,
   onResolvedInteraction,
   onEnterOfflineScene,
+  onToggleReaction,
 }) => {
   const isUser = msg.sender === 'user';
   const versions = msg.versions || [];
@@ -63,6 +67,25 @@ const MessageRow = ({
     msg.type === 'error'
     || msg.metadata?.errorCode
   );
+
+  // 特殊消息效果（比如"想你"飘小星星）：只在消息内容命中规则、
+  // 且是这个会话打开期间刚刚到达的消息时才播放，翻旧消息历史
+  // 不会反复重播。
+  const specialEffectRule = msg.type === 'text'
+    ? matchSpecialMessageEffect(msg.content)
+    : null;
+
+  const messageTimestampMs = new Date(
+    msg.timestamp || msg.createdAt || 0
+  ).getTime();
+
+  const showSpecialEffect = Boolean(specialEffectRule)
+    && Number.isFinite(messageTimestampMs)
+    && (Date.now() - messageTimestampMs) < RECENT_MESSAGE_EFFECT_WINDOW_MS;
+
+  const canReact = !isErrorMsg
+    && msg.type !== 'interaction'
+    && msg.type !== 'offline_invite';
 
   const messageMcpTrace = isUser
     ? null
@@ -181,11 +204,13 @@ const MessageRow = ({
               onRefresh={onResolvedInteraction}
             />
           ) : (
-            <div
+                        <div
               className={`relative p-3 shadow-sm transition-all chat-font ${
                 isUser ? 'user-bubble' : 'ai-bubble'
               }`}
             >
+              {showSpecialEffect && <specialEffectRule.Effect />}
+
               {msg.type === 'text' && (
                 <TextCard content={msg.content} />
               )}
@@ -271,6 +296,15 @@ const MessageRow = ({
 
 
             </div>
+                   )}
+
+          {/* 消息反应：展示已有反应 + 点反应入口 */}
+          {canReact && (
+            <MessageReactions
+              reactions={msg.reactions}
+              isUser={isUser}
+              onToggle={(typeId) => onToggleReaction(msg.id, typeId)}
+            />
           )}
 
           {/* MCP 外接痕迹通用胶囊 */}

@@ -21,6 +21,7 @@ const MessageList = ({
     onSwitchVersion,
   onResolvedInteraction,
   onEnterOfflineScene,
+  onToggleReaction,
 }) => (
   <div className="space-y-4 pb-2">
     {visibleMessages.length === 0 && (
@@ -57,6 +58,7 @@ const MessageList = ({
                     onSwitchVersion={onSwitchVersion}
           onResolvedInteraction={onResolvedInteraction}
           onEnterOfflineScene={onEnterOfflineScene}
+          onToggleReaction={onToggleReaction}
         />
       );
     })}
