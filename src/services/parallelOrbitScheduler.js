@@ -3,9 +3,13 @@ import {
   checkAndTriggerParallelOrbit,
   cleanupExpiredParallelOrbits
 } from './parallelOrbitService';
+import {
+  generateDailyPlanIfNeeded,
+  maybeGenerateCharacterMurmur
+} from './characterDailyPlanService';
 
 // 每小时检查一次。
-// 注意：这是“检查频率”，实际生成仍受 parallelOrbitService 中的
+// 注意：这是"检查频率"，实际生成仍受 parallelOrbitService 中的
 // 两小时冷却、用户离开十分钟、离开十小时补写等规则控制。
 const SCHEDULER_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -90,6 +94,19 @@ export const runParallelOrbitScheduler = async () => {
           `[parallelOrbitScheduler] chatId=${chat.id}，结果：${result.status}`,
           result
         );
+
+        // "今日安排"和它的碎碎念按角色维度存储，跟平行轨迹是同一个
+        // "角色有自己独立生活"的精神，顺路挂在同一个小时级调度器上检查，
+        // 不需要单独再起一个定时器。已存在当天安排时这两步都只是轻量读取。
+        try {
+          await generateDailyPlanIfNeeded(chat.characterId);
+          await maybeGenerateCharacterMurmur(chat.characterId);
+        } catch (dailyPlanErr) {
+          console.error(
+            `[parallelOrbitScheduler] characterId=${chat.characterId} 今日安排检查失败：`,
+            dailyPlanErr
+          );
+        }
       } catch (err) {
         // 单个聊天窗失败不能终止其余聊天窗的检查。
         console.error(

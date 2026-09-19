@@ -17,7 +17,10 @@ import {
   User,
   AlertCircle
 } from 'lucide-react';
+
+
 import db from '../../db';
+import CharacterDailyPlanCard from './CharacterDailyPlanCard';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -1665,8 +1668,10 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
             {activeDayInfo.shortDate} · {activeDayInfo.label}
           </p>
         </div>
-
+        
       </header>
+
+      <CharacterDailyPlanCard characterId={currentCharacterId} />
 
       {showConfig && (
         <div

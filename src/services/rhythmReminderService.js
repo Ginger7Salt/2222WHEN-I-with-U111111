@@ -6,12 +6,35 @@ import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
 // 此时不主动插入提醒消息，避免打断正在进行的对话。
 const ACTIVE_CHAT_WINDOW_MS = 10 * 60 * 1000;
 
+// 日程"刚结束"的判定窗口：结束时间在这个窗口内，就当作"刚结束"来写寄语，
+// 而不是笼统地说"目前空闲"。跟本地调度器 3 分钟一次的扫描频率相比留了
+// 足够余量，避免因为扫描没扫准而错过这个窗口。
+const RECENTLY_ENDED_WINDOW_MINUTES = 15;
+
+/**
+ * 把 "HH:MM" 转成从 0 点开始的分钟数，方便算"距离结束过去了几分钟"。
+ * 解析失败时返回 null，调用方需要自行判断。
+ */
+const toMinutes = (hhmm) => {
+  if (typeof hhmm !== 'string' || !hhmm.includes(':')) {
+    return null;
+  }
+
+  const [h, m] = hhmm.split(':').map(Number);
+
+  if (!Number.isFinite(h) || !Number.isFinite(m)) {
+    return null;
+  }
+
+  return h * 60 + m;
+};
+
 /**
  * 拼一段轻量的"完整人设"补充文本：世界书 + 角色补充设定 + 角色眼中的用户。
  * 不复用 aiService.js 里那个面向正式回复的大 Prompt（里面混了表情包语法等
  * 跟寄语无关的指令），这里只取跟"这个人是谁、TA怎么看用户"相关的部分。
  */
-const buildRhythmPersonaBrief = async (character) => {
+export const buildRhythmPersonaBrief = async (character) => {
   const enabledWorldBooks = await db.worldBooks
     .where('isEnabled')
     .equals(1)
@@ -240,6 +263,15 @@ export async function triggerRhythmActiveReminder(
     let currentSchedule = null;
     let upcomingSchedule = null;
 
+    // "刚结束"的日程：不是正在进行、也不是接下来的，而是结束时间
+    // 落在 RECENTLY_ENDED_WINDOW_MINUTES 分钟以内的那一项。
+    // 只在没有 currentSchedule 时才有意义，用来把寄语从"目前空闲"
+    // 变成"哦你刚下课/下班啦"这种更贴合当下的反应。
+    let recentlyEndedSchedule = null;
+    let recentlyEndedMinutesAgo = null;
+
+    const currentMinutes = toMinutes(currentHHMM);
+
     activeSchedules.forEach((schedule) => {
       if (!schedule.startTime || !schedule.endTime) {
         return;
@@ -260,6 +292,26 @@ export async function triggerRhythmActiveReminder(
         ) {
           upcomingSchedule = schedule;
         }
+        return;
+      }
+
+      // 走到这里说明这项日程今天已经结束了，判断是不是"刚刚"结束。
+      const endMinutes = toMinutes(schedule.endTime);
+
+      if (currentMinutes == null || endMinutes == null) {
+        return;
+      }
+
+      const minutesSinceEnd = currentMinutes - endMinutes;
+
+      if (
+        minutesSinceEnd >= 0 &&
+        minutesSinceEnd <= RECENTLY_ENDED_WINDOW_MINUTES &&
+        (recentlyEndedMinutesAgo === null ||
+          minutesSinceEnd < recentlyEndedMinutesAgo)
+      ) {
+        recentlyEndedSchedule = schedule;
+        recentlyEndedMinutesAgo = minutesSinceEnd;
       }
     });
 
@@ -277,6 +329,7 @@ export async function triggerRhythmActiveReminder(
     }
 
     let scheduleContext = '';
+    let isRecentlyEndedEvent = false;
 
     if (currentSchedule) {
       const typeText =
@@ -292,6 +345,18 @@ export async function triggerRhythmActiveReminder(
           ? `，地点在 ${currentSchedule.location}`
           : '') +
         '。';
+    } else if (recentlyEndedSchedule) {
+      const typeText =
+        recentlyEndedSchedule.category === 'course'
+          ? '课程'
+          : '安排';
+
+      isRecentlyEndedEvent = true;
+
+      scheduleContext =
+        `用户大概 ${recentlyEndedMinutesAgo} 分钟前刚结束《${
+          recentlyEndedSchedule.title || '一项安排'
+        }》这一${typeText}，现在应该刚脱身出来。`;
     } else if (upcomingSchedule) {
       const typeText =
         upcomingSchedule.category === 'course'
@@ -333,6 +398,11 @@ ${todoContext ? `【用户待办提醒】：${todoContext}` : ''}
 - 严禁使用任何 Emoji。
 - 充满生活气与浪漫感，不能表现得像系统日程弹窗。
 - 如果用户处于工作、通勤或课程中，送上温和叮咛或表达你在等他或她。
+${
+  isRecentlyEndedEvent
+    ? '- 用户刚从上面提到的安排里出来，写得像"啊你出来啦"这种自然反应——可以问问累不累、顺不顺利，不要用"提醒"的语气复述这件事本身。'
+    : ''
+}
 - 如果有未完成待办，可以用生活化的方式自然关切地提起它。
 - 你自己也有独立的生活，语气里可以自然带一点"我这边也在过我的日子，同时想着你"的味道，但不要具体交代自己在做什么、在哪、和谁在一起。
 - 不要提及系统、日程表、提醒、API、模型、定时器或任何技术实现。
