@@ -1,5 +1,6 @@
 import db from '../db';
 import { buildRhythmPersonaBrief } from './rhythmReminderService';
+import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
 
 import {
   hasUsableMiniMaxVoiceProfile,
@@ -339,6 +340,8 @@ export const startOutgoingCall = async ({ chatId, characterId, mode }) => {
       endedAt: null,
       declined: false,
       aiThinking: false,
+      audioRetentionDecided: false,
+      audioRetained: null,
       turns: [],
     },
     isRead: true,
@@ -380,6 +383,8 @@ export const startIncomingCall = async ({ chatId, characterId }) => {
       endedAt: null,
       declined: false,
       aiThinking: false,
+      audioRetentionDecided: false,
+      audioRetained: null,
       turns: [],
     },
     isRead: false,
@@ -429,19 +434,90 @@ export const declineCall = async ({ messageId }) => {
   dispatchCallStateChanged();
 };
 
+// 把通话轮次拼成一段可读文字，写进这条 call 消息自己的 content 字段。
+// memorySignals.js 的 isUsableMessage 只要求 type !== 'error'、非空
+// content、sender 在支持列表里——call 消息本来就满足后两条，只要把
+// content 填上，现有的记忆提炼流程（memoryScheduler.js）就会像扫普通
+// 文字消息一样自动扫到它，完全不用改记忆系统本身。
+const buildCallTranscript = ({ character, userName, turns }) => {
+  const safeTurns = Array.isArray(turns) ? turns : [];
+  const aiLabel = character?.name || 'TA';
+  const userLabel = userName || '我';
+
+  const lines = safeTurns
+    .map((turn) => String(turn?.content || '').trim())
+    .map((content, index) => ({ content, by: safeTurns[index]?.by }))
+    .filter((turn) => turn.content)
+    .map((turn) => `${turn.by === 'ai' ? aiLabel : userLabel}：${turn.content}`);
+
+  if (lines.length === 0) return '';
+
+  return `[语音通话记录]\n${lines.join('\n')}`;
+};
+
 /**
  * 挂断通话。按照约定，通话只能由用户手动挂断，没有不活动自动超时。
+ * 挂断的同时把这通电话的文字记录写进 content，并入记忆提炼队列——
+ * 跟普通消息触发记忆扫描是同一条路径，参考 aiService.js 里的用法。
  */
 export const endCall = async ({ messageId }) => {
   const message = await db.messages.get(messageId);
   if (!message) return;
 
+  const [chat, character] = await Promise.all([
+    db.chats.get(message.chatId),
+    db.characters.get(message.characterId),
+  ]);
+
+  const turns = Array.isArray(message.metadata?.turns) ? message.metadata.turns : [];
+  const userName = chat?.userName || character?.userName || '';
+  const transcript = buildCallTranscript({ character, userName, turns });
+
   await db.messages.update(messageId, {
+    content: transcript,
     metadata: {
       ...message.metadata,
       status: 'ended',
       endedAt: new Date().toISOString(),
     },
+  });
+
+  dispatchCallStateChanged();
+
+  if (transcript) {
+    void scheduleMemoryProcessing(message.chatId);
+  }
+};
+
+/**
+ * 真实语音通话结束后，询问用户要不要把合成出来的语音留在本地——
+ * 音频 Blob 直接存在 IndexedDB 里，通话越多、语音越长，占用的本地
+ * 空间也会越涨，所以给用户一个"只留文字、删掉语音"的选项。
+ * 这个决定只需要做一次，做过之后 CallReviewModal 就不会再追问。
+ */
+export const setAudioRetention = async ({ messageId, keepAudio }) => {
+  await db.transaction('rw', db.messages, async () => {
+    const message = await db.messages.get(messageId);
+    if (!message) return;
+
+    const turns = Array.isArray(message.metadata?.turns) ? message.metadata.turns : [];
+
+    const nextTurns = keepAudio
+      ? turns
+      : turns.map((turn) => (
+        turn.audio
+          ? { ...turn, audio: null, audioStatus: turn.audioStatus === 'ready' ? 'removed' : turn.audioStatus }
+          : turn
+      ));
+
+    await db.messages.update(messageId, {
+      metadata: {
+        ...message.metadata,
+        turns: nextTurns,
+        audioRetentionDecided: true,
+        audioRetained: keepAudio,
+      },
+    });
   });
 
   dispatchCallStateChanged();

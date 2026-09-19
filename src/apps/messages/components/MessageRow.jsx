@@ -253,7 +253,12 @@ const MessageRow = ({
               onRefresh={onResolvedInteraction}
             />
           ) : msg.type === 'call' ? (
-            <CallLogEntry message={msg} isUser={isUser} />
+            <CallLogEntry
+              message={msg}
+              isUser={isUser}
+              character={character}
+              userName={activeUserName}
+            />
           ) : (
             <div
               className={`relative p-3 shadow-sm transition-all chat-font ${

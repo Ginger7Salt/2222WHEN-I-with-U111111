@@ -124,6 +124,7 @@ import {
 } from './services/callScheduler';
 
 import CallOverlayHost from './apps/messages/call/CallOverlayHost';
+import { useActiveCall } from './hooks/useActiveCall';
 
 
 
@@ -192,6 +193,11 @@ const [hubBackground, setHubBackground] = useState('');
     activeKeepAliveChats,
     setActiveKeepAliveChats,
   ] = useState([]);
+
+  // 通话本身就在保活（屏幕上有正在进行/响铃中的电话，用户不会让它
+  // 被系统挂起），所以电话打起来的时候，保活悬浮球这一个球该让位——
+  // 桌宠悬浮球是另一件事，不受这里影响。
+  const { activeCall } = useActiveCall();
 
   const [audioConfig, setAudioConfig] = useState(
     DEFAULT_AUDIO_CONFIG
@@ -743,7 +749,7 @@ const [hubBackground, setHubBackground] = useState('');
     pendingScheduledCount > 0;
 
     const isKeepAliveWidgetVisible =
-  activeKeepAliveChats.length > 0;
+  activeKeepAliveChats.length > 0 && !activeCall;
 
   const activeAudioTrack = audioConfig.playlist.find(
     (track) => track.id === audioConfig.activeTrackId
@@ -1157,9 +1163,3 @@ const [hubBackground, setHubBackground] = useState('');
 };
 
 export default App;
-
-
-
-
-
-
