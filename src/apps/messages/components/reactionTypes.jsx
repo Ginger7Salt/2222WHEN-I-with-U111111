@@ -12,7 +12,7 @@ export const REACTION_TYPES = [
   { id: 'like', label: REACTION_LABELS.like, Icon: ThumbsUp, color: '#4D96FF' },
   { id: 'laugh', label: REACTION_LABELS.laugh, Icon: Laugh, color: '#FFB020' },
   { id: 'flame', label: REACTION_LABELS.flame, Icon: Flame, color: '#FF7A45' },
-   // 用"裂开的心"表达心疼/为你难过，而不是皱眉脸——皱眉脸读出来是
+  // 用"裂开的心"表达心疼/为你难过，而不是皱眉脸——皱眉脸读出来是
   // "我自己不高兴"，跟"心疼你"是两种情绪，图标要能一眼分清。
   { id: 'sad', label: REACTION_LABELS.sad, Icon: HeartCrack, color: '#7C93C3' },
 ];
