@@ -738,8 +738,8 @@
   }
 
   .animate-fade-in-up {
-    opacity: 1;
-    transform: none;
+    opacity: 1 !important;
+    transform: none !important;
   }
 
   .page-loading-bar__track,
