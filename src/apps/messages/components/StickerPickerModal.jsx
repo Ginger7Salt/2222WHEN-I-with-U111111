@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Smile,
   Plus,
@@ -8,19 +8,28 @@ import {
   Upload,
   List,
   AlertCircle,
+  Star,
+  Pencil,
 } from 'lucide-react';
 import {
   getAllStickers,
   addCustomSticker,
   batchAddCustomStickers,
   deleteSticker,
+  setStickerFavorite,
 } from '../../../services/stickerService';
 
 export const StickerPickerModal = ({ isOpen, onClose, onSelectSticker }) => {
   const [stickers, setStickers] = useState([]);
 
-  // 'list' | 'add' | 'batch'
+  // 'list' | 'favorites' | 'add' | 'batch'
   const [tab, setTab] = useState('list');
+
+  // 整理模式：在表情库 / 收藏页里，点表情 = 收藏或取消收藏（不发送），并显示删除按钮
+  const [isManaging, setIsManaging] = useState(false);
+
+  // 删除需要点两下：第一下先标记，第二下才真正删除
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   // 单个添加
   const [newName, setNewName] = useState('');
@@ -37,6 +46,8 @@ export const StickerPickerModal = ({ isOpen, onClose, onSelectSticker }) => {
       loadStickers();
       setTab('list');
       setBatchResult(null);
+      setIsManaging(false);
+      setPendingDeleteId(null);
     }
   }, [isOpen]);
 
@@ -47,10 +58,16 @@ export const StickerPickerModal = ({ isOpen, onClose, onSelectSticker }) => {
 
   const changeTab = (nextTab) => {
     setTab(nextTab);
+    setPendingDeleteId(null);
 
     // 切换到批量页之外时清除结果提示
     if (nextTab !== 'batch') {
       setBatchResult(null);
+    }
+
+    // 去到"添加 / 批量导入"页时退出整理模式
+    if (nextTab === 'add' || nextTab === 'batch') {
+      setIsManaging(false);
     }
   };
 
@@ -122,14 +139,133 @@ export const StickerPickerModal = ({ isOpen, onClose, onSelectSticker }) => {
   };
 
   /**
-   * 删除自定义表情包
+   * 删除自定义表情包（整理模式下才会出现删除按钮，需点两下确认）
    */
   const handleDelete = async (event, id) => {
     event.stopPropagation();
 
+    if (pendingDeleteId !== id) {
+      setPendingDeleteId(id);
+      return;
+    }
+
+    setPendingDeleteId(null);
     await deleteSticker(id);
     await loadStickers();
   };
+
+  /**
+   * 收藏 / 取消收藏。先更新界面，再写数据库；写失败时重新读取，回到真实状态。
+   */
+  const handleToggleFavorite = async (sticker) => {
+    const nextValue = !sticker.isFavorite;
+    const favoritedAt = nextValue ? Date.now() : null;
+
+    setPendingDeleteId(null);
+
+    setStickers((previous) => previous.map((item) => (
+      item.id === sticker.id
+        ? { ...item, isFavorite: nextValue, favoritedAt }
+        : item
+    )));
+
+    try {
+      await setStickerFavorite(sticker.id, nextValue, favoritedAt);
+    } catch (err) {
+      console.error('Failed to toggle sticker favorite:', err);
+      await loadStickers();
+    }
+  };
+
+  // 收藏页：最近收藏的排在最前
+  const favoriteStickers = useMemo(() => (
+    stickers
+      .filter((sticker) => sticker.isFavorite)
+      .sort((a, b) => (b.favoritedAt || 0) - (a.favoritedAt || 0))
+  ), [stickers]);
+
+  // 表情库和收藏页共用同一套网格
+  const renderStickerGrid = (list, emptyText) => (
+    <div className="grid grid-cols-4 gap-2.5 max-h-60 overflow-y-auto pr-1">
+      {list.length === 0 && (
+        <div className="col-span-4 py-8 text-center text-xs opacity-50">
+          {emptyText}
+        </div>
+      )}
+
+      {list.map((sticker) => (
+        <div
+          key={sticker.id}
+          onClick={() => {
+            if (isManaging) {
+              void handleToggleFavorite(sticker);
+              return;
+            }
+
+            onSelectSticker(sticker);
+            onClose();
+          }}
+          className="relative flex flex-col items-center justify-center p-1.5 rounded-2xl cursor-pointer transition-all hover:scale-105 border border-transparent hover:border-[var(--card-border)]"
+          style={{
+            backgroundColor: 'var(--control-soft-bg)',
+          }}
+          title={sticker.name}
+        >
+          <img
+            src={sticker.url}
+            alt={sticker.name}
+            className="w-12 h-12 object-cover rounded-xl"
+            loading="lazy"
+            decoding="async" />
+
+          <span className="text-[9px] truncate w-full text-center mt-1 opacity-70">
+            {sticker.name}
+          </span>
+
+          {/* 整理模式：左上角显示收藏状态（只显示，点整个表情就能切换） */}
+          {isManaging && (
+            <span
+              className="pointer-events-none absolute -left-1 -top-1 rounded-full p-1"
+              style={{
+                backgroundColor: 'var(--card-bg)',
+                border: '1px solid var(--card-border)',
+              }}
+            >
+              <Star
+                className="w-2.5 h-2.5"
+                style={{ color: 'var(--accent-color)' }}
+                fill={sticker.isFavorite ? 'currentColor' : 'none'}
+              />
+            </span>
+          )}
+
+          {/* 整理模式：自定义表情右上角显示删除，点两下确认 */}
+          {isManaging && sticker.category === 'custom' && (
+            <button
+              type="button"
+              onClick={(event) => handleDelete(event, sticker.id)}
+              className="absolute -top-1 -right-1 p-1.5 rounded-full transition-colors"
+              style={{
+                backgroundColor:
+                  pendingDeleteId === sticker.id ? '#ef4444' : 'var(--card-bg)',
+                color:
+                  pendingDeleteId === sticker.id ? '#ffffff' : 'var(--text-sub)',
+                border: '1px solid var(--card-border)',
+              }}
+              title={
+                pendingDeleteId === sticker.id
+                  ? '再点一次确认删除'
+                  : '删除自定义表情'
+              }
+              aria-label={`删除表情包：${sticker.name}`}
+            >
+              <Trash2 className="w-2.5 h-2.5" />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 
   const renderTabButton = (targetTab, label, Icon) => {
     const isActive = tab === targetTab;
@@ -191,74 +327,64 @@ export const StickerPickerModal = ({ isOpen, onClose, onSelectSticker }) => {
             <h3 className="font-bold text-xs">表情包库</h3>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 opacity-60 hover:opacity-100 transition-opacity"
-            aria-label="关闭表情包库"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {(tab === 'list' || tab === 'favorites') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManaging((previous) => !previous);
+                  setPendingDeleteId(null);
+                }}
+                className="px-2.5 py-1 rounded-full text-[11px] font-medium transition-all flex items-center gap-1"
+                style={{
+                  backgroundColor: isManaging
+                    ? 'var(--accent-color)'
+                    : 'var(--control-soft-bg)',
+                  color: isManaging
+                    ? 'var(--accent-foreground)'
+                    : 'var(--text-main)',
+                }}
+              >
+                {isManaging
+                  ? <Check className="w-3 h-3" />
+                  : <Pencil className="w-3 h-3" />}
+                {isManaging ? '完成' : '整理'}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 opacity-60 hover:opacity-100 transition-opacity"
+              aria-label="关闭表情包库"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tab 切换 */}
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
           {renderTabButton('list', '表情库', List)}
+          {renderTabButton('favorites', '收藏', Star)}
           {renderTabButton('add', '添加', Plus)}
           {renderTabButton('batch', '批量导入', Upload)}
         </div>
 
-        {/* 表情包列表 */}
-        {tab === 'list' && (
-          <div className="grid grid-cols-4 gap-2.5 max-h-60 overflow-y-auto pr-1">
-            {stickers.length === 0 && (
-              <div className="col-span-4 py-8 text-center text-xs opacity-50">
-                暂无表情包
-              </div>
-            )}
+        {/* 整理模式提示 */}
+        {isManaging && (tab === 'list' || tab === 'favorites') && (
+          <p className="text-[10px] opacity-60 leading-relaxed">
+            整理中：点表情可收藏或取消收藏，不会发送。自定义表情右上角可删除，需点两次确认。
+          </p>
+        )}
 
-            {stickers.map((sticker) => (
-              <div
-                key={sticker.id}
-                onClick={() => {
-                  onSelectSticker(sticker);
-                  onClose();
-                }}
-                className="group relative flex flex-col items-center justify-center p-1.5 rounded-2xl cursor-pointer transition-all hover:scale-105 border border-transparent hover:border-[var(--card-border)]"
-                style={{
-                  backgroundColor: 'var(--control-soft-bg)',
-                }}
-                title={sticker.name}
-              >
-                <img
-                  src={sticker.url}
-                  alt={sticker.name}
-                  className="w-12 h-12 object-cover rounded-xl"
-                  loading="lazy" 
-                  decoding="async" />
+        {/* 表情库 */}
+        {tab === 'list' && renderStickerGrid(stickers, '暂无表情包')}
 
-                <span className="text-[9px] truncate w-full text-center mt-1 opacity-70">
-                  {sticker.name}
-                </span>
-
-                {sticker.category === 'custom' && (
-                  <button
-                    type="button"
-                    onClick={(event) => handleDelete(event, sticker.id)}
-                    className="absolute -top-1 -right-1 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{
-                      backgroundColor: 'var(--card-bg)',
-                      color: 'var(--text-sub)',
-                    }}
-                    title="删除自定义表情"
-                    aria-label={`删除表情包：${sticker.name}`}
-                  >
-                    <Trash2 className="w-2.5 h-2.5" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+        {/* 收藏 */}
+        {tab === 'favorites' && renderStickerGrid(
+          favoriteStickers,
+          '还没有收藏的表情。点右上角“整理”，再点表情就能收藏。',
         )}
 
         {/* 单个添加 */}

@@ -549,6 +549,22 @@ export const deleteSticker = async (id) => {
   }
 };
 
+/**
+ * 设置表情包的收藏状态。
+ * 只写入 isFavorite / favoritedAt 两个字段，不需要升级数据库版本。
+ * 失败时会抛出错误，方便界面回滚。
+ */
+export const setStickerFavorite = async (
+  id,
+  isFavorite,
+  favoritedAt = Date.now(),
+) => {
+  await db.stickers.update(id, {
+    isFavorite: Boolean(isFavorite),
+    favoritedAt: isFavorite ? favoritedAt : null,
+  });
+};
+
 export default {
   initDefaultStickers,
   getAllStickers,
@@ -556,4 +572,5 @@ export default {
   parseStickerImportText,
   batchAddCustomStickers,
   deleteSticker,
+  setStickerFavorite,
 };
