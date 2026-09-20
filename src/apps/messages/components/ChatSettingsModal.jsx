@@ -30,8 +30,11 @@ export const ChatSettingsModal = ({
   onClearHistory,
   onDeletedChat,
   onSaveSummary,
-  onUpdatedUserPersona
+  onUpdatedUserPersona,
+  onTogglePinTopToolbar,
 }) => {
+
+
   const fileInputRef = useRef(null);
   const userAvatarInputRef = useRef(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -103,6 +106,14 @@ export const ChatSettingsModal = ({
 
   const bgImage = chat?.bgImage || '';
   const keepAlive = chat?.keepAlive ?? false;
+
+    const [pinTopToolbar, setPinTopToolbar] = useState(chat?.pinTopToolbar ?? false);
+
+  const handleTogglePinTopToolbarChange = (nextValue) => {
+    setPinTopToolbar(nextValue);
+    onTogglePinTopToolbar?.(nextValue);
+  };
+
 
   // 组件内部，state区域加：
 const [locationEnabled, setLocationEnabledState] = useState(false);
@@ -1088,6 +1099,38 @@ const handleToggleLocation = async () => {
             aria-label="尝试维持后台活跃"
           />
         </div>
+
+                {/* 顶部按钮常驻设置 */}
+        <div
+          className="flex items-center justify-between gap-4 rounded-2xl border p-3"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)',
+            color: 'var(--text-main)'
+          }}
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-medium">常驻顶部快捷按钮</p>
+            <p
+              className="mt-1 text-[10px] leading-relaxed"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              开启后，顶部按钮（轨迹、爪印菜单、电话、存档与设置等）将始终显示，无需展开伴侣卡片。
+            </p>
+          </div>
+
+          <input
+            type="checkbox"
+            checked={pinTopToolbar}
+            onChange={(event) => {
+              handleTogglePinTopToolbarChange(event.target.checked);
+            }}
+            className="h-4 w-4 shrink-0 cursor-pointer"
+            style={{ accentColor: 'var(--accent-color)' }}
+            aria-label="常驻顶部快捷按钮"
+          />
+        </div>
+
 
         {/* 气泡样式定制 */}
         <div>

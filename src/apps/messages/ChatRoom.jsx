@@ -1025,6 +1025,18 @@ useLayoutEffect(() => {
     });
   };
 
+    const handleTogglePinTopToolbar = async (value) => {
+    setChat((previous) => ({
+      ...previous,
+      pinTopToolbar: value,
+    }));
+
+    await db.chats.update(chatId, {
+      pinTopToolbar: value,
+    });
+  };
+
+
   const handleSaveHeaderCaption = async (newCaption) => {
     setChat((previous) => ({
       ...previous,
@@ -1185,7 +1197,7 @@ useLayoutEffect(() => {
               <ArrowLeft className="h-4 w-4" />
             </button>
 
-            {showFullHeaderBar && (
+            {(Boolean(chat?.pinTopToolbar) || showFullHeaderBar) && (
               <>
                 <button
                   type="button"
@@ -1288,7 +1300,7 @@ useLayoutEffect(() => {
             )}
           </div>
 
-          {showFullHeaderBar && (
+          {(Boolean(chat?.pinTopToolbar) || showFullHeaderBar) && (
             <div className="flex items-center gap-2">
               <div className="relative">
                 <button
@@ -1371,6 +1383,7 @@ useLayoutEffect(() => {
             </div>
           )}
         </div>
+
 
         <ChatHeaderBar
           character={character}
@@ -1856,7 +1869,7 @@ useLayoutEffect(() => {
         />
       )}
 
-      {showChatSettings && (
+            {showChatSettings && (
         <ChatSettingsModal
           chat={chat}
           character={character}
@@ -1864,6 +1877,7 @@ useLayoutEffect(() => {
           onUpdateBgImage={handleUpdateBgImage}
           onUpdateBgOpacity={handleUpdateBgOpacity}
           onToggleKeepAlive={handleToggleKeepAlive}
+          onTogglePinTopToolbar={handleTogglePinTopToolbar}
           onOpenBubbleCustomizer={() => setShowBubbleCustomizer(true)}
           onClearHistory={handleClearHistory}
           onDeletedChat={onBack}
@@ -1871,6 +1885,7 @@ useLayoutEffect(() => {
           onUpdatedUserPersona={loadChatData}
         />
       )}
+
 
       {showCalendar && (
   <ChatCalendarModal
