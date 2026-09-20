@@ -286,12 +286,29 @@ const [showInputMenu, setShowInputMenu] = useState(false);
 
     if (fontFamilyValue) {
       rules.push(`.chat-room-container { font-family: ${fontFamilyValue}; }`);
+
+      // TextCard 根节点自带 font-sans，会盖过上面继承下来的字体，这里单独覆盖。
+      // 代码块用的是 font-mono，不在这条规则的范围内，不受影响。
+      rules.push(
+        `.chat-room-container .markdown-content { font-family: ${fontFamilyValue}; }`,
+      );
     }
 
     if (chatFontSizePx !== null) {
       const rem = `${chatFontSizePx / 16}rem`;
+
       rules.push(`.chat-room-container .chat-font { font-size: ${rem}; }`);
       rules.push(`.chat-room-container .chat-input-font { font-size: ${rem}; }`);
+
+      // TextCard 根节点自带 text-xs，会盖过外层气泡的字号，这里单独覆盖。
+      rules.push(`.chat-room-container .markdown-content { font-size: ${rem}; }`);
+
+      // 标题原本是固定字号，改成相对当前字号的倍数。
+      // 1.3333em / 1.1667em / 1em 正好对应原来的 text-base / text-sm / text-xs，
+      // 所以默认字号 12px 时外观不变。
+      rules.push(`.chat-room-container .markdown-content h1 { font-size: 1.3333em; }`);
+      rules.push(`.chat-room-container .markdown-content h2 { font-size: 1.1667em; }`);
+      rules.push(`.chat-room-container .markdown-content h3 { font-size: 1em; }`);
     }
 
     if (rules.length === 0) return null;
