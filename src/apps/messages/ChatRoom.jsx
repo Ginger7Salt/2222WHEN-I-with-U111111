@@ -91,6 +91,7 @@ import {
 } from './scheduledMessageService';
 
 import { useChatCustomFont } from './hooks/useChatCustomFont';
+import { isValidHexColor, getReadableTextColor } from './utils/chatColors';
 
 import InnerWorldApp from '../innerworld/InnerWorldApp';
 
@@ -315,6 +316,51 @@ const [showInputMenu, setShowInputMenu] = useState(false);
 
     return <style>{rules.join('\n')}</style>;
   }, [fontFamilyValue, chatFontSizePx]);
+
+    // 本聊天窗自定义的输入框 / 按钮颜色。
+  // 只接受严格的 #rrggbb；未设置或格式不对时不输出任何规则，保持原样。
+  // 用 !important 是因为这些元素原本的颜色写在行内 style 里，普通样式压不过。
+  const inputBarColor = isValidHexColor(chat?.inputBarColor) ? chat.inputBarColor : null;
+  const sendBtnColor = isValidHexColor(chat?.sendBtnColor) ? chat.sendBtnColor : null;
+  const respondBtnColor = isValidHexColor(chat?.respondBtnColor) ? chat.respondBtnColor : null;
+  const topBtnColor = isValidHexColor(chat?.topBtnColor) ? chat.topBtnColor : null;
+
+  const chatColorStyle = useMemo(() => {
+    const rules = [];
+    const scope = '.chat-room-container';
+
+    if (inputBarColor) {
+      const fg = getReadableTextColor(inputBarColor);
+
+      rules.push(`${scope} .chat-input-bar { background: ${inputBarColor} !important; color: ${fg} !important; }`);
+      rules.push(`${scope} .chat-input-bar textarea { color: ${fg} !important; }`);
+
+      // 发送按钮没单独设色时，让它的图标跟着输入框底色变，避免深底深字
+      if (!sendBtnColor) {
+        rules.push(`${scope} .chat-input-bar .chat-send-btn { color: ${fg} !important; }`);
+      }
+    }
+
+    if (sendBtnColor) {
+      const fg = getReadableTextColor(sendBtnColor);
+      rules.push(`${scope} .chat-send-btn { background: ${sendBtnColor} !important; color: ${fg} !important; }`);
+    }
+
+    if (respondBtnColor) {
+      const fg = getReadableTextColor(respondBtnColor);
+      rules.push(`${scope} .chat-respond-btn { background: ${respondBtnColor} !important; color: ${fg} !important; }`);
+    }
+
+    if (topBtnColor) {
+      const fg = getReadableTextColor(topBtnColor);
+      // 只作用于顶部这一排的圆形按钮，下拉菜单里的条目不是 rounded-full，不受影响
+      rules.push(`${scope} .chat-top-toolbar button.rounded-full { background: ${topBtnColor} !important; color: ${fg} !important; }`);
+    }
+
+    if (rules.length === 0) return null;
+
+    return <style>{rules.join('\n')}</style>;
+  }, [inputBarColor, sendBtnColor, respondBtnColor, topBtnColor]);
 
   const loadChatData = useCallback(async () => {
     try {
@@ -1185,6 +1231,7 @@ useLayoutEffect(() => {
     >
       {memoizedStyle}
       {chatFontStyle}
+      {chatColorStyle}
 
       <CheckInNotice
         delivery={checkInDelivery}
@@ -1226,7 +1273,7 @@ useLayoutEffect(() => {
       )}
 
       <header className="z-20 shrink-0 px-4 pb-1 pt-3">
-        <div className="flex items-center justify-between pb-1">
+        <div className="chat-top-toolbar flex items-center justify-between pb-1">
 
           <div className="relative flex items-center gap-2">
             {/* 返回按钮是唯一的例外，收起状态下也始终悬浮在左上角 */}
@@ -1703,7 +1750,7 @@ useLayoutEffect(() => {
         )}
 
         <div
-          className="flex items-center gap-2 rounded-full px-3 py-2 shadow-2xl backdrop-blur-2xl transition-all duration-300"
+          className="chat-input-bar flex items-center gap-2 rounded-full px-3 py-2 shadow-2xl backdrop-blur-2xl transition-all duration-300"
           style={{
             background: 'var(--card-bg-gradient)',
             color: 'var(--text-main)',
@@ -1867,7 +1914,7 @@ useLayoutEffect(() => {
             <button
               type="button"
               onClick={handleSendButtonClick}
-              className="rounded-full p-2 transition-transform hover:opacity-90 active:scale-90"
+              className="chat-send-btn rounded-full p-2 transition-transform hover:opacity-90 active:scale-90"
               style={{
                 background: 'var(--control-soft-bg)',
                 color: 'var(--text-main)',
@@ -1888,7 +1935,7 @@ useLayoutEffect(() => {
   onClick={handleTriggerAiButtonClick}
 
               disabled={isAiTyping}
-              className="flex items-center gap-1 rounded-full px-3.5 py-2 text-[10px] font-semibold shadow-sm transition-transform active:scale-95 disabled:opacity-50"
+              className="chat-respond-btn flex items-center gap-1 rounded-full px-3.5 py-2 text-[10px] font-semibold shadow-sm transition-transform active:scale-95 disabled:opacity-50"
               style={{
                 background: 'var(--accent-color)',
                 color: 'var(--accent-foreground)',

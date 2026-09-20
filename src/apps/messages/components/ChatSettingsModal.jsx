@@ -12,9 +12,11 @@ import {
 
   Eye,
   EyeOff,
-  Type
+  Type,
+  Palette
 } from 'lucide-react';
 import ConfirmModal from '../../../components/ConfirmModal';
+import ColorSettingRow from './ColorSettingRow';
 import db from '../../../db';
 
 import { triggerGlobalToast } from '../../../components/NotificationToast';
@@ -187,6 +189,20 @@ export const ChatSettingsModal = ({
     await db.chats.update(chat.id, { chatFontSize: null });
 
     onUpdatedUserPersona?.({ chatFontSize: null });
+  };
+
+    // field 是 db.chats 里的字段名：inputBarColor / sendBtnColor / respondBtnColor / topBtnColor
+  // 空字符串表示恢复默认颜色
+  const handleCommitChatColor = async (field, value) => {
+    if (!chat?.id) return;
+
+    const next = value || '';
+
+    if (next === (chat?.[field] || '')) return;
+
+    await db.chats.update(chat.id, { [field]: next });
+
+    onUpdatedUserPersona?.({ [field]: next });
   };
 
   // 组件内部，state区域加：
@@ -1324,6 +1340,51 @@ const handleToggleLocation = async () => {
           </div>
         </div>
 
+
+        {/* 本窗输入框与按钮颜色 */}
+        <div
+          className="space-y-2.5 p-3 rounded-2xl border w-full"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)'
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold">
+              <Palette className="w-3.5 h-3.5" />
+              <span>输入框与按钮颜色</span>
+            </div>
+            <span className="font-mono text-[9px] opacity-45">CHAT COLORS</span>
+          </div>
+
+          <p className="text-[10px] opacity-55 leading-relaxed">
+            点色块选择颜色，图标和文字会根据底色自动选深色或白色。仅影响本聊天窗，气泡颜色请用下方的气泡 CSS 定制。
+          </p>
+
+          <ColorSettingRow
+            label="输入框底色"
+            value={chat?.inputBarColor || ''}
+            onCommit={(value) => handleCommitChatColor('inputBarColor', value)}
+          />
+
+          <ColorSettingRow
+            label="发送按钮"
+            value={chat?.sendBtnColor || ''}
+            onCommit={(value) => handleCommitChatColor('sendBtnColor', value)}
+          />
+
+          <ColorSettingRow
+            label="「回应」按钮"
+            value={chat?.respondBtnColor || ''}
+            onCommit={(value) => handleCommitChatColor('respondBtnColor', value)}
+          />
+
+          <ColorSettingRow
+            label="顶部按钮"
+            value={chat?.topBtnColor || ''}
+            onCommit={(value) => handleCommitChatColor('topBtnColor', value)}
+          />
+        </div>
 
         {/* 气泡样式定制 */}
         <div>
