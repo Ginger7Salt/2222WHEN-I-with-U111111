@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, PhoneOff, Volume2 } from 'lucide-react';
+import { Phone, PhoneOff, Volume2, Sparkles } from 'lucide-react';
 
 import './call-ringing-screen.css';
 
@@ -98,6 +98,17 @@ const CallRingingScreen = ({
                 >
                   <Volume2 className="h-3.5 w-3.5" />
                   接听（真实语音）
+                </button>
+              )}
+
+              {realVoiceAvailable && (
+                <button
+                  type="button"
+                  onClick={() => onAccept('auto')}
+                  className="call-ringing__pill flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[12px] font-semibold transition-transform active:scale-95"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  接听（由TA决定）
                 </button>
               )}
             </div>

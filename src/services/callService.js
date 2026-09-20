@@ -231,6 +231,46 @@ const fetchAiChatCompletion = async (apiConfig, chatMessages, maxTokens = 160) =
   return String(data?.choices?.[0]?.message?.content || '').trim();
 };
 
+// 通话接通时如果用户选了"由TA自己决定"接听方式，用这个很小的判断
+// 请求先问一次 real/text，再照常走 generateCallReply 生成第一句——
+// 跟 callScheduler.js 里"要不要主动打电话"的 yes/no 判断是同一个
+// 思路：小提示词、只要一个词的回答、失败就安全回退成文字。
+// 没配置可用的 MiniMax 语音时直接跳过判断——这种情况下 UI 本来就不会
+// 展示"由TA决定"这个选项，这里只是双重保险。
+const buildVoiceModeDecisionPrompt = ({ character }) => `
+你正在扮演角色「${character.name}」，这通电话马上就要开始说话。
+
+人设背景：${character.bio || '普通人'}。
+
+请你决定这通电话想用什么方式说话：
+- 如果这一刻你更想让对方直接"听到"你的声音，输出 real
+- 如果你更想用你自己的措辞和语气风格打字表达，输出 text
+
+只输出 real 或 text，不要输出任何其他内容。
+`;
+
+const decideCallVoiceMode = async (character) => {
+  if (!isRealVoiceAvailableForCharacter(character)) return 'text';
+
+  try {
+    const apiSettings = await db.settings.get('apiConfig');
+    const apiConfig = apiSettings?.value || {};
+    if (!apiConfig.baseUrl || !apiConfig.apiKey) return 'text';
+
+    const systemPrompt = buildVoiceModeDecisionPrompt({ character });
+    const rawResponse = await fetchAiChatCompletion(
+      apiConfig,
+      [{ role: 'system', content: systemPrompt }],
+      5,
+    );
+
+    return /^real/i.test(rawResponse.trim()) ? 'real' : 'text';
+  } catch (error) {
+    console.warn('[callService] 语音模式判断失败，回退为文字：', error);
+    return 'text';
+  }
+};
+
 const buildCallSystemPrompt = ({ character, worldBookText, extraNotesText }) => `
 你正在扮演角色「${character.name}」，此刻正在和对方进行一场语音通话（不是打字聊天）。
 
@@ -744,16 +784,26 @@ export const recordMissedCloudCall = async ({ chatId, characterId, characterName
 
   return messageId;
 };
-
 export const acceptCall = async ({ messageId, mode }) => {
   const message = await db.messages.get(messageId);
   if (!message || message.metadata?.status !== 'ringing') return;
+
+  // mode === 'auto' 表示用户选了"由TA决定"——这里先问一次，再把解析出
+  // 的真实模式（'real' | 'text'）写进 metadata，其余逻辑
+  // （generateCallReply、CallLogEntry.jsx 的图标判断等）完全不用关心
+  // 'auto' 这个中间态，看到的永远是最终落地的模式。
+  let resolvedMode = mode;
+
+  if (mode === 'auto') {
+    const character = await db.characters.get(message.characterId);
+    resolvedMode = await decideCallVoiceMode(character);
+  }
 
   await db.messages.update(messageId, {
     metadata: {
       ...message.metadata,
       status: 'active',
-      mode,
+      mode: resolvedMode,
       connectedAt: new Date().toISOString(),
     },
   });
@@ -764,6 +814,8 @@ export const acceptCall = async ({ messageId, mode }) => {
     void generateCallReply({ messageId });
   }
 };
+
+
 
 export const declineCall = async ({ messageId }) => {
   const message = await db.messages.get(messageId);
