@@ -2,6 +2,7 @@
 import Dexie from 'dexie';
 import db from '../db';
 import { getCurrentWeekNum } from './rhythmReminderService';
+import { syncPendingCalls } from './cloudCallService';
 
 /**
  * 计算某个角色"今天剩余"的日程边界（开始/结束时刻），转换成绝对时间戳。
@@ -793,6 +794,7 @@ export async function registerCloudPush({
   void syncPendingPushMessages();
   void syncPendingHomeBoard();
   void syncPendingDiaries();
+  void syncPendingCalls();
 
   return true;
 }
@@ -986,13 +988,22 @@ export async function syncAllChatContextsToCloud({
         // 一起捎带给云端，不新开一条同步通道，也不影响原有的 recentContext 逻辑。
         const scheduleBoundaries = await computeTodayScheduleBoundaries(charId);
 
+            // 跟 rhythmEnabled 一样捎带上本地的来电冷却时间戳，服务端
+        // 判断是否要发起后台来电时会取它和自己记录的较大值，避免刚
+        // 在本地接完电话、一进后台云端又立刻打一通。callScheduler.js
+        // 用的是同一把 key（lastCallAttemptTime_${chatId}）。
+        const callCooldownSetting = await db.settings.get(`lastCallAttemptTime_${chat.id}`);
+        const lastCallAttemptAt = Number(callCooldownSetting?.value || 0) || undefined;
+
         chatContextUpdates.push({
           chatId: Number(chat.id),
           recentContext,
           latestMessageAt,
           rhythmEnabled: chat.rhythmEnabled !== false,
           scheduleBoundaries,
+          lastCallAttemptAt,
         });
+
       }
 
       payloadString = JSON.stringify({
@@ -1104,6 +1115,7 @@ export function initAutoContextSync({
       void syncPendingPushMessages();
       void syncPendingHomeBoard();
       void syncPendingDiaries();
+      void syncPendingCalls();
       scheduleNormalSync();
     }
   };
@@ -1112,10 +1124,12 @@ export function initAutoContextSync({
     syncAtLifecycle();
   };
 
-    const handlePageShow = () => {
+
+     const handlePageShow = () => {
     void syncPendingPushMessages();
     void syncPendingHomeBoard();
     void syncPendingDiaries();
+    void syncPendingCalls();
     scheduleNormalSync();
   };
 

@@ -636,8 +636,21 @@ export const startOutgoingCall = async ({ chatId, characterId, mode }) => {
  * 角色主动打进来（由 callScheduler.js 调用）。这里只负责"响铃"，
  * 接听方式（mode）要等用户接听时才选。
  */
-export const startIncomingCall = async ({ chatId, characterId }) => {
+export const startIncomingCall = async ({ chatId, characterId, inviteId = null, ringUntil = null }) => {
   if (await hasAnyLiveCall()) return null;
+
+  // inviteId 来自云端后台来电邀请（cloudCallService.js），本地调度器
+  // callScheduler.js 发起的来电不带这个字段。带了就先查重——同一条
+  // 云端邀请可能因为网络问题被同步两次，不能建出两通重复的来电。
+  if (inviteId) {
+    const existing = await db.messages
+      .where('type')
+      .equals('call')
+      .filter((message) => message.metadata?.inviteId === inviteId)
+      .first();
+
+    if (existing) return null;
+  }
 
   const timestamp = new Date().toISOString();
 
@@ -659,6 +672,8 @@ export const startIncomingCall = async ({ chatId, characterId }) => {
       audioRetentionDecided: false,
       audioRetained: null,
       turns: [],
+      inviteId,
+      ringUntil,
     },
     isRead: false,
     timestamp,
@@ -672,6 +687,60 @@ export const startIncomingCall = async ({ chatId, characterId }) => {
     const character = await db.characters.get(characterId);
     void triggerIncomingCallNotification(character, chatId);
   }
+
+  return messageId;
+};
+
+/**
+ * 云端后台来电邀请过期、用户没能在有效期内点开时，补一条"未接来电"
+ * 记录。数据形状跟正常的未接来电（declined: true, direction: 'incoming'）
+ * 完全一致，CallLogEntry.jsx 不用改一行就能正确显示"未接听的来电"。
+ * content 写一句中性描述，非空 content 会让这条记录自动被现有记忆
+ * 管线收进去，跟 endCall() 写通话记录是同一条路径。
+ */
+export const recordMissedCloudCall = async ({ chatId, characterId, characterName, inviteId }) => {
+  if (inviteId) {
+    const existing = await db.messages
+      .where('type')
+      .equals('call')
+      .filter((message) => message.metadata?.inviteId === inviteId)
+      .first();
+
+    if (existing) return null;
+  }
+
+  const timestamp = new Date().toISOString();
+  const content = `${characterName || '对方'}给你打了电话，你没有接。`;
+
+  const messageId = await db.messages.add({
+    chatId,
+    characterId,
+    sender: 'character',
+    type: 'call',
+    content,
+    metadata: {
+      status: 'ended',
+      direction: 'incoming',
+      mode: null,
+      startedAt: timestamp,
+      connectedAt: null,
+      endedAt: timestamp,
+      declined: true,
+      aiThinking: false,
+      audioRetentionDecided: false,
+      audioRetained: null,
+      turns: [],
+      inviteId,
+      ringUntil: null,
+    },
+    isRead: false,
+    timestamp,
+  });
+
+  await db.chats.update(chatId, { updatedAt: timestamp });
+  dispatchCallStateChanged();
+
+  void scheduleMemoryProcessing(chatId);
 
   return messageId;
 };
