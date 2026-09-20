@@ -231,6 +231,58 @@ const fetchAiChatCompletion = async (apiConfig, chatMessages, maxTokens = 160) =
   return String(data?.choices?.[0]?.message?.content || '').trim();
 };
 
+// 通话默认只知道"这通电话自己说了什么"（message.metadata.turns），对
+// 通话开始前、平时打字聊天里刚说过的事完全不知道——这就是"打字聊天
+// 说吃过饭了，接起电话又被问吃了没"的根源。这里补上：取这个聊天框
+// 最近几条消息（不限于文字类型，通话记录挂断后的 content 也是一段
+// 可读文字），拼成一小段"最近聊天记录"塞进通话的 system prompt，跟
+// 主聊天室/cloudPushService.js 里"最近聊天片段"是同一个惯例。
+const CALL_CONTEXT_MAX_MESSAGES = 10;
+
+const getMessageDisplayText = (message) => {
+  if (Array.isArray(message?.versions) && message.versions.length > 0) {
+    const index = Number.isInteger(message.currentVersionIndex)
+      ? message.currentVersionIndex
+      : 0;
+
+    return (
+      message.versions[index]?.content ||
+      message.versions[index]?.text ||
+      message.content ||
+      ''
+    );
+  }
+
+  return message?.content || '';
+};
+
+const buildRecentChatContextText = async ({ chatId, excludeMessageId, characterName, userName }) => {
+  try {
+    const allMessages = await db.messages.where('chatId').equals(chatId).toArray();
+
+    const recentMessages = allMessages
+      .filter((message) => message.id !== excludeMessageId)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, CALL_CONTEXT_MAX_MESSAGES)
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    const lines = recentMessages
+      .map((message) => {
+        const text = getMessageDisplayText(message).trim();
+        if (!text) return '';
+
+        const label = message.sender === 'user' ? (userName || '我') : (characterName || 'TA');
+        return `${label}：${text}`;
+      })
+      .filter(Boolean);
+
+    return lines.join('\n');
+  } catch (error) {
+    console.warn('[callService] 读取最近聊天上下文失败：', error);
+    return '';
+  }
+};
+
 // 通话接通时如果用户选了"由TA自己决定"接听方式，用这个很小的判断
 // 请求先问一次 real/text，再照常走 generateCallReply 生成第一句——
 // 跟 callScheduler.js 里"要不要主动打电话"的 yes/no 判断是同一个
@@ -271,11 +323,11 @@ const decideCallVoiceMode = async (character) => {
   }
 };
 
-const buildCallSystemPrompt = ({ character, worldBookText, extraNotesText }) => `
+const buildCallSystemPrompt = ({ character, worldBookText, extraNotesText, recentContextText }) => `
 你正在扮演角色「${character.name}」，此刻正在和对方进行一场语音通话（不是打字聊天）。
 
 人设背景：${character.bio || '普通人'}。${worldBookText}${extraNotesText}
-
+${recentContextText ? `\n最近的聊天记录（供你了解已经发生过什么，不要重复问已经问过、对方已经回答过的事）：\n${recentContextText}\n` : ''}
 语音通话的说话方式和打字聊天不一样，请遵守：
 - 每次只说一两句话，像真实电话里那样简短、口语化、自然；
 - 不要使用任何文字表情、颜文字，也不要写"*笑了笑*"这类动作描写——电话里对方只能"听到"声音，看不到文字动作；
@@ -340,11 +392,20 @@ const generateCallReply = async ({ messageId }) => {
     const apiConfig = apiSettings?.value || {};
     if (!apiConfig.baseUrl || !apiConfig.apiKey) return;
 
+    const chat = await db.chats.get(message.chatId);
+    const userName = chat?.userName || character?.userName || '';
+
     const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
+    const recentContextText = await buildRecentChatContextText({
+      chatId: message.chatId,
+      excludeMessageId: messageId,
+      characterName: character.name,
+      userName,
+    });
     const turns = Array.isArray(message.metadata.turns) ? message.metadata.turns : [];
     const isOpeningLine = turns.length === 0;
 
-    let systemPrompt = buildCallSystemPrompt({ character, worldBookText, extraNotesText });
+    let systemPrompt = buildCallSystemPrompt({ character, worldBookText, extraNotesText, recentContextText });
 
     if (isOpeningLine) {
       systemPrompt += '\n\n现在电话刚刚接通，请你先开口说第一句话（比如打招呼，或者说明这通电话想说的事）。';
@@ -460,10 +521,19 @@ export const rerollCallTurn = async ({ messageId, turnId }) => {
   const apiConfig = apiSettings?.value || {};
   if (!apiConfig.baseUrl || !apiConfig.apiKey) return;
 
+  const chat = await db.chats.get(message.chatId);
+  const userName = chat?.userName || character?.userName || '';
+
   const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
+  const recentContextText = await buildRecentChatContextText({
+    chatId: message.chatId,
+    excludeMessageId: messageId,
+    characterName: character.name,
+    userName,
+  });
   const isOpeningLine = turnIndex === 0;
 
-  let systemPrompt = buildCallSystemPrompt({ character, worldBookText, extraNotesText });
+  let systemPrompt = buildCallSystemPrompt({ character, worldBookText, extraNotesText, recentContextText });
 
   if (isOpeningLine) {
     systemPrompt += '\n\n现在电话刚刚接通，请你先开口说第一句话（比如打招呼，或者说明这通电话想说的事）。';
