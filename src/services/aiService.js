@@ -1422,15 +1422,19 @@ export const checkAndTriggerAutoMessage = async () => {
     }
 
     // 7. 随机决定动作类型
+    // 新增 'pebble'：像企鹅叼石头一样，角色自己找机会往巢穴里
+    // 悄悄带一颗石头回来，不需要用户先手动点"让TA找一颗"。
     const rand = Math.random();
     let actionType = '';
-    
-    if (rand < 0.40) {
+
+    if (rand < 0.35) {
       actionType = 'message';
-    } else if (rand < 0.70) {
+    } else if (rand < 0.55) {
       actionType = 'diary';
-    } else {
+    } else if (rand < 0.75) {
       actionType = 'homeBoard';
+    } else {
+      actionType = 'pebble';
     }
 
     // 声明外层变量，供分支外使用
@@ -1497,6 +1501,15 @@ export const checkAndTriggerAutoMessage = async () => {
     } else if (actionType === 'homeBoard') {
             character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
       generatedId = await generateCharacterHomeBoardMessage(character.id);
+    } else if (actionType === 'pebble') {
+      character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
+
+      // 用动态 import 避免 aiService.js <-> pebbleService.js 之间的循环引用
+      // （pebbleService.js 本身就会反过来调用 aiService.js 的生成函数）。
+      const { aiInitiatePebble } = await import('../apps/pebbling/pebbleService');
+      const pebbleResult = await aiInitiatePebble(character.id);
+
+      generatedId = pebbleResult?.id ?? null;
     }
 
     // 只有确实生成成功后，才更新冷却时间
@@ -1504,7 +1517,7 @@ export const checkAndTriggerAutoMessage = async () => {
       try {
         await updateLockscreenMediaSession(
           character.name,
-          `最新${actionType === 'diary' ? '日记' : (actionType === 'message' ? '消息' : '动态')}: 已更新`
+          `最新${actionType === 'diary' ? '日记' : (actionType === 'message' ? '消息' : (actionType === 'pebble' ? '石头' : '动态'))}: 已更新`
         );
       } catch (err) {
         console.warn(

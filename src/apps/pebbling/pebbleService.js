@@ -93,10 +93,27 @@ export async function aiInitiatePebble(characterId) {
   const stoneType = getRandomStoneType();
   const stoneConfig = PEBBLE_TYPES[stoneType];
 
-  const systemPrompt = `你叫 ${char.name}。你的性格与人设：${char.personality || '温暖贴心'}。
-现在你正把一颗在海边捡到的【${stoneConfig.name} (${stoneConfig.desc})】悄悄衔进 ${userName} 的小巢里。
-请以极具生活感、浪漫且毫无社交压力的口吻写下 1~3 句话的感受或分享。
-绝对禁止使用任何 Emoji！仅输出陪伴文字本身。`;
+  /*
+   * 之前这里读的是 char.personality，但角色编辑器从来没有写过这个字段，
+   * 所以每个角色生成出来的内容其实都一样、全靠"温暖贴心"这句兜底文案撑着。
+   * 改成跟项目里其它生成场景一致的 bio / extraNotes / worldBook，
+   * 让每个角色带回来的石头真正带着自己的人设说话。
+   */
+  const worldBookText = char.worldBook
+    ? `\n- 专属世界书：${char.worldBook}`
+    : '';
+
+  const systemPrompt = `你叫 ${char.name}。
+【角色人设】：${char.bio || '温暖贴心'}
+【补充设定】：${char.extraNotes || '无'}${worldBookText}
+
+你不是在"完成一个投石头的任务"，而是这段时间里，你自己确实留意到了什么——
+可能是随手翻到的一件小事、一个念头、一点情绪，也可能真的只是路过时看见的风景。
+你把它当成一颗【${stoneConfig.name}（${stoneConfig.desc})】，悄悄衔进 ${userName} 的小巢里。
+
+请用你自己的口吻写 1~3 句话，说说这颗石头对应的、你刚刚想到或看到的东西，
+以及为什么想到要带给 ${userName}。不要只是描述石头本身的样子。
+绝对禁止使用任何 Emoji！仅输出陪伴文字本身，不要有客服式的开场白。`;
 
   try {
     const aiText = await invokeAI([
@@ -113,6 +130,9 @@ export async function aiInitiatePebble(characterId) {
       status: 'replied',
       createdAt: now,
       respondAt: now,
+      // 现在这个函数不止是手动点按钮才会触发，自动调度也会在后台
+      // 悄悄调用它；加一个已读状态，方便巢穴页面以后做未读提醒/角标。
+      isRead: false,
       aiResponse: {
         content: aiText || '在海浪退去时看见了这颗石头，觉得它很像今天的温度，就顺手为你衔过来了。',
         giftStoneType: stoneType,
@@ -121,6 +141,15 @@ export async function aiInitiatePebble(characterId) {
     };
 
     const id = await db.pebblings.add(pebbleData);
+
+    // 跟项目里其它自动生成内容（日记、主页留言）保持一致：
+    // 生成成功后弹一条系统通知，不然自动带回来的石头用户可能永远发现不了。
+    aiServiceModule.triggerSystemNotification?.(
+      `${char.name} 给你带回了一颗${stoneConfig.name}`,
+      pebbleData.aiResponse.content,
+      char.avatar
+    );
+
     return { id, ...pebbleData };
   } catch (err) {
     console.error('AI initiate pebble failed:', err);
@@ -149,7 +178,14 @@ export async function processPendingPebbles() {
       const giftStoneType = getRandomStoneType();
       const giftStone = PEBBLE_TYPES[giftStoneType];
 
-      const prompt = `你叫 ${char ? char.name : '陪伴者'}。人设：${char ? char.personality : '温柔体贴'}。
+      const charWorldBookText = char?.worldBook
+        ? `\n【专属世界书】：${char.worldBook}`
+        : '';
+
+      const prompt = `你叫 ${char ? char.name : '陪伴者'}。
+【角色人设】：${char?.bio || '温柔体贴'}
+【补充设定】：${char?.extraNotes || '无'}${charWorldBookText}
+
 对方 (${userName}) 给你衔来了一颗【${userStone.name}】，并写道：
 "${item.userContent}"
 
