@@ -9,8 +9,10 @@ import {
   Check,
   User,
   Sparkles,
+
   Eye,
-  EyeOff
+  EyeOff,
+  Type
 } from 'lucide-react';
 import ConfirmModal from '../../../components/ConfirmModal';
 import db from '../../../db';
@@ -32,6 +34,7 @@ export const ChatSettingsModal = ({
   onSaveSummary,
   onUpdatedUserPersona,
   onTogglePinTopToolbar,
+  fontStatus,
 }) => {
 
 
@@ -114,6 +117,77 @@ export const ChatSettingsModal = ({
     onTogglePinTopToolbar?.(nextValue);
   };
 
+    // ===== 本窗字体 / 字号 =====
+  const DEFAULT_CHAT_FONT_PX = 12;
+
+  const [fontUrl, setFontUrl] = useState(chat?.fontUrl || '');
+  const [fontFamilyName, setFontFamilyName] = useState(chat?.fontFamily || '');
+  const [chatFontSize, setChatFontSize] = useState(
+    Number.isFinite(chat?.chatFontSize)
+      ? chat.chatFontSize
+      : DEFAULT_CHAT_FONT_PX,
+  );
+
+  const fontStatusText = {
+    idle: '',
+    loading: '字体加载中...',
+    ready: '字体已生效',
+    failed: '字体加载失败，已使用默认字体。请确认是 https 网址，且能直接访问',
+    'needs-name': '使用字体 CSS 网址时，需要同时填写字体名称',
+  }[fontStatus] || '';
+
+  const handleSaveChatFont = async () => {
+    if (!chat?.id) return;
+
+    const nextUrl = fontUrl.trim();
+    const nextName = fontFamilyName.trim();
+
+    if (
+      nextUrl === (chat?.fontUrl || '')
+      && nextName === (chat?.fontFamily || '')
+    ) {
+      return;
+    }
+
+    await db.chats.update(chat.id, {
+      fontUrl: nextUrl,
+      fontFamily: nextName,
+    });
+
+    onUpdatedUserPersona?.({ fontUrl: nextUrl, fontFamily: nextName });
+  };
+
+  const handleResetChatFont = async () => {
+    if (!chat?.id) return;
+
+    setFontUrl('');
+    setFontFamilyName('');
+
+    await db.chats.update(chat.id, { fontUrl: '', fontFamily: '' });
+
+    onUpdatedUserPersona?.({ fontUrl: '', fontFamily: '' });
+  };
+
+  const handleCommitChatFontSize = async (value) => {
+    if (!chat?.id) return;
+
+    const next = Number(value);
+    if (next === chat?.chatFontSize) return;
+
+    await db.chats.update(chat.id, { chatFontSize: next });
+
+    onUpdatedUserPersona?.({ chatFontSize: next });
+  };
+
+  const handleResetChatFontSize = async () => {
+    if (!chat?.id) return;
+
+    setChatFontSize(DEFAULT_CHAT_FONT_PX);
+
+    await db.chats.update(chat.id, { chatFontSize: null });
+
+    onUpdatedUserPersona?.({ chatFontSize: null });
+  };
 
   // 组件内部，state区域加：
 const [locationEnabled, setLocationEnabledState] = useState(false);
@@ -1129,6 +1203,125 @@ const handleToggleLocation = async () => {
             style={{ accentColor: 'var(--accent-color)' }}
             aria-label="常驻顶部快捷按钮"
           />
+        </div>
+
+                {/* 本窗字体与字号 */}
+        <div
+          className="space-y-2.5 p-3 rounded-2xl border w-full"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)'
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold">
+              <Type className="w-3.5 h-3.5" />
+              <span>字体与字号</span>
+            </div>
+            <span className="font-mono text-[9px] opacity-45">CHAT FONT</span>
+          </div>
+
+          <p className="text-[10px] opacity-55 leading-relaxed">
+            填写字体文件网址（.woff2 / .ttf / .otf）或字体 CSS 网址。使用字体 CSS 网址时，需要再填写字体名称。留空则使用默认字体。仅影响本聊天窗。
+          </p>
+
+          <div>
+            <label className="block text-[10px] opacity-60 mb-1">
+              字体网址
+            </label>
+            <input
+              type="text"
+              value={fontUrl}
+              placeholder="https://..."
+              onChange={(e) => setFontUrl(e.target.value)}
+              onBlur={handleSaveChatFont}
+              className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs"
+              style={{
+                background: 'var(--bg-main)',
+                borderColor: 'var(--card-border)',
+                color: 'var(--text-main)'
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] opacity-60 mb-1">
+              字体名称（仅字体 CSS 网址需要）
+            </label>
+            <input
+              type="text"
+              value={fontFamilyName}
+              placeholder="例如：Noto Serif SC"
+              onChange={(e) => setFontFamilyName(e.target.value)}
+              onBlur={handleSaveChatFont}
+              className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs"
+              style={{
+                background: 'var(--bg-main)',
+                borderColor: 'var(--card-border)',
+                color: 'var(--text-main)'
+              }}
+            />
+          </div>
+
+          {(fontStatusText || fontUrl) && (
+            <div className="flex items-center justify-between gap-2 text-[10px]">
+              <span className="opacity-60">{fontStatusText}</span>
+
+              {fontUrl && (
+                <button
+                  type="button"
+                  onClick={handleResetChatFont}
+                  className="shrink-0 text-red-500 hover:underline"
+                >
+                  恢复默认字体
+                </button>
+              )}
+            </div>
+          )}
+
+          <div
+            className="pt-2 space-y-1.5 border-t"
+            style={{ borderColor: 'var(--divider)' }}
+          >
+            <div className="flex items-center justify-between text-[10px] opacity-60">
+              <span>聊天文字大小</span>
+              <span>{chatFontSize}px</span>
+            </div>
+
+            <input
+              type="range"
+              min="10"
+              max="24"
+              step="1"
+              value={chatFontSize}
+              onChange={(e) => setChatFontSize(Number(e.target.value))}
+              onPointerUp={(e) => handleCommitChatFontSize(e.currentTarget.value)}
+              onKeyUp={(e) => handleCommitChatFontSize(e.currentTarget.value)}
+              className="w-full"
+              style={{ accentColor: 'var(--accent-color)' }}
+            />
+
+            <div
+              className="rounded-xl border p-2.5 leading-relaxed"
+              style={{
+                background: 'var(--bg-main)',
+                borderColor: 'var(--divider)',
+                fontSize: `${chatFontSize / 16}rem`
+              }}
+            >
+              这是一段预览文字。The quick brown fox 0123456789
+            </div>
+
+            {Number.isFinite(chat?.chatFontSize) && (
+              <button
+                type="button"
+                onClick={handleResetChatFontSize}
+                className="text-[10px] text-red-500 hover:underline"
+              >
+                恢复默认字号
+              </button>
+            )}
+          </div>
         </div>
 
 

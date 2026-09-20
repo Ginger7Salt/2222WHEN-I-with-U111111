@@ -90,7 +90,7 @@ import {
   cancelPendingScheduledMessagesForChat,
 } from './scheduledMessageService';
 
-import ParallelOrbit from './components/ParallelOrbit';
+import { useChatCustomFont } from './hooks/useChatCustomFont';
 
 import InnerWorldApp from '../innerworld/InnerWorldApp';
 
@@ -269,6 +269,35 @@ const [showInputMenu, setShowInputMenu] = useState(false);
     const cssToApply = customCssStr || defaultCss;
     return <style>{`.chat-room-container ${cssToApply}`}</style>;
   }, [customCssStr, defaultCss]);
+
+    // 本聊天窗自定义字体（用户填写的字体文件 / 字体 CSS 网址）
+  const { fontFamilyValue, status: customFontStatus } = useChatCustomFont(
+    chat?.fontUrl,
+    chat?.fontFamily,
+  );
+
+  // 本聊天窗自定义字号（px）。未设置时不输出任何规则，保持原有样式不变。
+  const chatFontSizePx = Number.isFinite(chat?.chatFontSize)
+    ? Math.min(24, Math.max(10, chat.chatFontSize))
+    : null;
+
+  const chatFontStyle = useMemo(() => {
+    const rules = [];
+
+    if (fontFamilyValue) {
+      rules.push(`.chat-room-container { font-family: ${fontFamilyValue}; }`);
+    }
+
+    if (chatFontSizePx !== null) {
+      const rem = `${chatFontSizePx / 16}rem`;
+      rules.push(`.chat-room-container .chat-font { font-size: ${rem}; }`);
+      rules.push(`.chat-room-container .chat-input-font { font-size: ${rem}; }`);
+    }
+
+    if (rules.length === 0) return null;
+
+    return <style>{rules.join('\n')}</style>;
+  }, [fontFamilyValue, chatFontSizePx]);
 
   const loadChatData = useCallback(async () => {
     try {
@@ -1138,6 +1167,7 @@ useLayoutEffect(() => {
       }}
     >
       {memoizedStyle}
+      {chatFontStyle}
 
       <CheckInNotice
         delivery={checkInDelivery}
@@ -1809,7 +1839,7 @@ useLayoutEffect(() => {
                 )
                 : `已选 ${selectedType} 模式`
             }
-            className="max-h-40 w-full resize-y overflow-y-auto bg-transparent text-xs leading-relaxed outline-none"
+            className="max-h-40 w-full resize-y overflow-y-auto bg-transparent text-xs leading-relaxed outline-none chat-input-font"
             style={{
               color: 'var(--text-main)',
               minHeight: '24px',
@@ -1873,6 +1903,7 @@ useLayoutEffect(() => {
         <ChatSettingsModal
           chat={chat}
           character={character}
+          fontStatus={customFontStatus}
           onClose={() => setShowChatSettings(false)}
           onUpdateBgImage={handleUpdateBgImage}
           onUpdateBgOpacity={handleUpdateBgOpacity}
