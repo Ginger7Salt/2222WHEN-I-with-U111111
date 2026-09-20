@@ -14,19 +14,26 @@ import ClassicLayout from './ClassicLayout';
 import IgBlogLayout from './IgBlogLayout';
 import IdentityCardLayout from './IdentityCardLayout';
 import WindowBrowserLayout from './WindowBrowserLayout';
+
 import FrameManualLayout from './FrameManualLayout';
 import PendantCardLayout from './PendantCardLayout';
+import GothicGrungeLayout from './GothicGrungeLayout';
 
 export const HUB_HEADER_LAYOUT_CLASSIC = 'classic';
+
 export const HUB_HEADER_LAYOUT_IG_BLOG = 'igBlog';
 export const HUB_HEADER_LAYOUT_IDENTITY_CARD = 'identityCard';
 export const HUB_HEADER_LAYOUT_WINDOW_BROWSER = 'windowBrowser';
 export const HUB_HEADER_LAYOUT_FRAME_MANUAL = 'frameManual';
+
 export const HUB_HEADER_LAYOUT_PENDANT_CARD = 'pendantCard';
+export const HUB_HEADER_LAYOUT_GOTHIC_GRUNGE = 'gothicGrunge';
 
 // 版式列表，用于设置页渲染选择器
 export const HUB_HEADER_LAYOUTS = [
-  {
+
+
+{
     id: HUB_HEADER_LAYOUT_CLASSIC,
     label: '经典卡片',
     hint: 'Profile + Pinned',
@@ -56,6 +63,11 @@ export const HUB_HEADER_LAYOUTS = [
     label: '挂坠卡片风',
     hint: 'Banner + Progress',
   },
+  {
+    id: HUB_HEADER_LAYOUT_GOTHIC_GRUNGE,
+    label: '哥特暗黑风',
+    hint: 'Grunge + Poster Bar',
+  },
 ];
 
 // id -> 组件，用于 HubHeader.jsx 实际渲染
@@ -66,6 +78,7 @@ export const HUB_HEADER_LAYOUT_COMPONENTS = {
   [HUB_HEADER_LAYOUT_WINDOW_BROWSER]: WindowBrowserLayout,
   [HUB_HEADER_LAYOUT_FRAME_MANUAL]: FrameManualLayout,
   [HUB_HEADER_LAYOUT_PENDANT_CARD]: PendantCardLayout,
+  [HUB_HEADER_LAYOUT_GOTHIC_GRUNGE]: GothicGrungeLayout,
 };
 
 export const isKnownHubHeaderLayout = (id) =>
