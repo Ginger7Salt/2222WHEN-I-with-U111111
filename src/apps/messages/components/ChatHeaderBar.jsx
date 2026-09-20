@@ -31,7 +31,10 @@ export const ChatHeaderBar = ({
 }) => {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showCallModeMenu, setShowCallModeMenu] = useState(false);
-  const [isEditingCaption, setIsEditingCaption] = useState(false);
+  // 'idle'（默认，不显示铅笔，没写字就什么都不显示）
+  // -> 'revealed'（点一下，露出铅笔/占位提示，但还不能编辑）
+  // -> 'editing'（再点一下，才是真正的输入框）
+  const [captionStage, setCaptionStage] = useState('idle');
   const [captionDraft, setCaptionDraft] = useState('');
 
   useEffect(() => {
@@ -106,13 +109,13 @@ export const ChatHeaderBar = ({
 
           </button>
 
-          {isEditingCaption ? (
+          {captionStage === 'editing' ? (
             <input
               type="text"
               value={captionDraft}
               onChange={(event) => setCaptionDraft(event.target.value)}
               onBlur={() => {
-                setIsEditingCaption(false);
+                setCaptionStage('idle');
                 onSaveHeaderCaption?.(captionDraft.trim());
               }}
               onKeyDown={(event) => {
@@ -120,13 +123,13 @@ export const ChatHeaderBar = ({
                   event.currentTarget.blur();
                 }
                 if (event.key === 'Escape') {
-                  setIsEditingCaption(false);
+                  setCaptionStage('idle');
                   setCaptionDraft(headerCaption || '');
                 }
               }}
               autoFocus
               maxLength={40}
-              placeholder="写一句只有你们知道的话"
+              placeholder="写一句只有你们知道的话，留空也可以"
               className="w-48 rounded-full border bg-transparent px-3 py-1 text-center text-[11px] italic outline-none"
               style={{
                 borderColor: 'var(--card-border)',
@@ -138,19 +141,32 @@ export const ChatHeaderBar = ({
             <button
               type="button"
               onClick={() => {
-                setCaptionDraft(headerCaption || '');
-                setIsEditingCaption(true);
+                if (captionStage === 'revealed') {
+                  setCaptionDraft(headerCaption || '');
+                  setCaptionStage('editing');
+                } else {
+                  setCaptionStage('revealed');
+                }
               }}
-              className="flex items-center gap-1 rounded-full px-2 py-0.5 opacity-70 transition-opacity hover:opacity-100"
+              className="flex min-h-[1.25rem] items-center gap-1 rounded-full px-2 py-0.5 opacity-70 transition-opacity hover:opacity-100"
               title="编辑这句话"
             >
-              <span
-                className="truncate text-[11px] italic"
-                style={{ color: 'var(--text-sub)', maxWidth: '11rem' }}
-              >
-                {headerCaption || '写一句只有你们知道的话'}
-              </span>
-              <Pencil className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+              {/*
+                默认（idle）什么都不显示——用户可以选择完全留空，不强行露出占位文字；
+                点一下（revealed）才露出文字/占位提示和铅笔，再点一下才真正进入编辑。
+              */}
+              {(headerCaption || captionStage === 'revealed') && (
+                <span
+                  className="truncate text-[11px] italic"
+                  style={{ color: 'var(--text-sub)', maxWidth: '11rem' }}
+                >
+                  {headerCaption || '写一句只有你们知道的话'}
+                </span>
+              )}
+
+              {captionStage === 'revealed' && (
+                <Pencil className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+              )}
             </button>
           )}
         </div>
