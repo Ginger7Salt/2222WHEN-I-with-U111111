@@ -38,7 +38,8 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="rounded-full p-2 transition-all active:scale-90 flex items-center justify-center"
+        data-open={isOpen ? 'true' : 'false'}
+        className="chat-input-sparkle-btn rounded-full p-2 transition-all active:scale-90 flex items-center justify-center"
         style={{
           background: isOpen ? 'var(--accent-color)' : 'var(--control-soft-bg)',
           color: isOpen ? 'var(--accent-foreground)' : 'var(--text-main)',

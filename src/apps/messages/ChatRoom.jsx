@@ -334,6 +334,8 @@ const [showInputMenu, setShowInputMenu] = useState(false);
 
       rules.push(`${scope} .chat-input-bar { background: ${inputBarColor} !important; color: ${fg} !important; }`);
       rules.push(`${scope} .chat-input-bar textarea { color: ${fg} !important; }`);
+            // 「心意互动」按钮的颜色写在行内样式里；只在它没展开时覆盖，展开时保留它原本的强调色
+      rules.push(`${scope} .chat-input-bar .chat-input-sparkle-btn[data-open="false"] { color: ${fg} !important; }`);
 
       // 发送按钮没单独设色时，让它的图标跟着输入框底色变，避免深底深字
       if (!sendBtnColor) {
