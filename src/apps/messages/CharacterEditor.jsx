@@ -26,7 +26,6 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     userPersona: characterData?.userPersona || '',
     userAvatar: characterData?.userAvatar || '',
     statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此'],
-    pinTopBar: characterData?.pinTopBar ?? false,
 voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
     ringtone: characterData?.ringtone || null,
 
@@ -537,7 +536,7 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
             />
           </div>
 
-                   <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <span>允许角色主动写日记</span>
             <input
               type="checkbox"
@@ -546,21 +545,7 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
               className="w-4 h-4 accent-black dark:accent-white"
             />
           </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <span>常驻顶部功能按钮</span>
-              <p className="opacity-50 text-[10px]">开启后顶部按钮始终显示，关闭则随爱心状态栏一起收起</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={character.pinTopBar ?? false}
-              onChange={(e) => setCharacter({ ...character, pinTopBar: e.target.checked })}
-              className="w-4 h-4 accent-black dark:accent-white"
-            />
-          </div>
         </div>
-
 
         <div className="pt-2 border-t border-white/10 space-y-3">
           <div>
