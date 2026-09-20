@@ -230,9 +230,12 @@ const [showPlaceBooklet, setShowPlaceBooklet] = useState(false);
 const [pendingNamePlace, setPendingNamePlace] = useState(null);
 const [showTopMenu, setShowTopMenu] = useState(false);
 
-// 顶部按钮行默认收起，只保留返回按钮；展开/收起统一由 ChatHeaderBar
-// 里那一颗爱心控制（同时带出这一整排按钮和下面的身份卡片）
+// 顶部按钮行展开/收起状态（由 ChatHeaderBar 爱心点击展开/收起控制）
 const [showFullHeaderBar, setShowFullHeaderBar] = useState(false);
+
+// 当设置了常驻顶部按钮(pinTopBar) 或者 当前处于展开状态时，显示顶部功能按钮
+const showTopButtons = Boolean(character?.pinTopBar || showFullHeaderBar);
+
 
 const [activeOfflineSessionId, setActiveOfflineSessionId] = useState(null);
 const [showOfflineComposer, setShowOfflineComposer] = useState(false);
@@ -1185,7 +1188,7 @@ useLayoutEffect(() => {
               <ArrowLeft className="h-4 w-4" />
             </button>
 
-            {showFullHeaderBar && (
+            {showTopButtons && (
               <>
                 <button
                   type="button"
@@ -1288,7 +1291,7 @@ useLayoutEffect(() => {
             )}
           </div>
 
-          {showFullHeaderBar && (
+          {showTopButtons && (
             <div className="flex items-center gap-2">
               <div className="relative">
                 <button
