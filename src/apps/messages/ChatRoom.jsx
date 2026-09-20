@@ -24,6 +24,9 @@ import {
   PawPrint,
   Ticket,
   Phone,
+  Heart,
+  ChevronUp,
+  Pencil,
 } from 'lucide-react';
 
 import {
@@ -220,11 +223,20 @@ const locationCheckIntervalRef = useRef(getRandomCheckIntervalMs());
 const forceScrollMessageIdRef = useRef(null);
 const isLoadingMoreRef = useRef(false);
 
+// 打开表情包面板前，记录当时聊天是否已经贴在底部，
+// 用来在面板弹出后（尤其是手机上收起键盘的过程中）把滚动位置纠正回去
+const stickerPanelWasNearBottomRef = useRef(false);
+
  const [showParallelOrbit, setShowParallelOrbit] = useState(false);
 const [showInnerWorld, setShowInnerWorld] = useState(false);
 const [showPlaceBooklet, setShowPlaceBooklet] = useState(false);
 const [pendingNamePlace, setPendingNamePlace] = useState(null);
 const [showTopMenu, setShowTopMenu] = useState(false);
+
+// 顶部按钮行默认收起，只保留返回按钮 + 爱心切换按钮；点一下展开完整按钮行
+const [showFullHeaderBar, setShowFullHeaderBar] = useState(false);
+const [isEditingHeaderCaption, setIsEditingHeaderCaption] = useState(false);
+const [headerCaptionDraft, setHeaderCaptionDraft] = useState('');
 
 const [activeOfflineSessionId, setActiveOfflineSessionId] = useState(null);
 const [showOfflineComposer, setShowOfflineComposer] = useState(false);
@@ -319,7 +331,8 @@ const [showInputMenu, setShowInputMenu] = useState(false);
       timestamp: new Date().toISOString(),
     };
 
-   await db.messages.add(newMsg);
+   const stickerMsgId = await db.messages.add(newMsg);
+   newMsg.id = stickerMsgId;
 
 void recordAlmanacEvent({
   chatId: chat.id,
@@ -336,6 +349,9 @@ await db.chats.update(chat.id, {
   updatedAt: Date.now(),
 });
 
+// 跟发文字消息保持一致：发出的表情包始终强制滚到底部，
+// 不依赖"当前是否已经在底部附近"这个概率性判断。
+forceScrollMessageIdRef.current = stickerMsgId;
 
     await loadChatData();
     triggerAiResponse(chat.id);
@@ -658,6 +674,32 @@ void openChatAndMarkMessagesAsRead();
   showPlaceBooklet,
   activeOfflineSessionId,
 ]);
+
+  /*
+   * 打开表情包面板时，如果聊天原本就贴在底部，有些手机浏览器会在
+   * 面板弹出、输入框失焦收起键盘的过程中，把聊天区域悄悄顶上去
+   * （不是我们主动滚动的，是浏览器自己的视口/键盘收起行为）。
+   * 这里在面板打开后的下一帧、以及稍晚一点（覆盖键盘收起动画的时长）
+   * 各纠正一次，把它贴回底部。
+   */
+  useEffect(() => {
+    if (!showStickerModal || !stickerPanelWasNearBottomRef.current) return;
+
+    const scrollArea = scrollAreaRef.current;
+    if (!scrollArea) return;
+
+    const reanchorToBottom = () => {
+      scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'auto' });
+    };
+
+    const rafId = requestAnimationFrame(reanchorToBottom);
+    const timerId = setTimeout(reanchorToBottom, 320);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timerId);
+    };
+  }, [showStickerModal]);
 
   const messagesById = useMemo(() => {
     const map = new Map();
@@ -987,6 +1029,17 @@ useLayoutEffect(() => {
     });
   };
 
+  const handleSaveHeaderCaption = async (newCaption) => {
+    setChat((previous) => ({
+      ...previous,
+      headerCaption: newCaption,
+    }));
+
+    await db.chats.update(chatId, {
+      headerCaption: newCaption,
+    });
+  };
+
   const handleSaveSummary = async (newSummary) => {
     setChat((previous) => ({
       ...previous,
@@ -1119,7 +1172,7 @@ useLayoutEffect(() => {
 
       <header className="z-20 shrink-0 px-4 pb-1 pt-3">
         <div className="flex items-center justify-between pb-1">
-          
+
           <div className="relative flex items-center gap-2">
             <button
               type="button"
@@ -1135,188 +1188,264 @@ useLayoutEffect(() => {
               <ArrowLeft className="h-4 w-4" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => setShowParallelOrbit(true)}
-              className="flex items-center justify-center rounded-full p-2 opacity-80 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
-              style={{
-                color: 'var(--text-main)',
-                border: '1px solid var(--card-border)',
-                background: 'var(--control-soft-bg)',
-              }}
-              title="翻阅平行轨迹"
-            >
-              <BookOpen className="h-4 w-4" />
-            </button>
-
-            <button
-  type="button"
-  onClick={() => setShowTopMenu((previous) => !previous)}
-  className="flex items-center justify-center rounded-full p-2 opacity-85 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
-  style={{
-    background: 'var(--control-soft-bg)',
-    color: 'var(--text-main)',
-  }}
-  title="更多入口"
-  aria-label="更多入口"
->
-  <PawPrint
-    className={`h-4 w-4 transition-transform duration-300 ${
-      showTopMenu ? 'scale-110' : ''
-    }`}
-  />
-</button>
-
-
-
-            {showTopMenu && (
+            {showFullHeaderBar && (
               <>
-                <div
-                  className="fixed inset-0 z-30"
-                  onClick={() => setShowTopMenu(false)}
-                />
-
-                <div
-                  className="absolute left-0 top-full z-40 mt-1 w-36 overflow-hidden rounded-2xl py-1 shadow-xl"
+                <button
+                  type="button"
+                  onClick={() => setShowParallelOrbit(true)}
+                  className="flex items-center justify-center rounded-full p-2 opacity-80 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
                   style={{
-                    background: 'var(--card-bg-gradient)',
                     color: 'var(--text-main)',
                     border: '1px solid var(--card-border)',
+                    background: 'var(--control-soft-bg)',
                   }}
+                  title="翻阅平行轨迹"
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowTopMenu(false);
-                      setShowInnerWorld(true);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
-                  >
-                    <Moon className="h-4 w-4" />
-                    <span>内心主页</span>
-                  </button>
+                  <BookOpen className="h-4 w-4" />
+                </button>
 
-                                    <button
-                    type="button"
-                    onClick={() => {
-                      setShowTopMenu(false);
-                      setShowPlaceBooklet(true);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
-                  >
-                    <MapPinned className="h-4 w-4" />
-                    <span>地点小册子</span>
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTopMenu((previous) => !previous)}
+                  className="flex items-center justify-center rounded-full p-2 opacity-85 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
+                  style={{
+                    background: 'var(--control-soft-bg)',
+                    color: 'var(--text-main)',
+                  }}
+                  title="更多入口"
+                  aria-label="更多入口"
+                >
+                  <PawPrint
+                    className={`h-4 w-4 transition-transform duration-300 ${
+                      showTopMenu ? 'scale-110' : ''
+                    }`}
+                  />
+                </button>
 
-                                    <button
-                    type="button"
-                    onClick={() => {
-                      setShowTopMenu(false);
-                      setShowOfflineComposer(true);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
-                  >
-                    <Compass className="h-4 w-4" />
-                    <span>邀请线下见面</span>
-                  </button>
+                {showTopMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setShowTopMenu(false)}
+                    />
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowTopMenu(false);
-                      setShowOfflineInviteArchive(true);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
-                  >
-                    <Ticket className="h-4 w-4" />
-                    <span>查看线下邀约</span>
-                  </button>
-                </div>
+                    <div
+                      className="absolute left-0 top-full z-40 mt-1 w-36 overflow-hidden rounded-2xl py-1 shadow-xl"
+                      style={{
+                        background: 'var(--card-bg-gradient)',
+                        color: 'var(--text-main)',
+                        border: '1px solid var(--card-border)',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowInnerWorld(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Moon className="h-4 w-4" />
+                        <span>内心主页</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowPlaceBooklet(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <MapPinned className="h-4 w-4" />
+                        <span>地点小册子</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowOfflineComposer(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Compass className="h-4 w-4" />
+                        <span>邀请线下见面</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowOfflineInviteArchive(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Ticket className="h-4 w-4" />
+                        <span>查看线下邀约</span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
 
-                 <div className="flex items-center gap-2">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowCallModeMenu((previous) => !previous)}
-                className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
-                style={{
-                  background: 'var(--control-soft-bg)',
-                  color: 'var(--text-main)',
-                }}
-                title="发起语音通话"
-                aria-label="发起语音通话"
-              >
-                <Phone className="h-4 w-4" />
-              </button>
-
-              {showCallModeMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-30"
-                    onClick={() => setShowCallModeMenu(false)}
-                  />
-
-                  <div
-                    className="absolute right-0 top-full z-40 mt-1.5 w-40 overflow-hidden rounded-2xl py-1 shadow-xl"
+          <div className="flex items-center gap-2">
+            {showFullHeaderBar && (
+              <>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowCallModeMenu((previous) => !previous)}
+                    className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
                     style={{
-                      background: 'var(--card-bg-gradient)',
+                      background: 'var(--control-soft-bg)',
                       color: 'var(--text-main)',
-                      border: '1px solid var(--card-border)',
                     }}
+                    title="发起语音通话"
+                    aria-label="发起语音通话"
                   >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCallModeMenu(false);
-                        handleStartCall('text');
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
-                    >
-                      <Phone className="h-4 w-4" />
-                      <span>文字语气通话</span>
-                    </button>
+                    <Phone className="h-4 w-4" />
+                  </button>
 
-                    {isRealVoiceAvailableForCharacter(character) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCallModeMenu(false);
-                          handleStartCall('real');
+                  {showCallModeMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-30"
+                        onClick={() => setShowCallModeMenu(false)}
+                      />
+
+                      <div
+                        className="absolute right-0 top-full z-40 mt-1.5 w-40 overflow-hidden rounded-2xl py-1 shadow-xl"
+                        style={{
+                          background: 'var(--card-bg-gradient)',
+                          color: 'var(--text-main)',
+                          border: '1px solid var(--card-border)',
                         }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
                       >
-                        <Volume2 className="h-4 w-4" />
-                        <span>真实语音通话</span>
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCallModeMenu(false);
+                            handleStartCall('text');
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                        >
+                          <Phone className="h-4 w-4" />
+                          <span>文字语气通话</span>
+                        </button>
+
+                        {isRealVoiceAvailableForCharacter(character) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCallModeMenu(false);
+                              handleStartCall('real');
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                          >
+                            <Volume2 className="h-4 w-4" />
+                            <span>真实语音通话</span>
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowScheduledArchive(true)}
+                  className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
+                  style={{
+                    background: 'var(--control-soft-bg)',
+                    color: 'var(--text-main)',
+                  }}
+                  title="查看稍后联系存档"
+                  aria-label="查看稍后联系存档"
+                >
+                  <ReceiptText className="h-4 w-4" />
+                </button>
+
+                <MoreMenuPopover
+                  onOpenCalendar={() => setShowCalendar(true)}
+                  onOpenSettings={() => setShowChatSettings(true)}
+                />
+              </>
+            )}
 
             <button
               type="button"
-              onClick={() => setShowScheduledArchive(true)}
-              className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
+              onClick={() => setShowFullHeaderBar((previous) => !previous)}
+              className="chat-topbar-toggle group relative flex items-center justify-center rounded-full p-2 opacity-85 transition-all hover:opacity-100"
               style={{
                 background: 'var(--control-soft-bg)',
-                color: 'var(--text-main)',
+                color: showFullHeaderBar ? 'var(--text-main)' : 'var(--accent-color)',
               }}
-              title="查看稍后联系存档"
-              aria-label="查看稍后联系存档"
+              title={showFullHeaderBar ? '收起入口' : '展开更多入口'}
+              aria-label={showFullHeaderBar ? '收起入口' : '展开更多入口'}
             >
-              <ReceiptText className="h-4 w-4" />
+              {showFullHeaderBar ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <Heart className="h-4 w-4" strokeWidth={1.7} fill="var(--accent-color)" fillOpacity={0.18} />
+              )}
             </button>
-
-            <MoreMenuPopover
-                          onOpenCalendar={() => setShowCalendar(true)}
-              onOpenSettings={() => setShowChatSettings(true)}
-            />
           </div>
         </div>
+
+        {!showFullHeaderBar && (
+          <div className="flex justify-end pb-1">
+            {isEditingHeaderCaption ? (
+              <input
+                type="text"
+                value={headerCaptionDraft}
+                onChange={(event) => setHeaderCaptionDraft(event.target.value)}
+                onBlur={() => {
+                  setIsEditingHeaderCaption(false);
+                  handleSaveHeaderCaption(headerCaptionDraft.trim());
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.currentTarget.blur();
+                  }
+                  if (event.key === 'Escape') {
+                    setIsEditingHeaderCaption(false);
+                    setHeaderCaptionDraft(chat?.headerCaption || '');
+                  }
+                }}
+                autoFocus
+                maxLength={40}
+                placeholder="写一句只有你们知道的话"
+                className="w-48 rounded-full border bg-transparent px-3 py-1 text-right text-[11px] italic outline-none"
+                style={{
+                  borderColor: 'var(--card-border)',
+                  color: 'var(--text-sub)',
+                  background: 'var(--control-soft-bg)',
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setHeaderCaptionDraft(chat?.headerCaption || '');
+                  setIsEditingHeaderCaption(true);
+                }}
+                className="flex items-center gap-1 rounded-full px-2 py-1 text-right opacity-70 transition-opacity hover:opacity-100"
+                title="编辑这句话"
+              >
+                <span
+                  className="truncate text-[11px] italic"
+                  style={{ color: 'var(--text-sub)', maxWidth: '11rem' }}
+                >
+                  {chat?.headerCaption || '写一句只有你们知道的话'}
+                </span>
+                <Pencil className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+              </button>
+            )}
+          </div>
+        )}
 
         <ChatHeaderBar
           character={character}
@@ -1596,6 +1725,19 @@ useLayoutEffect(() => {
             <InteractiveMenuPopover
               onSelectAction={(type) => {
                 if (type === 'sticker') {
+                  const scrollArea = scrollAreaRef.current;
+                  if (scrollArea) {
+                    const distanceFromBottom =
+                      scrollArea.scrollHeight
+                      - scrollArea.scrollTop
+                      - scrollArea.clientHeight;
+                    stickerPanelWasNearBottomRef.current =
+                      distanceFromBottom <= AUTO_SCROLL_BOTTOM_THRESHOLD_PX;
+                  }
+
+                  // 主动收起键盘，避免它和面板弹出的时机互相打架引发跳动
+                  inputRef.current?.blur();
+
                   setShowStickerModal(true);
                   return;
                 }
