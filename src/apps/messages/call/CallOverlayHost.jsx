@@ -10,12 +10,17 @@ import { startRingtone, stopRingtone } from '../../../services/ringtoneService';
 const CallOverlayHost = () => {
   const { activeCall, uiMode, minimize, expand } = useActiveCall();
 
+  const callMessageId = activeCall?.message?.id;
   const status = activeCall?.message?.metadata?.status;
   const direction = activeCall?.message?.metadata?.direction;
-  const ringtone = activeCall?.character?.ringtone;
 
   // 铃声只认"响铃中 + 角色打进来"这一种状态，跟全屏/悬浮球这个
   // UI 形态无关——缩成悬浮球接听前依然要能听见铃声在响。
+  // 依赖项里特意不放 activeCall.character 本身：铃声现在存的是 Blob，
+  // 每次从 Dexie 读出角色记录都会拿到一个新的 Blob 引用，如果拿它做
+  // 依赖，只要 useActiveCall 刷新一次（哪怕这通电话什么都没变），
+  // 这个 effect 就会重新触发、把铃声从头打断重播一遍。用这通电话
+  // 自己的 messageId 才是"这通电话有没有变"的正确信号。
   useEffect(() => {
     const shouldRing = status === 'ringing' && direction === 'incoming';
 
@@ -29,7 +34,7 @@ const CallOverlayHost = () => {
       stopRingtone();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, direction, ringtone]);
+  }, [callMessageId, status, direction]);
 
   if (!activeCall) return null;
 

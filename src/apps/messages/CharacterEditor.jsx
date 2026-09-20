@@ -27,7 +27,7 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     userAvatar: characterData?.userAvatar || '',
     statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此'],
 voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
-    ringtone: characterData?.ringtone || '',
+    ringtone: characterData?.ringtone || null,
 
 
   });

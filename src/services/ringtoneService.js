@@ -1,11 +1,17 @@
-// 来电铃声：角色上传了自己的铃声就循环播放那个文件（跟角色头像一样，
-// 存成 base64 data URI 存在 characters 表里，不是新开一张表）；没上传
-// 就用 Web Audio API 合成一段经典"嘟——嘟——"电话铃声反复播放，零依赖、
+// 来电铃声：角色上传了自己的铃声就循环播放那个文件；没上传就用
+// Web Audio API 合成一段经典"嘟——嘟——"电话铃声反复播放，零依赖、
 // 跟 aiService.js 里 playMessageSound 是同一个思路。
 // 只在"来电响铃中"（角色主动打进来）这个场景使用，用户自己拨出去的
 // 呼叫沿用原来的"拨号中"状态文案，不需要额外的呼出铃声。
+//
+// 铃声存的是 Blob（character.ringtone.audioBlob），不是 base64 字符串
+// ——跟通话真人语音走的是同一个存法（见 callService.js 里 turn.audio）。
+// base64 会让角色记录本身膨胀 30%+，而角色记录在聊天列表、悬浮球等
+// 好多地方都会被整条读出来，铃声用不到的时候也得跟着一起搬进内存；
+// 存 Blob 只在真正要播放的这一刻才用 URL.createObjectURL 现读出来。
 
 let customAudioEl = null;
+let customAudioObjectUrl = null;
 let synthTimer = null;
 let synthAudioCtx = null;
 
@@ -26,6 +32,11 @@ const stopCustomRingtone = () => {
     customAudioEl.pause();
     customAudioEl.src = '';
     customAudioEl = null;
+  }
+
+  if (customAudioObjectUrl) {
+    URL.revokeObjectURL(customAudioObjectUrl);
+    customAudioObjectUrl = null;
   }
 };
 
@@ -72,16 +83,20 @@ const playSynthRingOnce = () => {
 };
 
 /**
- * 开始播放来电铃声。character.ringtone 有值就循环播放那个音频文件，
- * 否则用合成音每隔一段时间响一次，模拟"响一声、停一下"的电话节奏。
+ * 开始播放来电铃声。character.ringtone.audioBlob 有值就循环播放那个
+ * 音频文件，否则用合成音每隔一段时间响一次，模拟"响一声、停一下"的
+ * 电话节奏。
  */
 export const startRingtone = (character) => {
   stopRingtone();
 
   if (typeof window === 'undefined') return;
 
-  if (character?.ringtone) {
-    customAudioEl = new Audio(character.ringtone);
+  const ringtoneBlob = character?.ringtone?.audioBlob;
+
+  if (ringtoneBlob) {
+    customAudioObjectUrl = URL.createObjectURL(ringtoneBlob);
+    customAudioEl = new Audio(customAudioObjectUrl);
     customAudioEl.loop = true;
 
     customAudioEl.play().catch(() => {
