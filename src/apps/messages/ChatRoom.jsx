@@ -24,9 +24,6 @@ import {
   PawPrint,
   Ticket,
   Phone,
-  Heart,
-  ChevronUp,
-  Pencil,
 } from 'lucide-react';
 
 import {
@@ -233,10 +230,9 @@ const [showPlaceBooklet, setShowPlaceBooklet] = useState(false);
 const [pendingNamePlace, setPendingNamePlace] = useState(null);
 const [showTopMenu, setShowTopMenu] = useState(false);
 
-// 顶部按钮行默认收起，只保留返回按钮 + 爱心切换按钮；点一下展开完整按钮行
+// 顶部按钮行默认收起，只保留返回按钮；展开/收起统一由 ChatHeaderBar
+// 里那一颗爱心控制（同时带出这一整排按钮和下面的身份卡片）
 const [showFullHeaderBar, setShowFullHeaderBar] = useState(false);
-const [isEditingHeaderCaption, setIsEditingHeaderCaption] = useState(false);
-const [headerCaptionDraft, setHeaderCaptionDraft] = useState('');
 
 const [activeOfflineSessionId, setActiveOfflineSessionId] = useState(null);
 const [showOfflineComposer, setShowOfflineComposer] = useState(false);
@@ -1174,6 +1170,7 @@ useLayoutEffect(() => {
         <div className="flex items-center justify-between pb-1">
 
           <div className="relative flex items-center gap-2">
+            {/* 返回按钮是唯一的例外，收起状态下也始终悬浮在左上角 */}
             <button
               type="button"
               onClick={onBack}
@@ -1291,161 +1288,89 @@ useLayoutEffect(() => {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            {showFullHeaderBar && (
-              <>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowCallModeMenu((previous) => !previous)}
-                    className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
-                    style={{
-                      background: 'var(--control-soft-bg)',
-                      color: 'var(--text-main)',
-                    }}
-                    title="发起语音通话"
-                    aria-label="发起语音通话"
-                  >
-                    <Phone className="h-4 w-4" />
-                  </button>
-
-                  {showCallModeMenu && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-30"
-                        onClick={() => setShowCallModeMenu(false)}
-                      />
-
-                      <div
-                        className="absolute right-0 top-full z-40 mt-1.5 w-40 overflow-hidden rounded-2xl py-1 shadow-xl"
-                        style={{
-                          background: 'var(--card-bg-gradient)',
-                          color: 'var(--text-main)',
-                          border: '1px solid var(--card-border)',
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowCallModeMenu(false);
-                            handleStartCall('text');
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
-                        >
-                          <Phone className="h-4 w-4" />
-                          <span>文字语气通话</span>
-                        </button>
-
-                        {isRealVoiceAvailableForCharacter(character) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowCallModeMenu(false);
-                              handleStartCall('real');
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
-                          >
-                            <Volume2 className="h-4 w-4" />
-                            <span>真实语音通话</span>
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-
+          {showFullHeaderBar && (
+            <div className="flex items-center gap-2">
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setShowScheduledArchive(true)}
+                  onClick={() => setShowCallModeMenu((previous) => !previous)}
                   className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
                   style={{
                     background: 'var(--control-soft-bg)',
                     color: 'var(--text-main)',
                   }}
-                  title="查看稍后联系存档"
-                  aria-label="查看稍后联系存档"
+                  title="发起语音通话"
+                  aria-label="发起语音通话"
                 >
-                  <ReceiptText className="h-4 w-4" />
+                  <Phone className="h-4 w-4" />
                 </button>
 
-                <MoreMenuPopover
-                  onOpenCalendar={() => setShowCalendar(true)}
-                  onOpenSettings={() => setShowChatSettings(true)}
-                />
-              </>
-            )}
+                {showCallModeMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setShowCallModeMenu(false)}
+                    />
 
-            <button
-              type="button"
-              onClick={() => setShowFullHeaderBar((previous) => !previous)}
-              className="chat-topbar-toggle group relative flex items-center justify-center rounded-full p-2 opacity-85 transition-all hover:opacity-100"
-              style={{
-                background: 'var(--control-soft-bg)',
-                color: showFullHeaderBar ? 'var(--text-main)' : 'var(--accent-color)',
-              }}
-              title={showFullHeaderBar ? '收起入口' : '展开更多入口'}
-              aria-label={showFullHeaderBar ? '收起入口' : '展开更多入口'}
-            >
-              {showFullHeaderBar ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <Heart className="h-4 w-4" strokeWidth={1.7} fill="var(--accent-color)" fillOpacity={0.18} />
-              )}
-            </button>
-          </div>
-        </div>
+                    <div
+                      className="absolute right-0 top-full z-40 mt-1.5 w-40 overflow-hidden rounded-2xl py-1 shadow-xl"
+                      style={{
+                        background: 'var(--card-bg-gradient)',
+                        color: 'var(--text-main)',
+                        border: '1px solid var(--card-border)',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCallModeMenu(false);
+                          handleStartCall('text');
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Phone className="h-4 w-4" />
+                        <span>文字语气通话</span>
+                      </button>
 
-        {!showFullHeaderBar && (
-          <div className="flex justify-end pb-1">
-            {isEditingHeaderCaption ? (
-              <input
-                type="text"
-                value={headerCaptionDraft}
-                onChange={(event) => setHeaderCaptionDraft(event.target.value)}
-                onBlur={() => {
-                  setIsEditingHeaderCaption(false);
-                  handleSaveHeaderCaption(headerCaptionDraft.trim());
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.currentTarget.blur();
-                  }
-                  if (event.key === 'Escape') {
-                    setIsEditingHeaderCaption(false);
-                    setHeaderCaptionDraft(chat?.headerCaption || '');
-                  }
-                }}
-                autoFocus
-                maxLength={40}
-                placeholder="写一句只有你们知道的话"
-                className="w-48 rounded-full border bg-transparent px-3 py-1 text-right text-[11px] italic outline-none"
-                style={{
-                  borderColor: 'var(--card-border)',
-                  color: 'var(--text-sub)',
-                  background: 'var(--control-soft-bg)',
-                }}
-              />
-            ) : (
+                      {isRealVoiceAvailableForCharacter(character) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCallModeMenu(false);
+                            handleStartCall('real');
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                        >
+                          <Volume2 className="h-4 w-4" />
+                          <span>真实语音通话</span>
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
               <button
                 type="button"
-                onClick={() => {
-                  setHeaderCaptionDraft(chat?.headerCaption || '');
-                  setIsEditingHeaderCaption(true);
+                onClick={() => setShowScheduledArchive(true)}
+                className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
+                style={{
+                  background: 'var(--control-soft-bg)',
+                  color: 'var(--text-main)',
                 }}
-                className="flex items-center gap-1 rounded-full px-2 py-1 text-right opacity-70 transition-opacity hover:opacity-100"
-                title="编辑这句话"
+                title="查看稍后联系存档"
+                aria-label="查看稍后联系存档"
               >
-                <span
-                  className="truncate text-[11px] italic"
-                  style={{ color: 'var(--text-sub)', maxWidth: '11rem' }}
-                >
-                  {chat?.headerCaption || '写一句只有你们知道的话'}
-                </span>
-                <Pencil className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                <ReceiptText className="h-4 w-4" />
               </button>
-            )}
-          </div>
-        )}
+
+              <MoreMenuPopover
+                onOpenCalendar={() => setShowCalendar(true)}
+                onOpenSettings={() => setShowChatSettings(true)}
+              />
+            </div>
+          )}
+        </div>
 
         <ChatHeaderBar
           character={character}
@@ -1454,6 +1379,10 @@ useLayoutEffect(() => {
           onSaveSummary={handleSaveSummary}
           onStartCall={handleStartCall}
           realVoiceAvailable={isRealVoiceAvailableForCharacter(character)}
+          isExpanded={showFullHeaderBar}
+          onToggleExpanded={setShowFullHeaderBar}
+          headerCaption={chat?.headerCaption}
+          onSaveHeaderCaption={handleSaveHeaderCaption}
         />
       </header>
 

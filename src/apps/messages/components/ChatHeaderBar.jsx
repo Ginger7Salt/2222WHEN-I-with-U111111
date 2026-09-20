@@ -9,7 +9,8 @@ import {
   Radio,
   ListOrdered,
   Phone,
-  Volume2
+  Volume2,
+  Pencil,
 } from 'lucide-react';
 import { subscribeSummaryStatus } from '../../../services/aiService';
 
@@ -20,10 +21,18 @@ export const ChatHeaderBar = ({
   onSaveSummary,
   onStartCall,
   realVoiceAvailable,
+  // 是否展开——现在由 ChatRoom 统一控制，这样同一颗爱心
+  // 既能展开这里的身份卡片，也能一并带出顶部那一整排按钮，
+  // 收起时就只剩这一颗爱心，不再有另外单独的按钮/横条。
+  isExpanded,
+  onToggleExpanded,
+  headerCaption,
+  onSaveHeaderCaption,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showCallModeMenu, setShowCallModeMenu] = useState(false);
+  const [isEditingCaption, setIsEditingCaption] = useState(false);
+  const [captionDraft, setCaptionDraft] = useState('');
 
   useEffect(() => {
     const unsubscribe = subscribeSummaryStatus(({ chatId, isSummarizing: nextIsSummarizing }) => {
@@ -72,10 +81,10 @@ export const ChatHeaderBar = ({
   return (
     <div className="w-full shrink-0">
       {!isExpanded ? (
-        <div className="flex justify-center py-1">
+        <div className="flex flex-col items-center gap-1 py-1">
           <button
             type="button"
-            onClick={() => setIsExpanded(true)}
+            onClick={() => onToggleExpanded(true)}
            className="chat-header-heart-button group relative flex h-8 w-8 items-center justify-center rounded-full border transition-transform duration-300 active:scale-90"
             style={{
               background: 'var(--card-bg-gradient)',
@@ -96,6 +105,54 @@ export const ChatHeaderBar = ({
 />
 
           </button>
+
+          {isEditingCaption ? (
+            <input
+              type="text"
+              value={captionDraft}
+              onChange={(event) => setCaptionDraft(event.target.value)}
+              onBlur={() => {
+                setIsEditingCaption(false);
+                onSaveHeaderCaption?.(captionDraft.trim());
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.currentTarget.blur();
+                }
+                if (event.key === 'Escape') {
+                  setIsEditingCaption(false);
+                  setCaptionDraft(headerCaption || '');
+                }
+              }}
+              autoFocus
+              maxLength={40}
+              placeholder="写一句只有你们知道的话"
+              className="w-48 rounded-full border bg-transparent px-3 py-1 text-center text-[11px] italic outline-none"
+              style={{
+                borderColor: 'var(--card-border)',
+                color: 'var(--text-sub)',
+                background: 'var(--control-soft-bg)',
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setCaptionDraft(headerCaption || '');
+                setIsEditingCaption(true);
+              }}
+              className="flex items-center gap-1 rounded-full px-2 py-0.5 opacity-70 transition-opacity hover:opacity-100"
+              title="编辑这句话"
+            >
+              <span
+                className="truncate text-[11px] italic"
+                style={{ color: 'var(--text-sub)', maxWidth: '11rem' }}
+              >
+                {headerCaption || '写一句只有你们知道的话'}
+              </span>
+              <Pencil className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+            </button>
+          )}
         </div>
       ) : (
         <section
@@ -396,7 +453,7 @@ export const ChatHeaderBar = ({
 
               <button
                 type="button"
-                onClick={() => setIsExpanded(false)}
+                onClick={() => onToggleExpanded(false)}
                 className="rounded-full border p-2 transition-all active:scale-95 hover:opacity-80"
                 style={{
                   background: 'var(--accent-color)',
