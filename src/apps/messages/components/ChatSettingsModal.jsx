@@ -71,12 +71,20 @@ export const ChatSettingsModal = ({
 
   const [isSavingUserIdentity, setIsavingUserIdentity] = useState(false);
 
-  const typingStyleOptions = [
-    { id: 'default', label: '默认闪烁' },
-    { id: 'phone_call', label: '模拟电话' },
-    { id: 'typewriter', label: '诗意打字机' },
-    { id: 'wave_pulse', label: '音波律动' }
-  ];
+ const typingStyleOptions = [
+  { id: 'default', label: '默认闪烁' },
+  { id: 'phone_call', label: '模拟电话' },
+  { id: 'typewriter', label: '诗意打字机' },
+  { id: 'wave_pulse', label: '音波律动' },
+
+  // 新增美化样式
+  { id: 'printer', label: '小票打印机' },
+  { id: 'radio_tuner', label: '复古收音机' },
+  { id: 'potion', label: '思维炼金烧瓶' },
+  { id: 'messenger', label: '玻璃信差' },
+  { id: 'arcade_combo', label: '街机连击' }
+];
+
 
   const parseSummaryList = (sum) => {
     if (Array.isArray(sum)) return sum;
