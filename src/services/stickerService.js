@@ -89,6 +89,21 @@ export const DEFAULT_STICKERS = [
 { name: '在听哦', url: 'https://u2.fukit.cn/J9ta5drGL', category: 'preset' },
 { name: '穿了大毛衣', url: 'https://u2.fukit.cn/LchWRlxPq', category: 'preset' },
 
+{ name: '推推眼镜', url: 'https://u2.fukit.cn/sMUmZubSB', category: 'preset' },
+{ name: '想家', url: 'https://u2.fukit.cn/5YUNERA7W', category: 'preset' },
+{ name: '超累', url: 'https://u2.fukit.cn/QWLC0PpWw', category: 'preset' },
+{ name: '呆滞', url: 'https://u2.fukit.cn/sqBUyEab7', category: 'preset' },
+{ name: '想吃饭', url: 'https://u2.fukit.cn/hWUSxeF3g', category: 'preset' },
+{ name: '什么？凌乱', url: 'https://u2.fukit.cn/hxZ0pgwg5', category: 'preset' },
+{ name: '打盹', url: 'https://u2.fukit.cn/UDNsevusX', category: 'preset' },
+{ name: '超震惊', url: 'https://u2.fukit.cn/OPsOP5thA', category: 'preset' },
+{ name: '摇摇', url: 'https://u2.fukit.cn/QyDGkm80b', category: 'preset' },
+{ name: '敲电脑', url: 'https://u2.fukit.cn/I8ca9bU9V', category: 'preset' },
+{ name: '排队中', url: 'https://u2.fukit.cn/ufvPQlBLx', category: 'preset' },
+{ name: '好忙好忙', url: 'https://u2.fukit.cn/aSS80XoLZ', category: 'preset' },
+{ name: '左思', url: 'https://u2.fukit.cn/24Bhq2tPg', category: 'preset' },
+{ name: '右想', url: 'https://u2.fukit.cn/zdKDLye85', category: 'preset' },
+
 ];
 
 
