@@ -131,8 +131,8 @@ const PlaceMemorySection = ({ place, chatId, characterName }) => {
         .pm-text {
           margin: 0;
           font-family: Georgia, "Times New Roman", "Noto Serif SC", serif;
-          font-size: 14px;
-          line-height: 1.6;
+          font-size: 13px;
+          line-height: 1.65;
           color: var(--place-ink);
           overflow-wrap: anywhere;
         }
@@ -206,9 +206,9 @@ const PlaceMemorySection = ({ place, chatId, characterName }) => {
           border: 1px solid var(--place-line);
           border-radius: 14px;
           background: rgba(255,255,255,.7);
-          padding: 10px 13px;
+          padding: 9px 13px;
           font-family: inherit;
-          font-size: 16px;
+          font-size: 13px;
           line-height: 1.5;
           color: var(--place-ink);
           outline: none;
@@ -242,7 +242,7 @@ const PlaceMemorySection = ({ place, chatId, characterName }) => {
         .pm-add-button {
           display: inline-flex;
           flex-shrink: 0;
-          height: 42px;
+          height: 38px;
           align-items: center;
           gap: 5px;
           padding: 0 15px;
