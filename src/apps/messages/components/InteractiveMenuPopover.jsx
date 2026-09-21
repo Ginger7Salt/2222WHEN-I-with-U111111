@@ -9,12 +9,29 @@ import {
   CircleDot,
   Box,
   Swords,
+  ShoppingBag,
 } from 'lucide-react';
+import { hasOrderCapableMcpTools } from '../order/orderRequestService';
 
 
 export const InteractiveMenuPopover = ({ onSelectAction }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
+  
+  // 只有配置了带点单功能的 MCP 时，才显示"帮我点单"
+  const [hasOrderTools, setHasOrderTools] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    hasOrderCapableMcpTools().then((value) => {
+      if (!cancelled) setHasOrderTools(value);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   // 点击外部自动收起 Popover
   useEffect(() => {
@@ -101,6 +118,19 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
               <Utensils className="w-3.5 h-3.5" />
               <span>外卖代点</span>
             </button>
+
+            
+            {hasOrderTools && (
+              <button
+                type="button"
+                onClick={() => handleAction('mcp_order')}
+                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl text-xs font-medium transition-colors hover:opacity-85"
+                style={{ backgroundColor: 'var(--control-soft-bg)' }}
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>帮我点单</span>
+              </button>
+            )}
 
             <button
               type="button"

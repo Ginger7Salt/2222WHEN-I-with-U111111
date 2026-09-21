@@ -27,6 +27,7 @@ import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptC
 
 
 import { runAiToolOrchestrator } from './aiToolOrchestrator';
+import { describeOrderRequestForPrompt } from '../apps/messages/order/orderRequestPrompt';
 
 import {
   requestMcpToolApproval,
@@ -400,7 +401,7 @@ const describeUserReactionForPrompt = (msg) => {
   return `（对方对这句话点了"${label}"的反应）`;
 };
 
-const formatMsgContentForPrompt = (msg) => {
+const formatMsgContentForPrompt = (msg, options = {}) => {
   if (!msg) {
     return '';
   }
@@ -459,13 +460,36 @@ const formatMsgContentForPrompt = (msg) => {
     return '[发送了一张真实照片，但未能识别画面内容]';
   }
 
+  if (msg.type === 'order_request') {
+    return describeOrderRequestForPrompt(msg, {
+      handled: options.orderRequestHandled === true,
+    });
+  }
+
   return msg.content || '';
 };
 
 export const buildHistoryContext = (messages) => {
   const historyContext = [];
 
+  // 找到最后一条角色回复的位置：在它之前发出的点单请求视为已处理，
+  // 不再带"请办理"的要求，避免角色之后重复下单。
+  let lastCharacterIndex = -1;
+  let scanIndex = -1;
+
+  for (const item of messages) {
+    scanIndex += 1;
+
+    if (item && item.sender === 'character' && item.type !== 'error') {
+      lastCharacterIndex = scanIndex;
+    }
+  }
+
+  let messageIndex = -1;
+
   for (const message of messages) {
+    messageIndex += 1;
+
     if (!message || message.type === 'error') {
       continue;
     }
@@ -481,7 +505,9 @@ export const buildHistoryContext = (messages) => {
     }
 
     let content = String(
-      formatMsgContentForPrompt(message)
+      formatMsgContentForPrompt(message, {
+        orderRequestHandled: messageIndex < lastCharacterIndex,
+      })
     ).trim();
 
     if (!content) {

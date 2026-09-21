@@ -5,6 +5,8 @@ import React, {
   useRef,
   useMemo,
   useCallback,
+  lazy,
+  Suspense,
 } from 'react';
 
 import {
@@ -155,6 +157,9 @@ const getOlderMessagesBefore = (chatId, beforeTimestamp, limit) => (
     .then((rows) => rows.reverse())
 );
 
+// 点单窗口只有用户点开时才加载，不占用聊天页的首屏体积
+const OrderRequestModal = lazy(() => import('./components/OrderRequestModal'));
+
 export const ChatRoom = ({
   chatId,
   onBack,
@@ -176,6 +181,7 @@ export const ChatRoom = ({
   const [showCalendar, setShowCalendar] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
+    const [showOrderModal, setShowOrderModal] = useState(false);
   const [checkInDelivery, setCheckInDelivery] = useState(null);
   const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
     const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
@@ -442,6 +448,45 @@ await db.chats.update(chat.id, {
 // 跟发文字消息保持一致：发出的表情包始终强制滚到底部，
 // 不依赖"当前是否已经在底部附近"这个概率性判断。
 forceScrollMessageIdRef.current = stickerMsgId;
+
+    await loadChatData();
+    triggerAiResponse(chat.id);
+  };
+
+    // 发送"点单请求"：写入一条消息，然后让角色回应（角色会通过 MCP 去办理）
+  const handleSendOrderRequest = async ({ content, metadata }) => {
+    if (!chat?.id) return;
+
+    const newMsg = {
+      chatId: chat.id,
+      characterId: chat.characterId,
+      sender: 'user',
+      type: 'order_request',
+      content,
+      metadata,
+      isRead: true,
+      timestamp: new Date().toISOString(),
+    };
+
+    const orderMsgId = await db.messages.add(newMsg);
+    newMsg.id = orderMsgId;
+
+    void recordAlmanacEvent({
+      chatId: chat.id,
+      characterId: chat.characterId,
+      eventType: ALMANAC_EVENT_TYPES.USER_MESSAGE,
+      timestamp: newMsg.timestamp,
+      metadata: {
+        source: 'chat-room',
+        messageType: 'order_request',
+      },
+    });
+
+    await db.chats.update(chat.id, {
+      updatedAt: Date.now(),
+    });
+
+    forceScrollMessageIdRef.current = orderMsgId;
 
     await loadChatData();
     triggerAiResponse(chat.id);
@@ -1795,6 +1840,14 @@ useLayoutEffect(() => {
                   return;
                 }
 
+                
+                if (type === 'mcp_order') {
+                  // 先收起键盘，避免和窗口弹出的时机互相打架
+                  inputRef.current?.blur();
+                  setShowOrderModal(true);
+                  return;
+                }
+
                 setSelectedType(type);
               }}
             />
@@ -2027,6 +2080,16 @@ useLayoutEffect(() => {
         onClose={() => setShowStickerModal(false)}
         onSelectSticker={handleSendSticker}
       />
+
+      
+      {showOrderModal && (
+        <Suspense fallback={null}>
+          <OrderRequestModal
+            onClose={() => setShowOrderModal(false)}
+            onSubmit={handleSendOrderRequest}
+          />
+        </Suspense>
+      )}
 
       <McpToolApprovalModal
         request={pendingMcpApproval}

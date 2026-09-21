@@ -31,6 +31,7 @@ import ArticleCard from './cards/ArticleCard';
 import GiftCard from './cards/GiftCard';
 import FoodDeliveryCard from './cards/FoodDeliveryCard';
 import KinshipCard from './cards/KinshipCard';
+import OrderRequestCard from './cards/OrderRequestCard';
 import StickerCard from './cards/StickerCard';
 import PhotoCard from './cards/PhotoCard';
 import McpUsageTraceCard from './cards/McpUsageTraceCard';
@@ -337,6 +338,14 @@ const MessageRow = ({
 
               {msg.type === 'kinship' && (
                 <KinshipCard
+                  metadata={msg.metadata}
+                  isUser={isUser}
+                />
+              )}
+
+              
+              {msg.type === 'order_request' && (
+                <OrderRequestCard
                   metadata={msg.metadata}
                   isUser={isUser}
                 />
