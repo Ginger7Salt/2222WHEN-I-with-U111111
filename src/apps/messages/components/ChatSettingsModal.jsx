@@ -18,6 +18,7 @@ import {
 import ConfirmModal from '../../../components/ConfirmModal';
 import ColorSettingRow from './ColorSettingRow';
 import SavedInfoSection from './SavedInfoSection';
+import AwaySettingsSection from '../away/AwaySettingsSection';
 import db from '../../../db';
 
 import { triggerGlobalToast } from '../../../components/NotificationToast';
@@ -911,6 +912,13 @@ const handleToggleLocation = async () => {
             />
           </button>
         </div>
+
+        {/* 暂时不在线（每个聊天窗单独设置） */}
+        <AwaySettingsSection
+          chat={chat}
+          character={character}
+          onUpdated={onUpdatedUserPersona}
+        />
 
         {/* 阶段性多条目事实总结 */}
         <div

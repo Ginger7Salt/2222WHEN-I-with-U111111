@@ -2,6 +2,8 @@ import Dexie from 'dexie';
 import db from '../../db';
 import { runChatCompletionWithMcpTools } from '../../services/mcp/scheduledMcpToolBridge';
 import { syncScheduledTaskToCloud } from '../../services/cloudPushService';
+import { AWAY_RETURN_TYPE } from './away/awayState';
+import { executeAwayReturn } from './away/awayService';
 
 
 
@@ -959,6 +961,39 @@ const executeScheduledMessage = async (
   }
 
   try {
+    // 角色"暂时不在线"结束后的自动回复：走正常的回复流程，
+    // 不是生成"主动消息"，所以在这里单独处理，不走下面的取消判断。
+    if (claimedScheduledMessage.scheduleType === AWAY_RETURN_TYPE) {
+      const awayResult = await executeAwayReturn(claimedScheduledMessage);
+      const awayNowIso = getNowIso();
+
+      if (awayResult.status === 'defer') {
+        // 现在仍在离线（用户改过时段）：顺延到新的结束时间之后。
+        await db.scheduledMessages.update(claimedScheduledMessage.id, {
+          status: 'pending',
+          attemptCount: 0,
+          scheduledFor: new Date(awayResult.until.getTime() + 60 * 1000).toISOString(),
+          awayUntil: awayResult.until.toISOString(),
+          updatedAt: awayNowIso
+        });
+      } else if (awayResult.status === 'cancelled') {
+        await db.scheduledMessages.update(claimedScheduledMessage.id, {
+          status: 'cancelled',
+          cancelledReason: awayResult.reason,
+          updatedAt: awayNowIso
+        });
+      } else {
+        await db.scheduledMessages.update(claimedScheduledMessage.id, {
+          status: 'sent',
+          sentMessageId: null,
+          cancelledReason: '',
+          updatedAt: awayNowIso
+        });
+      }
+
+      return;
+    }
+
     const cancelPolicy =
       claimedScheduledMessage.cancelPolicy ||
       (

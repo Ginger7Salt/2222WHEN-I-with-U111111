@@ -4,10 +4,10 @@ import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
 
 import {
   hasUsableMiniMaxVoiceProfile,
-  normalizeVoiceProfile,
-} from '../features/real-voice/realVoiceDefaults';
+  normalizeVoiceProfile,} from '../features/real-voice/realVoiceDefaults';
 
 import { synthesizeMiniMaxSpeech } from '../features/real-voice/minimaxClient';
+import { getAwayState } from '../apps/messages/away/awayState';
 
 // 语音通话是消息流里的一种特殊消息类型（type: 'call'），跟拍一拍/
 // 石头剪刀布互动是同一个思路：不新建 Dexie 表、不做 schema 升级，
@@ -701,10 +701,46 @@ const connectOutgoingCall = async ({ messageId }) => {
 };
 
 /**
+ * 角色暂时不在线：先让通话界面显示"对方暂时无法接听"，稍等一下再结束这通电话。
+ * 用户在响铃期间已经自己挂断的话，什么都不做。
+ */
+const markOutgoingCallUnavailable = async ({ messageId }) => {
+  const message = await db.messages.get(messageId);
+  if (!message || message.metadata?.status !== 'ringing') return;
+
+  await db.messages.update(messageId, {
+    metadata: { ...message.metadata, unavailable: true },
+  });
+
+  dispatchCallStateChanged();
+
+  window.setTimeout(async () => {
+    const latest = await db.messages.get(messageId);
+    if (!latest || latest.metadata?.status !== 'ringing') return;
+
+    await db.messages.update(messageId, {
+      metadata: {
+        ...latest.metadata,
+        status: 'ended',
+        declined: true,
+        unavailable: true,
+        endedAt: new Date().toISOString(),
+      },
+    });
+
+    dispatchCallStateChanged();
+  }, 2400);
+};
+
+/**
  * 用户主动拨打电话。mode 在拨打前就已经选好（'real' | 'text'）。
  */
 export const startOutgoingCall = async ({ chatId, characterId, mode }) => {
   if (await hasAnyLiveCall()) return null;
+
+  // 角色处于"暂时不在线"的时段：正常响铃，但不会接通。
+  const chatRecord = await db.chats.get(chatId);
+  const isUnavailable = getAwayState(chatRecord).away;
 
   const timestamp = new Date().toISOString();
 
@@ -733,6 +769,15 @@ export const startOutgoingCall = async ({ chatId, characterId, mode }) => {
 
   await db.chats.update(chatId, { updatedAt: timestamp });
   dispatchCallStateChanged();
+
+  if (isUnavailable) {
+    // 多响一会儿，然后显示"暂时无法接听"，不会接通。
+    window.setTimeout(() => {
+      void markOutgoingCallUnavailable({ messageId });
+    }, 6000 + Math.random() * 3000);
+
+    return messageId;
+  }
 
   // 短暂"拨打中"再接通，营造一点真实电话的接通感。
   window.setTimeout(() => {

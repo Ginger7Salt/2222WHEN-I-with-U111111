@@ -44,10 +44,12 @@ const CallLogEntry = ({ message, isUser, character, userName, userAvatar }) => {
     Icon = direction === 'incoming' ? PhoneIncoming : PhoneOutgoing;
   } else if (status === 'active') {
     title = '语音通话';
-    subtitle = '通话进行中...';
+     subtitle = '通话进行中...';
     Icon = Phone;
   } else if (isMissedOrDeclined) {
-    title = direction === 'incoming' ? '未接听的来电' : '对方拒绝了通话';
+    title = direction === 'incoming'
+      ? '未接听的来电'
+      : (metadata.unavailable ? '对方暂时无法接听' : '对方拒绝了通话');
     subtitle = null;
     Icon = PhoneMissed;
   } else if (duration) {

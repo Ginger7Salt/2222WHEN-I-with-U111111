@@ -557,13 +557,17 @@ async function getNextPendingScheduledTask() {
     const pendingTasks = records
       .filter((task) => {
         if (!task || task.status && task.status !== 'pending') {
+                    return false;
+        }
+
+        // 离线后自动回复由本地处理，不托管给云端，避免云端另外发一条主动消息。
+        if (task.scheduleType === 'away_return') {
           return false;
         }
 
         if (!task.scheduledFor) {
           return false;
         }
-
         const scheduledTime =
           typeof task.scheduledFor === 'number'
             ? task.scheduledFor

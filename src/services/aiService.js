@@ -5,6 +5,7 @@ import {
   extractScheduledMessageDirective,
   createScheduledMessage
 } from '../apps/messages/scheduledMessageService';
+import { handleUserActivityWhileAway } from '../apps/messages/away/awayService';
 import { getChatMemoryContext } from '../apps/memory/memoryRetrieval';
 import {
   getCharacterEmotionContext,
@@ -406,6 +407,11 @@ const formatMsgContentForPrompt = (msg, options = {}) => {
     return '';
   }
 
+  // 角色"暂时不在线"时系统自动发出的回复：让角色知道这不是自己亲口说的话。
+  if (msg.metadata?.autoReply) {
+    return `[自动回复（系统按“暂时不在线”的设置自动发出，并非你亲口所说）: ${msg.content || ''}]`;
+  }
+
   if (msg.type === 'sticker') {
     return `[发送了表情包: ${
       msg.metadata?.name || msg.content || '表情包'
@@ -480,7 +486,12 @@ export const buildHistoryContext = (messages) => {
   for (const item of messages) {
     scanIndex += 1;
 
-    if (item && item.sender === 'character' && item.type !== 'error') {
+    if (
+      item
+      && item.sender === 'character'
+      && item.type !== 'error'
+      && !item.metadata?.autoReply
+    ) {
       lastCharacterIndex = scanIndex;
     }
   }
@@ -1995,7 +2006,7 @@ ${companionshipPrompt}
 
 
 
-export const triggerAiResponse = async (chatId) => {
+export const triggerAiResponse = async (chatId, options = {}) => {
   if (!chatId || activeAiRequests.has(chatId)) return;
 
   const chat = await db.chats.get(chatId);
@@ -2003,6 +2014,21 @@ export const triggerAiResponse = async (chatId) => {
 
   const character = await db.characters.get(chat.characterId);
   if (!character) return;
+
+  // 角色处于"暂时不在线"的时段：不请求 AI。
+  // 本时段第一次会出一条自动回复，并安排上线后自动回复；
+  // 上线后自动回复自己调用时传 ignoreAway，避免被这里拦住。
+  if (!options.ignoreAway) {
+    const awayResult = await handleUserActivityWhileAway({ chatId, chat });
+
+    if (awayResult.away) {
+      if (awayResult.autoReplied) {
+        notifyListeners({ type: 'AWAY_AUTO_REPLY', chatId });
+      }
+
+      return;
+    }
+  }
 
   activeAiRequests.add(chatId);
   notifyListeners({ type: 'AI_TYPING_START', chatId });
@@ -2063,7 +2089,9 @@ const innerWorldPasswordContext =
 
   const finalSystemPrompt = `${
   systemPrompt
-}${memoryContext}${characterEmotionContext}${almanacPromptContext}${locationPromptContext}${userReturnContext}`;
+}${memoryContext}${characterEmotionContext}${almanacPromptContext}${locationPromptContext}${userReturnContext}${
+  options.extraSystemNote ? `\n\n${options.extraSystemNote}` : ''
+}`;
 
 
 const mcpTraceSession = createMcpChatTraceSession({

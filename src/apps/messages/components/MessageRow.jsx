@@ -280,10 +280,16 @@ const MessageRow = ({
                 selectedType={userReactionType}
                 onPick={handlePickReaction}
                 onClose={() => setShowReactionPicker(false)}
-              />
+
+                            />
 
               {msg.type === 'text' && (
-                <TextCard content={msg.content} />
+                <>
+                  {msg.metadata?.autoReply && (
+                    <div className="mb-1 text-[10px] opacity-60">自动回复</div>
+                  )}
+                  <TextCard content={msg.content} />
+                </>
               )}
 
               {msg.type === 'image' && (

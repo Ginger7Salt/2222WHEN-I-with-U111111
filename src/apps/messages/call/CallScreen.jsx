@@ -171,11 +171,13 @@ const CallScreen = ({ call, onMinimize }) => {
 
   const statusLabel = useMemo(() => {
     if (status === 'ringing') {
+      if (metadata.unavailable) return '对方暂时无法接听';
+
       return direction === 'incoming' ? '邀请你语音通话' : '正在呼叫...';
     }
 
     return formatElapsed(elapsedSeconds);
-  }, [status, direction, elapsedSeconds]);
+  }, [status, direction, elapsedSeconds, metadata.unavailable]);
 
   return (
     <div

@@ -535,11 +535,15 @@ const [hubBackground, setHubBackground] = useState('');
           .filter((chat) => chat.keepAlive === true)
           .toArray(),
 
+          
         db.settings.get('keep_alive_audio_config'),
 
+        // 离线后自动回复（away_return）不计入：它不需要后台音频保活，
+        // 应用回到前台时由现有调度器补发，避免整个离线时段都在耗电。
         db.scheduledMessages
           .where('status')
           .equals('pending')
+          .filter((task) => task.scheduleType !== 'away_return')
           .count(),
       ]);
 

@@ -151,6 +151,10 @@ export const formatScheduledMessageDate = (value) => {
 export const getScheduledMessageTypeLabel = (record) => {
   const type = record?.scheduleType || 'follow_up';
 
+  if (type === 'away_return') {
+    return '离线后回复';
+  }
+
   return type === 'reminder'
     ? '约定提醒'
     : '情境回访';

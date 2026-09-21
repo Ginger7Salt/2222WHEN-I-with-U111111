@@ -47,10 +47,10 @@ const isSupportedSender = (sender) => (
 
 const isUsableMessage = (message) => {
   const content = getCurrentMessageContent(message);
-
   return Boolean(
     message &&
     message.type !== 'error' &&
+    !message.metadata?.autoReply &&
     content &&
     isSupportedSender(message.sender)
   );

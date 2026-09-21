@@ -1,6 +1,7 @@
 import db from '../db';
 import { buildRhythmPersonaBrief } from './rhythmReminderService';
 import { hasAnyLiveCall, startIncomingCall } from './callService';
+import { getAwayState } from '../apps/messages/away/awayState';
 
 // 角色主动打电话过来,应该是偶尔的意外,不是准点报时,所以频率要比
 // 寄语/反应这类小动作低得多。每 6 分钟才检查一次,冷却期 6 小时起步,
@@ -72,7 +73,9 @@ export const runCallScheduler = async () => {
       (chat) =>
         chat?.id != null &&
         chat?.characterId != null &&
-        chat?.rhythmEnabled !== false
+        chat?.rhythmEnabled !== false &&
+        // 角色暂时不在线时不主动来电，也省掉一次决定要不要打的 AI 请求。
+        !getAwayState(chat).away
     );
 
     for (const chat of eligibleChats) {

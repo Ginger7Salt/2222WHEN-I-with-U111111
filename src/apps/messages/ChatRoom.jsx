@@ -43,7 +43,12 @@ import {
   playMessageSound,
 } from '../../services/aiService';
 
+
 import { maybeGenerateAiReaction } from '../../services/messageReactionService';
+
+import { triggerGlobalToast } from '../../components/NotificationToast';
+import { getAwayState, formatAwayUntil } from './away/awayState';
+import { handleUserActivityWhileAway } from './away/awayService';
 
 import {
   startOutgoingCall,
@@ -670,6 +675,11 @@ void openChatAndMarkMessagesAsRead();
         return;
       }
 
+      if (event.type === 'AWAY_AUTO_REPLY') {
+        void loadChatData();
+        return;
+      }
+
       if (event.type === 'CHAT_SUMMARY_UPDATED') {
         void loadChatData();
       }
@@ -982,6 +992,21 @@ useLayoutEffect(() => {
       updatedAt: new Date().toISOString(),
     });
 
+    // 角色处于"暂时不在线"的时段：本时段第一次出一条自动回复，
+    // 并安排上线后自动回复；离线时不给这条消息点表情反应。
+    let isCharacterAway = false;
+
+    try {
+      const awayResult = await handleUserActivityWhileAway({ chatId });
+      isCharacterAway = awayResult.away;
+
+      if (awayResult.autoReplied) {
+        await loadChatData();
+      }
+    } catch (error) {
+      console.warn('[Away] 离线自动回复处理失败：', error);
+    }
+
     void checkForCrossChatCheckIn({
       activeChatId: chatId,
       onDelivered: (delivery) => {
@@ -991,11 +1016,13 @@ useLayoutEffect(() => {
 
     // 非阻塞：让角色有机会不动声色地给这条消息点个反应，
     // 不影响正常发送流程，也不等它跑完。
-    void maybeGenerateAiReaction(chatId, newMsg).then((result) => {
-      if (result?.status === 'success') {
-        loadChatData();
-      }
-    });
+    if (!isCharacterAway) {
+      void maybeGenerateAiReaction(chatId, newMsg).then((result) => {
+        if (result?.status === 'success') {
+          loadChatData();
+        }
+      });
+    }
   };
 
   const playIconOnce = (iconRef, resetTimerRef) => {
@@ -1022,6 +1049,18 @@ useLayoutEffect(() => {
 
   const handleTriggerAi = () => {
     if (!character || isAiTyping) return;
+
+    // 角色离线时不会请求 AI（triggerAiResponse 里也有同样的检查），只提示一下。
+    const awayState = getAwayState(chat);
+
+    if (awayState.away) {
+      triggerGlobalToast({
+        title: `${character.name || 'TA'} 现在离线`,
+        content: `约 ${formatAwayUntil(awayState.until)} 后回复`,
+        iconType: 'chat',
+        duration: 3000,
+      });
+    }
 
     setMcpTrace(null);
     triggerAiResponse(chatId);
