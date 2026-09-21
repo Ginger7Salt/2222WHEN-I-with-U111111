@@ -20,8 +20,10 @@ import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
 import {
   generateCompanionProactiveDiary as generateStandaloneDiary} from '../apps/diaries/diaryGenerationService';
 
+
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
 import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
+import { recordChatAtCurrentPlace } from '../apps/location/placePatternService';
 import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDirective';
 import { getReactionLabel } from '../apps/messages/reactionLabels';
 import { getActiveCallAwarenessNote } from './callService';
@@ -2090,8 +2092,14 @@ const characterEmotionContext = await getSafeCharacterEmotionContext({
 const almanacPromptContext =
   await getSafeAlmanacPromptContext(chatId);
 
+  // 用户刚发过消息时，给当前所在的地点记一次"在这里聊过"（同一场聊天只记一次）。
+  await recordChatAtCurrentPlace({
+    chatId,
+    userMessageAt: latestUserMessage?.timestamp,
+  });
+
   const locationPromptContext =
-  await getLocationPromptContext(chatId); 
+  await getLocationPromptContext(chatId);
 
 const innerWorldPasswordContext =
   await getSafeInnerWorldPasswordContext({

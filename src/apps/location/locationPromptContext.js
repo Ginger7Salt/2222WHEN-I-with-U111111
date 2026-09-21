@@ -11,13 +11,13 @@ import {
   getLocationFixAgeMs,
 } from './placeService';
 import {
-  getPlaceMemoryPromptLines,
+    getPlaceMemoryPromptLines,
   getPlaceNoteOffer,
 } from './placeMemoryService';
+import { getChatPatternPromptLine } from './placePatternService';
 
 // 定位比这个更旧，就提醒角色"用户可能已经离开了"，不要断言 ta 还在这里。
 const STALE_FIX_MS = 60 * 60 * 1000;
-
 const formatAge = (ms) => {
   const totalMinutes = Math.max(1, Math.round(ms / (60 * 1000)));
 
@@ -69,9 +69,10 @@ export const getLocationPromptContext = async (chatId) => {
       }）。\n`;
 
       if (currentPlace.note) {
-        block += `- 你对这个地方的印象/备注：${currentPlace.note}\n`;
+               block += `- 你对这个地方的印象/备注：${currentPlace.note}\n`;
       }
 
+      block += getChatPatternPromptLine(currentPlace);
       block += await getPlaceMemoryPromptLines(currentPlace.id);
 
       block += '- 如果你想主动跟用户提起ta现在的位置、或分享一张位置卡片，使用格式：[LOCATION: 地点名称 | 一句附加感想(可选)]。\n';

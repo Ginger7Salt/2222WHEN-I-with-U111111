@@ -17,6 +17,7 @@ import {
   updatePlaceNote,
 } from './placeService';
 import PlaceMemorySection from './PlaceMemorySection';
+import { formatChatPatternText } from './placePatternService';
 
 const MAP_IMAGE_URL = 'https://u2.fukit.cn/yYmWOHrYc';
 const SVG_WIDTH = 1000;
@@ -1266,9 +1267,14 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                       <p className="truncate font-serif text-[17px] text-[#11110f]">
                         {place.name || '未命名地点'}
                       </p>
-                      <p className="mt-0.5 truncate text-[9px] font-bold tracking-wide text-[#77766f]">
+                                            <p className="mt-0.5 truncate text-[9px] font-bold tracking-wide text-[#77766f]">
                         到访 {place.visitCount || 1} 次 · 最近一次 {formatDate(place.lastVisitAt)}
                       </p>
+                      {formatChatPatternText(place, character?.name) && (
+                        <p className="mt-0.5 truncate text-[9px] font-bold tracking-wide text-[#77766f]">
+                          {formatChatPatternText(place, character?.name)}
+                        </p>
+                      )}
                       {place.note && (
                         <p className="mt-1 truncate font-serif text-[11px] italic text-[#68665f]">
                           {place.note}
