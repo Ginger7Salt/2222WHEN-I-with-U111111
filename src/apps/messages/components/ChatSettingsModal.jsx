@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import ConfirmModal from '../../../components/ConfirmModal';
 import ColorSettingRow from './ColorSettingRow';
+import SavedInfoSection from './SavedInfoSection';
 import db from '../../../db';
 
 import { triggerGlobalToast } from '../../../components/NotificationToast';
@@ -1385,6 +1386,9 @@ const handleToggleLocation = async () => {
             onCommit={(value) => handleCommitChatColor('topBtnColor', value)}
           />
         </div>
+
+                {/* 常用信息（全局，所有聊天窗共用） */}
+        <SavedInfoSection />
 
         {/* 气泡样式定制 */}
         <div>

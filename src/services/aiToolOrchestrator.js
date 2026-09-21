@@ -9,6 +9,13 @@ import {
   makeMcpAiToolResult,
 } from './mcp/mcpResultNormalizer';
 import {
+  MAX_SAVED_INFO_LOOKUPS_PER_RESPONSE,
+  SAVED_INFO_PROMPT_RULE,
+  SAVED_INFO_TOOL_NAME,
+  buildSavedInfoToolDefinition,
+  runSavedInfoLookup,
+} from './savedInfoTool';
+import {
   callMcpToolRuntime,
 } from './mcp/mcpRuntimeService';
 import { extractMcpCard } from './mcp/mcpCardRegistry';
@@ -496,10 +503,19 @@ export const runAiToolOrchestrator = async ({
     });
   }
 
+  const savedInfoTool = await buildSavedInfoToolDefinition();
+  let savedInfoLookupCount = 0;
+
+  if (savedInfoTool) {
+    tools.push(savedInfoTool);
+  }
+
   const messages = [
     {
       role: 'system',
-      content: systemPrompt,
+      content: savedInfoTool
+        ? `${systemPrompt}\n${SAVED_INFO_PROMPT_RULE}`
+        : systemPrompt,
     },
     ...historyContext,
   ];
@@ -570,6 +586,25 @@ export const runAiToolOrchestrator = async ({
     });
 
     for (const toolCall of toolCalls) {
+            if (toolCall?.function?.name === SAVED_INFO_TOOL_NAME) {
+        savedInfoLookupCount += 1;
+
+        if (savedInfoLookupCount > MAX_SAVED_INFO_LOOKUPS_PER_RESPONSE) {
+          return {
+            error: true,
+            code: 'MCP_TOOL_LOOP_GUARD',
+            message: '检测到重复的常用信息查阅，本次请求已安全停止。',
+          };
+        }
+
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall?.id || '',
+          content: await runSavedInfoLookup(toolCall?.function?.arguments),
+        });
+
+        continue;
+      }
             const execution = await executeMcpToolCall({
         toolCall,
         registry,

@@ -4344,7 +4344,9 @@ db.version(53).stores({
   }
 });
 
-
+db.version(54).stores({
+  userSavedInfo: '++id, title, createdAt, updatedAt',
+});
 
 export default db;
 
