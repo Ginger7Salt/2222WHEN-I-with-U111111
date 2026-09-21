@@ -4357,9 +4357,21 @@ db.version(55).stores({
     dateStr,
     owner,
     [chatId+dateStr]
+
+  `,
+});
+
+// v56：地点记忆（地点小册子里"这里发生过的事"）。
+// author: 'user' | 'char'；按地点保存，地点被删除时一起删除。
+db.version(56).stores({
+  placeMemories: `
+    ++id,
+    chatId,
+    placeId,
+    author,
+    createdAt,
+    [placeId+createdAt]
   `,
 });
 
 export default db;
-
-

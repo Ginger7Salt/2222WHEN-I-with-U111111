@@ -18,13 +18,14 @@ import {
 import { checkAbsenceEmotionSignal } from '../apps/memory/characterAbsenceService';
 import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
 import {
-  generateCompanionProactiveDiary as generateStandaloneDiary
-} from '../apps/diaries/diaryGenerationService';
+  generateCompanionProactiveDiary as generateStandaloneDiary} from '../apps/diaries/diaryGenerationService';
 
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
+import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
 import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDirective';
 import { getReactionLabel } from '../apps/messages/reactionLabels';
 import { getActiveCallAwarenessNote } from './callService';
+
 import { proposeOfflineSessionByCharacter } from '../apps/offline/offlineSessionService';
 
 import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptContext';
@@ -2155,12 +2156,19 @@ const {
   schedule: scheduledMessage,
 } = extractScheduledMessageDirective(contentAfterInvite);
 
+
 // 取出角色的 [AWAY: ...] 标签（一律从正文去掉）；这次确实把离线选项交给了角色、
 // 并且没有同时预约或发线下邀约时，才会真的开始离线。
-const visibleReplyContent = await applyAwayDirective({
+const contentAfterAway = await applyAwayDirective({
   chatId,
   content: contentAfterSchedule,
   offered: Boolean(awayOfferNote) && !offlineInvite && !scheduledMessage,
+});
+
+// 取出角色的 [PLACE_NOTE: ...] 标签（一律从正文去掉）；满足条件时才写进地点小册子。
+const visibleReplyContent = await applyPlaceNoteDirective({
+  chatId,
+  content: contentAfterAway,
 });
 const mcpTrace = getMcpChatTraceSummary(
   mcpTraceSession,

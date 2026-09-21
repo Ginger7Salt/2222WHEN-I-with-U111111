@@ -13,9 +13,10 @@ import {
 import {
   deletePlace,
   listPlaces,
-  renamePlace,
+   renamePlace,
   updatePlaceNote,
 } from './placeService';
+import PlaceMemorySection from './PlaceMemorySection';
 
 const MAP_IMAGE_URL = 'https://u2.fukit.cn/yYmWOHrYc';
 const SVG_WIDTH = 1000;
@@ -1287,9 +1288,17 @@ const PlaceBooklet = ({ chatId, character, onBack }) => {
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
-                  </div>
+                                   </div>
                 ))}
               </div>
+
+              {/* 这个地方发生过的事 */}
+              <PlaceMemorySection
+                key={activePlace?.id}
+                place={activePlace}
+                chatId={chatId}
+                characterName={character?.name}
+              />
             </>
           )}
         </div>

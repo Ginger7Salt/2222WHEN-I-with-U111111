@@ -110,12 +110,13 @@ import { MapPinned } from 'lucide-react';
 import PlaceBooklet from '../location/PlaceBooklet';
 import PendingPlaceBanner from './components/cards/PendingPlaceBanner';
 
-import { getCurrentPosition } from '../../apps/location/locationService';
+import { getPrecisePosition } from '../../apps/location/locationService';
 import {
   getLocationSettings,
   checkLocationAndDetectTransition,
   shouldCheckLocation,
   getRandomCheckIntervalMs,
+  POOR_ACCURACY_RETRY_MS,
   namePlace,
 } from '../../apps/location/placeService';
 
@@ -709,9 +710,15 @@ void openChatAndMarkMessagesAsRead();
   useEffect(() => {
   if (!chatId) return undefined;
 
+
   setPendingNamePlace(null);
 
+  // 取点失败（没有权限、超时等）之后，10 分钟内不再重试，避免反复打开 GPS 费电
+  let nextAttemptAllowedAt = 0;
+
   const runLocationCheck = async () => {
+    if (Date.now() < nextAttemptAllowedAt) return;
+
     try {
       const settings = await getLocationSettings(chatId);
 
@@ -721,27 +728,35 @@ void openChatAndMarkMessagesAsRead();
           locationCheckIntervalRef.current,
         )
       ) {
-        return;
+               return;
       }
 
-      const coords = await getCurrentPosition();
+      const coords = await getPrecisePosition();
 
       const {
         place,
         isNewUnnamedPlace,
+        skipped,
       } = await checkLocationAndDetectTransition(
         chatId,
         coords,
       );
 
-      // 每次检查后重新随机一个 1～2 小时的下次间隔，避免产生规律感
+      // 这次定位误差太大、没有记录：过 10 分钟左右再试一次
+      if (skipped) {
+        locationCheckIntervalRef.current = POOR_ACCURACY_RETRY_MS;
+        return;
+      }
+
+      // 每次检查后重新随机一个 10～20 分钟的下次间隔，避免产生规律感
       locationCheckIntervalRef.current = getRandomCheckIntervalMs();
 
       if (isNewUnnamedPlace) {
         setPendingNamePlace(place);
-      }
+           }
     } catch (error) {
       // 权限拒绝或定位失败时静默跳过，不影响正常聊天
+      nextAttemptAllowedAt = Date.now() + POOR_ACCURACY_RETRY_MS;
       console.warn('[Location] 本次检查跳过：', error);
     }
   };

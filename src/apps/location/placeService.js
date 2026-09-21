@@ -10,6 +10,16 @@ import db from '../../db';
 const DEFAULT_RADIUS_METERS = 150;
 const EARTH_RADIUS_METERS = 6371000;
 
+// 定位误差超过这个值（米）的点不可信：不用它来判断"到了哪里"，也不用它新建地点，稍后重试。
+export const POOR_ACCURACY_METERS = 300;
+
+// 这一次的点不可信时，多久之后再试一次。
+export const POOR_ACCURACY_RETRY_MS = 10 * 60 * 1000;
+
+// 判断"是否在某个地点范围内"时，把定位误差的一半（最多 50 米）算进半径里，
+// 避免定位稍微飘一点，就被判成"离开了"。
+const MAX_ACCURACY_RADIUS_BONUS_METERS = 50;
+
 const toRad = (deg) => (deg * Math.PI) / 180;
 
 export const haversineDistanceMeters = (lat1, lng1, lat2, lng2) => {
@@ -40,6 +50,7 @@ export const getLocationSettings = async (chatId) => {
     pendingNamingPlaceId: null,
     currentStayStartedAt: null,
     lastCheckAt: 0,
+    lastFixAt: 0,
     updatedAt: null,
   };
 };
@@ -67,8 +78,18 @@ export const listPlaces = async (chatId) => (
     .sortBy('lastVisitAt')
 );
 
+// 定位误差换算成"半径加成"：误差的一半，最多 50 米。
+const getAccuracyRadiusBonus = (accuracy) => {
+  const value = Number(accuracy);
+
+  if (!Number.isFinite(value) || value <= 0) return 0;
+
+  return Math.min(value / 2, MAX_ACCURACY_RADIUS_BONUS_METERS);
+};
+
 // 在所有"已命名"地点里，找出坐标落在其 radius 范围内、且距离最近的一个。
-export const findMatchingPlace = async (chatId, lat, lng) => {
+// accuracy 是这次定位的误差（米），会略微放宽范围，可以不传。
+export const findMatchingPlace = async (chatId, lat, lng, accuracy = 0) => {
   const places = await db.places
     .where('chatId')
     .equals(chatId)
@@ -86,7 +107,8 @@ export const findMatchingPlace = async (chatId, lat, lng) => {
       place.lng,
     );
 
-    const radius = place.radius || DEFAULT_RADIUS_METERS;
+    const radius = (place.radius || DEFAULT_RADIUS_METERS)
+      + getAccuracyRadiusBonus(accuracy);
 
     if (distance <= radius && distance < closestDistance) {
       closest = place;
@@ -104,13 +126,32 @@ export const findMatchingPlace = async (chatId, lat, lng) => {
  * - place: 匹配到的（或新建的）地点记录
  * - hasTransitioned: 是否与上次记录的 currentPlaceId 不同
  * - isNewUnnamedPlace: 这次是不是刚创建了一条待命名记录（需要提示用户命名）
+ * - skipped: 这次的定位误差太大（超过 POOR_ACCURACY_METERS），没有记录任何东西，
+ *   调用方应该过一会儿再取一次点（place 为 null）
  */
 export const checkLocationAndDetectTransition = async (chatId, coords) => {
   const { lat, lng } = coords;
+  const accuracy = Number(coords.accuracy) || 0;
   const settings = await getLocationSettings(chatId);
   const timestamp = nowIso();
 
-  const matchedPlace = await findMatchingPlace(chatId, lat, lng);
+  // 误差太大的点不可信：不判断到了哪里，也不新建"新地方"，只记下这次尝试的时间。
+  if (accuracy > POOR_ACCURACY_METERS) {
+    await db.locationSettings.put({
+      ...settings,
+      lastCheckAt: Date.now(),
+      updatedAt: timestamp,
+    });
+
+    return {
+      place: null,
+      hasTransitioned: false,
+      isNewUnnamedPlace: false,
+      skipped: true,
+    };
+  }
+
+  const matchedPlace = await findMatchingPlace(chatId, lat, lng, accuracy);
 
   let resultPlaceId = null;
   let isNewUnnamedPlace = false;
@@ -181,6 +222,7 @@ export const checkLocationAndDetectTransition = async (chatId, coords) => {
       : (settings.currentStayStartedAt || timestamp),
 
     lastCheckAt: Date.now(),
+    lastFixAt: Date.now(),
     updatedAt: timestamp,
   });
 
@@ -190,6 +232,7 @@ export const checkLocationAndDetectTransition = async (chatId, coords) => {
     place,
     hasTransitioned,
     isNewUnnamedPlace,
+    skipped: false,
   };
 };
 
@@ -236,6 +279,9 @@ export const updatePlaceRadius = async (placeId, radiusMeters) => {
 export const deletePlace = async (chatId, placeId) => {
   await db.places.delete(placeId);
 
+  // 这个地点下的小记录（placeMemories）一起删掉。
+  await db.placeMemories.where('placeId').equals(placeId).delete();
+
   const settings = await getLocationSettings(chatId);
 
   const isCurrentPlace = settings.currentPlaceId === placeId;
@@ -279,10 +325,20 @@ export const shouldCheckLocation = (settings, intervalMs) => {
   return Date.now() - last >= intervalMs;
 };
 
-export const getRandomCheckIntervalMs = () => {
-  const oneHour = 60 * 60 * 1000;
+// 距离上一次成功取点已经过了多久（毫秒）；从没取过点返回 Infinity。
+// 旧数据没有 lastFixAt，就用 lastCheckAt 代替。
+export const getLocationFixAgeMs = (settings, now = Date.now()) => {
+  const last = settings?.lastFixAt || settings?.lastCheckAt || 0;
 
-  return oneHour + Math.random() * oneHour;
+  return last ? Math.max(0, now - last) : Infinity;
+};
+
+// 每次成功取点后，随机 10～20 分钟再取下一次（只在聊天室开着时才会取），
+// 避免产生规律感。
+export const getRandomCheckIntervalMs = () => {
+  const tenMinutes = 10 * 60 * 1000;
+
+  return tenMinutes + Math.random() * tenMinutes;
 };
 
 export default {
@@ -300,4 +356,5 @@ export default {
   getCurrentStayDurationMs,
   shouldCheckLocation,
   getRandomCheckIntervalMs,
+  getLocationFixAgeMs,
 };
