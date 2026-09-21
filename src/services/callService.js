@@ -8,6 +8,11 @@ import {
 
 import { synthesizeMiniMaxSpeech } from '../features/real-voice/minimaxClient';
 import { getAwayState } from '../apps/messages/away/awayState';
+import {
+  VOICEMAIL_AUDIO_SAFETY_MS,
+  estimateVoicemailReadMs,
+  getVoicemail,
+} from './voicemailService';
 
 // 语音通话是消息流里的一种特殊消息类型（type: 'call'），跟拍一拍/
 // 石头剪刀布互动是同一个思路：不新建 Dexie 表、不做 schema 升级，
@@ -701,35 +706,60 @@ const connectOutgoingCall = async ({ messageId }) => {
 };
 
 /**
- * 角色暂时不在线：先让通话界面显示"对方暂时无法接听"，稍等一下再结束这通电话。
+ * 把一通"对方无法接听"的呼出电话正式结束。
+ * 兜底计时到点、语音信箱播完（VoicemailStage）都会走这里；
+ * 电话已经不在响铃状态（比如用户自己挂断了）就什么都不做，重复调用也没有副作用。
+ */
+export const finishUnavailableCall = async ({ messageId }) => {
+  const latest = await db.messages.get(messageId);
+  if (!latest || latest.metadata?.status !== 'ringing') return;
+
+  await db.messages.update(messageId, {
+    metadata: {
+      ...latest.metadata,
+      status: 'ended',
+      declined: true,
+      unavailable: true,
+      endedAt: new Date().toISOString(),
+    },
+  });
+
+  dispatchCallStateChanged();
+};
+
+/**
+ * 角色暂时不在线：通话界面显示"对方暂时无法接听"。
+ * 角色设置了语音信箱的话，接着显示留言文字，并播放已经合成好的语音（没有语音就只显示文字），
+ * 播完再结束；没设置语音信箱就和以前一样，稍等一下就结束。
  * 用户在响铃期间已经自己挂断的话，什么都不做。
  */
 const markOutgoingCallUnavailable = async ({ messageId }) => {
   const message = await db.messages.get(messageId);
   if (!message || message.metadata?.status !== 'ringing') return;
 
+  const character = await db.characters.get(message.characterId);
+  const voicemail = getVoicemail(character);
+
   await db.messages.update(messageId, {
-    metadata: { ...message.metadata, unavailable: true },
+    metadata: {
+      ...message.metadata,
+      unavailable: true,
+      ...(voicemail
+        ? { voicemail: { text: voicemail.text, hasAudio: Boolean(voicemail.audioBlob) } }
+        : {}),
+    },
   });
 
   dispatchCallStateChanged();
 
-  window.setTimeout(async () => {
-    const latest = await db.messages.get(messageId);
-    if (!latest || latest.metadata?.status !== 'ringing') return;
+  // 有语音时，正常情况下由 VoicemailStage 在播完后结束通话，这里只是兜底。
+  const holdMs = !voicemail
+    ? 2400
+    : (voicemail.audioBlob ? VOICEMAIL_AUDIO_SAFETY_MS : estimateVoicemailReadMs(voicemail.text));
 
-    await db.messages.update(messageId, {
-      metadata: {
-        ...latest.metadata,
-        status: 'ended',
-        declined: true,
-        unavailable: true,
-        endedAt: new Date().toISOString(),
-      },
-    });
-
-    dispatchCallStateChanged();
-  }, 2400);
+  window.setTimeout(() => {
+    void finishUnavailableCall({ messageId });
+  }, holdMs);
 };
 
 /**

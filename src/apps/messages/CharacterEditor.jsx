@@ -7,6 +7,7 @@ import GlassCard from '../../components/GlassCard';
 import db from "../../db";
 import VoiceProfilePanel from '../../features/real-voice/components/VoiceProfilePanel';
 import RingtonePanel from '../../features/real-voice/components/RingtonePanel';
+import VoicemailPanel from '../../features/real-voice/components/VoicemailPanel';
 import { normalizeVoiceProfile } from '../../features/real-voice/realVoiceDefaults';
 
 
@@ -25,9 +26,10 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     autoDiary: characterData?.autoDiary ?? true,
     userPersona: characterData?.userPersona || '',
     userAvatar: characterData?.userAvatar || '',
-    statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此'],
+       statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此'],
 voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
     ringtone: characterData?.ringtone || null,
+    voicemail: characterData?.voicemail || null,
 
 
   });
@@ -256,6 +258,17 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
           setCharacter((previous) => ({
             ...previous,
             ringtone,
+          }));
+               }}
+      />
+
+      <VoicemailPanel
+        value={character.voicemail}
+        character={character}
+        onChange={(voicemail) => {
+          setCharacter((previous) => ({
+            ...previous,
+            voicemail,
           }));
         }}
       />

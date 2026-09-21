@@ -11,8 +11,10 @@ import {
   switchCallTurnVersion,
 } from '../../../services/callService';
 
+
 import CallRingingScreen from './CallRingingScreen';
 import CallActiveScreen from './CallActiveScreen';
+import VoicemailStage from './VoicemailStage';
 
 import './call-screen.css';
 
@@ -239,9 +241,20 @@ const CallScreen = ({ call, onMinimize }) => {
             direction={direction}
             statusLabel={statusLabel}
             realVoiceAvailable={realVoiceAvailable}
-            onAccept={handleAccept}
+                       onAccept={handleAccept}
             onDecline={handleDecline}
             onCancel={handleHangUp}
+            voicemailSlot={
+              status === 'ringing' && direction === 'outgoing' && metadata.unavailable && metadata.voicemail
+                ? (
+                  <VoicemailStage
+                    messageId={message.id}
+                    voicemail={metadata.voicemail}
+                    character={character}
+                  />
+                )
+                : null
+            }
           />
         )}
       </div>

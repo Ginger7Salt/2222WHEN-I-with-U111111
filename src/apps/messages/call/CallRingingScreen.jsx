@@ -16,9 +16,10 @@ const CallRingingScreen = ({
   direction,
   statusLabel,
   realVoiceAvailable,
-  onAccept,
+   onAccept,
   onDecline,
   onCancel,
+  voicemailSlot,
 }) => {
   const isIncoming = direction === 'incoming';
 
@@ -60,10 +61,15 @@ const CallRingingScreen = ({
             {statusLabel}
           </p>
         </div>
-      </div>
+            </div>
 
       <div className="call-ringing__wave-zone flex w-full flex-1 items-center justify-center">
-        <div className="call-ringing__wave flex items-center justify-center gap-[5px]" aria-hidden="true">
+        {voicemailSlot}
+        <div
+          className="call-ringing__wave flex items-center justify-center gap-[5px]"
+          aria-hidden="true"
+          style={voicemailSlot ? { display: 'none' } : undefined}
+        >
           {Array.from({ length: 26 }).map((_, index) => (
             <span
               key={index}
