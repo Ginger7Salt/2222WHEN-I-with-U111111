@@ -10,7 +10,6 @@ import {
   MAX_NOTE_LENGTH,
   MAX_TEMP_LENGTH,
   cleanupOldOutfits,
-  deleteOutfitDay,
   getOutfit,
   getRecentPartValues,
   getRetentionDays,
@@ -20,6 +19,11 @@ import {
   setRetentionDays,
   summarizeParts,
 } from '../../../services/outfitService';
+import {
+  deleteOutfitDayAll,
+  generateCharOutfit,
+  suggestUserOutfit,
+} from '../../../services/outfitAiService';
 
 const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
@@ -52,6 +56,20 @@ const formFromRecord = (record) => ({
 const formatWeather = (weather) =>
   [weather?.label, weather?.temp].filter(Boolean).join(' · ');
 
+const STATUS_TO_CHAR_STATE = {
+  success: 'ready',
+  already_exists: 'ready',
+  no_user_outfit: 'waiting',
+  no_api_config: 'no_api',
+};
+
+const SUGGEST_ERROR_TEXT = {
+  no_api_config: '还没有配置 API，请先在系统设置里配置。',
+  bad_response: 'TA 这次没挑好，再试一次吧。',
+  error: '请求没有成功，请稍后再试。',
+  no_chat: '找不到这个聊天窗。',
+};
+
 /**
  * "今日穿搭"完整页面。
  * 通过 portal 渲染在 body 上：不受 Rhythm 外壳里强制字号规则的影响，
@@ -73,7 +91,17 @@ export default function OutfitPage({ chatId, onClose }) {
   const [retention, setRetention] = useState(7);
   const [pendingDeleteKey, setPendingDeleteKey] = useState(null);
 
+  // 角色的穿搭：waiting 还没轮到 / loading 生成中 / ready 已生成 / error 失败 / no_api 没配置 API
+  const [charRecord, setCharRecord] = useState(null);
+  const [charState, setCharState] = useState('waiting');
+
+  // "让 TA 帮我搭配"的结果只放在界面里，用户点"就穿这套"才会填进表单。
+  const [suggestion, setSuggestion] = useState(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestError, setSuggestError] = useState('');
+
   const deleteTimerRef = useRef(null);
+  const mountedRef = useRef(true);
 
   const refreshLists = useCallback(async () => {
     const [recentValues, dayList] = await Promise.all([
@@ -85,15 +113,42 @@ export default function OutfitPage({ chatId, onClose }) {
     setDays(dayList);
   }, [chatId]);
 
+  const runCharGeneration = useCallback(async () => {
+    setCharState('loading');
+
+    const result = await generateCharOutfit({ chatId, dateStr: todayStr });
+
+    if (!mountedRef.current) return;
+
+    if (result.record) {
+      setCharRecord(result.record);
+    }
+
+    setCharState(STATUS_TO_CHAR_STATE[result.status] || 'error');
+
+    if (result.status === 'success') {
+      await refreshLists();
+    }
+  }, [chatId, todayStr, refreshLists]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       await cleanupOldOutfits();
 
-      const [chat, today, retentionDays] = await Promise.all([
+      const [chat, today, todayChar, retentionDays] = await Promise.all([
         db.chats.get(chatId),
         getOutfit(chatId, todayStr, 'user'),
+        getOutfit(chatId, todayStr, 'char'),
         getRetentionDays(),
       ]);
 
@@ -103,11 +158,22 @@ export default function OutfitPage({ chatId, onClose }) {
       setSavedRecord(today);
       setForm(formFromRecord(today));
       setRetention(retentionDays);
+      setCharRecord(todayChar);
 
       await refreshLists();
 
-      if (!cancelled) {
-        setReady(true);
+      if (cancelled) return;
+
+      setReady(true);
+
+      if (todayChar) {
+        setCharState('ready');
+      } else if (today) {
+        // 用户已经记录过，但角色还没换好（上次失败或中途关掉了页面），
+        // 打开时自动试一次；失败了会显示重试按钮，不会反复自动请求。
+        void runCharGeneration();
+      } else {
+        setCharState('waiting');
       }
     };
 
@@ -116,7 +182,7 @@ export default function OutfitPage({ chatId, onClose }) {
     return () => {
       cancelled = true;
     };
-  }, [chatId, todayStr, refreshLists]);
+  }, [chatId, todayStr, refreshLists, runCharGeneration]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -174,6 +240,11 @@ export default function OutfitPage({ chatId, onClose }) {
       setSaveState('saved');
 
       await refreshLists();
+
+      // 用户保存之后，角色才"换好衣服"；今天已经换过的就不再重新生成。
+      if (!charRecord && charState !== 'loading') {
+        void runCharGeneration();
+      }
     } catch (err) {
       console.error('[OutfitPage] 保存穿搭失败：', err);
       setSaveState('error');
@@ -197,13 +268,16 @@ export default function OutfitPage({ chatId, onClose }) {
 
     setPendingDeleteKey(null);
 
-    await deleteOutfitDay(chatId, dateStr, 'user');
+    await deleteOutfitDayAll(chatId, dateStr);
 
     if (dateStr === todayStr) {
       setSavedRecord(null);
       setForm(EMPTY_FORM);
       setDirty(false);
       setSaveState('idle');
+      setCharRecord(null);
+      setCharState('waiting');
+      setSuggestion(null);
     }
 
     await refreshLists();
@@ -217,6 +291,48 @@ export default function OutfitPage({ chatId, onClose }) {
     setRetention(value);
     await cleanupOldOutfits();
     await refreshLists();
+  };
+
+  const handleSuggest = async () => {
+    if (suggestLoading) return;
+
+    setSuggestLoading(true);
+    setSuggestError('');
+
+    const result = await suggestUserOutfit({
+      chatId,
+      dateStr: todayStr,
+      parts: form,
+      weather: { label: form.weatherLabel, temp: form.weatherTemp },
+    });
+
+    if (!mountedRef.current) return;
+
+    setSuggestLoading(false);
+
+    if (result.status === 'success') {
+      setSuggestion({ parts: result.parts, note: result.note });
+    } else {
+      setSuggestError(SUGGEST_ERROR_TEXT[result.status] || SUGGEST_ERROR_TEXT.error);
+    }
+  };
+
+  const handleApplySuggestion = () => {
+    if (!suggestion) return;
+
+    setForm((prev) => {
+      const next = { ...prev };
+
+      OUTFIT_PARTS.forEach(({ key }) => {
+        next[key] = suggestion.parts[key] || '';
+      });
+
+      return next;
+    });
+
+    setDirty(true);
+    setSaveState('idle');
+    setSuggestion(null);
   };
 
   const saveButtonLabel = (() => {
@@ -261,6 +377,36 @@ export default function OutfitPage({ chatId, onClose }) {
 
       <section className="otf-card">
         <p className="otf-label">我的穿搭</p>
+
+        <button
+          type="button"
+          className="otf-ghost"
+          disabled={suggestLoading}
+          onClick={handleSuggest}
+        >
+          {suggestLoading ? 'TA 正在挑……' : suggestion ? '换一套' : '让 TA 帮我搭配'}
+        </button>
+
+        {suggestError && <p className="otf-hint otf-hint--error otf-hint--left">{suggestError}</p>}
+
+        {suggestion && (
+          <div className="otf-suggest">
+            <p className="otf-suggest__title">TA 的搭配建议</p>
+
+            {OUTFIT_PARTS.filter(({ key }) => suggestion.parts[key]).map(({ key, label }) => (
+              <p className="otf-row" key={key}>
+                <span className="otf-row__label">{label}</span>
+                <span>{suggestion.parts[key]}</span>
+              </p>
+            ))}
+
+            {suggestion.note && <p className="otf-day__note">{suggestion.note}</p>}
+
+            <button type="button" className="otf-primary otf-primary--small" onClick={handleApplySuggestion}>
+              就穿这套
+            </button>
+          </div>
+        )}
 
         {OUTFIT_PARTS.map(({ key, label }) => {
           const suggestions = (recent[key] || []).filter(
@@ -335,6 +481,41 @@ export default function OutfitPage({ chatId, onClose }) {
       {saveState === 'error' && (
         <p className="otf-hint otf-hint--error">保存失败，请再试一次。</p>
       )}
+
+      <section className="otf-card otf-ta">
+        <p className="otf-label">TA 的穿搭</p>
+
+        {charState === 'ready' && charRecord ? (
+          <div
+            className={`otf-reveal ${charRecord.coordinated ? 'otf-reveal--match' : ''}`}
+            key={charRecord.id}
+          >
+            {charRecord.coordinated && <span className="otf-day__tag otf-tag--match">情侣装</span>}
+
+            {OUTFIT_PARTS.filter(({ key }) => charRecord.parts?.[key]).map(({ key, label }) => (
+              <p className="otf-row" key={key}>
+                <span className="otf-row__label">{label}</span>
+                <span>{charRecord.parts[key]}</span>
+              </p>
+            ))}
+
+            {charRecord.note && <p className="otf-day__note">{charRecord.note}</p>}
+          </div>
+        ) : charState === 'error' ? (
+          <div>
+            <p className="otf-ta__wait">TA 还没换好。</p>
+            <button type="button" className="otf-link" onClick={runCharGeneration}>
+              再试一次
+            </button>
+          </div>
+        ) : charState === 'no_api' ? (
+          <p className="otf-ta__wait">还没有配置 API，配置好之后回来就能看到。</p>
+        ) : (
+          <p className={`otf-ta__wait ${charState === 'loading' ? 'otf-pulse' : ''}`}>
+            TA 还在换衣服……
+          </p>
+        )}
+      </section>
     </div>
   );
 
@@ -369,7 +550,18 @@ export default function OutfitPage({ chatId, onClose }) {
 
               {record?.note && <p className="otf-day__note">{record.note}</p>}
 
-              {record && (
+              {day.char && (
+                <div className="otf-day__ta">
+                  <p className="otf-day__ta-label">
+                    TA
+                    {day.char.coordinated && <span className="otf-day__tag otf-tag--match">情侣装</span>}
+                  </p>
+                  <p className="otf-day__summary">{summarizeParts(day.char.parts)}</p>
+                  {day.char.note && <p className="otf-day__note">{day.char.note}</p>}
+                </div>
+              )}
+
+              {(record || day.char) && (
                 <button
                   type="button"
                   className={`otf-link ${
@@ -785,6 +977,131 @@ export default function OutfitPage({ chatId, onClose }) {
           border-color: var(--card-border);
         }
 
+.otf-ghost {
+          width: 100%;
+          height: 40px;
+          margin-bottom: 14px;
+          font-size: 13px;
+          letter-spacing: .06em;
+          color: var(--text-main);
+          background: transparent;
+          border: 1px dashed var(--card-border);
+          border-radius: 12px;
+          transition: transform .2s var(--otf-spring), opacity .2s;
+        }
+
+        .otf-ghost:active:not(:disabled) {
+          transform: scale(.98);
+        }
+
+        .otf-ghost:disabled {
+          opacity: .5;
+        }
+
+        .otf-suggest {
+          padding: 14px;
+          margin-bottom: 16px;
+          background: var(--control-soft-bg);
+          border-radius: 14px;
+          animation: otf-fade-up .35s var(--otf-spring) both;
+        }
+
+        .otf-suggest__title {
+          margin: 0 0 10px;
+          font-family: var(--otf-mono);
+          font-size: 10px;
+          letter-spacing: .18em;
+          color: var(--text-sub);
+        }
+
+        .otf-primary--small {
+          height: 40px;
+          margin-top: 12px;
+          font-size: 13px;
+        }
+
+        .otf-row {
+          display: flex;
+          gap: 12px;
+          margin: 0 0 6px;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        .otf-row__label {
+          flex: none;
+          width: 34px;
+          font-size: 12px;
+          line-height: 21px;
+          color: var(--text-sub);
+        }
+
+        .otf-ta {
+          margin-top: 22px;
+        }
+
+        .otf-ta__wait {
+          margin: 0;
+          padding: 4px 0;
+          font-family: var(--otf-serif);
+          font-size: 13px;
+          font-style: italic;
+          color: var(--text-muted);
+        }
+
+        .otf-pulse {
+          animation: otf-pulse 1.6s ease-in-out infinite;
+        }
+
+        .otf-reveal {
+          animation: otf-fade-up .5s var(--otf-spring) both;
+        }
+
+        .otf-reveal--match {
+          animation: otf-pop .7s cubic-bezier(.34, 1.56, .64, 1) both;
+        }
+
+        .otf-tag--match {
+          display: inline-block;
+          margin: 0 0 10px;
+          padding: 3px 10px;
+          font-family: var(--otf-sans);
+          font-size: 11px;
+          line-height: 1.3;
+          letter-spacing: .08em;
+          color: var(--accent-foreground);
+          background: var(--accent-color);
+          border-color: var(--accent-color);
+        }
+
+        .otf-day__ta {
+          margin-top: 12px;
+          padding-top: 10px;
+          border-top: 1px dashed var(--card-border);
+        }
+
+        .otf-day__ta-label {
+          margin: 0;
+          font-family: var(--otf-mono);
+          font-size: 10px;
+          letter-spacing: .18em;
+          color: var(--text-sub);
+        }
+
+        .otf-day__ta-label .otf-tag--match {
+          margin: 0 0 0 8px;
+        }
+
+        @keyframes otf-pulse {
+          0%, 100% { opacity: .35; }
+          50% { opacity: 1; }
+        }
+
+        @keyframes otf-pop {
+          from { opacity: 0; transform: translateY(8px) scale(.96); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
         @keyframes otf-sheet-in {
           from { opacity: 0; transform: translateY(14px); }
           to { opacity: 1; transform: translateY(0); }
@@ -798,7 +1115,11 @@ export default function OutfitPage({ chatId, onClose }) {
         @media (prefers-reduced-motion: reduce) {
           .otf-root,
           .otf-panel,
-          .otf-day {
+          .otf-day,
+          .otf-suggest,
+          .otf-pulse,
+          .otf-reveal,
+          .otf-reveal--match {
             animation: none;
           }
 
