@@ -11,27 +11,36 @@ import {
   Swords,
   ShoppingBag,
 } from 'lucide-react';
-import { hasOrderCapableMcpTools } from '../order/orderRequestService';
+import {
+  ORDER_ENTRY_STATES,
+  getOrderEntryState,
+} from '../order/orderRequestService';
+import { triggerGlobalToast } from '../../../components/NotificationToast';
 
 
 export const InteractiveMenuPopover = ({ onSelectAction }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
   
-  // 只有配置了带点单功能的 MCP 时，才显示"帮我点单"
-  const [hasOrderTools, setHasOrderTools] = useState(false);
+  // "帮我点单"入口的状态：
+  // hidden 不显示 / ready 可用 / needs-setup 已同步过点单工具但暂时不能用
+  const [orderEntry, setOrderEntry] = useState({
+    state: ORDER_ENTRY_STATES.HIDDEN,
+  });
 
   useEffect(() => {
     let cancelled = false;
 
-    hasOrderCapableMcpTools().then((value) => {
-      if (!cancelled) setHasOrderTools(value);
+    getOrderEntryState().then((value) => {
+      if (!cancelled) setOrderEntry(value);
     });
 
     return () => {
       cancelled = true;
     };
   }, [isOpen]);
+
+  const isOrderReady = orderEntry.state === ORDER_ENTRY_STATES.READY;
 
   // 点击外部自动收起 Popover
   useEffect(() => {
@@ -120,15 +129,35 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
             </button>
 
             
-            {hasOrderTools && (
+            {orderEntry.state !== ORDER_ENTRY_STATES.HIDDEN && (
               <button
                 type="button"
-                onClick={() => handleAction('mcp_order')}
+                onClick={() => {
+                  if (isOrderReady) {
+                    handleAction('mcp_order');
+                    return;
+                  }
+
+                  // 暂时不能用：收起菜单，用提示说明该去哪里开启
+                  setIsOpen(false);
+                  triggerGlobalToast({
+                    title: orderEntry.title,
+                    content: orderEntry.message,
+                    duration: 6000,
+                  });
+                }}
+                aria-disabled={!isOrderReady}
                 className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl text-xs font-medium transition-colors hover:opacity-85"
-                style={{ backgroundColor: 'var(--control-soft-bg)' }}
+                style={{
+                  backgroundColor: 'var(--control-soft-bg)',
+                  opacity: isOrderReady ? 1 : 0.55,
+                }}
               >
                 <ShoppingBag className="w-3.5 h-3.5" />
                 <span>帮我点单</span>
+                {!isOrderReady && (
+                  <span className="ml-auto text-[9px] opacity-70">未就绪</span>
+                )}
               </button>
             )}
 

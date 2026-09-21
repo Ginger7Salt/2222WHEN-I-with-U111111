@@ -2543,24 +2543,22 @@ const result = await runAiToolOrchestrator({
         errorCode: result.code,
         isReroll: true
       });
+    } else {
+      // 重新生成成功后：结算角色状态，并安排后台记忆整理（不阻塞界面）。
+      void markCharacterInteraction({
+        chatId,
+        characterId: character.id
+      }).catch((error) => {
+        console.warn(
+          '[Memory] Character state settlement skipped safely:',
+          error
+        );
+      });
+
+      void scheduleMemoryProcessing(chatId);
     }
   } catch (err) {
     console.error('Reroll failed:', err);
-
-    if (!result.error) {
-  void markCharacterInteraction({
-    chatId,
-    characterId: character.id
-  }).catch((error) => {
-    console.warn(
-      '[Memory] Character state settlement skipped safely:',
-      error
-    );
-  });
-
-  void scheduleMemoryProcessing(chatId);
-}
-
 
     notifyListeners({
       type: 'AI_RESPONSE_ERROR',
