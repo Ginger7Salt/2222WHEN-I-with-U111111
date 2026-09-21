@@ -10,13 +10,14 @@ import {
   getAwayOfferNote,
   applyAwayDirective,
 } from '../apps/messages/away/awayService';
-import { getChatMemoryContext } from '../apps/memory/memoryRetrieval';
+
 import {
+  getChatMemoryContext,
   getCharacterEmotionContext,
-  markCharacterInteraction
-} from '../apps/memory/memoryCharacterState';
+  scheduleMemoryProcessing,
+} from './memoryProvider';
+import { markCharacterInteraction } from '../apps/memory/memoryCharacterState';
 import { checkAbsenceEmotionSignal } from '../apps/memory/characterAbsenceService';
-import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
 import {
   generateCompanionProactiveDiary as generateStandaloneDiary} from '../apps/diaries/diaryGenerationService';
 

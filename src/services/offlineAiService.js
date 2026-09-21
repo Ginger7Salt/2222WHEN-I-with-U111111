@@ -6,12 +6,12 @@ import {
   playMessageSound,
 } from './aiService';
 import { buildOfflineSystemPrompt } from './offlineSystemPrompt';
-import { getChatMemoryContext } from '../apps/memory/memoryRetrieval';
 import {
+  getChatMemoryContext,
   getCharacterEmotionContext,
-  markCharacterInteraction,
-} from '../apps/memory/memoryCharacterState';
-import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
+  scheduleMemoryProcessing,
+} from './memoryProvider';
+import { markCharacterInteraction } from '../apps/memory/memoryCharacterState';
 import { runAiToolOrchestrator } from './aiToolOrchestrator';
 import { requestMcpToolApproval } from './mcp/mcpApprovalCoordinator';
 import {

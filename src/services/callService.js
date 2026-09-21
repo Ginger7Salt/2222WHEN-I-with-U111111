@@ -1,6 +1,6 @@
 import db from '../db';
 import { buildRhythmPersonaBrief } from './rhythmReminderService';
-import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
+import { scheduleMemoryProcessing } from './memoryProvider';
 
 import {
   hasUsableMiniMaxVoiceProfile,

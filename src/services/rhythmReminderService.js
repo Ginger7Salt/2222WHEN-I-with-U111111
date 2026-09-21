@@ -1,6 +1,6 @@
 import db from '../db';
 import { isInQuietHours } from '../apps/messages/check-in/checkInService';
-import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
+import { scheduleMemoryProcessing } from './memoryProvider';
 
 // 距离上一条消息（不论发送方）多久以内，视为"用户正在这个对话里"，
 // 此时不主动插入提醒消息，避免打断正在进行的对话。
