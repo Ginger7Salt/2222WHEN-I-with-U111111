@@ -5,7 +5,11 @@ import {
   extractScheduledMessageDirective,
   createScheduledMessage
 } from '../apps/messages/scheduledMessageService';
-import { handleUserActivityWhileAway } from '../apps/messages/away/awayService';
+import {
+  handleUserActivityWhileAway,
+  getAwayOfferNote,
+  applyAwayDirective,
+} from '../apps/messages/away/awayService';
 import { getChatMemoryContext } from '../apps/memory/memoryRetrieval';
 import {
   getCharacterEmotionContext,
@@ -2046,7 +2050,15 @@ if (character.voiceProfile?.enabled && character.voiceProfile?.aiMaySendVoice) {
 
     const recentMsgs = (await getRecentChatMessages(chatId, 60))
       .filter((m) => m.mode !== 'offline');
-const userReturnContext = buildUserReturnContext(recentMsgs);
+// 角色"自己决定离线"：只有用户开启、并且这一次被选中时，才把说明带进提示词，
+// 其余时候一个字都不加。上线后自动回复的那一次也不再提供这个选项。
+const awayOfferNote = options.ignoreAway
+  ? ''
+  : await getAwayOfferNote({ chat, recentMessages: recentMsgs });
+
+const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
+  awayOfferNote ? `\n\n${awayOfferNote}` : ''
+}`;
 
 const historyContext = buildHistoryContext(
   recentMsgs
@@ -2139,9 +2151,17 @@ const {
 } = extractOfflineInviteDirective(result.content);
 
 const {
-  content: visibleReplyContent,
+  content: contentAfterSchedule,
   schedule: scheduledMessage,
 } = extractScheduledMessageDirective(contentAfterInvite);
+
+// 取出角色的 [AWAY: ...] 标签（一律从正文去掉）；这次确实把离线选项交给了角色、
+// 并且没有同时预约或发线下邀约时，才会真的开始离线。
+const visibleReplyContent = await applyAwayDirective({
+  chatId,
+  content: contentAfterSchedule,
+  offered: Boolean(awayOfferNote) && !offlineInvite && !scheduledMessage,
+});
 const mcpTrace = getMcpChatTraceSummary(
   mcpTraceSession,
 );

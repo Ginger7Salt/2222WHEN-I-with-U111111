@@ -1,22 +1,32 @@
 // 角色"暂时不在线"状态的纯计算。
 //
-// 只依赖聊天窗（chat 记录）上的 awaySettings 和当前时间：
-// 不读写数据库、不启动定时器、不订阅任何事件，所以可以放心地在
-// 任何地方频繁调用（发消息、拨号、来电调度……）。
+// 离线只由角色在聊天里自己决定（回复末尾带一个隐藏标签），离线多久由代码随机取，
+// 没有固定时间表。所有函数都只依赖聊天窗（chat 记录）上的字段和当前时间：
+// 不读写数据库、不启动定时器、不订阅任何事件，可以放心地在任何地方频繁调用。
 //
-// chat.awaySettings 的形状：
-// {
-//   enabled: boolean,
-//   windows: [{ id, days: [0-6], start: 'HH:MM', end: 'HH:MM' }],
-//   autoReplyText: string
-// }
-// days 用 JS 的 getDay() 约定：0 = 周日，1 = 周一 ... 6 = 周六。
-// end 早于 start 表示跨午夜（例如 22:00 到 07:00），归属于 start 所在的那一天。
+// chat 记录上相关的字段：
+//   awaySettings        { allowCharacterAway: boolean }  用户是否允许这个角色自己离线，默认关
+//   awayUntil           ISO 字符串，这一次离线到什么时候结束；没有离线时为空
+//   awayAutoReplyText   这一次离线期间的自动回复（角色自己写的）
+//   awayLog             [{ start, end }]  最近几次离线的记录，用来限制频率
+//   awayLastAutoReplyFor 这一次离线是否已经出过自动回复（用 awayUntil 当标识）
 
 export const AWAY_RETURN_TYPE = 'away_return';
-export const AWAY_MAX_WINDOWS = 3;
 export const AWAY_TEXT_MAX_LENGTH = 60;
 export const DEFAULT_AUTO_REPLY_TEXT = '现在暂时不在线，晚点回你。';
+
+// 离线时长：在这个范围内随机，偏短的更常见。
+export const AWAY_MIN_MINUTES = 20;
+export const AWAY_MAX_MINUTES = 120;
+
+// 频率限制（每个聊天窗单独计算）。
+export const AWAY_MAX_PER_DAY = 2;            // 任意连续 24 小时内最多几次
+export const AWAY_MIN_GAP_MINUTES = 240;      // 上一次结束后，至少隔多久才能再离线
+export const AWAY_LOG_LIMIT = 8;              // 最多保留几条离线记录
+
+// 每次回复时，"把离线这个选项交给角色"的概率。
+// 大多数回复根本不会提到离线，提示词里也就一个字都不多。
+export const AWAY_OFFER_PROBABILITY = 0.25;
 
 // 上线后自动回复时，附加在这一次请求提示词末尾的说明。
 export const AWAY_RETURN_SYSTEM_NOTE = '【状态提示】你刚结束了一段暂时不方便回复的时间，现在回到了聊天里。'
@@ -24,138 +34,142 @@ export const AWAY_RETURN_SYSTEM_NOTE = '【状态提示】你刚结束了一段�
   + '聊天记录里标注为“自动回复”的内容是系统按设置自动发出的，并不是你亲口说的话，'
   + '不需要逐句回应，也不必大篇幅解释自己刚才在忙什么。';
 
-// 首尾相接的时段（09:00-12:00 和 12:00-18:00）要顺延到真正空出来的时刻，
-// 这里限制最多顺延几次，防止异常数据造成死循环。
-const CHAIN_LIMIT = 8;
+// 允许角色自己离线、并且这一次被选中时，附加在提示词里的说明。
+export const AWAY_OFFER_NOTE = [
+  '【可选行为：暂时离线】',
+  '如果聊到某个很自然的地方，你确实要去忙自己的事（比如开会、洗澡、吃饭、开车、睡一小会儿），你可以让自己暂时离线一段时间。',
+  '做法：在这次回复的最后另起一行，写 [AWAY: 一句自动回复]。例如：[AWAY: 在忙，晚点回你]',
+  '规则：',
+  '1. 这是很少使用的行为。大多数时候不要用，只有情境自然需要时才用；拿不准就不用。',
+  '2. 括号里是你离线期间，用户再发消息时系统代你发出的一句话。要用你自己的口吻，说明你去忙什么就行，不要写具体多久或几点回来（离线多久由系统决定）。',
+  '3. 正文里也不要说具体的时长或几点回来，只说你要去忙什么、晚点再找对方就好。',
+  '4. 一次回复最多用一次，并且不能与 SCHEDULE_MESSAGE、OFFLINE_INVITE 同时使用。',
+  '5. 这行标签不会被用户看到。',
+].join('\n');
 
 const NOT_AWAY = Object.freeze({ away: false, until: null, source: null });
 
-const HM_PATTERN = /^([01]?\d|2[0-3]):([0-5]\d)$/;
-
 const pad = (value) => String(value).padStart(2, '0');
 
-export const parseHm = (value) => {
-  const matched = HM_PATTERN.exec(String(value || '').trim());
-  if (!matched) return null;
-  return Number(matched[1]) * 60 + Number(matched[2]);
-};
-
-const createWindowId = () => `w_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-
-export const createEmptyAwayWindow = () => ({
-  id: createWindowId(),
-  days: [1, 2, 3, 4, 5],
-  start: '09:00',
-  end: '18:00',
+export const normalizeAwaySettings = (raw) => ({
+  allowCharacterAway: Boolean(raw && typeof raw === 'object' && raw.allowCharacterAway === true),
 });
 
-const normalizeWindow = (raw) => {
-  if (!raw || typeof raw !== 'object') return null;
-
-  const days = Array.from(new Set(
-    (Array.isArray(raw.days) ? raw.days : [])
-      .map((day) => Number(day))
-      .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6),
-  )).sort((a, b) => a - b);
-
-  const start = parseHm(raw.start);
-  const end = parseHm(raw.end);
-
-  if (days.length === 0 || start === null || end === null || start === end) {
-    return null;
-  }
-
-  return {
-    id: typeof raw.id === 'string' && raw.id ? raw.id : createWindowId(),
-    days,
-    start: `${pad(Math.floor(start / 60))}:${pad(start % 60)}`,
-    end: `${pad(Math.floor(end / 60))}:${pad(end % 60)}`,
-  };
-};
-
-export const normalizeAwaySettings = (raw) => {
-  const source = raw && typeof raw === 'object' ? raw : {};
-
-  return {
-    enabled: source.enabled === true,
-    windows: (Array.isArray(source.windows) ? source.windows : [])
-      .map(normalizeWindow)
-      .filter(Boolean)
-      .slice(0, AWAY_MAX_WINDOWS),
-    autoReplyText: String(source.autoReplyText || '').trim().slice(0, AWAY_TEXT_MAX_LENGTH),
-  };
-};
-
-const atMinutes = (base, dayOffset, minutes) => {
-  const result = new Date(base);
-  result.setHours(0, 0, 0, 0);
-  result.setDate(result.getDate() + dayOffset);
-  result.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
-  return result;
-};
-
-// 在 date 这一刻，返回"当前所处离线时段的结束时间"；不在任何时段内返回 null。
-// 多个时段重叠时取结束最晚的那个。
-const evaluateAt = (windows, date) => {
-  const minutes = date.getHours() * 60 + date.getMinutes();
-  const today = date.getDay();
-  const yesterday = (today + 6) % 7;
-
-  let latestEnd = null;
-
-  for (const win of windows) {
-    const start = parseHm(win.start);
-    const end = parseHm(win.end);
-
-    if (start === null || end === null || start === end) continue;
-
-    let endDate = null;
-
-    if (start < end) {
-      if (win.days.includes(today) && minutes >= start && minutes < end) {
-        endDate = atMinutes(date, 0, end);
-      }
-    } else if (win.days.includes(today) && minutes >= start) {
-      endDate = atMinutes(date, 1, end);
-    } else if (win.days.includes(yesterday) && minutes < end) {
-      endDate = atMinutes(date, 0, end);
-    }
-
-    if (endDate && (!latestEnd || endDate > latestEnd)) {
-      latestEnd = endDate;
-    }
-  }
-
-  return latestEnd;
-};
+export const isAwayAllowed = (chat) => normalizeAwaySettings(chat?.awaySettings).allowCharacterAway;
 
 /**
  * 角色现在是不是"暂时不在线"。
- * 返回 { away, until, source }；until 是真正恢复在线的时刻（Date）。
- * 以后如果增加"角色自己设为离线"，在这里再加一个来源分支即可。
+ * 返回 { away, until, source }；until 是恢复在线的时刻（Date）。
  */
 export const getAwayState = (chat, now = new Date()) => {
-  if (!chat?.awaySettings?.enabled) return NOT_AWAY;
+  if (!chat?.awayUntil) return NOT_AWAY;
 
-  const settings = normalizeAwaySettings(chat.awaySettings);
+  const until = new Date(chat.awayUntil);
 
-  if (!settings.enabled || settings.windows.length === 0) return NOT_AWAY;
+  if (Number.isNaN(until.getTime()) || until.getTime() <= now.getTime()) return NOT_AWAY;
 
-  let end = evaluateAt(settings.windows, now);
-
-  if (!end) return NOT_AWAY;
-
-  for (let index = 0; index < CHAIN_LIMIT; index += 1) {
-    const next = evaluateAt(settings.windows, end);
-    if (!next) break;
-    end = next;
-  }
-
-  return { away: true, until: end, source: 'schedule' };
+  return { away: true, until, source: 'character' };
 };
 
-export const getAutoReplyText = (awaySettings) => (
-  normalizeAwaySettings(awaySettings).autoReplyText || DEFAULT_AUTO_REPLY_TEXT
+/**
+ * 随机取一个离线时长（分钟）：范围 AWAY_MIN_MINUTES 到 AWAY_MAX_MINUTES，
+ * 对随机数取平方让偏短的更常见（中位数大约 45 分钟），并取整到 5 分钟。
+ */
+export const pickAwayMinutes = (random = Math.random) => {
+  const unit = Math.min(Math.max(Number(random()) || 0, 0), 1);
+  const raw = AWAY_MIN_MINUTES + (AWAY_MAX_MINUTES - AWAY_MIN_MINUTES) * unit * unit;
+  const rounded = Math.round(raw / 5) * 5;
+
+  return Math.min(Math.max(rounded, AWAY_MIN_MINUTES), AWAY_MAX_MINUTES);
+};
+
+// 同一时间最多允许几个聊天窗离线：开启数量的一半（向下取整），至少允许 1 个。
+export const maxSimultaneousAway = (enabledCount) => (
+  Math.max(1, Math.floor(Math.max(0, Number(enabledCount) || 0) / 2))
+);
+
+const normalizeAwayLog = (raw) => (
+  (Array.isArray(raw) ? raw : [])
+    .map((item) => ({
+      start: new Date(item?.start).getTime(),
+      end: new Date(item?.end).getTime(),
+    }))
+    .filter((item) => Number.isFinite(item.start) && Number.isFinite(item.end))
+);
+
+/** 追加一条离线记录，只保留最近 AWAY_LOG_LIMIT 条。 */
+export const appendAwayLog = (rawLog, start, end) => (
+  [
+    ...(Array.isArray(rawLog) ? rawLog : []),
+    { start: start.toISOString(), end: end.toISOString() },
+  ].slice(-AWAY_LOG_LIMIT)
+);
+
+/**
+ * 现在这个聊天窗能不能开始一次新的离线（不含随机概率和用户情绪判断）。
+ * allChats 是所有聊天窗，用来判断"同一时间不会全部离线"。
+ * 返回 { ok, reason }。
+ */
+export const checkAwayLimits = ({ chat, allChats = [], now = new Date() }) => {
+  if (!isAwayAllowed(chat)) return { ok: false, reason: 'not_allowed' };
+  if (getAwayState(chat, now).away) return { ok: false, reason: 'already_away' };
+
+  const nowMs = now.getTime();
+  const log = normalizeAwayLog(chat.awayLog);
+  const dayAgo = nowMs - 24 * 60 * 60 * 1000;
+
+  if (log.filter((item) => item.start >= dayAgo).length >= AWAY_MAX_PER_DAY) {
+    return { ok: false, reason: 'daily_limit' };
+  }
+
+  const lastEnd = log.reduce((latest, item) => Math.max(latest, item.end), 0);
+
+  if (lastEnd && nowMs - lastEnd < AWAY_MIN_GAP_MINUTES * 60 * 1000) {
+    return { ok: false, reason: 'cooldown' };
+  }
+
+  const others = allChats.filter((item) => item && item.id !== chat.id && isAwayAllowed(item));
+  const enabledCount = others.length + 1;
+  const awayOthers = others.filter((item) => getAwayState(item, now).away).length;
+
+  if (awayOthers >= maxSimultaneousAway(enabledCount)) {
+    return { ok: false, reason: 'too_many_away' };
+  }
+
+  return { ok: true, reason: '' };
+};
+
+const AWAY_TAG_PATTERN = /\[\s*AWAY\s*(?:[:：]\s*([^\]]*))?\]/gi;
+
+/**
+ * 从回复里取出 [AWAY: 自动回复] 标签。标签一律从正文里去掉（不管这次有没有生效），
+ * 避免标签文字漏给用户。返回 { content, away }，away 为 null 或 { autoReplyText }。
+ */
+export const extractAwayDirective = (rawText) => {
+  let matched = null;
+
+  const content = String(rawText || '')
+    .replace(AWAY_TAG_PATTERN, (fullMatch, payload = '') => {
+      if (!matched) {
+        matched = {
+          autoReplyText: String(payload || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, AWAY_TEXT_MAX_LENGTH),
+        };
+      }
+
+      return '';
+    })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return { content, away: matched };
+};
+
+/** 这一次离线的自动回复：角色自己写的；没有则用通用文案。 */
+export const getAutoReplyText = (chat) => (
+  String(chat?.awayAutoReplyText || '').trim().slice(0, AWAY_TEXT_MAX_LENGTH) || DEFAULT_AUTO_REPLY_TEXT
 );
 
 const startOfDay = (date) => {
