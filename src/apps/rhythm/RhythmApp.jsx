@@ -21,6 +21,7 @@ import {
 
 import db from '../../db';
 import CharacterDailyPlanCard from './CharacterDailyPlanCard';
+import OutfitEntryCard from './outfit/OutfitEntryCard';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -2494,6 +2495,7 @@ export default function RhythmApp({ onBackHub, currentCharacterId, currentChatId
       )}
 
       <CharacterDailyPlanCard chatId={currentChatId} />
+            <OutfitEntryCard chatId={currentChatId} />
     </div>
   );
 }

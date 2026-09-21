@@ -4348,6 +4348,18 @@ db.version(54).stores({
   userSavedInfo: '++id, title, createdAt, updatedAt',
 });
 
+// v55："今日穿搭"记录（Rhythm 里的小区域）。
+// owner 区分是用户自己的还是角色的；按天保存，超过保留天数的会被自动清理。
+db.version(55).stores({
+  outfitRecords: `
+    ++id,
+    chatId,
+    dateStr,
+    owner,
+    [chatId+dateStr]
+  `,
+});
+
 export default db;
 
 
