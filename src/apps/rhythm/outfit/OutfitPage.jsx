@@ -20,6 +20,17 @@ import {
   summarizeParts,
 } from '../../../services/outfitService';
 import {
+  WEATHER_ATTRIBUTION,
+  clearWeatherLocation,
+  fetchTodayWeather,
+  getTempUnit,
+  getWeatherLocation,
+  locateByDevice,
+  saveWeatherLocation,
+  searchCities,
+  setTempUnit,
+} from '../../../services/weatherService';
+import {
   deleteOutfitDayAll,
   generateCharOutfit,
   suggestUserOutfit,
@@ -100,8 +111,23 @@ export default function OutfitPage({ chatId, onClose }) {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestError, setSuggestError] = useState('');
 
+  // 自动天气：地点、温度单位，以及设置地点的小面板
+  const [weatherLocation, setWeatherLocation] = useState(null);
+  const [tempUnit, setTempUnitState] = useState('C');
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherMsg, setWeatherMsg] = useState('');
+  const [showLocationPanel, setShowLocationPanel] = useState(false);
+  const [cityQuery, setCityQuery] = useState('');
+  const [cityResults, setCityResults] = useState([]);
+  const [citySearchState, setCitySearchState] = useState('idle');
+  const [locating, setLocating] = useState(false);
+  const [panelMsg, setPanelMsg] = useState('');
+
   const deleteTimerRef = useRef(null);
   const mountedRef = useRef(true);
+  const formRef = useRef(form);
+
+  formRef.current = form;
 
   const refreshLists = useCallback(async () => {
     const [recentValues, dayList] = await Promise.all([
@@ -112,6 +138,42 @@ export default function OutfitPage({ chatId, onClose }) {
     setRecent(recentValues);
     setDays(dayList);
   }, [chatId]);
+
+  // overwrite=false 时只在天气还是空的情况下填入，不会覆盖用户已经手动选的。
+  const fetchAndApplyWeather = useCallback(async (location, unit, { overwrite }) => {
+    setWeatherLoading(true);
+    setWeatherMsg('');
+
+    const result = await fetchTodayWeather({
+      lat: location.lat,
+      lng: location.lng,
+      unit,
+    });
+
+    if (!mountedRef.current) return;
+
+    setWeatherLoading(false);
+
+    if (result.status !== 'success') {
+      if (overwrite) {
+        setWeatherMsg('没能获取天气，可以先手动选择。');
+      }
+
+      return;
+    }
+
+    const current = formRef.current;
+
+    if (!overwrite && (current.weatherLabel || current.weatherTemp)) return;
+
+    setForm((prev) => ({
+      ...prev,
+      weatherLabel: result.weather.label,
+      weatherTemp: result.weather.temp,
+    }));
+    setDirty(true);
+    setSaveState((prev) => (prev === 'saving' ? prev : 'idle'));
+  }, []);
 
   const runCharGeneration = useCallback(async () => {
     setCharState('loading');
@@ -145,11 +207,13 @@ export default function OutfitPage({ chatId, onClose }) {
     const load = async () => {
       await cleanupOldOutfits();
 
-      const [chat, today, todayChar, retentionDays] = await Promise.all([
+      const [chat, today, todayChar, retentionDays, location, unit] = await Promise.all([
         db.chats.get(chatId),
         getOutfit(chatId, todayStr, 'user'),
         getOutfit(chatId, todayStr, 'char'),
         getRetentionDays(),
+        getWeatherLocation(),
+        getTempUnit(),
       ]);
 
       if (cancelled) return;
@@ -159,6 +223,8 @@ export default function OutfitPage({ chatId, onClose }) {
       setForm(formFromRecord(today));
       setRetention(retentionDays);
       setCharRecord(todayChar);
+      setWeatherLocation(location);
+      setTempUnitState(unit);
 
       await refreshLists();
 
@@ -175,6 +241,11 @@ export default function OutfitPage({ chatId, onClose }) {
       } else {
         setCharState('waiting');
       }
+
+      // 已经设置过地点、并且今天还没有天气时，自动填一次；失败了就保持手动选择，不打扰。
+      if (location && !today?.weather?.label && !today?.weather?.temp) {
+        void fetchAndApplyWeather(location, unit, { overwrite: false });
+      }
     };
 
     void load();
@@ -182,7 +253,7 @@ export default function OutfitPage({ chatId, onClose }) {
     return () => {
       cancelled = true;
     };
-  }, [chatId, todayStr, refreshLists, runCharGeneration]);
+  }, [chatId, todayStr, refreshLists, runCharGeneration, fetchAndApplyWeather]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -293,6 +364,74 @@ export default function OutfitPage({ chatId, onClose }) {
     await refreshLists();
   };
 
+  const closeLocationPanel = () => {
+    setShowLocationPanel(false);
+    setCityResults([]);
+    setCitySearchState('idle');
+    setPanelMsg('');
+  };
+
+  const applyLocation = async (location) => {
+    const saved = await saveWeatherLocation(location);
+
+    if (!saved || !mountedRef.current) return;
+
+    setWeatherLocation(saved);
+    closeLocationPanel();
+    void fetchAndApplyWeather(saved, tempUnit, { overwrite: true });
+  };
+
+  const handleSearchCities = async () => {
+    if (!cityQuery.trim() || citySearchState === 'loading') return;
+
+    setCitySearchState('loading');
+    setPanelMsg('');
+
+    const result = await searchCities(cityQuery);
+
+    if (!mountedRef.current) return;
+
+    setCityResults(result.results);
+    setCitySearchState(result.status === 'error' ? 'error' : 'done');
+  };
+
+  const handleLocate = async () => {
+    if (locating) return;
+
+    setLocating(true);
+    setPanelMsg('');
+
+    const result = await locateByDevice();
+
+    if (!mountedRef.current) return;
+
+    setLocating(false);
+
+    if (result.status === 'success') {
+      await applyLocation({ name: '当前位置', lat: result.lat, lng: result.lng });
+    } else {
+      setPanelMsg(
+        result.status === 'denied'
+          ? '没有获得定位权限，可以改为搜索城市。'
+          : '没能取得定位，可以改为搜索城市。',
+      );
+    }
+  };
+
+  const handleClearLocation = async () => {
+    await clearWeatherLocation();
+
+    setWeatherLocation(null);
+    setWeatherMsg('');
+    closeLocationPanel();
+  };
+
+  const handleUnitChange = async (unit) => {
+    if (unit === tempUnit) return;
+
+    setTempUnitState(await setTempUnit(unit));
+  };
+
   const handleSuggest = async () => {
     if (suggestLoading) return;
 
@@ -344,7 +483,30 @@ export default function OutfitPage({ chatId, onClose }) {
   const renderToday = () => (
     <div className="otf-panel" key="today">
       <section className="otf-card">
-        <p className="otf-label">天气</p>
+        <div className="otf-weather-head">
+          <p className="otf-label">天气</p>
+
+          {weatherLocation ? (
+            <button
+              type="button"
+              className="otf-link otf-link--inline"
+              disabled={weatherLoading}
+              onClick={() =>
+                fetchAndApplyWeather(weatherLocation, tempUnit, { overwrite: true })
+              }
+            >
+              {weatherLoading ? '获取中……' : '获取今日天气'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="otf-link otf-link--inline"
+              onClick={() => setShowLocationPanel((prev) => !prev)}
+            >
+              设置地点以自动获取
+            </button>
+          )}
+        </div>
 
         <div className="otf-chip-row">
           {WEATHER_OPTIONS.map((label) => (
@@ -373,6 +535,116 @@ export default function OutfitPage({ chatId, onClose }) {
           aria-label="温度"
           onChange={(event) => updateField('weatherTemp', event.target.value)}
         />
+
+        {weatherMsg && (
+          <p className="otf-hint otf-hint--error otf-hint--left">{weatherMsg}</p>
+        )}
+
+        {weatherLocation && (
+          <p className="otf-hint otf-hint--left otf-weather-meta">
+            <span>地点：{weatherLocation.name}</span>
+            <button
+              type="button"
+              className="otf-link otf-link--inline"
+              onClick={() => setShowLocationPanel((prev) => !prev)}
+            >
+              {showLocationPanel ? '收起' : '更换'}
+            </button>
+          </p>
+        )}
+
+        {showLocationPanel && (
+          <div className="otf-loc">
+            <button
+              type="button"
+              className="otf-ghost otf-ghost--compact"
+              disabled={locating}
+              onClick={handleLocate}
+            >
+              {locating ? '定位中……' : '使用当前定位'}
+            </button>
+
+            <div className="otf-loc__search">
+              <input
+                type="text"
+                className="otf-input otf-input--compact"
+                value={cityQuery}
+                maxLength={40}
+                placeholder="搜索城市，例如 北京"
+                aria-label="搜索城市"
+                onChange={(event) => setCityQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') handleSearchCities();
+                }}
+              />
+
+              <button
+                type="button"
+                className="otf-chip"
+                disabled={citySearchState === 'loading'}
+                onClick={handleSearchCities}
+              >
+                {citySearchState === 'loading' ? '搜索中' : '搜索'}
+              </button>
+            </div>
+
+            {cityResults.map((city) => (
+              <button
+                key={city.id}
+                type="button"
+                className="otf-loc__item"
+                onClick={() => applyLocation(city)}
+              >
+                <span>{city.name}</span>
+                {city.detail && <span className="otf-loc__detail">{city.detail}</span>}
+              </button>
+            ))}
+
+            {citySearchState === 'done' && cityResults.length === 0 && (
+              <p className="otf-hint otf-hint--left">没有找到这个城市。</p>
+            )}
+
+            {citySearchState === 'error' && (
+              <p className="otf-hint otf-hint--error otf-hint--left">
+                搜索没有成功，请检查网络后再试。
+              </p>
+            )}
+
+            {panelMsg && <p className="otf-hint otf-hint--error otf-hint--left">{panelMsg}</p>}
+
+            <div className="otf-loc__foot">
+              <div className="otf-segment otf-segment--mini" role="group" aria-label="温度单位">
+                {['C', 'F'].map((unit) => (
+                  <button
+                    key={unit}
+                    type="button"
+                    aria-pressed={tempUnit === unit}
+                    className={`otf-segment__btn ${
+                      tempUnit === unit ? 'otf-segment__btn--on' : ''
+                    }`}
+                    onClick={() => handleUnitChange(unit)}
+                  >
+                    °{unit}
+                  </button>
+                ))}
+              </div>
+
+              {weatherLocation && (
+                <button type="button" className="otf-link otf-link--inline" onClick={handleClearLocation}>
+                  清除地点
+                </button>
+              )}
+            </div>
+
+            <p className="otf-hint otf-hint--left">
+              只会向天气服务发送取整后的坐标（约一公里精度），不会发送其他信息。单位从下一次自动获取起生效。
+            </p>
+          </div>
+        )}
+
+        {weatherLocation && (
+          <p className="otf-attrib">天气数据：{WEATHER_ATTRIBUTION}</p>
+        )}
       </section>
 
       <section className="otf-card">
@@ -998,6 +1270,121 @@ export default function OutfitPage({ chatId, onClose }) {
           opacity: .5;
         }
 
+.otf-weather-head {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+
+        .otf-weather-head .otf-label {
+          margin: 0;
+        }
+
+        .otf-link--inline {
+          margin: 0;
+          padding: 0;
+          font-size: 12px;
+          color: var(--text-sub);
+        }
+
+        .otf-link:disabled {
+          opacity: .5;
+        }
+
+        .otf-weather-meta {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 10px;
+        }
+
+        .otf-attrib {
+          margin: 8px 0 0;
+          font-family: var(--otf-mono);
+          font-size: 10px;
+          letter-spacing: .06em;
+          color: var(--text-muted);
+        }
+
+        .otf-loc {
+          padding: 14px;
+          margin-top: 12px;
+          background: var(--control-soft-bg);
+          border-radius: 14px;
+          animation: otf-fade-up .3s var(--otf-spring) both;
+        }
+
+        .otf-ghost--compact {
+          height: 38px;
+          margin-bottom: 10px;
+          background: var(--card-bg);
+        }
+
+        .otf-loc__search {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+
+        .otf-loc__search .otf-chip {
+          flex: none;
+          height: 38px;
+          padding: 0 14px;
+          white-space: nowrap;
+        }
+
+        .otf-input--compact {
+          height: 38px;
+          background: var(--card-bg);
+        }
+
+        .otf-loc__item {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 10px;
+          width: 100%;
+          padding: 10px 12px;
+          margin-bottom: 6px;
+          font-size: 14px;
+          text-align: left;
+          color: var(--text-main);
+          background: var(--card-bg);
+          border: 1px solid var(--card-border);
+          border-radius: 10px;
+          transition: transform .2s var(--otf-spring);
+        }
+
+        .otf-loc__item:active {
+          transform: scale(.985);
+        }
+
+        .otf-loc__detail {
+          font-size: 11px;
+          color: var(--text-sub);
+        }
+
+        .otf-loc__foot {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-top: 10px;
+        }
+
+        .otf-segment--mini {
+          width: 110px;
+          padding: 3px;
+        }
+
+        .otf-segment--mini .otf-segment__btn {
+          height: 26px;
+          font-size: 12px;
+        }
+
         .otf-suggest {
           padding: 14px;
           margin-bottom: 16px;
@@ -1117,6 +1504,7 @@ export default function OutfitPage({ chatId, onClose }) {
           .otf-panel,
           .otf-day,
           .otf-suggest,
+          .otf-loc,
           .otf-pulse,
           .otf-reveal,
           .otf-reveal--match {
