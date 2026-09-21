@@ -659,7 +659,7 @@ const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
         }
 
         stopLockscreenCompanion();
-        setIsCompanionEnabled(false);
+        setIsCompanionEnabled;
         setIsCompanionRunning(false);
 
         showSaveResult(
@@ -993,7 +993,7 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
 
     try {
       stopLockscreenCompanion();
-      setisCompanionEnabled(false);
+      setIsCompanionEnabled;
 
       await db.transaction(
         'rw',

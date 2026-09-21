@@ -64,6 +64,7 @@ import ChatSettingsModal from './components/ChatSettingsModal';
 import ScheduledMessageArchive from './components/ScheduledMessageArchive';
 import McpToolApprovalModal from './mcp/McpToolApprovalModal';
 import MessageList from './components/MessageList';
+import ParallelOrbit from './components/ParallelOrbit';
 
 import { createInteractionMessage } from './interactions/interactionService';
 import { INTERACTION_TYPES } from './interactions/interactionRules';
