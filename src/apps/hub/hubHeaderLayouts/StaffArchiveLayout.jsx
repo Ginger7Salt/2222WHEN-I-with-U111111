@@ -267,13 +267,14 @@ export const StaffArchiveLayout = ({ delay = 100 }) => {
             <div className="pointer-events-auto absolute -bottom-10 -left-4 flex flex-col items-center rounded border border-black/10 bg-white p-1 shadow-lg dark:border-white/15 dark:bg-neutral-900">
               <div className="-mt-3 mb-0.5 h-3 w-2 rounded-sm bg-neutral-400 dark:bg-neutral-600" />
               <div className="relative h-12 w-9 overflow-hidden rounded-sm bg-black/5 dark:bg-white/5">
-                {miniPass1?.url ? (
+                               {miniPass1?.url ? (
                   <img
                     src={miniPass1.url}
                     alt="Mini pass 1"
-                    className="h-full w-full object-cover grayscale contrast-125"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
+
                   <div className="flex h-full w-full items-center justify-center text-neutral-400">
                     <ImageIcon className="h-3 w-3 opacity-50" />
                   </div>
@@ -303,9 +304,10 @@ export const StaffArchiveLayout = ({ delay = 100 }) => {
                   <img
                     src={miniPass2.url}
                     alt="Mini pass 2"
-                    className="h-full w-full object-cover grayscale contrast-125"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
+
                   <div className="flex h-full w-full items-center justify-center text-neutral-400">
                     <ImageIcon className="h-3.5 w-3.5 opacity-50" />
                   </div>
@@ -384,9 +386,10 @@ export const StaffArchiveLayout = ({ delay = 100 }) => {
                   <img
                     src={profile.avatar}
                     alt={profile.name}
-                    className="h-full w-full object-cover grayscale contrast-110"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
+
                   <div className="flex h-full w-full items-center justify-center text-neutral-500">
                     <ImageIcon className="h-8 w-8 opacity-40" />
                   </div>

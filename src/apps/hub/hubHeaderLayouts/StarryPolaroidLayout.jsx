@@ -290,13 +290,14 @@ export const StarryPolaroidLayout = ({ delay = 100 }) => {
             {/* 圆形头像 */}
             <div className="relative h-20 w-20 flex-shrink-0">
               <div className="relative h-full w-full overflow-hidden rounded-full border-2 border-black/10 bg-black/5 shadow-sm dark:border-white/20 dark:bg-white/5">
-                {profile.avatar ? (
+                              {profile.avatar ? (
                   <img
                     src={profile.avatar}
                     alt={profile.name}
-                    className="h-full w-full object-cover grayscale"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
+
                   <div className="flex h-full w-full items-center justify-center text-neutral-400">
                     <ImageIcon className="h-6 w-6 opacity-40" />
                   </div>
@@ -481,13 +482,14 @@ export const StarryPolaroidLayout = ({ delay = 100 }) => {
                     key={photo.id || index}
                     className="relative h-36 w-16 overflow-hidden rounded-[24px] border border-black/10 bg-black/10 dark:border-white/10 dark:bg-white/10 sm:h-40 sm:w-20"
                   >
-                    {photo.url ? (
+                                      {photo.url ? (
                       <img
                         src={photo.url}
                         alt={`capsule-${index}`}
-                        className="h-full w-full object-cover grayscale contrast-110"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
+
                       <div className="flex h-full w-full items-center justify-center text-neutral-400">
                         <ImageIcon className="h-5 w-5 opacity-40" />
                       </div>
@@ -523,13 +525,14 @@ export const StarryPolaroidLayout = ({ delay = 100 }) => {
           <div className="relative flex flex-col rounded-3xl border border-black/10 bg-black/5 p-4 shadow-md dark:border-white/10 dark:bg-white/5 sm:p-5">
             {/* 拍立得照片主框 */}
             <div className="relative aspect-[1/1.05] w-full overflow-hidden rounded-2xl border border-black/10 bg-neutral-900 shadow-inner dark:border-white/10">
-              {polaroidPhoto ? (
+                          {polaroidPhoto ? (
                 <img
                   src={polaroidPhoto}
                   alt="Polaroid Main"
-                  className="h-full w-full object-cover grayscale contrast-115"
+                  className="h-full w-full object-cover"
                 />
               ) : (
+
                 <div className="flex h-full w-full items-center justify-center text-neutral-500">
                   <ImageIcon className="h-10 w-10 opacity-30" />
                 </div>
