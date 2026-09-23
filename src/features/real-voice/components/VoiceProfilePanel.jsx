@@ -187,6 +187,29 @@ export default function VoiceProfilePanel({
             />
           </label>
 
+          <label className="flex cursor-pointer items-center justify-between gap-4">
+            <div>
+              <span className="block text-xs font-semibold">
+                通话里说话，识别完自动发送
+              </span>
+
+              <span className="mt-0.5 block text-[10px] leading-relaxed opacity-55">
+                这个和上面两条无关，是你自己在通话里说话时用的（点麦克风说话那个功能）。关闭时识别完的文字只会填进输入框，等你确认或改错字后自己点发送；开启后识别完直接发出去，更接近"说完就说出去了"，但认错字也会直接发。
+              </span>
+            </div>
+
+            <input
+              type="checkbox"
+              checked={profile.voiceInputAutoSend}
+              onChange={(event) => {
+                updateProfile({
+                  voiceInputAutoSend: event.target.checked,
+                });
+              }}
+              className="h-4 w-4 accent-current"
+            />
+          </label>
+
           {profile.aiMaySendVoice && (
             <VoiceExpressionGuidePanel
               value={profile}

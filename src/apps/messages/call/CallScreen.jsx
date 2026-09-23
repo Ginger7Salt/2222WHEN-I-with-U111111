@@ -14,6 +14,7 @@ import {
   hasUsableMiniMaxAsrConfig,
   transcribeMiniMaxSpeech,
 } from '../../../features/real-voice/minimaxClient';
+import { normalizeVoiceProfile } from '../../../features/real-voice/realVoiceDefaults';
 import { useVoiceRecorder } from '../../../features/real-voice/useVoiceRecorder';
 import { triggerGlobalToast } from '../../../components/NotificationToast';
 
@@ -195,9 +196,10 @@ const CallScreen = ({ call, onMinimize }) => {
   };
 
   // 麦克风按钮：点一下开始录，再点一下结束并送去 MiniMax 识别。
-  // 识别出来的文字只填进输入框，不直接发出去——用户还能看一眼、
-  // 改一改错字，跟打字发消息走的是同一条"点发送才真的发出去"的
-  // 路，只是换了个输入方式。
+  // 识别完之后是先填输入框等确认、还是直接发出去，由角色语音设置
+  // 里的开关（voiceInputAutoSend）决定——默认是前者，跟打字发消息
+  // 走的是同一条"点发送才真的发出去"的路；开启开关后跳过这一步，
+  // 识别完直接调 sendCallTurn，更接近"说完就说出去了"的通话感。
   const handleToggleVoiceInput = async () => {
     if (isTranscribing) return;
 
@@ -212,13 +214,26 @@ const CallScreen = ({ call, onMinimize }) => {
           voiceProfile: character?.voiceProfile,
         });
 
-        if (text) {
-          setDraftText((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
-        } else {
+        if (!text) {
           triggerGlobalToast({
             title: '没听清',
             content: '没识别到内容，再说一次试试。',
           });
+          return;
+        }
+
+        const autoSend = normalizeVoiceProfile(character?.voiceProfile).voiceInputAutoSend;
+
+        if (autoSend) {
+          setIsSending(true);
+
+          try {
+            await sendCallTurn({ messageId: message.id, text });
+          } finally {
+            setIsSending(false);
+          }
+        } else {
+          setDraftText((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
         }
       } catch (error) {
         triggerGlobalToast({

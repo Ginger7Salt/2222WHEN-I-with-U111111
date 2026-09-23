@@ -80,6 +80,11 @@ export const createDefaultVoiceProfile = () => ({
   // 首版保留，不自动播放，避免在用户未操作时突然出声。
   autoPlay: false,
 
+  // 通话里"用户自己说话"这条路：识别完是直接发送，还是先填进
+  // 输入框等用户确认。默认关闭（先确认），跟 aiMayControlVoiceSettings
+  // 一样偏保守——识别偶尔会认错字，先给一次改错的机会更安全。
+  voiceInputAutoSend: false,
+
   provider: 'minimax',
 
   voiceExpression: {
