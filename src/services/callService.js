@@ -1,6 +1,10 @@
 import db from '../db';
 import { buildRhythmPersonaBrief } from './rhythmReminderService';
-import { scheduleMemoryProcessing } from './memoryProvider';
+import {
+  getChatMemoryContext,
+  getCharacterEmotionContext,
+  scheduleMemoryProcessing,
+} from './memoryProvider';
 
 import {
   hasUsableMiniMaxVoiceProfile,
@@ -261,31 +265,74 @@ const getMessageDisplayText = (message) => {
   return message?.content || '';
 };
 
-const buildRecentChatContextText = async ({ chatId, excludeMessageId, characterName, userName }) => {
+// 取原始的"最近几条消息"数组——buildRecentChatContextText（拼给通话
+// 系统提示词看的一小段文字）和 getSafeChatMemoryContext（喂给长期
+// 记忆检索用的 recentMessages 参数）共用同一份数据，不用各查一次库。
+const getRecentCallChatMessages = async ({ chatId, excludeMessageId }) => {
   try {
     const allMessages = await db.messages.where('chatId').equals(chatId).toArray();
 
-    const recentMessages = allMessages
+    return allMessages
       .filter((message) => message.id !== excludeMessageId)
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       .slice(0, CALL_CONTEXT_MAX_MESSAGES)
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-    const lines = recentMessages
-      .map((message) => {
-        const text = getMessageDisplayText(message).trim();
-        if (!text) return '';
-
-        const label = message.sender === 'user' ? (userName || '我') : (characterName || 'TA');
-        return `${label}：${text}`;
-      })
-      .filter(Boolean);
-
-    return lines.join('\n');
   } catch (error) {
-    console.warn('[callService] 读取最近聊天上下文失败：', error);
+    console.warn('[callService] 读取最近聊天记录失败：', error);
+    return [];
+  }
+};
+
+const buildRecentChatContextText = ({ recentMessages, characterName, userName }) => {
+  const lines = (recentMessages || [])
+    .map((message) => {
+      const text = getMessageDisplayText(message).trim();
+      if (!text) return '';
+
+      const label = message.sender === 'user' ? (userName || '我') : (characterName || 'TA');
+      return `${label}：${text}`;
+    })
+    .filter(Boolean);
+
+  return lines.join('\n');
+};
+
+// aiService.js 组装主聊天系统提示词时，除了"最近几条消息"，还会另外
+// 拼上长期记忆检索结果（getChatMemoryContext）和角色情绪/状态块
+// （getCharacterEmotionContext）——这两块之前的通话上下文修改漏掉了，
+// 导致通话里只知道"最近 10 条消息"，想不起更早以前就已经建立好的
+// 长期记忆（比如用户提过的偏好、角色对用户的印象）。这里补上，跟
+// aiService.js 用同一套安全包装：任何一步读取失败都退化成空字符串，
+// 不影响通话本身正常进行。
+const getSafeChatMemoryContext = async ({ chatId, userText, recentMessages }) => {
+  try {
+    return await getChatMemoryContext({ chatId, userText, recentMessages });
+  } catch (error) {
+    console.warn('[callService] 读取长期记忆上下文失败：', error);
     return '';
   }
+};
+
+const getSafeCharacterEmotionContext = async ({ chatId, characterId }) => {
+  try {
+    return await getCharacterEmotionContext({ chatId, characterId });
+  } catch (error) {
+    console.warn('[callService] 读取角色情绪上下文失败：', error);
+    return '';
+  }
+};
+
+const findLatestUserMessageText = (recentMessages) => {
+  const latest = [...(recentMessages || [])]
+    .reverse()
+    .find((message) => (
+      message.sender === 'user'
+      && message.type !== 'error'
+      && typeof message.content === 'string'
+      && message.content.trim()
+    ));
+
+  return latest?.content || '';
 };
 
 // 通话接通时如果用户选了"由TA自己决定"接听方式，用这个很小的判断
@@ -401,16 +448,29 @@ const generateCallReply = async ({ messageId }) => {
     const userName = chat?.userName || character?.userName || '';
 
     const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
-    const recentContextText = await buildRecentChatContextText({
+    const recentMessages = await getRecentCallChatMessages({
       chatId: message.chatId,
       excludeMessageId: messageId,
+    });
+    const recentContextText = buildRecentChatContextText({
+      recentMessages,
       characterName: character.name,
       userName,
+    });
+    const memoryContext = await getSafeChatMemoryContext({
+      chatId: message.chatId,
+      userText: findLatestUserMessageText(recentMessages),
+      recentMessages,
+    });
+    const characterEmotionContext = await getSafeCharacterEmotionContext({
+      chatId: message.chatId,
+      characterId: character.id,
     });
     const turns = Array.isArray(message.metadata.turns) ? message.metadata.turns : [];
     const isOpeningLine = turns.length === 0;
 
     let systemPrompt = buildCallSystemPrompt({ character, worldBookText, extraNotesText, recentContextText });
+    systemPrompt += memoryContext + characterEmotionContext;
 
     if (isOpeningLine) {
       systemPrompt += '\n\n现在电话刚刚接通，请你先开口说第一句话（比如打招呼，或者说明这通电话想说的事）。';
@@ -530,15 +590,28 @@ export const rerollCallTurn = async ({ messageId, turnId }) => {
   const userName = chat?.userName || character?.userName || '';
 
   const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
-  const recentContextText = await buildRecentChatContextText({
+  const recentMessages = await getRecentCallChatMessages({
     chatId: message.chatId,
     excludeMessageId: messageId,
+  });
+  const recentContextText = buildRecentChatContextText({
+    recentMessages,
     characterName: character.name,
     userName,
+  });
+  const memoryContext = await getSafeChatMemoryContext({
+    chatId: message.chatId,
+    userText: findLatestUserMessageText(recentMessages),
+    recentMessages,
+  });
+  const characterEmotionContext = await getSafeCharacterEmotionContext({
+    chatId: message.chatId,
+    characterId: character.id,
   });
   const isOpeningLine = turnIndex === 0;
 
   let systemPrompt = buildCallSystemPrompt({ character, worldBookText, extraNotesText, recentContextText });
+  systemPrompt += memoryContext + characterEmotionContext;
 
   if (isOpeningLine) {
     systemPrompt += '\n\n现在电话刚刚接通，请你先开口说第一句话（比如打招呼，或者说明这通电话想说的事）。';

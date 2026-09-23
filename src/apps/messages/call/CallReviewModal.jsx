@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { setAudioRetention } from '../../../services/callService';
+import db from '../../../db';
 
 // 已结束通话的只读回看：点开一条"通话已结束"的记录条时弹出。
 // 跟 CheckInSettings.jsx 一样用 createPortal 挂到 body 上，不受聊天
@@ -144,7 +145,45 @@ const TurnAudioPlayer = ({ turn, characterName }) => {
 
 const CallReviewModal = ({ message, character, userName, onClose }) => {
   const [isUpdatingRetention, setIsUpdatingRetention] = useState(false);
-  const metadata = message.metadata || {};
+
+  // 打开这个弹窗时拿到的 message 只是外层聊天消息列表当时那一刻的
+  // 快照——ChatRoom.jsx 的消息列表只在 'new-local-message-inserted'
+  // 等几个特定事件上刷新，并不监听 callService.js 每次改 metadata
+  // 都会发的 'call-state-changed'（那个事件目前只有 useActiveCall.js
+  // 在听）。结果是：点"仅留文字"确实把 IndexedDB 改对了
+  // （setAudioRetention 本身没问题），但这个弹窗还在用旧的 message
+  // prop 渲染，看起来就像"选择没生效"，甚至可能连语音都还没同步
+  // 到这份快照里，选项本身就没出现过。这里直接在弹窗自己内部订阅
+  // 同一个事件、自己去数据库里取最新的这一条消息，不依赖外层是否
+  // 刷新——跟 useActiveCall.js 是同一个"本地事件 + 手动刷新"惯例。
+  const [liveMessage, setLiveMessage] = useState(message);
+
+  useEffect(() => {
+    setLiveMessage(message);
+  }, [message]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const refresh = async () => {
+      try {
+        const fresh = await db.messages.get(message.id);
+        if (isMounted && fresh) setLiveMessage(fresh);
+      } catch (error) {
+        console.warn('[CallReviewModal] 刷新通话记录失败：', error);
+      }
+    };
+
+    void refresh();
+
+    window.addEventListener('call-state-changed', refresh);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('call-state-changed', refresh);
+    };
+  }, [message.id]);
+
+  const metadata = liveMessage.metadata || {};
   const turns = Array.isArray(metadata.turns) ? metadata.turns : [];
   const duration = formatCallDuration(metadata);
 
