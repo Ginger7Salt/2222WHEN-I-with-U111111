@@ -233,3 +233,53 @@ export const getAllOfflineSessionsForChat = async (chatId) => {
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   ));
 };
+
+// 线下见面结束后，这段时间内回到线上文字聊天，AI 应该"记得刚发生
+// 过什么"；超过这个窗口就不再提醒——那之后交给长期记忆（回忆录）
+// 去慢慢消化就够了，不需要一直在系统提示词里挂着一次几周前的见面。
+const OFFLINE_AWARENESS_WINDOW_MS = 3 * 60 * 60 * 1000; // 3 小时
+
+/**
+ * 供 aiService.js 在组装主聊天（线上）系统提示词时调用：如果这个
+ * 聊天窗最近刚结束过一次线下见面，给 AI 一句处境提示 + 见面收尾
+ * 那几句话，让它知道"我们刚线下见过"，不至于表现得像什么都没
+ * 发生过——跟 callService.js 里 getActiveCallAwarenessNote 是
+ * 同一个思路，只是这里对应的是"刚结束"而不是"正在进行"。
+ */
+export const getRecentOfflineAwarenessNote = async (chatId) => {
+  if (!chatId) return '';
+
+  const sessions = await db.offlineSessions
+    .where('chatId')
+    .equals(chatId)
+    .toArray();
+
+  const recentlyCompleted = sessions
+    .filter((session) => (
+      session.status === OFFLINE_SESSION_STATUSES.COMPLETED
+      && session.completedAt
+      && (Date.now() - new Date(session.completedAt).getTime()) < OFFLINE_AWARENESS_WINDOW_MS
+    ))
+    .sort((a, b) => (
+      new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+    ))[0];
+
+  if (!recentlyCompleted) return '';
+
+  const offlineMessages = await db.messages
+    .where('offlineSessionId')
+    .equals(recentlyCompleted.id)
+    .sortBy('timestamp');
+
+  const closingLines = offlineMessages
+    .slice(-4)
+    .map((message) => (
+      `${message.sender === 'user' ? '用户' : '你'}：${String(message.content || '').slice(0, 60)}`
+    ))
+    .join('\n');
+
+  return `
+
+【线下见面刚刚结束】：你和用户不久前有过一次线下见面——「${recentlyCompleted.sceneLabel}」。这次见面已经结束，你们现在回到了手机文字聊天里。以下是那次见面收尾时的几句话，帮你记得刚发生过什么（完整经过已经在你们的共同记忆里，不需要复述这几行，只是提醒你别表现得像什么都没发生过）：
+${closingLines || '（那次见面没有留下具体对话内容）'}`;
+};

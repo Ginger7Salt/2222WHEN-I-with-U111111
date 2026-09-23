@@ -139,12 +139,20 @@ const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 80;
  * 最近的一批消息（按时间正序返回），而不是把整个聊天历史都读出来、
  * 在内存里排序、再截尾——避免聊天记录越堆越多之后每次打开/刷新
  * 聊天框都变卡。
+ *
+ * 线下模式（mode === 'offline'）发生的对话属于线下场景自己的记录
+ * （OfflineChatRoom / 线下邀约收纳室），不应该混进主聊天窗——之前
+ * 这里没过滤 mode，导致线下内容全跑到主窗口里来了。用 .filter()
+ * 而不是换索引，是因为分页排序仍然要靠 [chatId+timestamp]，只是
+ * 把线下那部分从结果里摘掉；filter 必须放在 limit 之前，否则会先
+ * 摘走一批、再截到 limit 条，凑不够数。
  */
 const getRecentMessagesWindow = (chatId, limit) => (
   db.messages
     .where('[chatId+timestamp]')
     .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
     .reverse()
+    .filter((message) => message.mode !== 'offline')
     .limit(limit)
     .toArray()
     .then((rows) => rows.reverse())
@@ -153,7 +161,7 @@ const getRecentMessagesWindow = (chatId, limit) => (
 /*
  * 加载“比当前已加载的最早一条消息还要更早”的一批消息，用于
  * 下拉到顶部时的增量分页；同样走 [chatId+timestamp] 索引，
- * 不会把整个聊天历史都读一遍。
+ * 不会把整个聊天历史都读一遍。同样要摘掉线下模式的消息，理由同上。
  */
 const getOlderMessagesBefore = (chatId, beforeTimestamp, limit) => (
   db.messages
@@ -165,6 +173,7 @@ const getOlderMessagesBefore = (chatId, beforeTimestamp, limit) => (
       false,
     )
     .reverse()
+    .filter((message) => message.mode !== 'offline')
     .limit(limit)
     .toArray()
     .then((rows) => rows.reverse())

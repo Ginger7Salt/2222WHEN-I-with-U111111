@@ -37,7 +37,10 @@ import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDire
 import { getReactionLabel } from '../apps/messages/reactionLabels';
 import { getActiveCallAwarenessNote } from './callService';
 
-import { proposeOfflineSessionByCharacter } from '../apps/offline/offlineSessionService';
+import {
+  proposeOfflineSessionByCharacter,
+  getRecentOfflineAwarenessNote,
+} from '../apps/offline/offlineSessionService';
 
 import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptContext';
 
@@ -1047,6 +1050,7 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   });
 
   const activeCallNote = await getActiveCallAwarenessNote(chatId);
+  const recentOfflineNote = await getRecentOfflineAwarenessNote(chatId);
 
   return `${finalBasePrompt}
 
@@ -1163,7 +1167,7 @@ ${MEMOIR_NOTE_PROMPT}
 4. 不是每次回复都需要触发，只有在情境自然、符合角色性格与当前关系进展时才使用，绝大多数回复不应使用该指令。
 5. 该指令不会出现在用户可见的正文中。
 6. 用户是否同意这个时间由用户自行决定，你只负责提出邀约。
-${activeCallNote}
+${activeCallNote}${recentOfflineNote}
 
 `;
 };
