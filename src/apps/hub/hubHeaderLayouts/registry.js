@@ -19,6 +19,7 @@ import FrameManualLayout from './FrameManualLayout';
 import PendantCardLayout from './PendantCardLayout';
 import GothicGrungeLayout from './GothicGrungeLayout';
 import StarryPolaroidLayout from './StarryPolaroidLayout';
+import StaffArchiveLayout from './StaffArchiveLayout';
 
 export const HUB_HEADER_LAYOUT_CLASSIC = 'classic';
 
@@ -30,9 +31,11 @@ export const HUB_HEADER_LAYOUT_FRAME_MANUAL = 'frameManual';
 export const HUB_HEADER_LAYOUT_PENDANT_CARD = 'pendantCard';
 export const HUB_HEADER_LAYOUT_GOTHIC_GRUNGE = 'gothicGrunge';
 export const HUB_HEADER_LAYOUT_STARRY_POLAROID = 'starryPolaroid';
+export const HUB_HEADER_LAYOUT_STAFF_ARCHIVE = 'staffArchive';
 
 // 版式列表，用于设置页渲染选择器
 export const HUB_HEADER_LAYOUTS = [
+
 
 
 {
@@ -70,12 +73,18 @@ export const HUB_HEADER_LAYOUTS = [
     label: '哥特暗黑风',
     hint: 'Grunge + Poster Bar',
   },
-  {
+   {
     id: HUB_HEADER_LAYOUT_STARRY_POLAROID,
     label: '星空拍立得风',
     hint: 'Polaroid + Capsules',
   },
+  {
+    id: HUB_HEADER_LAYOUT_STAFF_ARCHIVE,
+    label: '员工档案风',
+    hint: 'Staff ID + Badges',
+  },
 ];
+
 
 // id -> 组件，用于 HubHeader.jsx 实际渲染
 export const HUB_HEADER_LAYOUT_COMPONENTS = {
@@ -85,9 +94,11 @@ export const HUB_HEADER_LAYOUT_COMPONENTS = {
   [HUB_HEADER_LAYOUT_WINDOW_BROWSER]: WindowBrowserLayout,
   [HUB_HEADER_LAYOUT_FRAME_MANUAL]: FrameManualLayout,
   [HUB_HEADER_LAYOUT_PENDANT_CARD]: PendantCardLayout,
-  [HUB_HEADER_LAYOUT_GOTHIC_GRUNGE]: GothicGrungeLayout,
+   [HUB_HEADER_LAYOUT_GOTHIC_GRUNGE]: GothicGrungeLayout,
   [HUB_HEADER_LAYOUT_STARRY_POLAROID]: StarryPolaroidLayout,
+  [HUB_HEADER_LAYOUT_STAFF_ARCHIVE]: StaffArchiveLayout,
 };
+
 
 export const isKnownHubHeaderLayout = (id) =>
   HUB_HEADER_LAYOUTS.some((layout) => layout.id === id);
