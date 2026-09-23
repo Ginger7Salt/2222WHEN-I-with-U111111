@@ -4374,4 +4374,32 @@ db.version(56).stores({
   `,
 });
 
+// v57：#6 聊天窗宠物"小伙伴"（第一步：核心养成循环）。
+// 一个聊天窗最多养一只（&chatId 是唯一索引），user 和角色共同照顾；
+// 完全是新表，跟 habitats/habitatLogs（旧"领养"）、桌宠的 db.settings 键
+// 都没有代码或数据共享。
+db.version(57).stores({
+  companions: `
+    ++id,
+    &chatId,
+    characterId,
+    createdAt,
+    updatedAt
+  `,
+  // 拥有的商店道具：食物买下即用不占行，这里主要存衣服（category:'clothing'）。
+  companionInventory: `
+    ++id,
+    companionId,
+    category,
+    acquiredAt
+  `,
+  // 互动/自主照料日志，logType: 'user_action' | 'co_care'（参照 habitatLogs）。
+  companionLogs: `
+    ++id,
+    companionId,
+    logType,
+    timestamp
+  `,
+});
+
 export default db;

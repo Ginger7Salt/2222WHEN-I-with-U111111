@@ -4,7 +4,7 @@ import { runChatCompletionWithMcpTools } from '../../services/mcp/scheduledMcpTo
 import { syncScheduledTaskToCloud } from '../../services/cloudPushService';
 import { AWAY_RETURN_TYPE } from './away/awayState';
 import { executeAwayReturn } from './away/awayService';
-
+import { checkCompanionsForNeglect } from '../companion/companionService';
 
 
 const SCHEDULE_PATTERN =
@@ -1175,8 +1175,19 @@ export const checkAndSendDueScheduledMessages =
     if (isProcessingDueMessages) {
       return;
     }
-
     isProcessingDueMessages = true;
+
+    /*
+     * #6 小伙伴：定时巡检"多久没人照顾了"，顺路挂在这个已有的
+     * 60 秒 + 切回前台调度器上，不新增 setInterval/监听器。
+     * 自己内部已经做了 try/catch，这里额外包一层只是为了绝对
+     * 不影响下面预约消息本身的处理。
+     */
+    try {
+      void checkCompanionsForNeglect();
+    } catch (companionCheckError) {
+      console.error('[Companion] 巡检调用失败:', companionCheckError);
+    }
 
     try {
       /*

@@ -110,6 +110,9 @@ import { MapPinned } from 'lucide-react';
 import PlaceBooklet from '../location/PlaceBooklet';
 import PendingPlaceBanner from './components/cards/PendingPlaceBanner';
 
+import { Heart } from 'lucide-react';
+import { recordChatResponseForCompanion } from '../companion/companionService';
+
 import { getPrecisePosition } from '../../apps/location/locationService';
 import {
   getLocationSettings,
@@ -163,9 +166,11 @@ const getOlderMessagesBefore = (chatId, beforeTimestamp, limit) => (
     .toArray()
     .then((rows) => rows.reverse())
 );
-
 // 点单窗口只有用户点开时才加载，不占用聊天页的首屏体积
 const OrderRequestModal = lazy(() => import('./components/OrderRequestModal'));
+
+// #6 聊天窗宠物"小伙伴"，只有用户点开 🐾 更多入口里的入口才加载
+const CompanionPage = lazy(() => import('../companion/CompanionPage'));
 
 export const ChatRoom = ({
   chatId,
@@ -243,6 +248,7 @@ const [showInnerWorld, setShowInnerWorld] = useState(false);
 const [showPlaceBooklet, setShowPlaceBooklet] = useState(false);
 const [pendingNamePlace, setPendingNamePlace] = useState(null);
 const [showTopMenu, setShowTopMenu] = useState(false);
+const [showCompanionPage, setShowCompanionPage] = useState(false);
 
 // 顶部按钮行默认收起，只保留返回按钮；展开/收起统一由 ChatHeaderBar
 // 里那一颗爱心控制（同时带出这一整排按钮和下面的身份卡片）
@@ -1076,9 +1082,13 @@ useLayoutEffect(() => {
         duration: 3000,
       });
     }
-
     setMcpTrace(null);
     triggerAiResponse(chatId);
+
+    // #6 小伙伴：每次点"回应"顺带计一次数（换 ❤️），并有一定概率
+    // 让角色顺路去看看小伙伴——跟这个聊天窗有没有养小伙伴无关，
+    // 函数内部会自己判断，没养的话直接跳过。
+    void recordChatResponseForCompanion(chatId);
   };
 
   const handleTriggerAiButtonClick = () => {
@@ -1307,7 +1317,6 @@ useLayoutEffect(() => {
       />
     );
   }
-
   if (showPlaceBooklet) {
   return (
     <PlaceBooklet
@@ -1318,6 +1327,21 @@ useLayoutEffect(() => {
   setShowPlaceBooklet(false);
 }}
     />
+  );
+}
+
+  if (showCompanionPage) {
+  return (
+    <Suspense fallback={null}>
+      <CompanionPage
+        chatId={chatId}
+        character={character}
+        onBack={() => {
+  hasScrolledToLatestRef.current = false;
+  setShowCompanionPage(false);
+}}
+      />
+    </Suspense>
   );
 }
 
@@ -1488,6 +1512,18 @@ useLayoutEffect(() => {
                       >
                         <Ticket className="h-4 w-4" />
                         <span>查看线下邀约</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowCompanionPage(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Heart className="h-4 w-4" />
+                        <span>小伙伴</span>
                       </button>
                     </div>
                   </>
