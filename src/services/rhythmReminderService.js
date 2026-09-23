@@ -1,5 +1,5 @@
 import db from '../db';
-import { isInQuietHours } from '../apps/messages/check-in/checkInService';
+import { isInQuietHours } from './aiService';
 import { scheduleMemoryProcessing } from './memoryProvider';
 
 // 距离上一条消息（不论发送方）多久以内，视为"用户正在这个对话里"，

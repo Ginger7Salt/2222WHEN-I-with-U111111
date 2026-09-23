@@ -1305,7 +1305,7 @@ ${worldBooksText}
 
 // 判断当前时间是否处于免打扰时段。
 // 支持跨天：23:00 ~ 08:00；也支持同一天：13:00 ~ 14:00。
-const isInQuietHours = (quietConfig) => {
+export const isInQuietHours = (quietConfig) => {
   if (!quietConfig || quietConfig.enabled !== true) return false;
 
   const parseTimeToMinutes = (time, fallback) => {
