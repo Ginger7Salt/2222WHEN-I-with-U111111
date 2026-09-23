@@ -88,7 +88,7 @@ import {
  * 无关，返回顺序仍然是按时间从旧到新（跟原来 sortBy('timestamp') 的
  * 结果顺序一致），调用方不用跟着改。
  */
-const getRecentChatMessages = (chatId, limit) => (
+export const getRecentChatMessages = (chatId, limit) => (
   db.messages
     .where('[chatId+timestamp]')
     .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])

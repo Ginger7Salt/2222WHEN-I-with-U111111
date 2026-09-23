@@ -1,371 +1,182 @@
 import db from '../../../db';
-import { generateCheckInMessage } from './checkInAiService';
+import {
+  getRecentChatMessages,
+  buildHistoryContext,
+} from '../../../services/aiService';
 
-export const CHECK_IN_CONFIG_KEY = 'crossChatCheckInConfig';
+// 来讯此前完全不知道自己所在聊天框（sourceChat）自己聊过什么，只靠角色
+// 简介硬编一条话，读起来跟这段关系里发生过的事完全脱节。这里取最近的
+// 消息作为上下文，让来讯真正接得上 A 消息框自己的对话，而不是凭空写信。
+const CHECK_IN_CONTEXT_MESSAGE_LIMIT = 16;
 
-const DEFAULT_CONFIG = {
-  enabled: false,
-  awarenessLevel: 'subtle',
-  frequency: 'low',
-  enabledCharacterIds: [],
-  lastDeliveredAt: null,
-  lastDeliveredByCharacter: {},
-  dailyDate: '',
-  dailyCount: 0,
+const removeEmoji = (value = '') => {
+  return String(value)
+    .replace(
+      /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,
+      ''
+    )
+    .trim();
 };
 
-const CHECK_IN_LIMITS = {
-  low: {
-    globalCooldownMs: 8 * 60 * 60 * 1000,
-    characterCooldownMs: 18 * 60 * 60 * 1000,
-    dailyLimit: 1,
-    probability: 0.16,
-  },
-  medium: {
-    globalCooldownMs: 4 * 60 * 60 * 1000,
-    characterCooldownMs: 10 * 60 * 60 * 1000,
-    dailyLimit: 2,
-    probability: 0.24,
-  },
-  high: {
-    globalCooldownMs: 2 * 60 * 60 * 1000,
-    characterCooldownMs: 6 * 60 * 60 * 1000,
-    dailyLimit: 3,
-    probability: 0.34,
-  },
-};
-
-let isChecking = false;
-
-const getLocalDateKey = () => {
-  const now = new Date();
-
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
-};
-
-const toTimestamp = (value) => {
-  const timestamp = new Date(value || 0).getTime();
-  return Number.isNaN(timestamp) ? 0 : timestamp;
-};
-
-const normalizeConfig = (value = {}) => {
-  const merged = {
-    ...DEFAULT_CONFIG,
-    ...(value || {}),
-  };
-
-  return {
-    ...merged,
-    enabled: merged.enabled === true,
-    awarenessLevel: [
-      'subtle',
-      'busy_elsewhere',
-      'named_character',
-    ].includes(merged.awarenessLevel)
-      ? merged.awarenessLevel
-      : 'subtle',
-    frequency: ['low', 'medium', 'high'].includes(merged.frequency)
-      ? merged.frequency
-      : 'low',
-    enabledCharacterIds: Array.isArray(merged.enabledCharacterIds)
-      ? merged.enabledCharacterIds
-      : [],
-    lastDeliveredByCharacter:
-      merged.lastDeliveredByCharacter &&
-      typeof merged.lastDeliveredByCharacter === 'object'
-        ? merged.lastDeliveredByCharacter
-        : {},
-    dailyCount: Number(merged.dailyCount || 0),
-    dailyDate: String(merged.dailyDate || ''),
-  };
-};
-
-export const isInQuietHours = (quietConfig) => {
-  if (!quietConfig || quietConfig.enabled !== true) {
-    return false;
-  }
-
-  const parseTime = (value, fallback) => {
-    const [hours, minutes] = String(value || fallback)
-      .split(':')
-      .map(Number);
-
-    if (
-      !Number.isInteger(hours) ||
-      !Number.isInteger(minutes) ||
-      hours < 0 ||
-      hours > 23 ||
-      minutes < 0 ||
-      minutes > 59
-    ) {
-      const [fallbackHours, fallbackMinutes] = fallback
-        .split(':')
-        .map(Number);
-
-      return fallbackHours * 60 + fallbackMinutes;
-    }
-
-    return hours * 60 + minutes;
-  };
-
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const startMinutes = parseTime(quietConfig.start, '23:00');
-  const endMinutes = parseTime(quietConfig.end, '08:00');
-
-  if (startMinutes === endMinutes) {
-    return true;
-  }
-
-  if (startMinutes > endMinutes) {
-    return currentMinutes >= startMinutes || currentMinutes < endMinutes;
-  }
-
-  return currentMinutes >= startMinutes && currentMinutes < endMinutes;
-};
-
-const dispatchLocalMessageEvent = (chatId) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.dispatchEvent(
-    new CustomEvent('new-local-message-inserted', {
-      detail: { chatId },
-    })
-  );
-};
-
-export const getCheckInConfig = async () => {
-  const setting = await db.settings.get(CHECK_IN_CONFIG_KEY);
-  return normalizeConfig(setting?.value);
-};
-
-export const saveCheckInConfig = async (nextConfig) => {
-  const normalizedConfig = normalizeConfig(nextConfig);
-
-  await db.settings.put({
-    key: CHECK_IN_CONFIG_KEY,
-    value: normalizedConfig,
-  });
-
-  return normalizedConfig;
-};
-
-const getEligibleCheckInChats = async ({
+const getAwarenessGuide = ({
+  awarenessLevel,
   activeChat,
-  config,
 }) => {
-  const allChats = await db.chats.toArray();
+  if (awarenessLevel === 'named_character') {
+    return `你可以知道用户此刻正在与 ${activeChat.title || '另一位角色'} 聊天。只可提及对方的名称，不能假装知道他们聊了什么。`;
+  }
 
-  const enabledCharacterIdSet = new Set(
-    config.enabledCharacterIds.map((id) => String(id))
+  if (awarenessLevel === 'busy_elsewhere') {
+    return '你可以知道用户此刻正在别处聊天，但不知道对象是谁，也不知道任何聊天内容。';
+  }
+
+  return '你只知道用户已经有一阵子没有回应你；不要声称知道用户在哪里或正在做什么。';
+};
+
+export const generateCheckInMessage = async ({
+  sourceChat,
+  sourceCharacter,
+  activeChat,
+  awarenessLevel,
+}) => {
+  if (
+    !sourceChat?.id ||
+    !sourceCharacter?.id ||
+    !activeChat?.id
+  ) {
+    return null;
+  }
+
+  const apiSetting = await db.settings.get('apiConfig');
+  const apiConfig = apiSetting?.value || {};
+
+  if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+    return null;
+  }
+
+  const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
+
+  const awarenessGuide = getAwarenessGuide({
+    awarenessLevel,
+    activeChat,
+  });
+
+  // 只取角色「自己这个聊天框」（sourceChat）的最近对话，让来讯的内容
+  // 能自然接上你们俩自己聊过的东西；跟用户当前所在的另一个聊天框
+  // （activeChat）无关，那边的内容仍然不可知、不可捏造。
+  const rawContextMessages = await getRecentChatMessages(
+    sourceChat.id,
+    CHECK_IN_CONTEXT_MESSAGE_LIMIT
   );
 
-  const eligibleChats = allChats
-    .filter((candidateChat) => {
-      if (!candidateChat?.id || !candidateChat.characterId) {
-        return false;
-      }
+  const historyContext = buildHistoryContext(rawContextMessages);
 
-      if (candidateChat.id === activeChat.id) {
-        return false;
-      }
+  const hasOwnHistory = historyContext.length > 0;
 
-      if (candidateChat.characterId === activeChat.characterId) {
-        return false;
-      }
+  const systemPrompt = `你正在扮演角色：${sourceCharacter.name}。
 
-      return enabledCharacterIdSet.has(
-        String(candidateChat.characterId)
-      );
-    })
-    .sort((left, right) => {
-      return (
-        toTimestamp(right.updatedAt) -
-        toTimestamp(left.updatedAt)
-      );
-    });
+角色简介：
+${sourceCharacter.bio || '无'}
 
-  const latestChatByCharacter = new Map();
+补充设定：
+${sourceCharacter.extraNotes || '无'}
 
-  eligibleChats.forEach((candidateChat) => {
-    if (!latestChatByCharacter.has(candidateChat.characterId)) {
-      latestChatByCharacter.set(
-        candidateChat.characterId,
-        candidateChat
-      );
-    }
-  });
+你现在准备给用户留下一条来自自己聊天窗口的短消息。它应该像一张从另一扇门后递来的短笺，而不是质问、控制、监视或制造压力。
 
-  return [...latestChatByCharacter.values()];
-};
-
-const selectEligibleChat = ({
-  candidateChats,
-  config,
-  limits,
-  now,
-}) => {
-  const availableChats = candidateChats.filter((candidateChat) => {
-    const lastDeliveredAt =
-      config.lastDeliveredByCharacter?.[candidateChat.characterId];
-
-    const elapsedMs = now - toTimestamp(lastDeliveredAt);
-
-    return (
-      !lastDeliveredAt ||
-      elapsedMs >= limits.characterCooldownMs
-    );
-  });
-
-  if (availableChats.length === 0) {
-    return null;
+${
+    hasOwnHistory
+      ? '下面附上的是你和用户在这个聊天框里最近真实聊过的内容，你可以自然地记得它、并让这条来讯接上其中的话题或情绪；但不要逐字复述这些记录，也不要提及"记录""上下文""历史消息"这类字眼。'
+      : '你和用户在这个聊天框里还没有聊过什么，这条来讯可以是一句主动的开场，而不是接续某个具体话题。'
   }
 
-  return availableChats[
-    Math.floor(Math.random() * availableChats.length)
-  ];
-};
+你的知情边界：
+${awarenessGuide}
 
-const getResetDailyConfig = (config) => {
-  const today = getLocalDateKey();
-
-  if (config.dailyDate === today) {
-    return config;
-  }
-
-  return {
-    ...config,
-    dailyDate: today,
-    dailyCount: 0,
-  };
-};
-
-export const checkForCrossChatCheckIn = async ({
-  activeChatId,
-  onDelivered,
-}) => {
-  if (!activeChatId || isChecking) {
-    return null;
-  }
-
-  isChecking = true;
+严格要求：
+- 以角色第一人称写一条自然短消息；
+- 控制在 18 到 68 个汉字之间；
+- 不使用 Emoji；
+- 不要使用标题、Markdown、方括号、舞台说明或额外前言；
+- 不要提及 AI、系统、接口、算法、通知、聊天室或技术实现；
+- 不得捏造用户当前所在的另一个聊天框里发生过的具体内容；
+- 不得责备用户，不得要求立刻回复，不得使用威胁、占有、羞辱或情绪勒索；
+- 保持角色原有的语气与关系感。`;
 
   try {
-    const [activeChat, config, quietHoursSetting] = await Promise.all([
-      db.chats.get(activeChatId),
-      getCheckInConfig(),
-      db.settings.get('quietHours'),
-    ]);
-
-    if (!activeChat || !config.enabled) {
-      return null;
-    }
-
-    if (isInQuietHours(quietHoursSetting?.value)) {
-      return null;
-    }
-
-    const preparedConfig = getResetDailyConfig(config);
-    const limits =
-      CHECK_IN_LIMITS[preparedConfig.frequency] ||
-      CHECK_IN_LIMITS.low;
-
-    if (preparedConfig.dailyCount >= limits.dailyLimit) {
-      return null;
-    }
-
-    const now = Date.now();
-    const globalElapsedMs =
-      now - toTimestamp(preparedConfig.lastDeliveredAt);
-
-    if (
-      preparedConfig.lastDeliveredAt &&
-      globalElapsedMs < limits.globalCooldownMs
-    ) {
-      return null;
-    }
-
-    if (Math.random() > limits.probability) {
-      return null;
-    }
-
-    const candidateChats = await getEligibleCheckInChats({
-      activeChat,
-      config: preparedConfig,
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiConfig.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: apiConfig.model || 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+          ...historyContext,
+        ],
+        temperature: 0.78,
+      }),
     });
 
-    const sourceChat = selectEligibleChat({
-      candidateChats,
-      config: preparedConfig,
-      limits,
-      now,
-    });
-
-    if (!sourceChat) {
+    if (!response.ok) {
       return null;
     }
 
-    const sourceCharacter = await db.characters.get(
-      sourceChat.characterId
+    const data = await response.json();
+    const content = removeEmoji(
+      data?.choices?.[0]?.message?.content || ''
     );
 
-    if (!sourceCharacter) {
+    if (!content) {
       return null;
     }
 
-    const result = await generateCheckInMessage({
-      sourceChat,
-      sourceCharacter,
-      activeChat,
-      awarenessLevel: preparedConfig.awarenessLevel,
-    });
+    const timestamp = new Date().toISOString();
 
-    if (!result?.messageId || !result?.content) {
-      return null;
-    }
-
-    const deliveredAt = new Date().toISOString();
-
-    const updatedConfig = {
-      ...preparedConfig,
-      lastDeliveredAt: deliveredAt,
-      dailyDate: getLocalDateKey(),
-      dailyCount: preparedConfig.dailyCount + 1,
-      lastDeliveredByCharacter: {
-        ...preparedConfig.lastDeliveredByCharacter,
-        [sourceCharacter.id]: deliveredAt,
-      },
-    };
-
-    await saveCheckInConfig(updatedConfig);
-
-    dispatchLocalMessageEvent(sourceChat.id);
-
-    const delivery = {
+    const messageId = await db.messages.add({
       chatId: sourceChat.id,
       characterId: sourceCharacter.id,
-      characterName: sourceCharacter.name || sourceChat.title || '某个人',
-      characterAvatar: sourceCharacter.avatar || '',
-      preview: result.content,
+      sender: 'character',
+      type: 'text',
+      content,
+      metadata: {
+        source: 'cross_chat_check_in',
+        awarenessLevel,
+      },
+      versions: [
+        {
+          type: 'text',
+          content,
+          metadata: {
+            source: 'cross_chat_check_in',
+            awarenessLevel,
+          },
+          timestamp,
+        },
+      ],
+      currentVersionIndex: 0,
+      isRead: false,
+      timestamp,
+    });
+
+    await db.chats.update(sourceChat.id, {
+      updatedAt: timestamp,
+    });
+
+    return {
+      messageId,
+      content,
     };
-
-    onDelivered?.(delivery);
-
-    return delivery;
   } catch (error) {
     console.warn(
-      '[CheckInService] 跨聊天来讯检查未完成，当前聊天不受影响。',
+      '[CheckInAiService] 角色来讯未能生成，未写入空消息。',
       error
     );
 
     return null;
-  } finally {
-    isChecking = false;
   }
 };
