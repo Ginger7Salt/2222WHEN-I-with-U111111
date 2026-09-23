@@ -101,8 +101,9 @@ export const MemorySourceSection = () => {
   const hint = {
     [MEMORY_SOURCE.BUILTIN]:
       '角色的记忆由这个 App 内置整理和检索，默认使用这个模式。',
-    [MEMORY_SOURCE.EXTERNAL]:
-      '当前使用外部记忆，内置记忆已暂停（已有记忆仍会保留，可在下面查看）。角色会自己调用你在 MCP 设置里接好并启用的记忆工具。',
+       [MEMORY_SOURCE.EXTERNAL]:
+      '当前使用外部记忆，内置记忆已暂停（已有记忆仍会保留，可在下面查看）。角色会自己调用你在 MCP 设置里接好并启用的记忆工具。'
+      + '需要留意：工具调用会增加每次回复的延迟和请求次数；记忆内容会写到你自己接的第三方服务里，隐私由你选择的那个服务负责。',
     [MEMORY_SOURCE.OFF]:
       '记忆功能已关闭：角色不会再整理或查阅任何记忆（已有记忆仍会保留，可在下面查看）。',
   }[source];
@@ -164,12 +165,11 @@ export const MemorySourceSection = () => {
             value={noteDraft}
             onChange={(event) => setNoteDraft(event.target.value)}
             rows={5}
-            className="w-full rounded-xl border p-2 leading-relaxed"
+                        className="w-full rounded-xl border p-2 text-[12px] leading-relaxed"
             style={{
               background: 'var(--bg-main)',
               borderColor: 'var(--card-border)',
               color: 'var(--text-main)',
-              fontSize: '16px',
             }}
           />
 
