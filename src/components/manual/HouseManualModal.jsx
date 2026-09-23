@@ -1,14 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { BookOpen, ChevronRight, X } from 'lucide-react';
+
 import {
   MANUAL_SECTIONS,
-} from '../../apps/manual/ManualApp';
+  MANUAL_UI_TEXT,
+} from '../../apps/manual/manualContent';
+import {
+  ManualLanguageSwitch,
+  readStoredManualLang,
+  renderManualBlocks,
+  storeManualLang,
+} from '../../apps/manual/manualBlocks';
+import { TutorialLibrary } from '../../apps/manual/TutorialLibrary';
 
 export const HouseManualModal = ({
   isOpen,
   onClose,
 }) => {
+  const [lang, setLang] = useState(() => readStoredManualLang());
   const [activeSection, setActiveSection] = useState('welcome');
+
+  const handleLangChange = (nextLang) => {
+    setLang(nextLang);
+    storeManualLang(nextLang);
+  };
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -39,11 +54,14 @@ export const HouseManualModal = ({
 
   if (!isOpen) return null;
 
+  const ui = MANUAL_UI_TEXT[lang];
+
   const currentSection =
     MANUAL_SECTIONS.find(
       (section) => section.id === activeSection,
     ) || MANUAL_SECTIONS[0];
 
+  const currentText = currentSection.translations[lang];
   const SectionIcon = currentSection.icon;
   const currentIndex = MANUAL_SECTIONS.indexOf(currentSection);
 
@@ -72,9 +90,15 @@ export const HouseManualModal = ({
       <section className="house-manual-modal__window">
         <header className="house-manual-modal__header">
           <div className="house-manual-modal__identity">
-            <span>THE HOUSE MANUAL</span>
-            <h1 id="house-manual-title">空间说明书</h1>
+            <span>{ui.kicker}</span>
+            <h1 id="house-manual-title">{ui.heading}</h1>
           </div>
+
+          <ManualLanguageSwitch
+            lang={lang}
+            onChange={handleLangChange}
+            className="house-manual-modal__lang"
+          />
 
           <button
             type="button"
@@ -91,12 +115,12 @@ export const HouseManualModal = ({
         </header>
 
         <div className="house-manual-modal__intro">
-          <span>WHEN I WITH U / NOTES FOR LIVING HERE</span>
+          <span>{ui.introEyebrow}</span>
 
           <h2>
-            一份简单的
+            {ui.introTitle[0]}
             <br />
-            使用说明
+            {ui.introTitle[1]}
           </h2>
 
           <p>
@@ -107,10 +131,10 @@ export const HouseManualModal = ({
         <div className="house-manual-modal__layout">
           <nav
             className="house-manual-modal__index"
-            aria-label="说明书目录"
+            aria-label={ui.contentsAria}
           >
             <div className="house-manual-modal__index-label">
-              CONTENTS
+              {ui.contentsLabel}
             </div>
 
             <div className="house-manual-modal__index-list">
@@ -118,6 +142,7 @@ export const HouseManualModal = ({
                 const Icon = section.icon;
                 const isActive =
                   section.id === currentSection.id;
+                const sectionText = section.translations[lang];
 
                 return (
                   <button
@@ -139,7 +164,7 @@ export const HouseManualModal = ({
                       strokeWidth={1.5}
                     />
 
-                    <span>{section.label}</span>
+                    <span>{sectionText.label}</span>
 
                     <ChevronRight
                       className="ml-auto h-3.5 w-3.5 shrink-0"
@@ -153,10 +178,10 @@ export const HouseManualModal = ({
 
           <article
             className="house-manual-modal__article animate-fade-in-up"
-            key={currentSection.id}
+            key={`${currentSection.id}-${lang}`}
           >
             <div className="house-manual-modal__article-topline">
-              <span>{currentSection.eyebrow}</span>
+              <span>{currentText.eyebrow}</span>
               <span>
                 {String(currentIndex + 1).padStart(2, '0')}
               </span>
@@ -169,10 +194,14 @@ export const HouseManualModal = ({
               />
             </div>
 
-            <h2>{currentSection.title}</h2>
+            <h2>{currentText.title}</h2>
 
             <div className="house-manual-modal__article-body">
-              {currentSection.content}
+              {currentSection.id === 'tutorial' ? (
+                <TutorialLibrary lang={lang} />
+              ) : (
+                renderManualBlocks(currentText.body)
+              )}
             </div>
 
             <div className="house-manual-modal__pagination">
@@ -200,9 +229,9 @@ export const HouseManualModal = ({
             </div>
 
             <div className="house-manual-modal__article-footer">
-              <span>WHEN I with U</span>
+              <span>{ui.footerBrand}</span>
               <span>—</span>
-              <span>KEEP WHAT MATTERS</span>
+              <span>{ui.footerTag}</span>
             </div>
           </article>
         </div>

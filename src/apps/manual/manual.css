@@ -1683,3 +1683,85 @@
     padding: 1.15rem 1rem 1.25rem;
   }
 }
+/* ==========================================================
+   语言切换（中 / EN / 한）—— ManualApp 页头 + HouseManualModal 弹层头都用它
+   追加在 manual.css 末尾即可，不用改前面任何一行。
+   ========================================================== */
+
+.manual-lang-switch {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem;
+  border: 1px solid var(--card-border, #000);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.manual-lang-switch__icon {
+  margin: 0 0.15rem 0 0.25rem;
+  color: #000;
+  opacity: 0.55;
+}
+
+.manual-lang-switch__item {
+  padding: 0.28rem 0.55rem;
+  border: none;
+  border-radius: 999px;
+  color: #000;
+  background: transparent;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+  transition:
+    opacity 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.manual-lang-switch__item:hover {
+  opacity: 0.85;
+}
+
+.manual-lang-switch__item--active {
+  opacity: 1;
+  color: #fff;
+  background: #000;
+}
+
+.manual-lang-switch__item:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+/* ManualApp 页头：把语言切换塞进 back-button / title / mark 中间，不挤爆标题 */
+.manual-header__lang {
+  order: 3;
+}
+
+.manual-header__mark {
+  order: 4;
+}
+
+@media (max-width: 480px) {
+  .manual-header {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  .manual-header__title {
+    order: 1;
+    flex-basis: 100%;
+  }
+
+  .manual-lang-switch {
+    order: 2;
+  }
+}
+
+/* HouseManualModal 弹层头：同一套切换按钮，放在标题和关闭按钮中间 */
+.house-manual-modal__lang {
+  flex-shrink: 0;
+}

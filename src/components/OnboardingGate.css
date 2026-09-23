@@ -8,6 +8,7 @@
   overflow:hidden;
   padding:24px;
   color:#111;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Noto Sans SC", sans-serif;
   background:
     radial-gradient(circle at 16% 15%,rgba(0,0,0,.07),transparent 22rem),
     radial-gradient(circle at 86% 82%,rgba(0,0,0,.055),transparent 25rem),
@@ -25,6 +26,18 @@
   background-size:38px 38px;
   mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 82%,transparent);
 }
+
+/* 多语言断行微调：韩文与中文采用 keep-all 防止标点或单字孤行 */
+.onboarding-page.lang-ko,
+.onboarding-page.lang-zh {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.onboarding-page.lang-en {
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
 .onboarding-card{
   position:relative;
   width:min(100%,510px);
@@ -37,6 +50,7 @@
     0 28px 80px rgba(0,0,0,.12),
     0 5px 18px rgba(0,0,0,.05);
   backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
   animation:onboarding-appear .8s cubic-bezier(.2,.8,.2,1) both;
 }
 .onboarding-card::before{
@@ -50,24 +64,22 @@
   background:#111;
   opacity:.06;
 }
-.onboarding-card::after{
-  content:"";
-  position:absolute;
-  top:30px;
-  right:32px;
-  width:8px;
-  height:8px;
-  border-radius:50%;
-  background:#111;
-  box-shadow:
-    -17px 0 rgba(17,17,17,.28),
-    -34px 0 rgba(17,17,17,.12);
+
+/* 顶部头部排版 */
+.onboarding-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:26px;
+  gap:12px;
+  position:relative;
+  z-index:2;
 }
+
 .onboarding-brand{
   display:flex;
   align-items:center;
   gap:11px;
-  margin-bottom:26px;
   font-size:12px;
   font-weight:700;
   letter-spacing:.16em;
@@ -81,20 +93,58 @@
   transform:rotate(12deg);
   box-shadow:5px 5px rgba(17,17,17,.12);
 }
+
+/* 极简多语言切换器 */
+.onboarding-lang-group{
+  display:flex;
+  align-items:center;
+  background:rgba(17,17,17,.05);
+  border-radius:100px;
+  padding:2px;
+  gap:2px;
+}
+.onboarding-lang-item{
+  border:0;
+  background:transparent;
+  font-size:11px;
+  font-weight:600;
+  color:#777;
+  padding:3px 8px;
+  border-radius:100px;
+  cursor:pointer;
+  transition:all .2s ease;
+  line-height:1.2;
+}
+.onboarding-lang-item:hover{
+  color:#111;
+}
+.onboarding-lang-item.is-active{
+  background:#fff;
+  color:#111;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+
 .onboarding-card h1{
   margin:0 0 16px;
   font-size:28px;
   line-height:1.25;
-  letter-spacing:-.05em;
+  letter-spacing:-.03em;
 }
+
+/* 英文标题字距微调 */
+.lang-en .onboarding-card h1{
+  letter-spacing:-.01em;
+  font-size:26px;
+}
+
 .onboarding-intro{
   margin:0;
   color:#4f4f4f;
   font-size:14px;
-  line-height:1.9;
+  line-height:1.85;
 }
 .onboarding-note{
-  margin:25px 0 21px;
+  margin:24px 0 20px;
   padding:15px 17px;
   border-radius:15px;
   color:#343434;
@@ -106,7 +156,7 @@
   margin:0;
 }
 .onboarding-note p+p{
-  margin-top:3px;
+  margin-top:4px;
 }
 .onboarding-request{
   margin:0 0 17px;
@@ -122,6 +172,7 @@
 }
 .onboarding-input{
   width:100%;
+  box-sizing:border-box;
   height:50px;
   padding:0 16px;
   border:1px solid rgba(17,17,17,.18);
@@ -178,6 +229,10 @@
 }
 .onboarding-hint.is-ready{
   color:#111;
+  font-weight:600;
+}
+.onboarding-hint.is-error{
+  color:#e53e3e;
 }
 .onboarding-footer{
   margin:23px 0 0;
@@ -230,6 +285,6 @@
     border-radius:21px;
   }
   .onboarding-card h1{
-    font-size:25px;
+    font-size:23px;
   }
 }
