@@ -4,6 +4,7 @@ import React, {
   useRef,
 } from 'react';
 import { getEffectiveServerUrl } from '../../../services/cloudPushService';
+import { triggerGlobalToast } from '../../../components/NotificationToast';
 
 let generatedKeepAliveUrl = null;
 
@@ -300,12 +301,42 @@ const heartbeatInterval = setInterval(() => {
     void tryPlayExistingAudio();
   }, [tryPlayExistingAudio]);
 
+  // 之前这里只往 console.warn 一句，用户完全看不到失败原因，
+  // "放进去播不了"排查起来无从下手。现在把 <audio> 元素自己报出的
+  // error.code 翻译成人话，用 toast 提示出来；只在用户自己填的
+  // 音乐链接失败时提示，内置的静音保活音频失败不需要打扰用户。
+  const MEDIA_ERROR_MESSAGES = {
+    1: '加载被中断了，请重试一次',
+    2: '网络请求失败——很多音乐链接会拒绝来自其他网站的直接访问（防盗链），换一个真正的直链试试',
+    3: '这段音频解码失败，文件可能损坏或格式不受支持',
+    4: '浏览器打不开这个链接——它很可能不是音频文件本身，而是一个网页/跳转页，需要能直接访问到 .mp3 文件的直链',
+  };
+
   const handleAudioError = useCallback(() => {
-    if (audioSrcRef.current) {
-      console.warn('[AudioKeepAlive] 用户音频无法播放。');
-    } else {
+    const audio = audioRef.current;
+    const currentUrl = audioSrcRef.current;
+
+    if (!currentUrl) {
       console.warn('[AudioKeepAlive] 默认保活音频无法播放。');
+      return;
     }
+
+    const errorCode = audio?.error?.code;
+    const reason =
+      MEDIA_ERROR_MESSAGES[errorCode] || '原因不明，可以打开浏览器控制台查看具体报错';
+
+    console.warn(
+      '[AudioKeepAlive] 用户音频无法播放：',
+      currentUrl,
+      audio?.error,
+    );
+
+    triggerGlobalToast({
+      title: '这首保活音乐播不了',
+      content: reason,
+      iconType: 'bell',
+      duration: 5000,
+    });
   }, []);
 
   useEffect(() => {
@@ -369,5 +400,3 @@ const heartbeatInterval = setInterval(() => {
 };
 
 export default AudioKeepAlive;
-
-

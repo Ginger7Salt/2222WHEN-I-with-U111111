@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Disc3, Link2, Pause, Play, Trash2, X } from 'lucide-react';
 import db from '../db';
+import { triggerGlobalToast } from './NotificationToast';
 
 const POSITION_KEY = 'keep_alive_widget_position';
 
@@ -257,14 +258,45 @@ const handlePointerCancel = (event) => {
 
     if (!url) return;
 
+    let parsedUrl;
+
     try {
-      const parsedUrl = new URL(url);
+      parsedUrl = new URL(url);
 
       if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        triggerGlobalToast({
+          title: '这个链接加不了',
+          content:
+            '只能填 http:// 或 https:// 开头的网络直链——本地文件路径、网盘分享页链接都不行，得是能直接访问到 .mp3/.ogg/.wav 文件本身的地址。',
+          iconType: 'bell',
+          duration: 5000,
+        });
         return;
       }
     } catch {
+      triggerGlobalToast({
+        title: '这不是一个有效的链接',
+        content: '检查一下是不是少了 http:// 或 https:// 开头。',
+        iconType: 'bell',
+        duration: 4000,
+      });
       return;
+    }
+
+    // 页面本身是 https 时，浏览器往往会拦掉 http 的音频请求（混合内容），
+    // 就算链接本身是对的也放不出声音——提前提示一下，省得白填。
+    if (
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      parsedUrl.protocol === 'http:'
+    ) {
+      triggerGlobalToast({
+        title: '这个链接大概率播不了',
+        content:
+          '当前网站是 https，但这个音乐链接是 http，浏览器通常会直接拦掉这种"混合内容"。如果保存后确实放不出声音，换一个 https 的直链。',
+        iconType: 'bell',
+        duration: 6000,
+      });
     }
 
     const nextTrack = {
@@ -506,7 +538,7 @@ const handlePointerCancel = (event) => {
                   className="text-[10px] leading-relaxed"
                   style={{ color: 'var(--text-muted)' }}
                 >
-                  请输入浏览器可以直接播放的 mp3、ogg 或 wav 音频直链。
+                  请输入浏览器可以直接播放的 mp3、ogg 或 wav 音频直链，本地文件和网盘分享页链接都不行。很多音乐网站的链接会拒绝跨站访问（防盗链），放不出声音大概率是这个原因。
                 </p>
               </form>
             </section>
@@ -565,4 +597,3 @@ const handlePointerCancel = (event) => {
 };
 
 export default KeepAliveIndicator;
-
