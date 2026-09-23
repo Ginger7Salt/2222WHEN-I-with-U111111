@@ -50,6 +50,7 @@ const getChatTitle = (chat) => {
 export const KeepAliveIndicator = ({
   isVisible = false,
   activeChats = [],
+  pendingScheduledCount = 0,
   audioConfig = {},
   onAudioConfigChange
 }) => {
@@ -410,6 +411,24 @@ const handlePointerCancel = (event) => {
                     </p>
                   </article>
                 ))}
+
+                {activeChats.length === 0 && pendingScheduledCount > 0 && (
+                  <article
+                    className="border-l-2 pl-3"
+                    style={{ borderColor: 'var(--accent-color)' }}
+                  >
+                    <p className="text-xs font-semibold">
+                      有预约消息待发送
+                    </p>
+
+                    <p
+                      className="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed"
+                      style={{ color: 'var(--text-sub)' }}
+                    >
+                      {`当前没有主动开启后台保活的聊天，但还有 ${pendingScheduledCount} 条预约消息在排队等待发送，所以仍在保持后台运行以确保按时触发。`}
+                    </p>
+                  </article>
+                )}
               </div>
             </section>
 

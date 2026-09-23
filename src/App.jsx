@@ -738,14 +738,16 @@ const [hubBackground, setHubBackground] = useState('');
    * 有预约消息等待发送时也保持开启，否则页面被系统挂起后预约可能
    * 无法按时触发——这个 OR 条件是故意的，不是 bug。
    *
-   * 但悬浮球（KeepAliveIndicator）只应该反映"用户自己在某个消息框
-   * 里打开了后台音频保活"这一件事。如果悬浮球也用 isKeepAliveActive
-   * 来决定显示与否，就会出现用户明明关掉了所有消息框的保活开关，
-   * 却因为还有一条预约消息在排队，悬浮球死活关不掉的问题——这正是
-   * 之前反馈的"关闭音频保活，悬浮球还在"。
- *
-   * 所以这里拆成两个变量：音频是否播放看 isKeepAliveActive，悬浮球
-   * 是否显示只看用户主动打开的 activeKeepAliveChats。
+   * 悬浮球（KeepAliveIndicator）曾经只反映"用户自己在某个消息框里
+   * 打开了后台音频保活"这一件事，代价是：只要还有预约消息在排队，
+   * 音频保活其实一直在跑（包括手势唤醒时那声"静默音频重新播放"的
+   * 提示音），但悬浮球完全不显示，用户既看不到也关不掉，只会在毫无
+   * 征兆的情况下听到一声"嘀"。
+   *
+   * 所以现在悬浮球改为同时反映这两种触发来源：用户主动打开的
+   * activeKeepAliveChats，或是还有预约消息在排队的 pendingScheduledCount。
+   * 只要音频保活在跑，悬浮球就该在，用户才能点开它看到原因、也才有
+   * 地方可以管理（哪怕只是看到"有预约消息待发送"）。
  */
 
   const isKeepAliveActive =
@@ -753,7 +755,9 @@ const [hubBackground, setHubBackground] = useState('');
     pendingScheduledCount > 0;
 
     const isKeepAliveWidgetVisible =
-  activeKeepAliveChats.length > 0 && !activeCall;
+  (activeKeepAliveChats.length > 0 ||
+    pendingScheduledCount > 0) &&
+  !activeCall;
 
   const activeAudioTrack = audioConfig.playlist.find(
     (track) => track.id === audioConfig.activeTrackId
@@ -811,6 +815,7 @@ const [hubBackground, setHubBackground] = useState('');
       <KeepAliveIndicator
         isVisible={isKeepAliveWidgetVisible}
         activeChats={activeKeepAliveChats}
+        pendingScheduledCount={pendingScheduledCount}
         audioConfig={audioConfig}
         onAudioConfigChange={setAudioConfig}
       />
