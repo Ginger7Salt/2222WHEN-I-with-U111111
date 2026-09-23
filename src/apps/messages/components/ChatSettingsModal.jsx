@@ -38,6 +38,7 @@ export const ChatSettingsModal = ({
   onSaveSummary,
   onUpdatedUserPersona,
   onTogglePinTopToolbar,
+  onToggleHeartbeatEffect,
   fontStatus,
 }) => {
 
@@ -119,6 +120,15 @@ export const ChatSettingsModal = ({
   const handleTogglePinTopToolbarChange = (nextValue) => {
     setPinTopToolbar(nextValue);
     onTogglePinTopToolbar?.(nextValue);
+  };
+
+  const [heartbeatEffectEnabled, setHeartbeatEffectEnabled] = useState(
+    chat?.heartbeatEffectEnabled ?? false
+  );
+
+  const handleToggleHeartbeatEffectChange = (nextValue) => {
+    setHeartbeatEffectEnabled(nextValue);
+    onToggleHeartbeatEffect?.(nextValue);
   };
 
     // ===== 本窗字体 / 字号 =====
@@ -1227,6 +1237,37 @@ const handleToggleLocation = async () => {
             className="h-4 w-4 shrink-0 cursor-pointer"
             style={{ accentColor: 'var(--accent-color)' }}
             aria-label="常驻顶部快捷按钮"
+          />
+        </div>
+
+                {/* 发送心跳动效 */}
+        <div
+          className="flex items-center justify-between gap-4 rounded-2xl border p-3"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)',
+            color: 'var(--text-main)'
+          }}
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-medium">发送心跳动效</p>
+            <p
+              className="mt-1 text-[10px] leading-relaxed"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              开启后，每次发出消息，输入框上方会闪一下心电图波形，纯美观效果，不影响发送。
+            </p>
+          </div>
+
+          <input
+            type="checkbox"
+            checked={heartbeatEffectEnabled}
+            onChange={(event) => {
+              handleToggleHeartbeatEffectChange(event.target.checked);
+            }}
+            className="h-4 w-4 shrink-0 cursor-pointer"
+            style={{ accentColor: 'var(--accent-color)' }}
+            aria-label="发送心跳动效"
           />
         </div>
 

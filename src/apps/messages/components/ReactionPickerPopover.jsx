@@ -1,5 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { ListChecks } from 'lucide-react';
 import { REACTION_TYPES } from './reactionTypes';
 
 // 长按消息气泡后浮起来的反应选择面板：丝滑的弹出/收起动效
@@ -8,7 +9,7 @@ import { REACTION_TYPES } from './reactionTypes';
 //
 // open 时会顺带铺一层全屏透明背景，点背景或者选完一个反应都会
 // 收起面板，跟大多数聊天软件"长按点反应"的手感一致。
-const ReactionPickerPopover = ({ open, isUser, selectedType, onPick, onClose }) => (
+const ReactionPickerPopover = ({ open, isUser, selectedType, onPick, onClose, onEnterSelect }) => (
   <AnimatePresence>
     {open && (
       <>
@@ -64,6 +65,35 @@ const ReactionPickerPopover = ({ open, isUser, selectedType, onPick, onClose }) 
               </motion.button>
             );
           })}
+
+          {typeof onEnterSelect === 'function' && (
+            <>
+              {/* 跟反应图标分隔开的一条竖线，避免"选择"看起来像另一个反应类型 */}
+              <div
+                className="mx-0.5 h-6 w-px shrink-0"
+                style={{ background: 'var(--divider)' }}
+              />
+
+              <motion.button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={onEnterSelect}
+                title="选择消息"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: REACTION_TYPES.length * 0.03 }}
+                whileHover={{ scale: 1.22, y: -3 }}
+                whileTap={{ scale: 0.92 }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                style={{ background: 'var(--control-soft-bg)' }}
+              >
+                <ListChecks
+                  className="h-4 w-4"
+                  style={{ color: 'var(--text-main)' }}
+                />
+              </motion.button>
+            </>
+          )}
         </motion.div>
       </>
     )}

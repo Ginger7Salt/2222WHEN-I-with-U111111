@@ -23,6 +23,10 @@ const MessageList = ({
   onEnterOfflineScene,
   onToggleReaction,
   onOpenCompanionOffer,
+  selectionMode,
+  selectedMessageIds,
+  onToggleSelected,
+  onEnterSelectionMode,
 }) => (
   <div className="space-y-4 pb-2">
     {visibleMessages.length === 0 && (
@@ -61,6 +65,10 @@ const MessageList = ({
           onEnterOfflineScene={onEnterOfflineScene}
           onToggleReaction={onToggleReaction}
           onOpenCompanionOffer={onOpenCompanionOffer}
+          selectionMode={selectionMode}
+          isSelected={selectedMessageIds ? selectedMessageIds.has(msg.id) : false}
+          onToggleSelected={onToggleSelected}
+          onEnterSelectionMode={onEnterSelectionMode}
         />
       );
     })}

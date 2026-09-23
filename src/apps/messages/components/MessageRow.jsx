@@ -65,6 +65,10 @@ const MessageRow = ({
   onEnterOfflineScene,
   onToggleReaction,
   onOpenCompanionOffer,
+  selectionMode,
+  isSelected,
+  onToggleSelected,
+  onEnterSelectionMode,
 }) => {
   const isUser = msg.sender === 'user';
   const versions = msg.versions || [];
@@ -112,13 +116,13 @@ const MessageRow = ({
   useEffect(() => () => clearReactionPressTimer(), [clearReactionPressTimer]);
 
   const handleBubblePointerDown = useCallback(() => {
-    if (!canReact) return;
+    if (!canReact || selectionMode) return;
 
     clearReactionPressTimer();
     reactionPressTimerRef.current = window.setTimeout(() => {
       setShowReactionPicker(true);
     }, REACTION_LONG_PRESS_MS);
-  }, [canReact, clearReactionPressTimer]);
+  }, [canReact, selectionMode, clearReactionPressTimer]);
 
   const handleBubblePointerRelease = useCallback(() => {
     clearReactionPressTimer();
@@ -139,6 +143,25 @@ const MessageRow = ({
     setShowReactionPicker(false);
   }, [msg.id, onToggleReaction]);
 
+  // 从反应面板里点"选择"：收起面板，把这条消息作为多选模式的
+  // 第一条选中项交给 ChatRoom 去开启多选模式。
+  const handleEnterSelect = useCallback(() => {
+    setShowReactionPicker(false);
+    onEnterSelectionMode?.(msg.id);
+  }, [msg.id, onEnterSelectionMode]);
+
+  // 多选模式下点一下消息本体（不是长按）就切换勾选，跟长按反应
+  // 面板互斥——canReact 同时也是"这条消息允许被多选"的判定，
+  // 两者复用同一份"普通内容消息"名单，不允许多选的消息类型
+  // （互动/线下邀约/通话记录/错误消息）点击时什么都不做。
+  const handleBubbleSelectClick = useCallback((event) => {
+    if (!selectionMode || !canReact) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    onToggleSelected?.(msg.id);
+  }, [selectionMode, canReact, msg.id, onToggleSelected]);
+
   const messageMcpTrace = isUser
     ? null
     : msg.metadata?.mcpTrace;
@@ -149,10 +172,41 @@ const MessageRow = ({
 
   return (
     <div
-      className={`group flex flex-col ${
-        isUser ? 'items-end' : 'items-start'
+      className={`flex items-start gap-1.5 ${
+        isUser ? 'flex-row-reverse' : 'flex-row'
       }`}
     >
+      {selectionMode && (
+        <button
+          type="button"
+          disabled={!canReact}
+          onClick={() => onToggleSelected?.(msg.id)}
+          className="mt-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-all disabled:opacity-25"
+          style={{
+            background: isSelected
+              ? 'var(--accent-color)'
+              : 'var(--control-soft-bg)',
+            borderColor: isSelected
+              ? 'var(--accent-color)'
+              : 'var(--card-border)',
+          }}
+          aria-label={isSelected ? '取消选择这条消息' : '选择这条消息'}
+        >
+          {isSelected && (
+            <Check
+              className="h-3 w-3"
+              style={{ color: 'var(--accent-foreground)' }}
+            />
+          )}
+        </button>
+      )}
+
+      <div
+        className={`group flex flex-1 flex-col ${
+          isUser ? 'items-end' : 'items-start'
+        }`}
+        onClickCapture={handleBubbleSelectClick}
+      >
       {quoted && (
         <div
           className="mb-1 max-w-[75%] rounded-xl border-l-2 px-3 py-1 text-[10px] opacity-60"
@@ -288,6 +342,7 @@ const MessageRow = ({
                 selectedType={userReactionType}
                 onPick={handlePickReaction}
                 onClose={() => setShowReactionPicker(false)}
+                onEnterSelect={handleEnterSelect}
 
                             />
 
@@ -556,6 +611,7 @@ const MessageRow = ({
           />
         )}
       </div>
+    </div>
     </div>
   );
 };

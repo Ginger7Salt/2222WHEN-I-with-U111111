@@ -27,6 +27,8 @@ import {
   Ticket,
   Phone,
   BookHeart,
+  Forward,
+  Trash2,
 } from 'lucide-react';
 
 import {
@@ -94,6 +96,9 @@ import {
 
 import InteractiveMenuPopover from './components/InteractiveMenuPopover';
 import StickerPickerModal from './components/StickerPickerModal';
+import HeartbeatPulse from './components/HeartbeatPulse';
+import ForwardChatPicker from './components/ForwardChatPicker';
+import ConfirmModal from '../../components/ConfirmModal';
 
 import {
   cancelPendingScheduledMessagesForChat,
@@ -275,6 +280,17 @@ const [showOfflineComposer, setShowOfflineComposer] = useState(false);
 const [showOfflineInviteArchive, setShowOfflineInviteArchive] = useState(false);
 
 const [showInputMenu, setShowInputMenu] = useState(false);
+
+// 发送成功后要不要闪一下心电图动效；数值本身没意义，
+// 每次自增触发 HeartbeatPulse 重新播放一次。
+const [heartbeatPulseKey, setHeartbeatPulseKey] = useState(0);
+
+// 消息多选：长按气泡的反应面板里点"选择"进入，勾选若干条消息后
+// 可以批量转发到别的聊天窗，或者批量删除。
+const [selectionMode, setSelectionMode] = useState(false);
+const [selectedMessageIds, setSelectedMessageIds] = useState(() => new Set());
+const [showForwardPicker, setShowForwardPicker] = useState(false);
+const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
 
 
@@ -1028,6 +1044,10 @@ useLayoutEffect(() => {
 
     playMessageSound('send');
 
+    if (chat?.heartbeatEffectEnabled) {
+      setHeartbeatPulseKey((previous) => previous + 1);
+    }
+
     setMessages((previous) => [...previous, newMsg]);
     setInputText('');
 
@@ -1176,6 +1196,106 @@ useLayoutEffect(() => {
     );
   }, []);
 
+  // 从反应面板的"选择"按钮进入多选：把当前这条消息作为第一条
+  // 选中项，同时打开多选模式。
+  const handleEnterSelectionMode = useCallback((messageId) => {
+    setSelectionMode(true);
+    setSelectedMessageIds(new Set([messageId]));
+  }, []);
+
+  const handleToggleMessageSelected = useCallback((messageId) => {
+    setSelectedMessageIds((previous) => {
+      const next = new Set(previous);
+
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+
+      return next;
+    });
+  }, []);
+
+  const handleExitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedMessageIds(new Set());
+  }, []);
+
+  const handleBatchDeleteSelected = useCallback(async () => {
+    const ids = Array.from(selectedMessageIds);
+
+    if (ids.length === 0) {
+      setShowBatchDeleteConfirm(false);
+      return;
+    }
+
+    await db.messages.bulkDelete(ids);
+
+    setMessages((previous) => (
+      previous.filter((message) => !selectedMessageIds.has(message.id))
+    ));
+
+    loadedMessageCountRef.current = Math.max(
+      0,
+      loadedMessageCountRef.current - ids.length,
+    );
+
+    setShowBatchDeleteConfirm(false);
+    handleExitSelectionMode();
+  }, [selectedMessageIds, handleExitSelectionMode]);
+
+  // 转发：按原消息的时间顺序，逐条在目标聊天窗里写入新记录。
+  // 不带走 reactions / versions / currentVersionIndex / quotedMessageId
+  // 这些跟"原来那次对话"绑定的历史字段，转发过去就是一条干净的
+  // 新消息；sender/type/content/metadata 保留，好让图片、转账卡等
+  // 各种卡片在新的聊天窗里也能正常渲染。
+  const handleForwardSelectedTo = useCallback(async (targetChatId) => {
+    if (!targetChatId) return;
+
+    const targetChat = await db.chats.get(targetChatId);
+    if (!targetChat) return;
+
+    const orderedSelected = messages
+      .filter((message) => selectedMessageIds.has(message.id))
+      .sort(
+        (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0),
+      );
+
+    for (const original of orderedSelected) {
+      await db.messages.add({
+        chatId: targetChatId,
+        characterId: targetChat.characterId,
+        sender: original.sender,
+        type: original.type,
+        content: original.content,
+        metadata: original.metadata || {},
+        userAvatar: original.userAvatar || '',
+        userName: original.userName || '',
+        isRead: true,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    await db.chats.update(targetChatId, {
+      updatedAt: new Date().toISOString(),
+    });
+
+    setShowForwardPicker(false);
+    handleExitSelectionMode();
+
+    triggerGlobalToast({
+      title: '已转发',
+      content: `${orderedSelected.length} 条消息已转发`,
+      iconType: 'chat',
+      duration: 2400,
+    });
+
+    if (targetChatId === chatId) {
+      await loadChatData();
+    }
+  }, [messages, selectedMessageIds, chatId, loadChatData, handleExitSelectionMode]);
+
   const handleStartCall = useCallback((mode) => {
     if (!character?.id) return;
     void startOutgoingCall({ chatId, characterId: character.id, mode });
@@ -1258,6 +1378,17 @@ useLayoutEffect(() => {
 
     await db.chats.update(chatId, {
       keepAlive: value,
+    });
+  };
+
+  const handleToggleHeartbeatEffect = async (value) => {
+    setChat((previous) => ({
+      ...previous,
+      heartbeatEffectEnabled: value,
+    }));
+
+    await db.chats.update(chatId, {
+      heartbeatEffectEnabled: value,
     });
   };
 
@@ -1446,6 +1577,47 @@ useLayoutEffect(() => {
       )}
 
       <header className="z-20 shrink-0 px-4 pb-1 pt-3">
+        {selectionMode ? (
+          <div className="flex items-center justify-between gap-2 pb-1">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleExitSelectionMode}
+                className="text-xs font-semibold opacity-80 hover:opacity-100"
+              >
+                完成
+              </button>
+
+              <span className="text-xs opacity-70">
+                已选择 {selectedMessageIds.size} 条
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                disabled={selectedMessageIds.size === 0}
+                onClick={() => setShowForwardPicker(true)}
+                className="flex items-center gap-1 text-xs font-semibold disabled:opacity-30"
+                style={{ color: 'var(--accent-color)' }}
+              >
+                <Forward className="h-3.5 w-3.5" />
+                <span>转发</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={selectedMessageIds.size === 0}
+                onClick={() => setShowBatchDeleteConfirm(true)}
+                className="flex items-center gap-1 text-xs font-semibold text-red-500 disabled:opacity-30"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>删除</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="chat-top-toolbar flex items-center justify-between pb-1">
 
           <div className="relative flex items-center gap-2">
@@ -1688,6 +1860,8 @@ useLayoutEffect(() => {
           headerCaption={chat?.headerCaption}
           onSaveHeaderCaption={handleSaveHeaderCaption}
         />
+        </>
+        )}
       </header>
 
       <section
@@ -1714,6 +1888,10 @@ useLayoutEffect(() => {
                              onEnterOfflineScene={(sessionId) => setActiveOfflineSessionId(sessionId)}
           onToggleReaction={handleToggleReaction}
           onOpenCompanionOffer={() => setShowCompanionPage(true)}
+          selectionMode={selectionMode}
+          selectedMessageIds={selectedMessageIds}
+          onToggleSelected={handleToggleMessageSelected}
+          onEnterSelectionMode={handleEnterSelectionMode}
         />
       </section>
 
@@ -1947,6 +2125,8 @@ useLayoutEffect(() => {
           </div>
         )}
 
+        <HeartbeatPulse pulseKey={heartbeatPulseKey} />
+
         <div
           className="chat-input-bar flex items-center gap-2 rounded-full px-3 py-2 shadow-2xl backdrop-blur-2xl transition-all duration-300"
           style={{
@@ -2179,6 +2359,7 @@ useLayoutEffect(() => {
           onUpdateBgOpacity={handleUpdateBgOpacity}
           onToggleKeepAlive={handleToggleKeepAlive}
           onTogglePinTopToolbar={handleTogglePinTopToolbar}
+          onToggleHeartbeatEffect={handleToggleHeartbeatEffect}
           onOpenBubbleCustomizer={() => setShowBubbleCustomizer(true)}
           onClearHistory={handleClearHistory}
           onDeletedChat={onBack}
@@ -2245,6 +2426,25 @@ useLayoutEffect(() => {
       <McpToolApprovalModal
         request={pendingMcpApproval}
         onResolve={closePendingMcpApproval}
+      />
+
+      {showForwardPicker && (
+        <ForwardChatPicker
+          currentChatId={chatId}
+          messageCount={selectedMessageIds.size}
+          onClose={() => setShowForwardPicker(false)}
+          onForward={handleForwardSelectedTo}
+        />
+      )}
+
+      <ConfirmModal
+        isOpen={showBatchDeleteConfirm}
+        title="删除选中的消息"
+        message={`确定要删除这 ${selectedMessageIds.size} 条消息吗？操作后不可恢复。`}
+        confirmText="删除"
+        cancelText="取消"
+        onCancel={() => setShowBatchDeleteConfirm(false)}
+        onConfirm={handleBatchDeleteSelected}
       />
     </div>
   );
