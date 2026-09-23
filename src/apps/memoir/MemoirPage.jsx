@@ -401,7 +401,7 @@ const MemoirPage = ({ chatId, character, onBack }) => {
 
         {isLoading ? null : memoirs.length === 0 ? (
           <div className="py-10 text-center text-[12px] leading-relaxed opacity-60">
-            还没有值得记下的共同经历。点外卖、转账，或者让
+            还没有记下的共同经历。点外卖、转账，或者让
             {character?.name || 'TA'}
             帮你办点事，都会留在这里。
           </div>
