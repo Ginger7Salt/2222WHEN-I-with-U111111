@@ -28,9 +28,23 @@ const formatTime = (iso) => {
 // ----------------------------------------------------------------------
 // 一颗"糖果"用五角星表示：固定的星形轮廓，只有颜色/大小随回忆变化，
 // 不再是之前那个手感很怪的金平糖结晶形状。
+//
+// 罐子里最多同时装 JAR_CAPACITY 颗糖，多出来的（更早的回忆）不再往罐子
+// 里塞，而是在瓶身下面单独列一排小卡片。罐子里的糖果数量越接近上限，
+// 单颗糖就越小（在 CANDY_SIZE_MIN ~ CANDY_SIZE_MAX 之间线性收缩），
+// 这样糖果堆不会因为数量变多而挤爆瓶身。
 // ----------------------------------------------------------------------
-const CANDY_SIZE = 46;
+const JAR_CAPACITY = 14;
+const CANDY_SIZE_MAX = 46;
+const CANDY_SIZE_MIN = 26;
 const NEUTRAL_HEX = '#9a9a9a';
+
+const getCandySize = (count) => {
+  if (count <= 6) return CANDY_SIZE_MAX;
+  if (count >= JAR_CAPACITY) return CANDY_SIZE_MIN;
+  const t = (count - 6) / (JAR_CAPACITY - 6);
+  return CANDY_SIZE_MAX - (CANDY_SIZE_MAX - CANDY_SIZE_MIN) * t;
+};
 
 const buildStarPath = (size) => {
   const points = 5;
@@ -75,7 +89,6 @@ const candySvgMarkup = (id, hex) => {
 // 重力 + 碰撞的小物理：糖果掉进瓶子里、互相挤开、贴着瓶壁和瓶底的圆角
 // 堆起来，静止时不动——不是"空气粒子"那种到处漂的效果。
 // ----------------------------------------------------------------------
-const RADIUS = CANDY_SIZE / 2;
 const GRAVITY = 0.55;
 const FRICTION = 0.93;
 const PAD_SIDE = 24;
@@ -117,7 +130,7 @@ const constrainToJar = (x, y, r, w, h) => {
   return { x: nx, y: ny };
 };
 
-const stepPhysics = (list, w, h) => {
+const stepPhysics = (list, w, h, radius) => {
   list.forEach((o) => {
     if (o.dragging) return;
     o.vy += GRAVITY;
@@ -135,7 +148,7 @@ const stepPhysics = (list, w, h) => {
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
-        const minDist = RADIUS * 2 * 0.92;
+        const minDist = radius * 2 * 0.92;
 
         if (dist < minDist) {
           const overlap = (minDist - dist) / 2;
@@ -150,7 +163,7 @@ const stepPhysics = (list, w, h) => {
 
   list.forEach((o) => {
     if (o.dragging) return;
-    const c = constrainToJar(o.x, o.y, RADIUS, w, h);
+    const c = constrainToJar(o.x, o.y, radius, w, h);
     if (c.x !== o.x) o.vx *= -0.25;
     if (c.y !== o.y) o.vy *= -0.15;
     o.x = c.x;
@@ -185,6 +198,10 @@ const MemoirJar = ({ memoirs, onPick }) => {
     const rand = seededRandom(2026);
     const rect = jarEl.getBoundingClientRect();
 
+    // 糖果数量越多，单颗越小，避免罐子里的堆越堆越挤。
+    const candySize = getCandySize(memoirs.length);
+    const radius = candySize / 2;
+
     // 先在纯数据里把糖果"倒进瓶子"、模拟到彻底安定，用户第一眼看到的
     // 就已经是堆好的样子，不会出现半空中往下掉的过渡态。
     const sim = memoirs.map((memoir, index) => ({
@@ -197,7 +214,7 @@ const MemoirJar = ({ memoirs, onPick }) => {
     }));
 
     for (let step = 0; step < 260; step += 1) {
-      stepPhysics(sim, rect.width, rect.height);
+      stepPhysics(sim, rect.width, rect.height, radius);
     }
 
     const place = (o) => {
@@ -233,7 +250,7 @@ const MemoirJar = ({ memoirs, onPick }) => {
         const r = jarEl.getBoundingClientRect();
         const tx = (e.clientX - r.left) - o.offX;
         const ty = (e.clientY - r.top) - o.offY;
-        const c = constrainToJar(tx, ty, RADIUS, r.width, r.height);
+        const c = constrainToJar(tx, ty, radius, r.width, r.height);
         o.vx = (c.x - o.x) * 0.6;
         o.vy = (c.y - o.y) * 0.6;
         o.x = c.x;
@@ -257,6 +274,8 @@ const MemoirJar = ({ memoirs, onPick }) => {
 
       const el = document.createElement('div');
       el.className = 'memoir-candy';
+      el.style.width = `${candySize}px`;
+      el.style.height = `${candySize}px`;
       el.style.setProperty('--memoir-glow', hex);
       el.innerHTML = candySvgMarkup(o.memoir.id, hex);
       jarEl.appendChild(el);
@@ -271,7 +290,7 @@ const MemoirJar = ({ memoirs, onPick }) => {
     const loop = () => {
       if (cancelled) return;
       const r = jarEl.getBoundingClientRect();
-      stepPhysics(sim, r.width, r.height);
+      stepPhysics(sim, r.width, r.height, radius);
       sim.forEach((o) => { if (!o.dragging) place(o); });
       rafId = requestAnimationFrame(loop);
     };
@@ -367,8 +386,13 @@ const MemoirPage = ({ chatId, character, onBack }) => {
 
   const forgingLine = pickForgingLine({ memoirs });
 
+  // 罐子里最多同时住 JAR_CAPACITY 颗糖（最新的那些）；再往前的回忆不再
+  // 挤进罐子，改成瓶身下面一排可以点开的小卡片。
+  const jarMemoirs = memoirs.slice(0, JAR_CAPACITY);
+  const overflowMemoirs = memoirs.slice(JAR_CAPACITY);
+
   return (
-    <div className="flex h-[100dvh] flex-col" style={{ background: 'var(--bg-main)' }}>
+    <div className="relative flex h-[100dvh] flex-col" style={{ background: 'var(--bg-main)' }}>
       <div
         className="flex shrink-0 items-center gap-2 border-b px-4 py-3"
         style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
@@ -406,18 +430,70 @@ const MemoirPage = ({ chatId, character, onBack }) => {
             帮你办点事，都会留在这里。
           </div>
         ) : (
-          <div className="relative mx-auto" style={{ width: 236, height: 356 }}>
-            <div className="memoir-jar-lid" />
-            <div className="memoir-jar-neck" />
-            <div className="relative">
-              <MemoirJar memoirs={memoirs} onPick={setPickedMemoir} />
-              {pickedMemoir && (
-                <SpecimenCard memoir={pickedMemoir} onClose={() => setPickedMemoir(null)} />
-              )}
+          <>
+            <div className="relative mx-auto" style={{ width: 236, height: 356 }}>
+              <div className="memoir-jar-lid" />
+              <div className="memoir-jar-neck" />
+              <MemoirJar memoirs={jarMemoirs} onPick={setPickedMemoir} />
             </div>
-          </div>
+
+            {overflowMemoirs.length > 0 && (
+              <div className="mx-auto mt-5" style={{ maxWidth: 340 }}>
+                <div
+                  className="mb-2 px-1 text-[11px] font-medium tracking-wide opacity-60"
+                  style={{ color: 'var(--text-sub)' }}
+                >
+                  更早的回忆 · {overflowMemoirs.length}
+                </div>
+                <div className="flex flex-col gap-2">
+                  {overflowMemoirs.map((memoir) => {
+                    const emotion = getMemoirEmotion(memoir.emotion);
+                    return (
+                      <button
+                        key={memoir.id}
+                        type="button"
+                        onClick={() => setPickedMemoir(memoir)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-transform active:scale-[0.98]"
+                        style={{
+                          background: 'var(--card-bg)',
+                          border: '1px solid var(--card-border)',
+                        }}
+                      >
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: emotion ? emotion.dot : NEUTRAL_HEX }}
+                        />
+                        <span
+                          className="flex-1 truncate text-[12.5px]"
+                          style={{ color: 'var(--text-main)' }}
+                        >
+                          {memoir.summary}
+                        </span>
+                        <span
+                          className="shrink-0 rounded-full px-2 py-0.5 text-[10px]"
+                          style={{ background: 'var(--control-soft-bg)', color: 'var(--text-sub)' }}
+                        >
+                          {EVENT_TYPE_LABEL[memoir.eventType] || '经历'}
+                        </span>
+                        <span
+                          className="shrink-0 font-mono text-[10px] opacity-60"
+                          style={{ color: 'var(--text-sub)' }}
+                        >
+                          {formatTime(memoir.timestamp)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      {pickedMemoir && (
+        <SpecimenCard memoir={pickedMemoir} onClose={() => setPickedMemoir(null)} />
+      )}
 
       <style>{`
         .memoir-jar-lid {
@@ -452,8 +528,6 @@ const MemoirPage = ({ chatId, character, onBack }) => {
           position: absolute;
           top: 0;
           left: 0;
-          width: ${CANDY_SIZE}px;
-          height: ${CANDY_SIZE}px;
           cursor: grab;
           touch-action: none;
           will-change: transform;
