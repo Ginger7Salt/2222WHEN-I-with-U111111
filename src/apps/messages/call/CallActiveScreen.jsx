@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, PhoneOff, RotateCw, Send, Volume2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Mic, MicOff, PhoneOff, RotateCw, Send, Volume2 } from 'lucide-react';
 
 import './call-active-screen.css';
 
@@ -25,6 +25,10 @@ const CallActiveScreen = ({
   onHangUp,
   onRerollTurn,
   onSwitchTurnVersion,
+  voiceInputAvailable,
+  isRecording,
+  isTranscribing,
+  onToggleVoiceInput,
 }) => {
   // 重 roll 是异步的（要等一次 AI 请求），这里只用本地状态标记"当前
   // 正在重 roll 哪一句"，防止同一句被连点好几次、也让按钮能转起来。
@@ -194,6 +198,27 @@ const CallActiveScreen = ({
     </div>
 
     <div className="mt-3 flex w-full max-w-sm shrink-0 items-center gap-2">
+      {voiceInputAvailable && (
+        <button
+          type="button"
+          onClick={onToggleVoiceInput}
+          disabled={isTranscribing}
+          className={`call-active__mic-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-transform active:scale-95 disabled:opacity-40 ${
+            isRecording ? 'call-active__mic-btn--recording' : ''
+          }`}
+          aria-label={isRecording ? '停止录音' : '按一下说话'}
+          title={isRecording ? '停止录音' : '按一下说话'}
+        >
+          {isTranscribing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isRecording ? (
+            <MicOff className="h-4 w-4" />
+          ) : (
+            <Mic className="h-4 w-4" />
+          )}
+        </button>
+      )}
+
       <input
         type="text"
         value={draftText}
@@ -204,7 +229,7 @@ const CallActiveScreen = ({
             onSend();
           }
         }}
-        placeholder="在通话中打字说话..."
+        placeholder={isRecording ? '正在听你说话，说完点一下麦克风...' : '在通话中打字说话...'}
         className="call-active__input min-w-0 flex-1 rounded-full px-4 py-3 text-[13px] outline-none"
       />
 

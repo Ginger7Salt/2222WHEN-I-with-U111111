@@ -146,6 +146,17 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
+.call-active__mic-btn {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+/* 录音中：底色变红 + 一圈往外扩散的呼吸光环，跟旁边输入框的
+   placeholder 文案一起提示"正在听你说话"。 */
+.call-active__mic-btn--recording {
+  background: rgba(239, 68, 68, 0.88);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .call-active__avatar-ring::before {
     animation: call-active-ring-pulse 2.4s ease-out infinite;
@@ -173,6 +184,10 @@
 
   .call-active__ambient-bar {
     animation: call-active-ambient-wave 1.6s ease-in-out infinite;
+  }
+
+  .call-active__mic-btn--recording {
+    animation: call-active-mic-pulse 1.4s ease-in-out infinite;
   }
 }
 
@@ -240,12 +255,24 @@
   }
 }
 
+@keyframes call-active-mic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .call-active__avatar-ring::before,
   .call-active__avatar-glow,
   .call-active__char,
   .call-active__thinking span,
-  .call-active__ambient-bar {
+  .call-active__ambient-bar,
+  .call-active__mic-btn--recording {
     animation: none;
   }
 }

@@ -10,7 +10,12 @@ import {
   sendCallTurn,
   switchCallTurnVersion,
 } from '../../../services/callService';
-
+import {
+  hasUsableMiniMaxAsrConfig,
+  transcribeMiniMaxSpeech,
+} from '../../../features/real-voice/minimaxClient';
+import { useVoiceRecorder } from '../../../features/real-voice/useVoiceRecorder';
+import { triggerGlobalToast } from '../../../components/NotificationToast';
 
 import CallRingingScreen from './CallRingingScreen';
 import CallActiveScreen from './CallActiveScreen';
@@ -44,6 +49,7 @@ const CallScreen = ({ call, onMinimize }) => {
 
   const [draftText, setDraftText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [revealedText, setRevealedText] = useState('');
 
@@ -54,6 +60,23 @@ const CallScreen = ({ call, onMinimize }) => {
   const revealTimerRef = useRef(null);
 
   const realVoiceAvailable = isRealVoiceAvailableForCharacter(character);
+  const voiceInputAvailable = hasUsableMiniMaxAsrConfig(character?.voiceProfile);
+  const {
+    isRecording,
+    start: startRecording,
+    stop: stopRecording,
+    cancel: cancelRecording,
+  } = useVoiceRecorder();
+
+  // 通话被缩小/挂断导致这个组件被卸载时，如果正录着音，把麦克风
+  // 关掉，不要留着一直占用、也不要在组件已经不在了之后再触发识别。
+  useEffect(() => () => {
+    if (isRecording) {
+      cancelRecording();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   useEffect(() => {
     if (status !== 'active' || !connectedAt) return undefined;
@@ -171,6 +194,54 @@ const CallScreen = ({ call, onMinimize }) => {
     }
   };
 
+  // 麦克风按钮：点一下开始录，再点一下结束并送去 MiniMax 识别。
+  // 识别出来的文字只填进输入框，不直接发出去——用户还能看一眼、
+  // 改一改错字，跟打字发消息走的是同一条"点发送才真的发出去"的
+  // 路，只是换了个输入方式。
+  const handleToggleVoiceInput = async () => {
+    if (isTranscribing) return;
+
+    if (isRecording) {
+      setIsTranscribing(true);
+
+      try {
+        const audioBlob = await stopRecording();
+
+        const text = await transcribeMiniMaxSpeech({
+          audioBlob,
+          voiceProfile: character?.voiceProfile,
+        });
+
+        if (text) {
+          setDraftText((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+        } else {
+          triggerGlobalToast({
+            title: '没听清',
+            content: '没识别到内容，再说一次试试。',
+          });
+        }
+      } catch (error) {
+        triggerGlobalToast({
+          title: '语音识别失败',
+          content: error.message || '请重试。',
+        });
+      } finally {
+        setIsTranscribing(false);
+      }
+
+      return;
+    }
+
+    try {
+      await startRecording();
+    } catch (error) {
+      triggerGlobalToast({
+        title: '无法录音',
+        content: error.message || '请检查麦克风权限。',
+      });
+    }
+  };
+
   const statusLabel = useMemo(() => {
     if (status === 'ringing') {
       if (metadata.unavailable) return '对方暂时无法接听';
@@ -234,6 +305,10 @@ const CallScreen = ({ call, onMinimize }) => {
             onHangUp={handleHangUp}
             onRerollTurn={handleRerollTurn}
             onSwitchTurnVersion={handleSwitchTurnVersion}
+            voiceInputAvailable={voiceInputAvailable}
+            isRecording={isRecording}
+            isTranscribing={isTranscribing}
+            onToggleVoiceInput={handleToggleVoiceInput}
           />
         ) : (
           <CallRingingScreen

@@ -1,6 +1,7 @@
 import { normalizeVoiceProfile } from './realVoiceDefaults';
 
 const DEFAULT_TTS_PATH = '/v1/t2a_v2';
+const DEFAULT_ASR_PATH = '/v1/speech_to_text';
 
 /**
  * MiniMax 官方「接口概览」确认的语音模型目录。
@@ -294,6 +295,106 @@ const buildSpeechPayload = ({
   }
 
   return payload;
+};
+
+/**
+ * 通话里"用户自己说话"这条路只需要 apiKey + baseUrl 就能用——
+ * 跟 TTS 要求的 modelId / voiceId 是两件事，所以单独写一个更松的
+ * 判断，不复用 realVoiceDefaults.js 里给 TTS 用的
+ * hasUsableMiniMaxVoiceProfile（那个会因为没填 voiceId 就判定不可用）。
+ */
+export const hasUsableMiniMaxAsrConfig = (voiceProfile) => {
+  const normalized = normalizeVoiceProfile(voiceProfile);
+  const config = normalized.minimax;
+
+  return Boolean(
+    normalized.provider === 'minimax'
+      && config.apiKey?.trim()
+      && (config.proxyBaseUrl?.trim() || config.baseUrl?.trim()),
+  );
+};
+
+/**
+ * 依据 MiniMax 语音识别（asr-1.0）接口封装：multipart/form-data 上传
+ * 一段完整录音，拿到转写文字。当前版本走非流式——用户说完一句、点
+ * 停止，才整段送上去，不做边说边传的流式识别。
+ */
+export const transcribeMiniMaxSpeech = async ({
+  audioBlob,
+  voiceProfile,
+  fileName = 'voice-input.webm',
+}) => {
+  const profile = validateProfileForRequest(voiceProfile);
+  const baseUrl = getActiveBaseUrl(profile);
+  const apiKey = getApiKey(profile);
+
+  if (!audioBlob || audioBlob.size === 0) {
+    throw new Error('没有录到声音，请重试。');
+  }
+
+  const formData = new FormData();
+  formData.append('model', 'asr-1.0');
+  formData.append('response_format', 'json');
+  formData.append('file', audioBlob, fileName);
+
+  let response;
+
+  try {
+    response = await fetch(
+      `${baseUrl}${DEFAULT_ASR_PATH}`,
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: formData,
+      },
+    );
+  } catch (error) {
+    if (isLikelyCorsError(error)) {
+      throw createCorsError();
+    }
+
+    throw error;
+  }
+
+  const payload = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(
+      getErrorMessage(
+        payload,
+        `MiniMax 语音识别失败：HTTP ${response.status}`,
+      ),
+    );
+  }
+
+  const apiErrorCode = (
+    payload?.base_resp?.status_code
+    ?? payload?.base_response?.status_code
+  );
+
+  if (
+    apiErrorCode !== undefined
+    && apiErrorCode !== null
+    && Number(apiErrorCode) !== 0
+  ) {
+    throw new Error(
+      getErrorMessage(
+        payload,
+        'MiniMax 语音识别失败。',
+      ),
+    );
+  }
+
+  const text = (
+    payload?.text
+    || payload?.data?.text
+    || ''
+  );
+
+  return text.trim();
 };
 
 export const synthesizeMiniMaxSpeech = async ({
