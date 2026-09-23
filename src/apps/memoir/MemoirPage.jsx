@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, BookHeart } from 'lucide-react';
 
 import { getMemoirsForChat } from './memoirService';
@@ -25,38 +25,321 @@ const formatTime = (iso) => {
   });
 };
 
-const MemoirCard = ({ memoir }) => {
+// ----------------------------------------------------------------------
+// 一颗"糖果"用五角星表示：固定的星形轮廓，只有颜色/大小随回忆变化，
+// 不再是之前那个手感很怪的金平糖结晶形状。
+// ----------------------------------------------------------------------
+const CANDY_SIZE = 46;
+const NEUTRAL_HEX = '#9a9a9a';
+
+const buildStarPath = (size) => {
+  const points = 5;
+  const cx = size / 2;
+  const cy = size / 2;
+  const outerR = size * 0.47;
+  const innerR = outerR * 0.42;
+  let d = '';
+
+  for (let i = 0; i < points * 2; i += 1) {
+    const angle = (Math.PI / points) * i - Math.PI / 2;
+    const r = i % 2 === 0 ? outerR : innerR;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    d += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)} `;
+  }
+
+  return `${d}Z`;
+};
+
+const STAR_PATH = buildStarPath(100);
+
+const candySvgMarkup = (id, hex) => {
+  const gid = `memoir-star-${id}`;
+
+  return `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="${gid}" cx="38%" cy="34%" r="70%">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+          <stop offset="45%" stop-color="${hex}" stop-opacity="0.92"/>
+          <stop offset="100%" stop-color="${hex}" stop-opacity="0.55"/>
+        </radialGradient>
+      </defs>
+      <path d="${STAR_PATH}" fill="url(#${gid})"/>
+      <circle cx="42" cy="40" r="7" fill="#fff" opacity="0.45"/>
+    </svg>
+  `;
+};
+
+// ----------------------------------------------------------------------
+// 重力 + 碰撞的小物理：糖果掉进瓶子里、互相挤开、贴着瓶壁和瓶底的圆角
+// 堆起来，静止时不动——不是"空气粒子"那种到处漂的效果。
+// ----------------------------------------------------------------------
+const RADIUS = CANDY_SIZE / 2;
+const GRAVITY = 0.55;
+const FRICTION = 0.93;
+const PAD_SIDE = 24;
+const PAD_TOP = 40;
+const PAD_BOTTOM = 16;
+const CORNER_R = 44;
+
+const constrainToJar = (x, y, r, w, h) => {
+  const left = PAD_SIDE + r;
+  const right = w - PAD_SIDE - r;
+  const top = PAD_TOP + r;
+  const bottom = h - PAD_BOTTOM - r;
+
+  let nx = Math.max(left, Math.min(right, x));
+  let ny = Math.max(top, Math.min(bottom, y));
+
+  const cl = left + CORNER_R;
+  const cr = right - CORNER_R;
+  const cy = bottom - CORNER_R;
+
+  if (nx < cl && ny > cy) {
+    const dx = nx - cl;
+    const dy = ny - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+    if (dist > CORNER_R) {
+      nx = cl + (dx / dist) * CORNER_R;
+      ny = cy + (dy / dist) * CORNER_R;
+    }
+  } else if (nx > cr && ny > cy) {
+    const dx = nx - cr;
+    const dy = ny - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+    if (dist > CORNER_R) {
+      nx = cr + (dx / dist) * CORNER_R;
+      ny = cy + (dy / dist) * CORNER_R;
+    }
+  }
+
+  return { x: nx, y: ny };
+};
+
+const stepPhysics = (list, w, h) => {
+  list.forEach((o) => {
+    if (o.dragging) return;
+    o.vy += GRAVITY;
+    o.vx *= FRICTION;
+    o.vy *= FRICTION;
+    o.x += o.vx;
+    o.y += o.vy;
+  });
+
+  for (let iter = 0; iter < 3; iter += 1) {
+    for (let i = 0; i < list.length; i += 1) {
+      for (let j = i + 1; j < list.length; j += 1) {
+        const a = list[i];
+        const b = list[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        const minDist = RADIUS * 2 * 0.92;
+
+        if (dist < minDist) {
+          const overlap = (minDist - dist) / 2;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          if (!a.dragging) { a.x -= nx * overlap; a.y -= ny * overlap; }
+          if (!b.dragging) { b.x += nx * overlap; b.y += ny * overlap; }
+        }
+      }
+    }
+  }
+
+  list.forEach((o) => {
+    if (o.dragging) return;
+    const c = constrainToJar(o.x, o.y, RADIUS, w, h);
+    if (c.x !== o.x) o.vx *= -0.25;
+    if (c.y !== o.y) o.vy *= -0.15;
+    o.x = c.x;
+    o.y = c.y;
+  });
+};
+
+const seededRandom = (seed) => {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+};
+
+// ----------------------------------------------------------------------
+// 玻璃罐：候选糖果用普通 DOM 节点直接挂在这个容器下，位置由上面的物理
+// 循环每帧直接改 transform，不走 React 的重渲染（这类高频动画交给
+// React 管理反而更卡、更绕）。React 只负责挂载/卸载和点开的说明卡片。
+// ----------------------------------------------------------------------
+const MemoirJar = ({ memoirs, onPick }) => {
+  const jarRef = useRef(null);
+  const candiesRef = useRef([]);
+
+  useEffect(() => {
+    const jarEl = jarRef.current;
+    if (!jarEl || memoirs.length === 0) return undefined;
+
+    let cancelled = false;
+    let rafId = null;
+    const rand = seededRandom(2026);
+    const rect = jarEl.getBoundingClientRect();
+
+    // 先在纯数据里把糖果"倒进瓶子"、模拟到彻底安定，用户第一眼看到的
+    // 就已经是堆好的样子，不会出现半空中往下掉的过渡态。
+    const sim = memoirs.map((memoir, index) => ({
+      memoir,
+      x: rect.width / 2 + (rand() - 0.5) * 60,
+      y: PAD_TOP + 10 - index * 34,
+      vx: (rand() - 0.5) * 1.2,
+      vy: 0,
+      dragging: false,
+    }));
+
+    for (let step = 0; step < 260; step += 1) {
+      stepPhysics(sim, rect.width, rect.height);
+    }
+
+    const place = (o) => {
+      o.el.style.transform =
+        `translate3d(calc(${o.x.toFixed(1)}px - 50%), calc(${o.y.toFixed(1)}px - 50%), 0)`;
+    };
+
+    const wake = (o) => {
+      sim.forEach((c) => c.el.classList.remove('memoir-candy-awake'));
+      o.el.classList.add('memoir-candy-awake');
+      onPick(o.memoir);
+    };
+
+    const bindDrag = (o) => {
+      const { el } = o;
+      let moved = false;
+
+      el.addEventListener('pointerdown', (e) => {
+        el.setPointerCapture(e.pointerId);
+        o.dragging = true;
+        moved = false;
+        const r = jarEl.getBoundingClientRect();
+        o.offX = (e.clientX - r.left) - o.x;
+        o.offY = (e.clientY - r.top) - o.y;
+        o.vx = 0;
+        o.vy = 0;
+        wake(o);
+      });
+
+      el.addEventListener('pointermove', (e) => {
+        if (!o.dragging) return;
+        moved = true;
+        const r = jarEl.getBoundingClientRect();
+        const tx = (e.clientX - r.left) - o.offX;
+        const ty = (e.clientY - r.top) - o.offY;
+        const c = constrainToJar(tx, ty, RADIUS, r.width, r.height);
+        o.vx = (c.x - o.x) * 0.6;
+        o.vy = (c.y - o.y) * 0.6;
+        o.x = c.x;
+        o.y = c.y;
+        place(o);
+      });
+
+      const release = () => {
+        if (!o.dragging) return;
+        o.dragging = false;
+        if (!moved) wake(o);
+      };
+
+      el.addEventListener('pointerup', release);
+      el.addEventListener('pointercancel', release);
+    };
+
+    sim.forEach((o) => {
+      const emotion = getMemoirEmotion(o.memoir.emotion);
+      const hex = emotion ? emotion.dot : NEUTRAL_HEX;
+
+      const el = document.createElement('div');
+      el.className = 'memoir-candy';
+      el.style.setProperty('--memoir-glow', hex);
+      el.innerHTML = candySvgMarkup(o.memoir.id, hex);
+      jarEl.appendChild(el);
+
+      o.el = el;
+      place(o);
+      bindDrag(o);
+    });
+
+    candiesRef.current = sim;
+
+    const loop = () => {
+      if (cancelled) return;
+      const r = jarEl.getBoundingClientRect();
+      stepPhysics(sim, r.width, r.height);
+      sim.forEach((o) => { if (!o.dragging) place(o); });
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+
+    return () => {
+      cancelled = true;
+      if (rafId) cancelAnimationFrame(rafId);
+      sim.forEach((o) => o.el?.remove());
+      candiesRef.current = [];
+    };
+  }, [memoirs, onPick]);
+
+  return <div ref={jarRef} className="memoir-jar-body" />;
+};
+
+const SpecimenCard = ({ memoir, onClose }) => {
   const emotion = getMemoirEmotion(memoir.emotion);
 
   return (
     <div
-      className="rounded-2xl p-3.5 shadow-sm"
-      style={{
-        background: emotion ? emotion.bg : 'var(--card-bg)',
-        border: `1px solid ${emotion ? emotion.border : 'var(--card-border)'}`,
-        color: 'var(--text-main)',
-      }}
+      className="absolute inset-x-3 bottom-3 rounded-2xl p-4 shadow-lg"
+      style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
     >
-      <div className="mb-1.5 flex items-center justify-between text-[10px] font-mono opacity-60">
-        <span>{EVENT_TYPE_LABEL[memoir.eventType] || '经历'}</span>
-        <span>{formatTime(memoir.timestamp)}</span>
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-3 top-3 text-lg leading-none opacity-60 hover:opacity-100"
+        style={{ color: 'var(--text-sub)' }}
+        aria-label="关闭"
+      >
+        &times;
+      </button>
+
+      <div
+        className="mb-2 flex items-center justify-between border-b pb-2 font-mono text-[10px] tracking-wide opacity-70"
+        style={{ borderColor: 'var(--divider)', color: 'var(--text-sub)' }}
+      >
+        <span className="flex items-center gap-1.5">
+          <span
+            className="inline-block h-2 w-2 rounded-full"
+            style={{ background: emotion ? emotion.dot : NEUTRAL_HEX }}
+          />
+          {emotion ? emotion.label : '一段回忆'}
+        </span>
+        <span
+          className="rounded-full px-2 py-0.5"
+          style={{ background: 'var(--control-soft-bg)' }}
+        >
+          {EVENT_TYPE_LABEL[memoir.eventType] || '经历'}
+        </span>
       </div>
 
-      <p className="text-[13px] leading-relaxed break-words">{memoir.summary}</p>
+      <p className="mb-1 text-[13px] leading-relaxed" style={{ color: 'var(--text-main)' }}>
+        {memoir.summary}
+      </p>
+      <p className="mb-2 font-mono text-[10px] opacity-60" style={{ color: 'var(--text-sub)' }}>
+        {formatTime(memoir.timestamp)}
+      </p>
 
       {memoir.feeling && (
-        <div
-          className="mt-2 flex items-start gap-1.5 rounded-xl px-2.5 py-1.5 text-[12px] leading-relaxed"
-          style={{ background: 'var(--control-soft-bg)', color: 'var(--text-sub)' }}
+        <p
+          className="border-l-2 pl-2.5 text-[12.5px] italic leading-relaxed"
+          style={{ borderColor: 'var(--text-main)', color: 'var(--text-sub)' }}
         >
-          {emotion && (
-            <span
-              className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
-              style={{ background: emotion.dot }}
-            />
-          )}
-          <span>{memoir.feeling}</span>
-        </div>
+          {memoir.feeling}
+        </p>
       )}
     </div>
   );
@@ -65,6 +348,7 @@ const MemoirCard = ({ memoir }) => {
 const MemoirPage = ({ chatId, character, onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [memoirs, setMemoirs] = useState([]);
+  const [pickedMemoir, setPickedMemoir] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +356,7 @@ const MemoirPage = ({ chatId, character, onBack }) => {
     getMemoirsForChat(chatId).then((rows) => {
       if (cancelled) return;
       setMemoirs(rows);
+      setPickedMemoir(null);
       setIsLoading(false);
     });
 
@@ -82,29 +367,25 @@ const MemoirPage = ({ chatId, character, onBack }) => {
 
   const forgingLine = pickForgingLine({ memoirs });
 
-  const headerBar = (
-    <div
-      className="flex shrink-0 items-center gap-2 border-b px-4 py-3"
-      style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-    >
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center justify-center rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
-        style={{ background: 'var(--control-soft-bg)' }}
-        title="返回"
-        aria-label="返回"
-      >
-        <ArrowLeft className="h-4 w-4" />
-      </button>
-      <BookHeart className="h-4 w-4" />
-      <span className="text-sm font-medium">回忆录</span>
-    </div>
-  );
-
   return (
     <div className="flex h-[100dvh] flex-col" style={{ background: 'var(--bg-main)' }}>
-      {headerBar}
+      <div
+        className="flex shrink-0 items-center gap-2 border-b px-4 py-3"
+        style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+      >
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center justify-center rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
+          style={{ background: 'var(--control-soft-bg)' }}
+          title="返回"
+          aria-label="返回"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <BookHeart className="h-4 w-4" />
+        <span className="text-sm font-medium">回忆录</span>
+      </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <div
@@ -122,16 +403,76 @@ const MemoirPage = ({ chatId, character, onBack }) => {
           <div className="py-10 text-center text-[12px] leading-relaxed opacity-60">
             还没有值得记下的共同经历。点外卖、转账，或者让
             {character?.name || 'TA'}
-            帮你做点事，都会留在这里。
+            帮你办点事，都会留在这里。
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {memoirs.map((memoir) => (
-              <MemoirCard key={memoir.id} memoir={memoir} />
-            ))}
+          <div className="relative mx-auto" style={{ width: 236, height: 356 }}>
+            <div className="memoir-jar-lid" />
+            <div className="memoir-jar-neck" />
+            <div className="relative">
+              <MemoirJar memoirs={memoirs} onPick={setPickedMemoir} />
+              {pickedMemoir && (
+                <SpecimenCard memoir={pickedMemoir} onClose={() => setPickedMemoir(null)} />
+              )}
+            </div>
           </div>
         )}
       </div>
+
+      <style>{`
+        .memoir-jar-lid {
+          width: 96px;
+          height: 26px;
+          margin: 0 auto;
+          border-radius: 6px 6px 2px 2px;
+          background: linear-gradient(180deg, var(--text-main) 0%, var(--text-sub) 100%);
+          opacity: 0.85;
+        }
+        .memoir-jar-neck {
+          width: 110px;
+          height: 16px;
+          margin: 0 auto;
+          background: var(--control-soft-bg);
+          border: 1.5px solid var(--card-border);
+          border-bottom: none;
+          border-radius: 8px 8px 0 0;
+        }
+        .memoir-jar-body {
+          position: relative;
+          width: 100%;
+          height: 314px;
+          border-radius: 44px 44px 58px 58px;
+          background: var(--control-soft-bg);
+          border: 1.5px solid var(--card-border);
+          box-shadow: inset 0 3px 14px rgba(0, 0, 0, 0.05), inset 0 -12px 24px rgba(0, 0, 0, 0.05);
+          overflow: hidden;
+          touch-action: none;
+        }
+        .memoir-candy {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: ${CANDY_SIZE}px;
+          height: ${CANDY_SIZE}px;
+          cursor: grab;
+          touch-action: none;
+          will-change: transform;
+        }
+        .memoir-candy:active { cursor: grabbing; }
+        .memoir-candy svg {
+          width: 100%;
+          height: 100%;
+          filter: grayscale(100%) contrast(96%) brightness(1.05);
+          transition: filter 0.5s cubic-bezier(.16,1,.3,1), transform 0.35s cubic-bezier(.16,1,.3,1);
+        }
+        .memoir-candy-awake {
+          z-index: 5;
+        }
+        .memoir-candy-awake svg {
+          filter: grayscale(0%) contrast(105%) saturate(1.05) drop-shadow(0 0 10px var(--memoir-glow));
+          transform: scale(1.15);
+        }
+      `}</style>
     </div>
   );
 };
