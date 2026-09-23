@@ -24,6 +24,7 @@ import {
 
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
 import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
+import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/companion/companionOfferService';
 import { recordChatAtCurrentPlace } from '../apps/location/placePatternService';
 import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDirective';
 import { getReactionLabel } from '../apps/messages/reactionLabels';
@@ -478,6 +479,10 @@ const formatMsgContentForPrompt = (msg, options = {}) => {
     return describeOrderRequestForPrompt(msg, {
       handled: options.orderRequestHandled === true,
     });
+  }
+
+  if (msg.type === 'companion_offer') {
+    return `[你之前提议过一起养小伙伴: ${msg.content || ''}]`;
   }
 
   return msg.content || '';
@@ -2060,8 +2065,16 @@ const awayOfferNote = options.ignoreAway
   ? ''
   : await getAwayOfferNote({ chat, recentMessages: recentMsgs });
 
+// #6 小伙伴：这个聊天窗还没养小伙伴时，有一定概率让角色主动提议一起养。
+// 跟离线选项一样，只有真的把选项交给角色时才会往提示词里加字。
+const companionOfferNote = options.ignoreAway
+  ? ''
+  : await getCompanionOfferNote({ chatId, chat });
+
 const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   awayOfferNote ? `\n\n${awayOfferNote}` : ''
+}${
+  companionOfferNote ? `\n\n${companionOfferNote}` : ''
 }`;
 
 const historyContext = buildHistoryContext(
@@ -2175,10 +2188,20 @@ const contentAfterAway = await applyAwayDirective({
 });
 
 // 取出角色的 [PLACE_NOTE: ...] 标签（一律从正文去掉）；满足条件时才写进地点小册子。
-const visibleReplyContent = await applyPlaceNoteDirective({
+const contentAfterPlaceNote = await applyPlaceNoteDirective({
   chatId,
   content: contentAfterAway,
 });
+
+// 取出角色的 [COMPANION_OFFER: ...] 标签（一律从正文去掉）；
+// 只有这次真的把选项交给了角色时，才会生成一张邀请卡片消息。
+const { content: visibleReplyContent, offerMessage: companionOfferMessage } =
+  await applyCompanionOfferDirective({
+    chatId,
+    content: contentAfterPlaceNote,
+    offered: Boolean(companionOfferNote),
+  });
+
 const mcpTrace = getMcpChatTraceSummary(
   mcpTraceSession,
 );
@@ -2290,10 +2313,32 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
           isRead: false,
           timestamp: nowIso
         };
-
         const newMessageId = await db.messages.add(newMessagePayload);
         messageIds.push(newMessageId);
       }
+
+      // #6 小伙伴：角色这次确实提议了一起养，追加一张邀请卡片消息。
+      if (companionOfferMessage) {
+        const offerMessageId = await db.messages.add({
+          chatId,
+          characterId: character.id,
+          sender: 'character',
+          type: 'companion_offer',
+          content: companionOfferMessage.content,
+          metadata: {},
+          versions: [{
+            type: 'companion_offer',
+            content: companionOfferMessage.content,
+            metadata: {},
+            timestamp: nowIso,
+          }],
+          currentVersionIndex: 0,
+          isRead: false,
+          timestamp: nowIso,
+        });
+        messageIds.push(offerMessageId);
+      }
+
       try {
   const realVoiceMessageIds = await createRealVoiceMessagesForReply({
     chatId,

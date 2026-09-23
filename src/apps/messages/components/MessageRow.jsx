@@ -35,6 +35,7 @@ import OrderRequestCard from './cards/OrderRequestCard';
 import StickerCard from './cards/StickerCard';
 import PhotoCard from './cards/PhotoCard';
 import McpUsageTraceCard from './cards/McpUsageTraceCard';
+import CompanionOfferCard from './cards/CompanionOfferCard';
 
 import McdOrderCard from './cards/McdOrderCard';
 import AppleHealthCard from './cards/AppleHealthCard';
@@ -60,9 +61,10 @@ const MessageRow = ({
   onDelete,
   onQuote,
   onSwitchVersion,
-  onResolvedInteraction,
+    onResolvedInteraction,
   onEnterOfflineScene,
   onToggleReaction,
+  onOpenCompanionOffer,
 }) => {
   const isUser = msg.sender === 'user';
   const versions = msg.versions || [];
@@ -250,8 +252,14 @@ const MessageRow = ({
           ) : msg.type === 'offline_invite' ? (
             <OfflineInviteCard
               message={msg}
-              onEnterScene={onEnterOfflineScene}
+                            onEnterScene={onEnterOfflineScene}
               onRefresh={onResolvedInteraction}
+            />
+          ) : msg.type === 'companion_offer' ? (
+            <CompanionOfferCard
+              message={msg}
+              chatId={msg.chatId}
+              onAccept={() => onOpenCompanionOffer?.()}
             />
           ) : msg.type === 'call' ? (
             <CallLogEntry

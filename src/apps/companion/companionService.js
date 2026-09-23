@@ -27,6 +27,42 @@ const FREE_ACTION_EFFECT = {
 
 const ACTION_LOG_TEXT = { feed: '喂食', clean: '清洁', play: '玩耍' };
 
+// ---- 戳一戳：小伙伴自己"说话"，纯固定文案池，不调用 AI、不写日志 ----
+// （用户确认过：说话的是小伙伴自己，不是角色替它转述，思路照抄
+// petWidgetService.js 的 CANNED_REACTIONS，但这里不 import 那份代码）
+const POKE_REPLIES = [
+  '喵呜～蹭了蹭你的手。',
+  '被戳到了，甩了甩尾巴。',
+  '汪！开心地摇了摇尾巴。',
+  '眯着眼睛，看起来很舒服。',
+  '打了个哈欠，慢悠悠地看向你。',
+  '往你身边凑近了一点点。',
+  '歪着头看着你，好像在等什么。',
+];
+
+/*
+ * 戳一戳：只是个好玩的轻互动，不产生 ❤️（避免变成无限刷心的漏洞），
+ * 给心情一点点微小的加成即可；不写 companionLogs，太琐碎，
+ * 会把"最近的动态"刷屏。
+ */
+export const pokeCompanion = async (companionId) => {
+  const companion = await db.companions.get(companionId);
+  if (!companion) return null;
+
+  const now = Date.now();
+  const updated = {
+    ...companion,
+    mood: clamp100(companion.mood + 2),
+    lastInteractionAt: now,
+    updatedAt: now,
+  };
+
+  await db.companions.put(updated);
+
+  const line = POKE_REPLIES[Math.floor(Math.random() * POKE_REPLIES.length)];
+  return { companion: updated, line };
+};
+
 // ---- 聊天回应换 ❤️（同一聊天窗、按天计算）----
 // 前 10 次回应 = 1 心；此后每 20 次 = 0.5 心；当天通过聊天获得的心封顶 5。
 const CHAT_HEART_FIRST_TIER_EVERY = 10;
@@ -60,6 +96,16 @@ const hoursSince = (timestamp, now = Date.now()) => {
 };
 
 // ---- 领养 ----
+
+/*
+ * 给邀请卡片（CompanionOfferCard）用的轻量判断：这个聊天窗现在
+ * 是不是已经有小伙伴了（不需要衰减计算，纯粹判断有没有）。
+ */
+export const hasCompanionForChat = async (chatId) => {
+  if (chatId === null || chatId === undefined) return false;
+  const existing = await db.companions.where('chatId').equals(chatId).first();
+  return Boolean(existing);
+};
 
 export const getCompanionByChat = async (chatId) => {
   if (chatId === null || chatId === undefined) return null;
@@ -336,7 +382,7 @@ export const buyShopItem = async (companionId, itemId) => {
   if (!companion) throw new Error('小伙伴不存在');
 
   if (companion.hearts < item.price) {
-    throw new Error('❤️ 不够');
+    throw new Error('心心不够啦');
   }
 
   const now = Date.now();
