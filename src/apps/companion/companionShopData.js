@@ -27,11 +27,11 @@ const placeholderAvatarSvg = (fill) => {
 };
 
 // 三个占位形态，用不同颜色区分；替换成真实图片前，先能选、能领养、能看见。
-export const DEFAULT_AVATARS = [
-  { id: 'preset-a', label: '形态 A', url: placeholderAvatarSvg('#C9A0DC') },
-  { id: 'preset-b', label: '形态 B', url: placeholderAvatarSvg('#F4B860') },
-  { id: 'preset-c', label: '形态 C', url: placeholderAvatarSvg('#7FB3D5') },
-];
+ export const DEFAULT_AVATARS = [
+{ id: 'preset-a', label: '形态 A', url: 'https://u2.fukit.cn/GBd84WFuR' },
+   { id: 'preset-b', label: '形态 B', url: placeholderAvatarSvg('#F4B860') },
+   { id: 'preset-c', label: '形态 C', url: placeholderAvatarSvg('#7FB3D5') },
+ ];
 
 /*
  * 食物：花 ❤️ 买来直接喂给宠物（买 = 喂，不单独占一个"背包"步骤）。
