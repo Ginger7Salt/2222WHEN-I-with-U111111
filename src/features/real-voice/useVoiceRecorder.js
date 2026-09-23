@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
+import { convertBlobToWavBlob } from './audioToWav';
+
 // 通话里"点一下开始、点一下停止"的录音：只在停止那一刻把整段
 // 音频交出去，配合非流式识别——不做边录边传。
 // 依次尝试几种浏览器普遍支持的编码，MiniMax 的语音识别接口本身
@@ -58,7 +60,10 @@ export const useVoiceRecorder = () => {
     setIsRecording(true);
   }, []);
 
-  // 停止录音，返回这一段完整的音频 Blob，交给上层去识别。
+  // 停止录音，返回这一段完整的音频 Blob，交给上层去识别。录出来的
+  // 原始容器（webm/mp4，因浏览器而异）MiniMax 不一定认，这里统一
+  // 转成 wav 再交出去——转换失败也要把麦克风关掉、状态复位，不能
+  // 卡在"还在录音"的状态里。
   const stop = useCallback(() => (
     new Promise((resolve, reject) => {
       const recorder = mediaRecorderRef.current;
@@ -68,8 +73,8 @@ export const useVoiceRecorder = () => {
         return;
       }
 
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, {
+      recorder.onstop = async () => {
+        const rawBlob = new Blob(chunksRef.current, {
           type: recorder.mimeType || 'audio/webm',
         });
 
@@ -77,7 +82,17 @@ export const useVoiceRecorder = () => {
         mediaRecorderRef.current = null;
         stopStreamTracks();
         setIsRecording(false);
-        resolve(blob);
+
+        try {
+          const wavBlob = await convertBlobToWavBlob(rawBlob);
+          resolve(wavBlob);
+        } catch (error) {
+          reject(
+            error instanceof Error
+              ? error
+              : new Error('录音格式转换失败，请重试。'),
+          );
+        }
       };
 
       recorder.stop();

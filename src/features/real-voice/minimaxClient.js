@@ -322,7 +322,7 @@ export const hasUsableMiniMaxAsrConfig = (voiceProfile) => {
 export const transcribeMiniMaxSpeech = async ({
   audioBlob,
   voiceProfile,
-  fileName = 'voice-input.webm',
+  fileName = 'voice-input.wav',
 }) => {
   const profile = validateProfileForRequest(voiceProfile);
   const baseUrl = getActiveBaseUrl(profile);
