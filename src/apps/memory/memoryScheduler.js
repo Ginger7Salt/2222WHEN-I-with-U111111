@@ -867,6 +867,16 @@ export const cancelScheduledMemoryProcessing = (chatId) => {
 };
 
 /**
+ * 取消所有聊天窗已排的整理任务（切到外部 / 关闭记忆来源时用）。
+ * 不清空 IndexedDB 里的任务记录，只是不再让它们在这次页面会话里触发。
+ */
+export const cancelAllScheduledMemoryProcessing = () => {
+  for (const chatId of Array.from(pendingTimers.keys())) {
+    clearPendingTimer(chatId);
+  }
+};
+
+/**
  * 页面重新打开或应用重新载入后，可恢复 IndexedDB 中尚未完成的记忆任务。
  *
  * 可在 App.jsx 的初始化 useEffect 中执行：

@@ -25,6 +25,7 @@ import MemoryCard from './MemoryCard';
 import MemoryExportModal from './MemoryExportModal';
 import MemoryImportModal from './MemoryImportModal';
 import MemoryRevisionModal from './MemoryRevisionModal';
+import MemorySourceSection from './MemorySourceSection';
 
 import {
   MEMORY_CANDIDATE_PROPOSAL_LABELS,
@@ -735,8 +736,10 @@ const handleDelete = async (memory) => {
           </p>
         </div>
 
-        <BookOpen className="memory-intro-icon" />
+                <BookOpen className="memory-intro-icon" />
       </section>
+
+      <MemorySourceSection />
 
       <section className="memory-chat-section">
         <div className="memory-section-label">
