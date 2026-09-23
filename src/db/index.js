@@ -4402,4 +4402,18 @@ db.version(57).stores({
   `,
 });
 
+// 回忆录：点外卖 / 转账 / 使用 MCP 这几类"共同经历"，双向都记
+// （MCP 只记角色主动使用这一侧）。sourceMessageId 用于日后从回忆卡片
+// 跳回聊天记录，也用于 user 送出心意后、角色下一次回复带感受标签时回填。
+db.version(58).stores({
+  memoirs: `
+    ++id,
+    chatId,
+    characterId,
+    eventType,
+    sourceMessageId,
+    timestamp
+  `,
+});
+
 export default db;

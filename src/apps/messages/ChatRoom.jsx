@@ -26,6 +26,7 @@ import {
   PawPrint,
   Ticket,
   Phone,
+  BookHeart,
 } from 'lucide-react';
 
 import {
@@ -113,6 +114,8 @@ import PendingPlaceBanner from './components/cards/PendingPlaceBanner';
 import CompanionHeartIcon from '../companion/CompanionHeartIcon';
 import { recordChatResponseForCompanion } from '../companion/companionService';
 
+import { recordUserGiftMemoir } from '../memoir/memoirService';
+
 import { getPrecisePosition } from '../../apps/location/locationService';
 import {
   getLocationSettings,
@@ -171,6 +174,9 @@ const OrderRequestModal = lazy(() => import('./components/OrderRequestModal'));
 
 // #6 聊天窗宠物"小伙伴"，只有用户点开 🐾 更多入口里的入口才加载
 const CompanionPage = lazy(() => import('../companion/CompanionPage'));
+
+// 回忆录，同样只有用户点开 🐾 更多入口里的入口才加载
+const MemoirPage = lazy(() => import('../memoir/MemoirPage'));
 
 export const ChatRoom = ({
   chatId,
@@ -249,6 +255,7 @@ const [showPlaceBooklet, setShowPlaceBooklet] = useState(false);
 const [pendingNamePlace, setPendingNamePlace] = useState(null);
 const [showTopMenu, setShowTopMenu] = useState(false);
 const [showCompanionPage, setShowCompanionPage] = useState(false);
+  const [showMemoirPage, setShowMemoirPage] = useState(false);
 
 // 顶部按钮行默认收起，只保留返回按钮；展开/收起统一由 ChatHeaderBar
 // 里那一颗爱心控制（同时带出这一整排按钮和下面的身份卡片）
@@ -984,6 +991,20 @@ useLayoutEffect(() => {
   },
 });
 
+    // 回忆录：user 主动给角色点外卖/转账，立刻记一条"user -> 角色"的回忆
+    // （这时角色还没回复，感受留空，等角色下一次回复带了感受标签再回填）。
+    if (selectedType === 'food' || selectedType === 'transfer') {
+      void recordUserGiftMemoir({
+        chatId,
+        characterId: character?.id,
+        eventType: selectedType,
+        metadata: extraInputMeta,
+        content: newMsg.content,
+        sourceMessageId: msgId,
+        timestamp: newMsg.timestamp,
+      });
+    }
+
 
     try {
       await cancelPendingScheduledMessagesForChat(
@@ -1345,6 +1366,21 @@ useLayoutEffect(() => {
   );
 }
 
+  if (showMemoirPage) {
+  return (
+    <Suspense fallback={null}>
+      <MemoirPage
+        chatId={chatId}
+        character={character}
+        onBack={() => {
+  hasScrolledToLatestRef.current = false;
+  setShowMemoirPage(false);
+}}
+      />
+    </Suspense>
+  );
+}
+
 
 
   return (
@@ -1524,6 +1560,18 @@ useLayoutEffect(() => {
                       >
                                                 <CompanionHeartIcon className="h-4 w-4" />
                         <span>小伙伴</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowMemoirPage(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <BookHeart className="h-4 w-4" />
+                        <span>回忆录</span>
                       </button>
                     </div>
                   </>

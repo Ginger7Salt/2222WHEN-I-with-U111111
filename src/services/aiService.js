@@ -25,6 +25,13 @@ import {
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
 import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
 import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/companion/companionOfferService';
+import { applyMemoirNoteDirective, MEMOIR_NOTE_PROMPT } from '../apps/memoir/memoirNoteDirective';
+import {
+  recordFoodMemoir,
+  recordTransferMemoir,
+  recordMcpMemoir,
+  backfillMemoirFeeling,
+} from '../apps/memoir/memoirService';
 import { recordChatAtCurrentPlace } from '../apps/location/placePatternService';
 import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDirective';
 import { getReactionLabel } from '../apps/messages/reactionLabels';
@@ -1083,6 +1090,7 @@ ${stickerInstruction}
 【不可逾越的输出格式终极规则（最高优先级）】：
 1. 卡片指令必须严格遵循上面 [] 的规定，括号内用 "|" 分割参数。不要杜撰任何未注册的卡片语法。
 2. 如果你想发送多条连续气泡消息，请使用 "|||" 将不同气泡隔开（例如：你好呀 ||| 今天过得怎么样？）。如果不需要分气泡，则直接连续输出正文，禁止随意堆砌 "|||"。
+${MEMOIR_NOTE_PROMPT}
 
 【稍后主动联系机制】
 
@@ -2206,6 +2214,15 @@ const mcpTrace = getMcpChatTraceSummary(
   mcpTraceSession,
 );
 
+// 取出角色的 [MEMORY_NOTE: ...] 标签（一律从正文去掉）；这只是"这次顺带
+// 交代的心情"，事件本身（点外卖/转账/用了MCP）由下面各自的写回忆逻辑
+// 根据实际发生的事情判定，跟这个标签是否出现无关。
+const {
+  content: contentAfterMemoirNote,
+  emotion: memoirEmotion,
+  feeling: memoirFeeling,
+} = applyMemoirNoteDirective(visibleReplyContent);
+
 /**
  * 必须先处理真实声音隐藏区块，再解析普通消息。
  *
@@ -2216,7 +2233,7 @@ const mcpTrace = getMcpChatTraceSummary(
 const voiceProcessedMessages = applyRealVoiceIntent(
   [{
     type: 'text',
-    content: visibleReplyContent,
+    content: contentAfterMemoirNote,
     metadata: {},
   }],
   character.voiceProfile,
@@ -2315,6 +2332,75 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
         };
         const newMessageId = await db.messages.add(newMessagePayload);
         messageIds.push(newMessageId);
+      }
+
+      // 回忆录：角色这次回复里如果带了转账/外卖卡片，各自记一条
+      // "角色 -> user"的回忆；感受来自同一次回复里的 [MEMORY_NOTE: ...]
+      // 标签（可能没有，留空即可，不影响事件本身被记下）。
+      safeParsedMessages.forEach((msgData, index) => {
+        const relatedMessageId = messageIds[index] ?? null;
+
+        if (msgData?.type === 'food') {
+          void recordFoodMemoir({
+            chatId,
+            characterId: character.id,
+            direction: 'character_to_user',
+            metadata: msgData.metadata,
+            sourceMessageId: relatedMessageId,
+            emotion: memoirEmotion,
+            feeling: memoirFeeling,
+            timestamp: nowIso,
+          });
+        } else if (msgData?.type === 'transfer') {
+          void recordTransferMemoir({
+            chatId,
+            characterId: character.id,
+            direction: 'character_to_user',
+            metadata: msgData.metadata,
+            content: msgData.content,
+            sourceMessageId: relatedMessageId,
+            emotion: memoirEmotion,
+            feeling: memoirFeeling,
+            timestamp: nowIso,
+          });
+        }
+      });
+
+      // 回忆录：角色这次成功用了某个 MCP 工具，记一条"角色 -> user"的
+      // 回忆。事件本身由 mcpTrace（已经成功执行的调用）判定，跟标签是否
+      // 出现无关；只有出现标签时才带上感受。
+      if (mcpTrace?.calls?.length) {
+        const firstCharacterMessageId = messageIds[0] ?? null;
+
+        mcpTrace.calls
+          .filter((call) => call.status === 'success')
+          .forEach((call) => {
+            void recordMcpMemoir({
+              chatId,
+              characterId: character.id,
+              toolName: call.toolName,
+              toolLabel: call.toolLabel,
+              sourceMessageId: firstCharacterMessageId,
+              emotion: memoirEmotion,
+              feeling: memoirFeeling,
+              timestamp: nowIso,
+            });
+          });
+      }
+
+      // 回忆录：如果上一条用户消息是TA给角色的转账/外卖，且角色这次带了
+      // 感受标签，把感受回填到那条回忆上（事件本身在用户发送的那一刻就
+      // 已经记下了，见 ChatRoom.jsx 的 recordUserGiftMemoir）。
+      if (
+        latestUserMessage
+        && (latestUserMessage.type === 'food' || latestUserMessage.type === 'transfer')
+        && (memoirEmotion || memoirFeeling)
+      ) {
+        void backfillMemoirFeeling({
+          sourceMessageId: latestUserMessage.id,
+          emotion: memoirEmotion,
+          feeling: memoirFeeling,
+        });
       }
 
       // #6 小伙伴：角色这次确实提议了一起养，追加一张邀请卡片消息。
