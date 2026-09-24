@@ -66,6 +66,10 @@ import {
 } from './memoryEmotionCompoundService';
 
 import {
+  runConflictCheck
+} from './memoryConflictService';
+
+import {
   buildMemorySourceBatch,
   getUsableMessages,
   inspectMemorySignals
@@ -199,10 +203,11 @@ const maybeRunReflection = async (chatId) => {
     const activeMemoryCount = await db.memories
       .where('chatId')
       .equals(chatId)
-        .filter((memory) => (
+      .filter((memory) => (
         memory.status === MEMORY_STATUSES.ACTIVE &&
         memory.type !== MEMORY_TYPES.REFLECTION &&
-        memory.type !== MEMORY_TYPES.CHARACTER_ACTION
+        memory.type !== MEMORY_TYPES.CHARACTER_ACTION &&
+        memory.type !== MEMORY_TYPES.BELIEF
       ))
       .count();
 
@@ -278,6 +283,20 @@ const maybeUpdateCompoundEmotions = async (chatId, messages = []) => {
     }
   } catch (error) {
     console.warn('[Memory] Compound emotion update failed safely:', error);
+  }
+};
+
+/*
+ * 每轮提炼跑完之后，顺带查一下这一轮之后新出现的记忆，有没有和旧记忆互相冲突
+ * （比如以前记着用户爱吃辣，现在说不吃辣了）。只有存在需要比对的记忆对时才会调用 AI；
+ * 怎么处理（先问你，还是角色直接更正）沿用记忆整理的开关。
+ * 失败只警告，不影响本轮提炼的正常返回。
+ */
+const maybeCheckNewConflicts = async (chatId) => {
+  try {
+    await runConflictCheck(chatId, { mode: 'new' });
+  } catch (error) {
+    console.warn('[Memory] Conflict check failed safely:', error);
   }
 };
 
@@ -373,9 +392,18 @@ const persistExtractionResult = async ({
       topicKey: item.topicKey,
       topicKeys: item.topicKeys,
       stability: item.stability,
-      memoryScope: item.memoryScope,
+         memoryScope: item.memoryScope,
       recallPolicy: item.recallPolicy,
       temporal: item.temporal,
+
+      // 情绪标签/强度/正负向/心情变化等附加字段，采纳时一并带过去。
+      extraFields: {
+        emotionTag: item.emotionTag,
+        emotionIntensity: item.emotionIntensity,
+        emotionValence: item.emotionValence,
+        moodDelta: item.moodDelta,
+        avoidRepeatHours: item.avoidRepeatHours
+      },
 
       sourceMessageIds: item.sourceMessageIds,
       sourceMessageTimestamps: item.sourceMessageTimestamps,
@@ -877,8 +905,10 @@ export const runMemoryProcessing = async (
       lastProcessedMessageId
       });
 
+  
     await maybeRunReflection(chatId);
     await maybeUpdateCompoundEmotions(chatId, sourceBatch);
+    await maybeCheckNewConflicts(chatId);
     await maybeRefreshEmotionPersonality(chatId);
     await maybeRunMemoryTidy(chatId);
 

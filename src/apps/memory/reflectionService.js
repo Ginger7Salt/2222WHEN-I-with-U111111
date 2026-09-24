@@ -45,10 +45,11 @@ const mapSubjectToMemoryScope = (subject) => {
  */
 const pickSourceMemories = (allMemories) => (
   allMemories
-    .filter((memory) => (
+     .filter((memory) => (
       memory.status === MEMORY_STATUSES.ACTIVE &&
       memory.type !== MEMORY_TYPES.REFLECTION &&
-      memory.type !== MEMORY_TYPES.CHARACTER_ACTION
+      memory.type !== MEMORY_TYPES.CHARACTER_ACTION &&
+      memory.type !== MEMORY_TYPES.BELIEF
     ))
     .slice(0, MAX_SOURCE_MEMORIES)
 );

@@ -32,8 +32,40 @@ const buildResultMessage = (result) => {
     parts.push(`零散的情绪累积成了 ${compoundCreated} 份更重的情绪`);
   }
 
+
   if (compoundAbsorbed > 0) {
     parts.push(`${compoundAbsorbed} 份已有的情绪又叠加了新的内容`);
+  }
+
+  const conflictApplied = result.conflict?.applied || 0;
+  const conflictProposed = result.conflict?.proposed || 0;
+  const conflictMergeApplied = result.conflict?.mergeApplied || 0;
+  const conflictMergeProposed = result.conflict?.mergeProposed || 0;
+  const beliefApplied = result.belief?.applied || 0;
+  const beliefProposed = result.belief?.proposed || 0;
+
+  if (conflictApplied > 0) {
+    parts.push(`已更正 ${conflictApplied} 处新旧冲突的记忆`);
+  }
+
+  if (conflictProposed > 0) {
+    parts.push(`${conflictProposed} 处新旧冲突等待你确认`);
+  }
+
+  if (conflictMergeApplied > 0) {
+    parts.push(`已精简合并 ${conflictMergeApplied} 组零碎记忆`);
+  }
+
+  if (conflictMergeProposed > 0) {
+    parts.push(`${conflictMergeProposed} 组零碎记忆等待你确认精简`);
+  }
+
+  if (beliefApplied > 0) {
+    parts.push(`已形成或更新 ${beliefApplied} 条对你的看法`);
+  }
+
+  if (beliefProposed > 0) {
+    parts.push(`${beliefProposed} 条对你的看法等待你确认`);
   }
 
   const mergeApplied = result.merge?.applied || 0;
@@ -146,11 +178,11 @@ export const MemoryTidySection = ({
 
   if (isLoading) {
     return null;
-  }
+   }
 
   const hint = autoExecute
-    ? '角色会自己合并重复的记忆、回顾最近的情绪。被合并的旧记忆只是归档，可以在已归档里找回，每一步都有修订记录。你手动写过或改过的记忆不会被自动合并，仍然会先问你。'
-    : '合并重复记忆、回顾最近的情绪，都会先放到待确认列表，等你确认后才生效。';
+    ? '角色会自己合并重复的记忆、更正新旧冲突的认知、形成对你的看法、回顾最近的情绪。被合并或更正的旧记忆不会删除，可以找回，每一步都有修订记录。你手动写过、改过或确认过的记忆不会被自动改动，仍然会先问你。'
+    : '合并重复记忆、更正新旧冲突的认知、形成对你的看法、回顾最近的情绪，都会先放到待确认列表，等你确认后才生效。';
 
   return (
     <section className="memory-chat-section">

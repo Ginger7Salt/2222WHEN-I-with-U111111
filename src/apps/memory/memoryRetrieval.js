@@ -50,7 +50,8 @@ const MEMORY_RECALL_COOLDOWNS = {
   [MEMORY_TYPES.CHARACTER_THOUGHT]: 8 * HOUR,
   [MEMORY_TYPES.EMOTION]: 6 * HOUR,
   [MEMORY_TYPES.EXPRESSION_RULE]: 0,
-  [MEMORY_TYPES.REFLECTION]: 24 * HOUR
+  [MEMORY_TYPES.REFLECTION]: 24 * HOUR,
+  [MEMORY_TYPES.BELIEF]: 24 * HOUR
 };
 
 const CHARACTER_SETTING_COOLDOWN = 24 * HOUR;
@@ -318,7 +319,8 @@ const getTypeLabel = (type) => ({
   character_thought: '角色内部背景',
   emotion: '情绪线索',
   expression_rule: '表达方式与边界',
-  reflection: '阶段性反思'
+  reflection: '阶段性反思',
+  belief: '角色对用户的看法'
 }[type] || '共同记忆');
 
 const formatMemoryForPrompt = (memory) => {

@@ -1058,10 +1058,10 @@ const handleDelete = async (memory) => {
                     onDelete={handleDelete}
                     onResolveCompound={handleResolveCompound}
                     onViewRevisions={(item) => {
-                      setRevisionMemory(item);
+                                          setRevisionMemory(item);
                     }}
                     sourceMemories={
-                      memory.type === 'reflection' && Array.isArray(memory.sourceMemoryIds)
+                      (memory.type === 'reflection' || memory.type === 'belief') && Array.isArray(memory.sourceMemoryIds)
                         ? memory.sourceMemoryIds
                           .map((sourceMemoryId) => memoryById.get(sourceMemoryId))
                           .filter(Boolean)

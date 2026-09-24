@@ -965,6 +965,39 @@ export const clearChatMemoryData = async (chatId) => {
   );
 };
 
+/*
+ * 候选采纳成正式记忆时，需要一并带过去的附加字段（不是 createMemory 的标准参数）：
+ * 情绪标签/强度/正负向/心情变化、"角色做过的事"的窗口，以及反思/看法综合自
+ * 哪几条记忆。之前这些字段只在直接写入正式记忆时才有，走待确认列表就丢了。
+ */
+const CARRIED_CANDIDATE_FIELDS = [
+  'sourceMemoryIds',
+  'beliefDomain',
+  'emotionTag',
+  'emotionIntensity',
+  'emotionValence',
+  'moodDelta',
+  'avoidRepeatHours'
+];
+
+const pickCarriedFields = (source) => {
+  const result = {};
+
+  if (!source || typeof source !== 'object') {
+    return result;
+  }
+
+  for (const key of CARRIED_CANDIDATE_FIELDS) {
+    const value = source[key];
+
+    if (value !== undefined && value !== null && value !== '') {
+      result[key] = value;
+    }
+  }
+
+  return result;
+};
+
 export const createPendingMemoryCandidate = async ({
   chatId,
   title = '',
@@ -988,7 +1021,8 @@ export const createPendingMemoryCandidate = async ({
   stability,
   memoryScope,
   recallPolicy,
-  temporal = null
+  temporal = null,
+  extraFields = null
 }) => {
 
   assertChatId(chatId);
@@ -1018,6 +1052,7 @@ export const createPendingMemoryCandidate = async ({
     priority: normalizeImportance(priority),
     status: MEMORY_CANDIDATE_STATUSES.PENDING,
      ...semanticFields,
+    ...pickCarriedFields(extraFields),
 
     proposalType: Object.values(MEMORY_CANDIDATE_PROPOSALS).includes(
       proposalType
@@ -1152,6 +1187,7 @@ export const acceptMemoryCandidate = async (
       confidence: MEMORY_CONFIDENCES.CONFIRMED,
 
       ...semanticFields,
+      ...pickCarriedFields(candidate),
 
       sourceMessageIds,
       sourceMessageTimestamps: Array.isArray(
@@ -1258,6 +1294,7 @@ export const acceptMemoryCandidate = async (
           type: nextType,
 
           ...semanticFields,
+          ...pickCarriedFields(candidate),
 
           importance: nextImportance,
 
@@ -1290,11 +1327,23 @@ export const acceptMemoryCandidate = async (
 
         /*
          * 记忆整理产生的"合并重复记忆"候选（tidyKind: merge_duplicates）：
-         * 目标记忆更新完之后，把被并入的其余记忆归档（不是删除，
+          * 目标记忆更新完之后，把被并入的其余记忆归档（不是删除，
          * 可以在已归档里找回），并留下修订记录。
          */
+        /*
+         * 整理发现的"新旧认知冲突"（tidyKind: resolve_conflict）走同一条路：
+         * 目标记忆保留（内容是解决冲突后的说法），另外几条标记为"已被更正"，
+         * 并指向目标记忆；跟合并重复记忆一样，都不删除，可以找回。
+         */
+        const isConflictResolution = (
+          candidate.tidyKind === 'resolve_conflict'
+        );
+
         if (
-          candidate.tidyKind === 'merge_duplicates' &&
+          (
+            candidate.tidyKind === 'merge_duplicates' ||
+            isConflictResolution
+          ) &&
           Array.isArray(candidate.mergeMemoryIds)
         ) {
           for (const mergedMemoryId of candidate.mergeMemoryIds) {
@@ -1315,21 +1364,36 @@ export const acceptMemoryCandidate = async (
               continue;
             }
 
-            await db.memoryRevisions.add(createRevisionPayload({
+                 await db.memoryRevisions.add(createRevisionPayload({
               memoryId: mergedMemory.memoryId,
               chatId: mergedMemory.chatId,
-              action: MEMORY_REVISION_ACTIONS.ARCHIVED,
+              action: isConflictResolution
+                ? MEMORY_REVISION_ACTIONS.SUPERSEDED
+                : MEMORY_REVISION_ACTIONS.ARCHIVED,
               snapshot: mergedMemory,
               createdAt: now,
-              note: `已合并进记忆「${nextTitle || nextContent.slice(0, 24)}」，作为重复记忆归档。`
+              note: isConflictResolution
+                ? `与记忆「${nextTitle || nextContent.slice(0, 24)}」存在冲突，已按较新或更可信的说法更正。`
+                : `已合并进记忆「${nextTitle || nextContent.slice(0, 24)}」，作为重复记忆归档。`
             }));
 
-            await db.memories.update(mergedMemory.id, {
-              ...mergedMemory,
-              status: MEMORY_STATUSES.ARCHIVED,
-              duplicateOfMemoryId: targetMemory.memoryId,
-              updatedAt: now
-            });
+            await db.memories.update(
+              mergedMemory.id,
+              isConflictResolution
+                ? {
+                  ...mergedMemory,
+                  status: MEMORY_STATUSES.CORRECTED,
+                  supersededByMemoryId: targetMemory.memoryId,
+                  correctedAt: now,
+                  updatedAt: now
+                }
+                : {
+                  ...mergedMemory,
+                  status: MEMORY_STATUSES.ARCHIVED,
+                  duplicateOfMemoryId: targetMemory.memoryId,
+                  updatedAt: now
+                }
+            );
           }
         }
 

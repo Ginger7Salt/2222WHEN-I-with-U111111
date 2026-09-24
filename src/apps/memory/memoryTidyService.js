@@ -40,6 +40,14 @@ import {
 } from './memoryEmotionCompoundService';
 
 import {
+  runConflictCheck
+} from './memoryConflictService';
+
+import {
+  runBeliefFormation
+} from './memoryBeliefService';
+
+import {
   getEmotionPersonality
 } from './emotionPersonalityService';
 
@@ -584,17 +592,46 @@ export const runMemoryTidyForChat = async (
       allMemories = await getChatMemory(chatId);
     }
 
-    const merge = await runMergeTidy({
-      chatId,
+    /*
+     * 新旧认知冲突：全量扫一遍，找出互相矛盾的记忆（以及可以精简合并的
+     * 细枝末节）。放在"合并重复记忆"之前：文字很像的"喜欢辣 / 不喜欢辣"
+     * 会先在这里被识别成冲突，而不是被当成重复。
+     */
+    const conflict = await runConflictCheck(chatId, {
+      mode: 'full',
       allMemories,
       job,
       autoExecute
     });
 
-    // 合并可能改动了记忆，情绪回顾用最新的一份。
-    const latestMemories = merge.applied > 0
+    if (conflict.conflictApplied > 0 || conflict.mergeApplied > 0) {
+      allMemories = await getChatMemory(chatId);
+    }
+
+    const merge = await runMergeTidy({
+      chatId,
+      allMemories,
+      job,
+           autoExecute
+    });
+
+    // 合并可能改动了记忆，后面的看法和情绪回顾用最新的一份。
+    let latestMemories = merge.applied > 0
       ? await getChatMemory(chatId)
       : allMemories;
+
+    // 看法：按领域把零散记忆综合成角色对用户的稳定看法（或修订已有的看法）。
+    const belief = await runBeliefFormation({
+      chatId,
+      allMemories: latestMemories,
+      job,
+      autoExecute,
+      force
+    });
+
+    if (belief.applied > 0) {
+      latestMemories = await getChatMemory(chatId);
+    }
 
     const emotion = await runEmotionReview({
       chatId,
@@ -608,8 +645,13 @@ export const runMemoryTidyForChat = async (
       tidyRejectedSignatures: merge.rejectedSignatures
     };
 
+
     if (emotion.reviewed) {
       jobUpdates.lastEmotionReviewAt = nowIso();
+    }
+
+    if (belief.ran) {
+      jobUpdates.beliefEvidenceCursor = belief.evidenceCount;
     }
 
     // 两部分都因为 AI 不可用而失败时，不记录"整理过"，下次还会再试。
@@ -626,21 +668,40 @@ export const runMemoryTidyForChat = async (
         dormantCount: decay.dormantCount
       },
       compound: {
-        created: compound.created,
+            created: compound.created,
         absorbed: compound.absorbed
+      },
+      conflict: {
+        proposed: conflict.conflictProposed,
+        applied: conflict.conflictApplied,
+        mergeProposed: conflict.mergeProposed,
+        mergeApplied: conflict.mergeApplied,
+        checked: conflict.checked
       },
       merge: {
         proposed: merge.proposed,
         applied: merge.applied,
         checkedGroups: merge.checkedGroups
       },
+      belief: {
+        proposed: belief.proposed,
+        applied: belief.applied,
+        ran: belief.ran,
+        reason: belief.reason
+      },
       emotion: {
         proposed: emotion.proposed,
         applied: emotion.applied,
-        reviewed: emotion.reviewed,
+                reviewed: emotion.reviewed,
         reason: emotion.reason
       },
-      error: merge.error || emotion.error || ''
+      error: (
+        merge.error ||
+        conflict.error ||
+        belief.error ||
+        emotion.error ||
+        ''
+      )
     };
   } catch (error) {
     console.warn('[MemoryTidy] 整理失败：', error);

@@ -443,9 +443,10 @@ export const MemoryCard = ({
           </button>
         </div>
 
+      
         {showDetails && (
           <div className="memory-card-details">
-            {memory.type === 'reflection' && (
+            {(memory.type === 'reflection' || memory.type === 'belief') && (
               <div className="memory-detail-sources">
                 <span className="memory-detail-label">综合自</span>
                 {sourceMemories.length > 0 ? (

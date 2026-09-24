@@ -85,7 +85,7 @@ const getErrorDetail = async (response) => {
   return detail;
 };
 
-const requestTidyCompletion = async ({ systemPrompt, userPrompt }) => {
+export const requestTidyCompletion = async ({ systemPrompt, userPrompt }) => {
   const apiConfig = await getApiConfig();
   const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
 
