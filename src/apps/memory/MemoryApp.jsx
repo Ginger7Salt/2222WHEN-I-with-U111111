@@ -26,6 +26,7 @@ import MemoryExportModal from './MemoryExportModal';
 import MemoryImportModal from './MemoryImportModal';
 import MemoryRevisionModal from './MemoryRevisionModal';
 import MemorySourceSection from './MemorySourceSection';
+import MemoryTidySection from './MemoryTidySection';
 
 import {
   MEMORY_CANDIDATE_PROPOSAL_LABELS,
@@ -739,7 +740,12 @@ const handleDelete = async (memory) => {
                 <BookOpen className="memory-intro-icon" />
       </section>
 
-      <MemorySourceSection />
+           <MemorySourceSection />
+
+      <MemoryTidySection
+        chatId={selectedChatId}
+        onFinished={loadMemoryData}
+      />
 
       <section className="memory-chat-section">
         <div className="memory-section-label">
@@ -1120,6 +1126,13 @@ const handleDelete = async (memory) => {
       </small>
     )}
   </div>
+)}
+
+{Array.isArray(candidate.mergeMemoryIds) &&
+  candidate.mergeMemoryIds.length > 0 && (
+  <small>
+    确认后会同时归档 {candidate.mergeMemoryIds.length} 条重复记忆，可在已归档里找回。
+  </small>
 )}
 
 <small>

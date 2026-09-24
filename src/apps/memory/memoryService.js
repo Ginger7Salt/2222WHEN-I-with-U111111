@@ -1260,13 +1260,20 @@ export const acceptMemoryCandidate = async (
           ...semanticFields,
 
           importance: nextImportance,
-          confidence: MEMORY_CONFIDENCES.CONFIRMED,
+
+          // 由用户采纳候选，视为一次用户确认。
+          // 但记忆整理在"角色直接整理"模式下自动采纳的合并（tidyAuto），
+          // 不是用户确认，保持原有的可信度和确认时间，不冒充用户确认。
+          confidence: candidate.tidyAuto === true
+            ? targetMemory.confidence
+            : MEMORY_CONFIDENCES.CONFIRMED,
 
 
           normalizedContent: normalizeComparableText(nextContent),
 
-          // 由用户采纳候选，视为一次用户确认。
-          userConfirmedAt: now,
+          userConfirmedAt: candidate.tidyAuto === true
+            ? targetMemory.userConfirmedAt || null
+            : now,
           updatedAt: now
         };
 
@@ -1279,7 +1286,52 @@ export const acceptMemoryCandidate = async (
           note: `${note} 已更新原有记忆。`
         }));
 
-        await db.memories.update(targetMemory.id, nextTargetMemory);
+              await db.memories.update(targetMemory.id, nextTargetMemory);
+
+        /*
+         * 记忆整理产生的"合并重复记忆"候选（tidyKind: merge_duplicates）：
+         * 目标记忆更新完之后，把被并入的其余记忆归档（不是删除，
+         * 可以在已归档里找回），并留下修订记录。
+         */
+        if (
+          candidate.tidyKind === 'merge_duplicates' &&
+          Array.isArray(candidate.mergeMemoryIds)
+        ) {
+          for (const mergedMemoryId of candidate.mergeMemoryIds) {
+            if (!mergedMemoryId || mergedMemoryId === targetMemory.memoryId) {
+              continue;
+            }
+
+            const mergedMemory = await db.memories
+              .where('memoryId')
+              .equals(mergedMemoryId)
+              .first();
+
+            if (
+              !mergedMemory ||
+              mergedMemory.status === MEMORY_STATUSES.ARCHIVED ||
+              mergedMemory.status === MEMORY_STATUSES.WITHDRAWN
+            ) {
+              continue;
+            }
+
+            await db.memoryRevisions.add(createRevisionPayload({
+              memoryId: mergedMemory.memoryId,
+              chatId: mergedMemory.chatId,
+              action: MEMORY_REVISION_ACTIONS.ARCHIVED,
+              snapshot: mergedMemory,
+              createdAt: now,
+              note: `已合并进记忆「${nextTitle || nextContent.slice(0, 24)}」，作为重复记忆归档。`
+            }));
+
+            await db.memories.update(mergedMemory.id, {
+              ...mergedMemory,
+              status: MEMORY_STATUSES.ARCHIVED,
+              duplicateOfMemoryId: targetMemory.memoryId,
+              updatedAt: now
+            });
+          }
+        }
 
         await db.memoryCandidates.update(candidate.id, {
           ...candidate,

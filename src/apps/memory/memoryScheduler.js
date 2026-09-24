@@ -14,6 +14,19 @@ import {
 import {
   backfillChatMemories
 } from './memoryMigration';
+import {
+  buildCharacterActionContext,
+  isMemoryBlockedByRecentAction,
+  pickActiveCharacterActions
+} from './memoryActionContext';
+import {
+  getDecayPenalty,
+  isFadedOutOfRecall
+} from './memoryDecay';
+import {
+  buildCurrentTimeLine,
+  formatMemoryTimeLabel
+} from './memoryTimeContext';
 
 
 
@@ -38,6 +51,14 @@ import {
 import {
   ensureEmotionPersonalityFresh
 } from './emotionPersonalityService';
+
+import {
+  runMemoryTidyForChat
+} from './memoryTidyService';
+
+import {
+  isDuplicateActionMemory
+} from './memoryActionContext';
 
 import {
   buildMemorySourceBatch,
@@ -173,9 +194,10 @@ const maybeRunReflection = async (chatId) => {
     const activeMemoryCount = await db.memories
       .where('chatId')
       .equals(chatId)
-      .filter((memory) => (
+        .filter((memory) => (
         memory.status === MEMORY_STATUSES.ACTIVE &&
-        memory.type !== MEMORY_TYPES.REFLECTION
+        memory.type !== MEMORY_TYPES.REFLECTION &&
+        memory.type !== MEMORY_TYPES.CHARACTER_ACTION
       ))
       .count();
 
@@ -218,6 +240,20 @@ const maybeRefreshEmotionPersonality = async (chatId) => {
       '[Memory] Emotion personality refresh check failed safely:',
       error
     );
+  }
+};
+
+/*
+ * 同样复用记忆调度器已有的触发节点：每轮提炼跑完之后，顺带让记忆整理
+ * （合并重复记忆、情绪回顾）判断一下要不要跑。
+ * 整理内部自带"同一个聊天 12 小时内最多一次"的节流，并且吞掉所有异常，
+ * 这里只负责在合适的时机调用它，不能影响本轮记忆提炼的正常返回。
+ */
+const maybeRunMemoryTidy = async (chatId) => {
+  try {
+    await runMemoryTidyForChat(chatId);
+  } catch (error) {
+    console.warn('[Memory] Tidy check failed safely:', error);
   }
 };
 
@@ -357,20 +393,40 @@ const persistExtractionResult = async ({
       memory.content
     );
 
+    /*
+     * 角色做过的事（character_action）每一次都是新的一次：
+     * 几天后"又点了海底捞"不是重复，也不该被并进旧的那条，
+     * 所以不走内容去重和相似度合并，只防止同一条来源消息被记两次。
+     */
+    const isActionMemory = (
+      memory.type === MEMORY_TYPES.CHARACTER_ACTION
+    );
+
     if (
       !comparableContent ||
-      existingContents.has(comparableContent)
+      (
+        isActionMemory
+          ? isDuplicateActionMemory(memory, existingMemories)
+          : existingContents.has(comparableContent)
+      )
     ) {
       skippedDuplicates += 1;
       continue;
     }
 
-    const proposal = decideMemoryProposal({
-      incomingMemory: memory,
-      existingMemories,
-      sourceTexts: getSourceTexts(memory)
-    });
-
+    const proposal = isActionMemory
+      ? {
+        proposalType: MEMORY_CANDIDATE_PROPOSALS.CREATE,
+        targetMemoryId: null,
+        relatedMemoryIds: [],
+        similarityScore: 0,
+        conflictReason: ''
+      }
+      : decideMemoryProposal({
+        incomingMemory: memory,
+        existingMemories,
+        sourceTexts: getSourceTexts(memory)
+      });
     if (
       proposal.proposalType ===
       MEMORY_CANDIDATE_PROPOSALS.CREATE
@@ -418,8 +474,26 @@ const persistExtractionResult = async ({
         extraMemoryFields.moodDelta = memory.moodDelta;
       }
 
-      if (memory.emotionTag) {
+           if (memory.emotionTag) {
         extraMemoryFields.emotionTag = memory.emotionTag;
+      }
+
+      if (
+        memory.emotionIntensity !== null &&
+        memory.emotionIntensity !== undefined
+      ) {
+        extraMemoryFields.emotionIntensity = memory.emotionIntensity;
+      }
+
+      if (memory.emotionValence) {
+        extraMemoryFields.emotionValence = memory.emotionValence;
+      }
+
+      if (
+        memory.avoidRepeatHours !== null &&
+        memory.avoidRepeatHours !== undefined
+      ) {
+        extraMemoryFields.avoidRepeatHours = memory.avoidRepeatHours;
       }
 
       if (Object.keys(extraMemoryFields).length > 0) {
@@ -469,6 +543,11 @@ const persistExtractionResult = async ({
   }
 
   for (const candidate of extraction.candidates || []) {
+    // 角色做过的事只应作为正式记忆记录，不进待确认列表。
+    if (candidate.type === MEMORY_TYPES.CHARACTER_ACTION) {
+      continue;
+    }
+
     const comparableContent = normalizeComparableText(
       candidate.content
     );
@@ -765,7 +844,8 @@ export const runMemoryProcessing = async (
     });
 
     await maybeRunReflection(chatId);
-    await maybeRefreshEmotionPersonality(chatId);
+        await maybeRefreshEmotionPersonality(chatId);
+    await maybeRunMemoryTidy(chatId);
 
     return {
       skipped: false,

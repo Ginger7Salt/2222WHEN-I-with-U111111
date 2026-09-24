@@ -47,7 +47,8 @@ const pickSourceMemories = (allMemories) => (
   allMemories
     .filter((memory) => (
       memory.status === MEMORY_STATUSES.ACTIVE &&
-      memory.type !== MEMORY_TYPES.REFLECTION
+      memory.type !== MEMORY_TYPES.REFLECTION &&
+      memory.type !== MEMORY_TYPES.CHARACTER_ACTION
     ))
     .slice(0, MAX_SOURCE_MEMORIES)
 );

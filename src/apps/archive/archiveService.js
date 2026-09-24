@@ -810,7 +810,8 @@ const MEMORY_HIGHLIGHT_TYPE_LABELS = {
   [MEMORY_TYPES.FACT]: '事实与近况',
   [MEMORY_TYPES.PREFERENCE]: '偏好与习惯',
   [MEMORY_TYPES.REFLECTION]: '阶段性反思',
-  [MEMORY_TYPES.EXPRESSION_RULE]: '表达方式与边界'
+  [MEMORY_TYPES.EXPRESSION_RULE]: '表达方式与边界',
+  [MEMORY_TYPES.CHARACTER_ACTION]: '角色做过的事'
 };
 
 const shuffleArray = (items) => {

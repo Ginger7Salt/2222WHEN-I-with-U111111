@@ -6,7 +6,8 @@ export const MEMORY_TYPES = {
   CHARACTER_THOUGHT: 'character_thought',
   EMOTION: 'emotion',
   EXPRESSION_RULE: 'expression_rule',
-  REFLECTION: 'reflection'
+  REFLECTION: 'reflection',
+  CHARACTER_ACTION: 'character_action'
 };
 
 export const MEMORY_TYPE_OPTIONS = [
@@ -17,7 +18,8 @@ export const MEMORY_TYPE_OPTIONS = [
   { id: MEMORY_TYPES.CHARACTER_THOUGHT, label: '角色心事' },
   { id: MEMORY_TYPES.EMOTION, label: '情绪痕迹' },
   { id: MEMORY_TYPES.EXPRESSION_RULE, label: '表达方式与边界' },
-  { id: MEMORY_TYPES.REFLECTION, label: '阶段性反思' }
+  { id: MEMORY_TYPES.REFLECTION, label: '阶段性反思' },
+  { id: MEMORY_TYPES.CHARACTER_ACTION, label: '角色做过的事' }
 ];
 
 export const MEMORY_SUBJECTS = {

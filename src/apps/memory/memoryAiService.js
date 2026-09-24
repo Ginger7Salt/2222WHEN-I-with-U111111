@@ -5,6 +5,14 @@ import {
 } from './memorySignals';
 
 import {
+  EMOTION_VALENCES
+} from './memoryEmotionSignals';
+
+import {
+  normalizeAvoidRepeatHours
+} from './memoryActionContext';
+
+import {
   buildTemporalDataFromSource,
   extractTemporalExpression
 } from './memoryTemporal';
@@ -109,7 +117,8 @@ const isAllowedMemoryType = (value) => (
     'character_thought',
     'emotion',
     'expression_rule',
-    'reflection'
+    'reflection',
+    'character_action'
   ].includes(value)
 );
 
@@ -379,6 +388,34 @@ const normalizeEmotionTag = (value) => (
   normalizeText(value).slice(0, 12)
 );
 
+/*
+ * emotionIntensity：情绪强度，0 到 1，保留两位小数；AI 没给或给的不是数字时为 null。
+ * emotionValence：正负向，只接受 positive / negative / mixed / neutral，其余为 null。
+ * 两者都只是展示和后续整理（情绪回顾）用的参考字段，不会改动角色的实时心情状态，
+ * 所以 AI 输出跑偏的后果很小，宁可存 null 也不猜。
+ */
+const normalizeEmotionIntensity = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const numberValue = Number(value);
+
+  if (!Number.isFinite(numberValue)) {
+    return null;
+  }
+
+  return Math.round(Math.max(0, Math.min(1, numberValue)) * 100) / 100;
+};
+
+const normalizeEmotionValence = (value) => {
+  const text = normalizeText(value).toLowerCase();
+
+  return EMOTION_VALENCES.includes(text)
+    ? text
+    : null;
+};
+
 const normalizeMemoryItem = (
   item,
   sourceMessages
@@ -405,15 +442,22 @@ const normalizeMemoryItem = (
     ? item.type
     : 'fact';
 
-  const subject = normalizeSubject(
-    item?.subject,
-    type
-  );
+  // 角色做过的事：归属固定是角色，且是一次性的瞬时事件，不信任 AI 给的值。
+  const isCharacterAction = type === 'character_action';
 
-  const memoryScope = normalizeMemoryScope(
-    item?.memoryScope,
-    subject
-  );
+  const subject = isCharacterAction
+    ? MEMORY_SUBJECTS.CHARACTER
+    : normalizeSubject(
+      item?.subject,
+      type
+    );
+
+  const memoryScope = isCharacterAction
+    ? MEMORY_SCOPES.CONVERSATION
+    : normalizeMemoryScope(
+      item?.memoryScope,
+      subject
+    );
 
   const topicKey = normalizeTopicKey(
     item?.topicKey
@@ -441,10 +485,12 @@ const normalizeMemoryItem = (
       topicKey
     ),
 
-    stability: normalizeStability(
-      item?.stability,
-      type
-    ),
+    stability: isCharacterAction
+      ? MEMORY_STABILITIES.MOMENTARY
+      : normalizeStability(
+        item?.stability,
+        type
+      ),
 
     memoryScope,
 
@@ -480,9 +526,23 @@ const normalizeMemoryItem = (
       ? normalizeMoodDelta(item?.moodDelta)
       : null,
 
-    emotionTag: type === 'emotion'
+      emotionTag: type === 'emotion'
       ? normalizeEmotionTag(item?.emotionTag)
       : '',
+
+    emotionIntensity: type === 'emotion'
+      ? normalizeEmotionIntensity(item?.emotionIntensity)
+      : null,
+
+    emotionValence: type === 'emotion'
+      ? normalizeEmotionValence(item?.emotionValence)
+      : null,
+
+    // 仅角色做过的事使用：多少小时内不宜再重复；AI 没给时为 null，
+    // 使用方按默认值处理。
+    avoidRepeatHours: isCharacterAction
+      ? normalizeAvoidRepeatHours(item?.avoidRepeatHours)
+      : null,
 
     sourceMessageIds,
 
@@ -718,6 +778,20 @@ const buildSystemPrompt = () => `
 23. 不得使用 Emoji。
 24. 只输出严格 JSON，不要 Markdown，不要解释。
 25. 当且仅当 type 为 emotion 时，额外给出 emotionTag：用你自己的话概括这条情绪记忆最贴切的情绪标签，1 到 4 个字，例如"心动""委屈""孤单""如释重负"，不必局限于规则 17 里列出的心情字段名称，也不必每条都往同一个词上靠；找不到合适的词就输出空字符串，不要勉强凑一个。
+找不到合适的词就输出空字符串，不要勉强凑一个。
+26. 当且仅当 type 为 emotion 时，再额外给出：
+    - emotionIntensity：这段情绪的强度，0 到 1 的小数。0.2 以下是轻微的一点点，0.5 左右是明显但可控，0.8 以上是强烈、几乎压过其他事情。以对话里实际表现出来的程度为准，不要为了显得重要而往高了写；拿不准就输出 null。
+    - emotionValence：这段情绪整体的正负向，只能是 positive（偏正向，如开心、安心、感动）、negative（偏负向，如难过、焦虑、委屈）、mixed（悲喜交加，如喜极而泣、又期待又害怕）、neutral（中性，如平静、说不清）之一；拿不准就输出 null。
+      - 强度和正负向描述的是情绪本身，与 moodDelta 无关，不要互相推算；用户情绪同样要给出强度和正负向（规则 18 只限制 moodDelta）。
+27. title 和 content 里不要出现“昨天、今天、明天、刚才、上周、最近”这类相对时间词：记忆会保存很久，相对时间词过几天就会变成错的。事情发生的时间只放进 temporalExpression（由程序换算成具体日期）。没有明确时间线索时，content 里就不写时间。
+28. 角色做过的具体事（type 为 character_action）：当角色（sender 为 character、ai 或 assistant）的消息显示角色已经实际为用户做了、给了或推荐了某件具体的事，输出一条 type 为 character_action 的 memory，用来避免角色之后反复重复同一件事。
+    - 只记录具体的、有对象的、之后可能被重复的行为：吃的喝的（点了什么外卖、做了什么菜）、买的送的（礼物）、推荐的影视书籍音乐游戏、安排的活动或出行、给出的具体建议或计划。
+    - 不记录安慰、闲聊、情绪表达、日常问候，也不记录“打算做、可以做”的事，只记录已经做了的。
+    - subject 为 character；content 写清楚做了什么，例如“角色为用户点了海底捞外卖”，不要写相对时间词；topicKey 用这件事本身的简短主题键，并尽量与相关偏好记忆的主题键保持一致（例如用户喜欢吃海底捞，这里也用同一个主题键）。
+    - temporalExpression 写这件事发生的时间线索；拿不准就留空字符串。
+    - avoidRepeatHours：这件事多少小时内不应再重复做，1 到 336 的整数。吃的喝的约 8 到 24，推荐影视书籍音乐约 72 到 168，送礼物约 168 到 336；拿不准就输出 null。
+    - character_action 一律放进 memories，不要放进 candidates。
+29. 同一件事在这批消息里只记一次；如果角色只是在回答用户关于这件事的提问，或者复述已经记录过的行为，不要再记。
 
 JSON 格式：
 {
@@ -725,7 +799,7 @@ JSON 格式：
     {
       "title": "不超过 50 字",
       "content": "客观、克制、可长期使用的一句话或两句话",
-      "type": "fact | preference | episode | relationship | character_thought | emotion | expression_rule | reflection",
+            "type": "fact | preference | episode | relationship | character_thought | emotion | expression_rule | reflection | character_action",
       "importance": 1,
       "confidence": "confirmed | inferred",
       "subject": "user | character | relationship | shared",
@@ -741,6 +815,9 @@ JSON 格式：
   "joy": 0.08
 },
 "emotionTag": "仅 type 为 emotion 时填写；无合适词则为空字符串",
+"emotionIntensity": "仅 type 为 emotion 时填写，0 到 1 的小数；拿不准为 null",
+"emotionValence": "仅 type 为 emotion 时填写：positive | negative | mixed | neutral；拿不准为 null",
+"avoidRepeatHours": "仅 type 为 character_action 时填写，1 到 336 的整数；拿不准为 null",
 "sourceMessageIds": [1, 2]
 
     }
@@ -763,6 +840,8 @@ JSON 格式：
   "warmth": 0.1
 },
 "emotionTag": "仅 type 为 emotion 时填写；无合适词则为空字符串",
+"emotionIntensity": "仅 type 为 emotion 时填写，0 到 1 的小数；拿不准为 null",
+"emotionValence": "仅 type 为 emotion 时填写：positive | negative | mixed | neutral；拿不准为 null",
 "sourceMessageIds": [1]
 
     }

@@ -181,6 +181,33 @@ const getPeriodRange = ({
   });
 };
 
+/*
+ * 记录这条记忆时，如果事件已经整段结束（结束时间不晚于说话时刻），
+ * 那它是已经发生的事，状态记为 completed，而不是"计划中"。
+ * 以前一律记成 planned，"昨天吃了海底捞"这类已发生的事，满 24 小时后
+ * 会被当成过期计划，永久不再被召回。
+ * 结束时间晚于说话时刻（未来的事，或跨越"此刻"的整天）仍然是 planned，
+ * 沿用原来的计划生命周期。
+ */
+const getInitialTemporalStatus = ({ endAt, anchorAt, isAmbiguous }) => {
+  if (isAmbiguous || !endAt || !anchorAt) {
+    return MEMORY_TEMPORAL_STATUSES.PLANNED;
+  }
+
+  const endTime = new Date(endAt).getTime();
+  const anchorTime = new Date(anchorAt).getTime();
+
+  if (
+    Number.isFinite(endTime) &&
+    Number.isFinite(anchorTime) &&
+    endTime <= anchorTime
+  ) {
+    return MEMORY_TEMPORAL_STATUSES.COMPLETED;
+  }
+
+  return MEMORY_TEMPORAL_STATUSES.PLANNED;
+};
+
 const buildTemporalResult = ({
   originalExpression,
   anchorAt,
@@ -196,7 +223,7 @@ const buildTemporalResult = ({
   startAt,
   endAt,
   precision,
-  status: MEMORY_TEMPORAL_STATUSES.PLANNED,
+  status: getInitialTemporalStatus({ endAt, anchorAt, isAmbiguous }),
   isRelativeExpression,
   isAmbiguous
 });

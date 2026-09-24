@@ -1,3 +1,7 @@
+import {
+  EMOTION_SIGNAL_PATTERNS
+} from './memoryEmotionSignals';
+
 const normalizeText = (value) => (
   String(value || '').trim()
 );
@@ -91,7 +95,8 @@ const HIGH_PRIORITY_PATTERNS = [
     type: 'emotion',
     priority: 4,
     pattern: /(我很难过|我很害怕|我很崩溃|我撑不住了|我好累|我很开心).{0,100}/i
-  }
+  },
+  ...EMOTION_SIGNAL_PATTERNS
 ];
 
 export const getUsableMessages = (messages = []) => (

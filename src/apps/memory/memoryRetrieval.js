@@ -122,10 +122,14 @@ const isRecallableMemory = (memory, chatId) => {
     ''
   );
 
+  /*
+   * completed（已经发生的事）不再在这里被排除：已发生的事是历史，
+   * 由时间标注和时间衰减来决定它还该不该被想起，而不是一刀切排除。
+   * 只有已取消，或计划过期后没有得到确认的（unknown），才不再召回。
+   */
   if (
     [
       'cancelled',
-      'completed',
       'unknown'
     ].includes(temporalStatus)
   ) {
@@ -276,7 +280,8 @@ const calculateScore = (memory, queryTokens) => {
     userAuthority +
     typeBoost -
     fatigue -
-    inferredStalenessPenalty
+    inferredStalenessPenalty -
+    getDecayPenalty(memory)
   );
 };
 
@@ -306,9 +311,15 @@ const formatMemoryForPrompt = (memory) => {
     ? '；这是角色自身的内部背景，不得表述为用户事实'
     : '';
 
+  // 时间标注：让角色分清"昨天的事"和"今天的事"。
+  // 表达方式与边界是一直要遵守的规则，不属于某个时间点，不加标注。
+  const timeLabel = memory.type === MEMORY_TYPES.EXPRESSION_RULE
+    ? ''
+    : formatMemoryTimeLabel(memory);
+
   return `- [${getTypeLabel(memory.type)}] ${
     memory.title ? `${memory.title}：` : ''
-  }${content}${sourceNotice}${thoughtNotice}`;
+  }${content}${timeLabel ? `（${timeLabel}）` : ''}${sourceNotice}${thoughtNotice}`;
 };
 
 /*
@@ -471,6 +482,19 @@ const canBreakCooldownForDirectMention = (
   }
 
   /*
+   * topicKey 常常是英文（如 haidilao），用户却用中文提起。
+   * 所以标题里的核心词整段出现在用户输入里，也算直接提及。
+   * 只取标题去掉“喜欢/偏爱”等泛词后长度>=3 的片段，避免误触发。
+   */
+  const titleCore = normalizeText(memory?.title)
+    .toLowerCase()
+    .replace(/[喜欢爱偏好吃了的和与，,。\s]/g, '');
+
+  if (titleCore.length >= 3 && normalizedUserText.includes(titleCore)) {
+    return true;
+  }
+
+  /*
    * 兼容尚未具备可靠 topicKey 的旧记忆。
    * 门槛提高到 0.68，避免“今天很累”这类泛表达
    * 因为与旧记忆存在零散中文二字片段而误触发。
@@ -502,6 +526,11 @@ const isRelevantEnough = ({
   }
 
   if (memory.type === MEMORY_TYPES.EMOTION) {
+    // 情绪随时间淡到一定程度后不再被召回（用户和角色的情绪一视同仁）。
+    if (isFadedOutOfRecall(memory)) {
+      return false;
+    }
+
     return overlap >= 0.35 && score >= EMOTION_MIN_SCORE;
   }
 
@@ -632,7 +661,7 @@ export const getRecallableChatMemories = async (chatId) => {
   ));
 };
 
-export const getChatMemoryContext = async ({
+const getRelevantMemoryContext = async ({
   chatId,
   userText = '',
   recentMessages = []
@@ -654,8 +683,19 @@ export const getChatMemoryContext = async ({
     );
   }
 
-  const memories = await getRecallableChatMemories(chatId);
+  const allRecallableMemories = await getRecallableChatMemories(chatId);
 
+  /*
+   * 角色做过的事不参与普通召回排序，只通过"角色近期已经做过的事"那一块进入提示词；
+   * 同时，窗口期内跟这些事同一个话题的普通记忆，暂时不再召回去诱导角色重复。
+   */
+  const recentActions = pickActiveCharacterActions(
+    allRecallableMemories
+  );
+
+  const memories = allRecallableMemories.filter((memory) => (
+    memory.type !== MEMORY_TYPES.CHARACTER_ACTION
+  ));
 
   if (!memories.length) return '';
 
@@ -721,6 +761,18 @@ export const getChatMemoryContext = async ({
         return false;
       }
 
+
+      /*
+       * 刚做过的事：角色近期已经为用户做过某件事，
+       * 跟它同一话题的偏好/经历记忆暂时不召回，避免"因为你喜欢就再来一次"。
+       * 用户当前明确再次提起时，沿用直接提及可突破冷却的规则。
+       */
+      if (
+        isMemoryBlockedByRecentAction(item.memory, recentActions) &&
+        !canBreakCooldown
+      ) {
+        return false;
+      }
 
       return isRelevantEnough({
         ...item,
@@ -815,6 +867,53 @@ export const getChatMemoryContext = async ({
 
 ${reservedMemories.map(formatMemoryForPrompt).join('\n')}
 `;
+};
+
+/*
+ * 对外的入口，所有调用方（聊天、通话、线下）都通过它拿到记忆块。
+ * 由三部分拼成：当前时间行、与当前话题相关的共同记忆、
+ * "角色近期已经做过的事"。后两部分都没有内容时返回空字符串。
+ *
+ * "角色近期已经做过的事"不依赖用户这句话的话题：即使这次没有召回到任何
+ * 共同记忆，角色也应该记得自己刚做过什么。
+ */
+export const getChatMemoryContext = async ({
+  chatId,
+  userText = '',
+  recentMessages = []
+}) => {
+  if (chatId === undefined || chatId === null || chatId === '') {
+    return '';
+  }
+
+  const relevantContext = await getRelevantMemoryContext({
+    chatId,
+    userText,
+    recentMessages
+  });
+
+  let actionContext = '';
+
+  try {
+    const recallable = await getRecallableChatMemories(chatId);
+
+    actionContext = buildCharacterActionContext(
+      pickActiveCharacterActions(recallable)
+    );
+  } catch (error) {
+    console.warn(
+      '[Memory] Character action context skipped safely:',
+      error
+    );
+  }
+
+  if (!relevantContext && !actionContext) {
+    return '';
+  }
+
+  return `
+${buildCurrentTimeLine()}
+${relevantContext}${actionContext}`;
 };
 
 /*

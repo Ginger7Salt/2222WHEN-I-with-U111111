@@ -22,6 +22,10 @@ import {
   MEMORY_TYPE_OPTIONS
 } from './memoryConstants';
 
+import {
+  EMOTION_VALENCE_LABELS
+} from './memoryEmotionSignals';
+
 const getTypeLabel = (type) => (
   MEMORY_TYPE_OPTIONS.find((item) => item.id === type)?.label || '共同记忆'
 );
@@ -441,11 +445,32 @@ export const MemoryCard = ({
               <div>
                 <span className="memory-detail-label">情绪标签</span>
                 <span className="memory-detail-value">
-                  {memory.emotionTag}
+                                  {memory.emotionTag}
                 </span>
               </div>
             )}
 
+            {memory.type === 'emotion' &&
+              memory.emotionIntensity !== null &&
+              memory.emotionIntensity !== undefined &&
+              Number.isFinite(Number(memory.emotionIntensity)) && (
+              <div>
+                <span className="memory-detail-label">情绪强度</span>
+                <span className="memory-detail-value">
+                  {Math.round(Number(memory.emotionIntensity) * 100)} / 100
+                </span>
+              </div>
+            )}
+
+            {memory.type === 'emotion' &&
+              EMOTION_VALENCE_LABELS[memory.emotionValence] && (
+              <div>
+                <span className="memory-detail-label">情绪倾向</span>
+                <span className="memory-detail-value">
+                  {EMOTION_VALENCE_LABELS[memory.emotionValence]}
+                </span>
+              </div>
+            )}
             {memory.topicKey && (
               <div>
                 <span className="memory-detail-label">主题</span>
