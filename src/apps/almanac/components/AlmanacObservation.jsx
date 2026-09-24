@@ -83,11 +83,31 @@ export const AlmanacObservation = ({
                 。
               </small>
             </>
-          ) : (
-            <p className="almanac-observation-message">
-              {rhythmObservation.message}
-            </p>
+                   ) : (
+            <>
+              <p className="almanac-observation-message">
+                {rhythmObservation.message}
+              </p>
+
+              <small className="almanac-observation-meta">
+                第{' '}
+                <strong>
+                  {Math.min(
+                    rhythmObservation.sampleDays || 0,
+                    rhythmObservation.requiredDays || 7,
+                  )}
+                </strong>{' '}
+                / {rhythmObservation.requiredDays || 7} 天。
+              </small>
+            </>
           )}
+
+          <small className="almanac-observation-meta">
+            这只是按你出现的时间做的统计，不是读心。
+            {rhythmObservation.sharedWithChar
+              ? '这份观察也会作为背景告诉 TA。'
+              : '目前只在这里显示，没有告诉 TA；可以在设置里开启。'}
+          </small>
         </div>
       )}
     </section>

@@ -67,13 +67,9 @@ const getPeriodInfo = (hour) => {
 export const getRhythmObservation = async ({ chatId, records = [] }) => {
   const config = await getAlmanacConfig(chatId);
 
-  if (!config?.rhythmInferenceEnabled) {
-    return {
-      enabled: false,
-      ready: false,
-      message: '作息观察尚未开启。',
-    };
-  }
+  // 节律观察默认可见；rhythmInferenceEnabled 只决定"要不要告诉角色"，
+  // 真正的开关判断在 almanacPromptBuilder.js 里。
+  const sharedWithChar = Boolean(config?.rhythmInferenceEnabled);
 
   const userRecords = records.filter(
     (record) => record.eventType === 'user_message'
@@ -82,8 +78,9 @@ export const getRhythmObservation = async ({ chatId, records = [] }) => {
   const days = new Set(userRecords.map((record) => record.dateKey).filter(Boolean));
 
   if (days.size < MINIMUM_DAYS) {
-    return {
+       return {
       enabled: true,
+      sharedWithChar,
       ready: false,
       sampleDays: days.size,
       requiredDays: MINIMUM_DAYS,
@@ -113,8 +110,9 @@ export const getRhythmObservation = async ({ chatId, records = [] }) => {
     0.35 + days.size / 30 + (rankedHours[0]?.[1] || 0) / 100
   );
 
-  return {
+    return {
     enabled: true,
+    sharedWithChar,
     ready: true,
     sampleDays: days.size,
     dominantHour,

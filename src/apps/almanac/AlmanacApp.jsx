@@ -17,6 +17,7 @@ import AlmanacChatSelector from './components/AlmanacChatSelector';
 import AlmanacObservation from './components/AlmanacObservation';
 import AlmanacMilestones from './components/AlmanacMilestones';
 import AlmanacReminderManager from './components/AlmanacReminderManager';
+import AlmanacRoutineProfile from './components/AlmanacRoutineProfile';
 import AlmanacSettingsPanel from './components/AlmanacSettingsPanel';
 import AlmanacInitialization from './components/AlmanacInitialization';
 
@@ -37,8 +38,9 @@ import './almanac.css';
 // 一次只展开一个——纯展示层的状态，不涉及任何数据读取或业务逻辑。
 const ALMANAC_TABS = [
   { key: 'record', index: '01', title: '记录', hint: '这里留下过' },
-  { key: 'milestones', index: '02', title: '这一路走来', hint: '陪伴与重要日期' },
-  { key: 'reminders', index: '03', title: '轻提醒', hint: '自然地提一句' },
+  { key: 'profile', index: '02', title: 'TA 眼中的你', hint: '作息与相处方式' },
+  { key: 'milestones', index: '03', title: '这一路走来', hint: '陪伴与重要日期' },
+  { key: 'reminders', index: '04', title: '轻提醒', hint: '自然地提一句' },
 ];
 
 export const AlmanacApp = ({ onBackHub }) => {
@@ -416,6 +418,17 @@ export const AlmanacApp = ({ onBackHub }) => {
                   stats={stats}
                   rhythmObservation={rhythmObservation}
                   isLoading={false}
+                />
+              </section>
+            )}
+
+                        {activeTab === 'profile' && (
+              <section className="almanac-profile-section almanac-reveal">
+                <AlmanacRoutineProfile
+                  chatId={numericChatId}
+                  characterName={selectedCharacter?.name}
+                  records={records}
+                  onConfigSaved={setConfig}
                 />
               </section>
             )}

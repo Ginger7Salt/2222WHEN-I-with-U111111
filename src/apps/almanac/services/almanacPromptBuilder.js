@@ -8,9 +8,10 @@ import {
 } from './almanacService';
 
 import { getRhythmObservation } from './almanacRhythmService';
+import { getRoutineProfilePromptLines } from './almanacRoutineProfileService';
 import { getUpcomingImportantDateForPrompt } from './almanacImportantDateService';
 
-const MAX_PROMPT_LENGTH = 2400;
+const MAX_PROMPT_LENGTH = 3400;
 
 const formatUserLocalDateTime = (date, timeZone) => {
   try {
@@ -117,6 +118,12 @@ export const getAlmanacPromptContext = async (chatId) => {
         `当前参考时区为设备时区：${getDeviceTimeZone()}`,
         '可以在 Almanac 设置中确认或选择 user 的所在地时间。'
       );
+    }
+
+        const routineLines = await getRoutineProfilePromptLines(chatId);
+
+    if (routineLines.length) {
+      lines.push(...routineLines);
     }
 
     await appendRhythmContext({ lines, chatId, config, records });
