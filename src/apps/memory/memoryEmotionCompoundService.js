@@ -112,7 +112,7 @@ const isComposableEmotion = (memory) => (
 const getPersonalityFor = async (chatId) => {
   const chat = await db.chats.get(chatId);
   const characterId = chat?.characterId || null;
-  const personality = await getEmotionPersonality(characterId);
+  const personality = await getEmotionPersonality(characterId, chatId);
 
   return { characterId, personality };
 };

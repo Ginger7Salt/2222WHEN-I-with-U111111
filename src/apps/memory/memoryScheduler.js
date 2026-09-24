@@ -70,6 +70,10 @@ import {
 } from './memoryConflictService';
 
 import {
+  runGrowthUpdate
+} from './memoryGrowthService';
+
+import {
   buildMemorySourceBatch,
   getUsableMessages,
   inspectMemorySignals
@@ -300,6 +304,20 @@ const maybeCheckNewConflicts = async (chatId) => {
   }
 };
 
+/*
+ * 每轮提炼跑完之后，看看有没有值得让角色"成长"一次的新事件：
+ * 关系里的重大事件，或者长期没化解（或刚被化解）的复合情绪。
+ * 没有新触发时不会调用 AI；怎么生效（先问你，还是直接生效）沿用记忆整理的开关。
+ * 失败只警告，不影响本轮提炼的正常返回。
+ */
+const maybeUpdateGrowth = async (chatId) => {
+  try {
+    await runGrowthUpdate(chatId);
+  } catch (error) {
+    console.warn('[Memory] Growth update failed safely:', error);
+  }
+};
+
 const clearPendingTimer = (chatId) => {
   const timer = pendingTimers.get(chatId);
 
@@ -399,10 +417,12 @@ const persistExtractionResult = async ({
       // 情绪标签/强度/正负向/心情变化等附加字段，采纳时一并带过去。
       extraFields: {
         emotionTag: item.emotionTag,
-        emotionIntensity: item.emotionIntensity,
+              emotionIntensity: item.emotionIntensity,
         emotionValence: item.emotionValence,
         moodDelta: item.moodDelta,
-        avoidRepeatHours: item.avoidRepeatHours
+        avoidRepeatHours: item.avoidRepeatHours,
+        entities: item.entities,
+        milestone: item.milestone
       },
 
       sourceMessageIds: item.sourceMessageIds,
@@ -553,9 +573,17 @@ const persistExtractionResult = async ({
 
       if (
         memory.avoidRepeatHours !== null &&
-        memory.avoidRepeatHours !== undefined
+               memory.avoidRepeatHours !== undefined
       ) {
         extraMemoryFields.avoidRepeatHours = memory.avoidRepeatHours;
+      }
+
+      if (Array.isArray(memory.entities) && memory.entities.length > 0) {
+        extraMemoryFields.entities = memory.entities;
+      }
+
+      if (memory.milestone) {
+        extraMemoryFields.milestone = memory.milestone;
       }
 
       if (Object.keys(extraMemoryFields).length > 0) {
@@ -906,9 +934,10 @@ export const runMemoryProcessing = async (
       });
 
   
-    await maybeRunReflection(chatId);
+      await maybeRunReflection(chatId);
     await maybeUpdateCompoundEmotions(chatId, sourceBatch);
     await maybeCheckNewConflicts(chatId);
+    await maybeUpdateGrowth(chatId);
     await maybeRefreshEmotionPersonality(chatId);
     await maybeRunMemoryTidy(chatId);
 

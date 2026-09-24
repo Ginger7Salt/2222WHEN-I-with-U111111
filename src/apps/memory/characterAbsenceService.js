@@ -143,10 +143,10 @@ export const checkAbsenceEmotionSignal = async ({
     }
 
     const resolvedCharacterId = characterId ||
-      previousState.characterId ||
+            previousState.characterId ||
       null;
 
-    const personality = await getEmotionPersonality(resolvedCharacterId);
+    const personality = await getEmotionPersonality(resolvedCharacterId, chatId);
     const thresholdFactor = getAbsenceThresholdFactor(personality.sensitivity);
     const magnitudeFactor = getAbsenceMagnitudeFactor(personality.sensitivity);
 

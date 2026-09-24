@@ -48,6 +48,10 @@ import {
 } from './memoryBeliefService';
 
 import {
+  runGrowthUpdate
+} from './memoryGrowthService';
+
+import {
   getEmotionPersonality
 } from './emotionPersonalityService';
 
@@ -563,10 +567,10 @@ export const runMemoryTidyForChat = async (
     /*
      * 先把久到该淡出的记忆暂存起来（可恢复），再做合并和情绪回顾，
       * 这样后两步不会再去处理已经暂存的记忆。
-     * 暂存本身没有 AI 调用；它是可恢复的低风险动作，所以不受"先让我确认"开关限制。
+          * 暂存本身没有 AI 调用；它是可恢复的低风险动作，所以不受"先让我确认"开关限制。
      */
     const chat = await db.chats.get(chatId);
-    const personality = await getEmotionPersonality(chat?.characterId || null);
+    const personality = await getEmotionPersonality(chat?.characterId || null, chatId);
 
     const decay = await runDecayTidy({
       allMemories,
@@ -637,6 +641,14 @@ export const runMemoryTidyForChat = async (
       chatId,
       allMemories: latestMemories,
       job,
+          autoExecute
+    });
+
+    // 角色成长：有新的重大事件或长期情绪的变化时，判断角色有没有因此改变。
+    // 手动整理时不受"两次判断至少间隔几小时"的限制。
+    const growth = await runGrowthUpdate(chatId, {
+      force,
+      allMemories: latestMemories,
       autoExecute
     });
 
@@ -692,14 +704,25 @@ export const runMemoryTidyForChat = async (
       emotion: {
         proposed: emotion.proposed,
         applied: emotion.applied,
-                reviewed: emotion.reviewed,
+                  reviewed: emotion.reviewed,
         reason: emotion.reason
+      },
+      growth: {
+        ran: growth.ran,
+        added: growth.added,
+        pending: growth.pending,
+        reinforced: growth.reinforced,
+        weakened: growth.weakened,
+        faded: growth.faded,
+        revived: growth.revived,
+        reason: growth.reason
       },
       error: (
         merge.error ||
         conflict.error ||
         belief.error ||
         emotion.error ||
+        growth.error ||
         ''
       )
     };

@@ -64,8 +64,30 @@ const buildResultMessage = (result) => {
     parts.push(`已形成或更新 ${beliefApplied} 条对你的看法`);
   }
 
+
   if (beliefProposed > 0) {
     parts.push(`${beliefProposed} 条对你的看法等待你确认`);
+  }
+
+  const growthAdded = result.growth?.added || 0;
+  const growthPending = result.growth?.pending || 0;
+  const growthChanged = (
+    (result.growth?.reinforced || 0) +
+    (result.growth?.weakened || 0) +
+    (result.growth?.faded || 0) +
+    (result.growth?.revived || 0)
+  );
+
+  if (growthAdded > 0) {
+    parts.push(`角色有 ${growthAdded} 处新的成长变化（可在下方「角色的成长」查看，随时可回退）`);
+  }
+
+  if (growthPending > 0) {
+    parts.push(`${growthPending} 处角色的成长变化等待你确认`);
+  }
+
+  if (growthChanged > 0) {
+    parts.push(`${growthChanged} 处已有的成长因新的经历发生了变化`);
   }
 
   const mergeApplied = result.merge?.applied || 0;
@@ -178,11 +200,11 @@ export const MemoryTidySection = ({
 
   if (isLoading) {
     return null;
-   }
+  }
 
   const hint = autoExecute
-    ? '角色会自己合并重复的记忆、更正新旧冲突的认知、形成对你的看法、回顾最近的情绪。被合并或更正的旧记忆不会删除，可以找回，每一步都有修订记录。你手动写过、改过或确认过的记忆不会被自动改动，仍然会先问你。'
-    : '合并重复记忆、更正新旧冲突的认知、形成对你的看法、回顾最近的情绪，都会先放到待确认列表，等你确认后才生效。';
+    ? '角色会自己合并重复的记忆、更正新旧冲突的认知、形成对你的看法、回顾最近的情绪，也会因为共同经历慢慢有所成长（新的成长会在「角色的成长」里标出来提醒你，可以随时回退）。被合并或更正的旧记忆不会删除，可以找回，每一步都有修订记录。你手动写过、改过或确认过的记忆不会被自动改动，仍然会先问你。'
+    : '合并重复记忆、更正新旧冲突的认知、形成对你的看法、回顾最近的情绪、角色出现新的成长，都会先放到待确认，等你确认后才生效。';
 
   return (
     <section className="memory-chat-section">

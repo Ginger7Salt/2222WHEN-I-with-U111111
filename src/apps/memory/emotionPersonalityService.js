@@ -1,6 +1,7 @@
 import db from '../../db';
 
 import { generateEmotionPersonality } from './emotionPersonalityAiService';
+import { applyGrowthNudge } from './memoryGrowth';
 
 /*
  * 角色情绪人格画像的读取与刷新入口，缓存在 characters 表的 emotionPersonality
@@ -45,10 +46,10 @@ const buildSourceSignature = (character) => (
 export const normalizeEmotionPersonality = (value) => ({
   decaySpeed: clamp01(value?.decaySpeed),
   settleSpeed: clamp01(value?.settleSpeed),
-  sensitivity: clamp01(value?.sensitivity)
+   sensitivity: clamp01(value?.sensitivity)
 });
 
-export const getEmotionPersonality = async (characterId) => {
+const getBasePersonality = async (characterId) => {
   if (!characterId) {
     return DEFAULT_PERSONALITY;
   }
@@ -57,9 +58,41 @@ export const getEmotionPersonality = async (characterId) => {
 
   if (!character?.emotionPersonality) {
     return DEFAULT_PERSONALITY;
-  }
+   }
 
   return normalizeEmotionPersonality(character.emotionPersonality);
+};
+
+/*
+ * 传了 chatId 时，会在人设生成的原始参数上叠加这个聊天里角色的"成长"带来的
+ * 微调（memoryGrowth.js）。原始参数本身不会被改写；成长回落后，读到的就又是原样。
+ * 不传 chatId 时行为跟以前完全一样。读成长失败时也退回原始参数。
+ */
+export const getEmotionPersonality = async (characterId, chatId = null) => {
+  const base = await getBasePersonality(characterId);
+
+  if (chatId === null || chatId === undefined || chatId === '') {
+    return base;
+  }
+
+  try {
+    const job = await db.memoryJobs
+      .where('chatId')
+      .equals(chatId)
+      .first();
+
+    const items = job?.growth?.items;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return base;
+    }
+
+    return applyGrowthNudge(base, items);
+  } catch (error) {
+    console.warn('[EmotionPersonality] 读取成长微调失败，使用原始参数：', error);
+
+    return base;
+  }
 };
 
 /*

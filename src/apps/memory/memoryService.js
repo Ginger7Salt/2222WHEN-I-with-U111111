@@ -974,10 +974,12 @@ const CARRIED_CANDIDATE_FIELDS = [
   'sourceMemoryIds',
   'beliefDomain',
   'emotionTag',
-  'emotionIntensity',
+   'emotionIntensity',
   'emotionValence',
   'moodDelta',
-  'avoidRepeatHours'
+  'avoidRepeatHours',
+  'entities',
+  'milestone'
 ];
 
 const pickCarriedFields = (source) => {

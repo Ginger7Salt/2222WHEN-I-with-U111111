@@ -198,7 +198,7 @@ export const getCharacterState = async ({
 
   const resolvedCharacterId = characterId || state.characterId || null;
 
-  const personality = await getEmotionPersonality(resolvedCharacterId);
+  const personality = await getEmotionPersonality(resolvedCharacterId, chatId);
 
   const mood = decayMoodTowardBaseline(
     state.mood,
@@ -408,10 +408,10 @@ export const markCharacterInteraction = async ({
   });
 
   const resolvedCharacterId = characterId ||
-    previousState?.characterId ||
+        previousState?.characterId ||
     null;
 
-  const personality = await getEmotionPersonality(resolvedCharacterId);
+  const personality = await getEmotionPersonality(resolvedCharacterId, chatId);
   const settleFactor = getSettleIntensityFactor(personality.settleSpeed);
 
   /*
@@ -496,10 +496,10 @@ export const applyCharacterEmotionMemory = async ({
   });
 
   const resolvedCharacterId = characterId ||
-    previousState?.characterId ||
+      previousState?.characterId ||
     null;
 
-  const personality = await getEmotionPersonality(resolvedCharacterId);
+  const personality = await getEmotionPersonality(resolvedCharacterId, chatId);
   const magnitudeFactor = getReactionMagnitudeFactor(personality.sensitivity);
 
   const maxSingleDelta = Math.max(

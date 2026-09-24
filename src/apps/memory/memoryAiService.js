@@ -13,9 +13,13 @@ import {
 } from './memoryActionContext';
 
 import {
-  buildTemporalDataFromSource,
+    buildTemporalDataFromSource,
   extractTemporalExpression
 } from './memoryTemporal';
+
+import {
+  normalizeEntityList
+} from './memoryAssociation';
 
 import {
   MEMORY_CANDIDATE_STATUSES,
@@ -414,6 +418,28 @@ const normalizeEmotionValence = (value) => {
 
   return EMOTION_VALENCES.includes(text)
     ? text
+        : null;
+};
+
+/*
+ * milestone：这条记忆是不是关系里的重大转折点。只接受下面几种，其余一律当作不是。
+ * 它只用来触发"角色的成长"的判断，不直接改变角色的任何状态，所以宁可少标。
+ */
+const MILESTONE_KINDS = [
+  'confession',
+  'quarrel',
+  'reconcile',
+  'separation',
+  'reunion',
+  'promise',
+  'other'
+];
+
+const normalizeMilestone = (value) => {
+  const text = normalizeText(value).toLowerCase();
+
+  return MILESTONE_KINDS.includes(text)
+    ? text
     : null;
 };
 
@@ -553,9 +579,17 @@ const normalizeMemoryItem = (
 
     // 仅角色做过的事使用：多少小时内不宜再重复；AI 没给时为 null，
     // 使用方按默认值处理。
-    avoidRepeatHours: isCharacterAction
+        avoidRepeatHours: isCharacterAction
       ? normalizeAvoidRepeatHours(item?.avoidRepeatHours)
       : null,
+
+    // 这条记忆涉及的具体人物、物品、地点，用来做联想。
+    entities: normalizeEntityList(item?.entities),
+
+    // 关系里的重大转折点（告白、争吵、和好……），用来触发角色的成长。
+    milestone: isCharacterAction
+      ? null
+      : normalizeMilestone(item?.milestone),
 
     sourceMessageIds,
 
@@ -808,9 +842,16 @@ const buildSystemPrompt = () => `
 30. 常识（type 为 common_sense）：关于用户本人（或角色自身设定）的、长期稳定、不太会变的基本事实，例如用户来自哪里、现在住在哪个城市、职业或学业身份、生日、家里有谁、养了什么宠物、名字和称呼。
     - 常识一律放进 candidates，不要放进 memories：它们要由用户确认后才算数。
     - 只记录用户自己明确说出口的；不要推测，不要把角色编造或想象的内容当成用户的常识。
-    - 不记录会很快变化的状态（今天在哪、这周做什么，那是 fact），也不记录偏好和情绪。
+        - 不记录会很快变化的状态（今天在哪、这周做什么，那是 fact），也不记录偏好和情绪。
     - subject 为 user（只有角色自己的基本设定才用 character）；stability 为 stable；topicKey 用这条常识本身的简短主题键，例如 hometown、home_city、occupation、birthday、pet。
     - 如果用户这次说的和之前已有的常识不一样（比如搬家了），仍然输出，让用户决定是否更正，并且沿用同一个 topicKey。
+31. entities：这条记忆里涉及的具体人物、物品、地点、作品或店名（例如“小红”“奶茶”“海底捞”），最多 6 个，用来让角色之后能由一件事联想到相关的另一件事。
+    - 只写记忆正文里确实出现的名字；不要写“用户”“我”“你”“角色”这类指代自己或对方的词。
+    - 如果一条记忆讲的是人与人的关系（例如“用户朋友小明的朋友叫小红”），把这些人都写进 entities（小明、小红），这样以后提到其中一个时能想到另一个。
+    - 没有具体的人或物时输出空数组，不要为了凑数硬写。
+32. milestone：只有这条记忆记录的是这段关系里的重大转折点时才填写，否则输出 null。可用的值只有：confession（告白、确认关系、明确表达深厚感情）、quarrel（严重的争吵或冲突）、reconcile（争吵后和好）、separation（分别、长时间失联、冷战、说要疏远）、reunion（久别重逢）、promise（郑重的承诺或约定）、other（其他明显改变关系的大事）。
+    - 日常的开心、难过、小摩擦都不算，一个聊天里通常很少出现，拿不准就输出 null。
+    - 只能标在 fact、episode、relationship、emotion 类型的记忆上。
 
 JSON 格式：
 {
@@ -838,6 +879,12 @@ JSON 格式：
 "emotionIntensity": "仅 type 为 emotion 时填写，0 到 1 的小数；拿不准为 null",
 "emotionValence": "仅 type 为 emotion 时填写：positive | negative | mixed | neutral；拿不准为 null",
 "avoidRepeatHours": "仅 type 为 character_action 时填写，1 到 336 的整数；拿不准为 null",
+"entities": ["涉及的人物或物品名，没有则为空数组"],
+"milestone": "confession | quarrel | reconcile | separation | reunion | promise | other | null",
+"sourceMessageIds": [1, 2]
+
+    }
+avoidRepeatHours": "仅 type 为 character_action 时填写，1 到 336 的整数；拿不准为 null",
 "sourceMessageIds": [1, 2]
 
     }
@@ -862,6 +909,8 @@ JSON 格式：
 "emotionTag": "仅 type 为 emotion 时填写；无合适词则为空字符串",
 "emotionIntensity": "仅 type 为 emotion 时填写，0 到 1 的小数；拿不准为 null",
 "emotionValence": "仅 type 为 emotion 时填写：positive | negative | mixed | neutral；拿不准为 null",
+"entities": ["涉及的人物或物品名，没有则为空数组"],
+"milestone": "confession | quarrel | reconcile | separation | reunion | promise | other | null",
 "sourceMessageIds": [1]
 
     }

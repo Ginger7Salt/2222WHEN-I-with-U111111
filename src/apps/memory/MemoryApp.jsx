@@ -25,6 +25,7 @@ import MemoryCard from './MemoryCard';
 import MemoryExportModal from './MemoryExportModal';
 import MemoryImportModal from './MemoryImportModal';
 import MemoryRevisionModal from './MemoryRevisionModal';
+import MemoryGrowthSection from './MemoryGrowthSection';
 import MemorySourceSection from './MemorySourceSection';
 import MemoryTidySection from './MemoryTidySection';
 
@@ -772,8 +773,10 @@ const handleDelete = async (memory) => {
 
       <MemoryTidySection
         chatId={selectedChatId}
-        onFinished={loadMemoryData}
+                onFinished={loadMemoryData}
       />
+
+      <MemoryGrowthSection chatId={selectedChatId} />
 
       <section className="memory-chat-section">
         <div className="memory-section-label">

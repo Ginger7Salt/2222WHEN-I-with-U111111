@@ -87,10 +87,14 @@ const getMemoryText = (memory) => (
     memory?.title,
     memory?.content,
     memory?.type,
-    ...(Array.isArray(memory?.topicKeys)
+      ...(Array.isArray(memory?.topicKeys)
       ? memory.topicKeys
       : []),
-    memory?.topicKey
+    memory?.topicKey,
+    // 联想用的人物/物品名也算主题词：用户直接提到"小红"时能命中相关记忆。
+    ...(Array.isArray(memory?.entities)
+      ? memory.entities
+      : [])
   ]
     .filter(Boolean)
     .join(' ')
@@ -347,6 +351,19 @@ const formatMemoryForPrompt = (memory) => {
   return `- [${getTypeLabel(memory.type)}] ${
     memory.title ? `${memory.title}：` : ''
   }${content}${timeLabel ? `（${timeLabel}）` : ''}${sourceNotice}${thoughtNotice}`;
+};
+
+/*
+ * 联想到的记忆在提示词里的一行：标出是顺着什么想到的。
+ * 节点如果是英文主题键（例如 friends），直接显示不自然，就只写"相关话题"。
+ */
+const formatAssociatedForPrompt = (memory, via) => {
+  const label = /^[a-z0-9_|\-\s]+$/i.test(String(via || ''))
+    ? '相关话题'
+    : `“${via}”`;
+
+  return formatMemoryForPrompt(memory)
+    .replace(/^- /, `- 由${label}想到：`);
 };
 
 /*
@@ -867,7 +884,75 @@ const getRelevantMemoryContext = async ({
     contextLength += line.length;
   }
 
+
   if (!selected.length) return '';
+
+  /*
+   * 联想：顺着已选中记忆里的人物、物品外扩一到两步，最多带出两条。
+   * 联想出来的记忆同样要过冷却、主题去重、"刚做过的事"这几关，
+   * 并且带上疲劳和衰减的扣分，所以不会比直接相关的记忆更容易被想起。
+   * 联想失败或没有结果都不影响主流程。
+   */
+  const associatedEntries = [];
+
+  try {
+    const overlapById = new Map(
+      ranked.map((item) => [item.memory.memoryId, item.overlap])
+    );
+
+    const selectedMemoryIds = new Set(
+      selected.map((memory) => memory.memoryId)
+    );
+
+    /*
+     * 选中的记忆都已经通过了"与当前话题有重合"的门槛。用户一句话里的词
+     * 很多，单条记忆的重合度数值通常不高（0.2 左右），所以出发强度是
+     * 在基础值上再加重合度，而不是直接用重合度。
+     */
+    const found = findAssociatedMemories({
+      seeds: selected.map((memory) => ({
+        memory,
+        strength: Math.min(1, 0.45 + (overlapById.get(memory.memoryId) || 0))
+      })),
+      pool: memories,
+      isEligible: (memory) => (
+        !selectedMemoryIds.has(memory.memoryId) &&
+        !selectedTopicKeys.has(getMemoryTopicKey(memory)) &&
+        !isInRecallCooldown(memory, now) &&
+        !isTopicInRecallCooldown(memories, memory) &&
+        !isMemoryBlockedByRecentAction(memory, recentActions)
+      )
+    });
+
+    const associatedTopicKeys = new Set();
+
+    for (const entry of found) {
+      const adjusted = entry.score
+        - getFatiguePenalty(entry.memory) * 0.5
+        - getDecayPenalty(entry.memory) * 0.5;
+
+      const topicKey = getMemoryTopicKey(entry.memory);
+
+      if (
+        adjusted < MIN_ASSOCIATION_SCORE ||
+        associatedTopicKeys.has(topicKey)
+      ) {
+        continue;
+      }
+
+      const line = formatAssociatedForPrompt(entry.memory, entry.via);
+
+      if (contextLength + line.length > MAX_CONTEXT_CHARS) {
+        continue;
+      }
+
+      associatedTopicKeys.add(topicKey);
+      contextLength += line.length;
+      associatedEntries.push(entry);
+    }
+  } catch (error) {
+    console.warn('[Memory] Association skipped safely:', error);
+  }
 
   const turnId = `memory_recall_${Date.now()}_${Math.random()
     .toString(36)
@@ -888,6 +973,36 @@ const getRelevantMemoryContext = async ({
 
   if (!reservedMemories.length) return '';
 
+  let associationSection = '';
+
+  if (associatedEntries.length) {
+    try {
+      const reservedAssociated = await reserveMemoriesForRecall({
+        selected: associatedEntries.map((entry) => entry.memory),
+        currentUserText: currentText,
+        currentUserTokens,
+        turnId
+      });
+
+      const viaByMemoryId = new Map(
+        associatedEntries.map((entry) => [entry.memory.memoryId, entry.via])
+      );
+
+      if (reservedAssociated.length) {
+        associationSection = `${buildAssociationHeader()}
+${reservedAssociated
+    .map((memory) => formatAssociatedForPrompt(
+      memory,
+      viaByMemoryId.get(memory.memoryId)
+    ))
+    .join('\n')}
+`;
+      }
+    } catch (error) {
+      console.warn('[Memory] Association reserve skipped safely:', error);
+    }
+  }
+
   return `
 【仅供当前消息框回复参考的共同记忆】
 以下内容仅属于当前消息框。用户当前明确表达的说法永远优先于旧记录。
@@ -899,7 +1014,7 @@ const getRelevantMemoryContext = async ({
 不要逐条复述以下内容：
 
 ${reservedMemories.map(formatMemoryForPrompt).join('\n')}
-`;
+${associationSection}`;
 };
 
 /*
@@ -955,21 +1070,25 @@ export const getChatMemoryContext = async ({
     console.warn(
       '[Memory] Common sense / lingering emotion context skipped safely:',
       error
-    );
+       );
   }
+
+  // 角色在这段关系里的成长变化：不依赖用户这句话的话题，一直作为背景带上。
+  const growthContext = await getGrowthContext(chatId);
 
   if (
     !relevantContext &&
     !actionContext &&
     !commonSenseContext &&
-    !lingeringEmotionContext
+    !lingeringEmotionContext &&
+    !growthContext
   ) {
     return '';
   }
 
   return `
 ${buildCurrentTimeLine()}
-${commonSenseContext}${relevantContext}${lingeringEmotionContext}${actionContext}`;
+${growthContext}${commonSenseContext}${relevantContext}${lingeringEmotionContext}${actionContext}`;
 };
 
 /*
