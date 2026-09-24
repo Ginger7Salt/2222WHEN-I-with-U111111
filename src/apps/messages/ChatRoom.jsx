@@ -257,6 +257,8 @@ const locationCheckIntervalRef = useRef(getRandomCheckIntervalMs());
 
   // 1. 新增一个 ref，紧挨着其他 ref 声明
 const forceScrollMessageIdRef = useRef(null);
+// 记录"用户当前是否贴在底部"，只由滚动事件更新，不在消息刚渲染完时临时测量
+const isPinnedToBottomRef = useRef(true);
 const isLoadingMoreRef = useRef(false);
 
 // 打开表情包面板前，记录当时聊天是否已经贴在底部，
@@ -849,20 +851,17 @@ void openChatAndMarkMessagesAsRead();
     forceScrollMessageIdRef.current = null;
   }
 
-  const distanceFromBottom =
-    scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight;
-  const isNearBottom = distanceFromBottom <= AUTO_SCROLL_BOTTOM_THRESHOLD_PX;
   const shouldFollow = isForcedBySend
     || !hasScrolledToLatestRef.current
-    || isNearBottom;
+    || isPinnedToBottomRef.current;
 
   if (!shouldFollow) return;
 
-  scrollArea.scrollTo({
-    top: scrollArea.scrollHeight,
-    behavior: hasScrolledToLatestRef.current ? 'smooth' : 'auto',
-  });
+  // 用瞬时滚动：平滑滚动进行到一半时内容又变高（输入中提示、图片等），
+  // 会导致停在离底部还有一截的位置
+  scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'auto' });
 
+  isPinnedToBottomRef.current = true;
   hasScrolledToLatestRef.current = true;
 }, [
   messages,
@@ -875,6 +874,37 @@ void openChatAndMarkMessagesAsRead();
   showMemoirPage,
   activeOfflineSessionId,
 ]);
+
+  /*
+   * 内容高度在消息渲染之后还会继续变化（图片加载、气泡动画、
+   * 输入中提示出现/消失）。只要用户原本贴在底部，就跟着补一次滚动。
+   */
+  useEffect(() => {
+    const scrollArea = scrollAreaRef.current;
+    const content = scrollArea?.firstElementChild;
+
+    if (!scrollArea || !content || typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (isPinnedToBottomRef.current) {
+        scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'auto' });
+      }
+    });
+
+    observer.observe(content);
+
+    return () => observer.disconnect();
+  }, [
+    Boolean(chat),
+    showParallelOrbit,
+    showInnerWorld,
+    showPlaceBooklet,
+    showCompanionPage,
+    showMemoirPage,
+    activeOfflineSessionId,
+  ]);
 
   /*
    * 打开表情包面板时，如果聊天原本就贴在底部，有些手机浏览器会在
@@ -953,6 +983,10 @@ const handleLoadOlderMessages = useCallback(async () => {
 
 const handleMessagesScroll = useCallback((event) => {
   const scrollArea = event.currentTarget;
+
+  isPinnedToBottomRef.current =
+    scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight
+    <= AUTO_SCROLL_BOTTOM_THRESHOLD_PX;
 
   if (
     isLoadingMoreRef.current
@@ -1449,7 +1483,10 @@ useLayoutEffect(() => {
       <ParallelOrbit
         chatId={chatId}
         character={character}
-        onBack={() => setShowParallelOrbit(false)}
+        onBack={() => {
+          hasScrolledToLatestRef.current = false;
+          setShowParallelOrbit(false);
+        }}
       />
     );
   }
