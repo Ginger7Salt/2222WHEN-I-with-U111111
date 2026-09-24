@@ -1,0 +1,355 @@
+/* =========================================================
+   角色的成长
+   沿用记忆页的杂志排版：等宽小标题、衬线正文、细分隔线。
+   不用卡片，条目是一栏一栏的"页片"，横向滑动。
+   ========================================================= */
+
+.memory-chat-section.memory-growth-section {
+  padding-bottom: 1.25rem;
+}
+
+/* ---------- 整体折叠的标题行 ---------- */
+
+.memory-growth-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0.8rem;
+  padding: 0;
+  color: var(--text-main);
+  background: transparent;
+  text-align: left;
+}
+
+.memory-growth-toggle-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.memory-growth-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.memory-growth-new-mark {
+  padding: 0.12rem 0.36rem;
+  border: 1px solid var(--accent-color);
+  border-radius: 999px;
+  color: var(--accent-color);
+  font-size: 0.48rem;
+  line-height: 1;
+}
+
+.memory-growth-title {
+  display: block;
+  overflow: hidden;
+  color: var(--text-main);
+  font-family:
+    "Noto Serif SC",
+    "Songti SC",
+    STSong,
+    Georgia,
+    serif;
+  font-size: clamp(1.05rem, 2vw, 1.45rem);
+  font-weight: 500;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-growth-summary {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  line-height: 1.6;
+}
+
+.memory-growth-chevron {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-muted);
+  stroke-width: 1.4;
+  transition: transform 200ms ease;
+}
+
+.memory-growth-chevron-open {
+  transform: rotate(180deg);
+}
+
+.memory-growth-toggle:hover .memory-growth-chevron {
+  color: var(--text-main);
+}
+
+/* ---------- 展开后的内容 ---------- */
+
+.memory-growth-body {
+  margin-top: 1.1rem;
+}
+
+.memory-growth-note {
+  max-width: 32rem;
+  margin: 0;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--text-main);
+  color: var(--text-sub);
+  font-size: 0.68rem;
+  line-height: 1.9;
+}
+
+.memory-growth-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px dashed var(--divider);
+  border-left: 2px solid var(--accent-color);
+  color: var(--text-sub);
+  font-size: 0.64rem;
+  line-height: 1.7;
+}
+
+.memory-growth-text-button {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.2rem;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 0.6rem;
+  white-space: nowrap;
+}
+
+.memory-growth-text-button:hover:not(:disabled) {
+  color: var(--text-main);
+  text-decoration: underline;
+}
+
+.memory-growth-text-button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.memory-growth-empty {
+  margin: 1.1rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.8;
+}
+
+.memory-growth-faded {
+  margin: 1.2rem 0 0;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+}
+
+/* ---------- 分组（待确认 / 正在生效） ---------- */
+
+.memory-growth-group {
+  margin-top: 1.3rem;
+}
+
+.memory-growth-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--divider);
+}
+
+.memory-growth-group-toggle {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0;
+  color: var(--text-main);
+  background: transparent;
+  text-align: left;
+}
+
+.memory-growth-group-eyebrow {
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.memory-growth-group-title {
+  font-family:
+    "Noto Serif SC",
+    "Songti SC",
+    STSong,
+    Georgia,
+    serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.memory-growth-group-count {
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.55rem;
+}
+
+.memory-growth-group-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.memory-growth-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.memory-growth-arrow:hover {
+  border-color: var(--divider);
+  color: var(--text-main);
+}
+
+.memory-growth-arrow svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  stroke-width: 1.4;
+}
+
+.memory-growth-group-chevron {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--text-muted);
+  stroke-width: 1.4;
+  transition: transform 200ms ease;
+}
+
+.memory-growth-group-chevron-open {
+  transform: rotate(180deg);
+}
+
+/* ---------- 横向滑动的栏 ---------- */
+
+.memory-growth-rail {
+  display: flex;
+  gap: 0;
+  margin-top: 1rem;
+  padding-bottom: 0.3rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.memory-growth-rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* 一栏一条，没有外框；栏与栏之间只有一条细线，像杂志的分栏。 */
+.memory-growth-slip {
+  display: flex;
+  flex: 0 0 min(17rem, 78%);
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.1rem 1.1rem 0;
+  border-left: 1px solid var(--divider);
+  scroll-snap-align: start;
+}
+
+.memory-growth-slip:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.memory-growth-slip-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.memory-growth-slip-dimension {
+  color: var(--accent-color);
+  font-size: 0.6rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.memory-growth-slip-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-main);
+  font-family:
+    "Noto Serif SC",
+    "Songti SC",
+    STSong,
+    Georgia,
+    serif;
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.65;
+}
+
+.memory-growth-slip-pending .memory-growth-slip-text {
+  color: var(--text-sub);
+}
+
+.memory-growth-meter {
+  display: block;
+  width: 100%;
+  height: 1px;
+  background: var(--divider);
+}
+
+.memory-growth-meter i {
+  display: block;
+  height: 3px;
+  margin-top: -1px;
+  background: var(--accent-color);
+  opacity: 0.75;
+}
+
+.memory-growth-slip-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 0.58rem;
+}
+
+.memory-growth-slip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.2rem;
+}

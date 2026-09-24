@@ -776,9 +776,7 @@ const handleDelete = async (memory) => {
                 onFinished={loadMemoryData}
       />
 
-      <MemoryGrowthSection chatId={selectedChatId} />
-
-      <section className="memory-chat-section">
+            <section className="memory-chat-section">
         <div className="memory-section-label">
           <span>当前消息框</span>
           <span className="memory-section-line" />
@@ -835,9 +833,11 @@ const handleDelete = async (memory) => {
                 </button>
               ))
             )}
-          </div>
+               </div>
         )}
       </section>
+
+      <MemoryGrowthSection chatId={selectedChatId} />
 
       {selectedChat && (
         <section className="memory-overview">
