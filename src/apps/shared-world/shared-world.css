@@ -19,10 +19,16 @@
     "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong",
     Georgia, "Times New Roman", serif;
 
+    /* App.jsx 给所有 subapp 套了一层 px-4 pt-6 pb-20 的外壳。
+     用负外边距抵消它，让本页面铺满整个屏幕，不留外框。 */
+  position: relative;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  width: calc(100% + 2rem);
+  height: 100dvh;
   min-height: 0;
+  margin: -1.5rem -1rem -5rem;
+  overflow: hidden;
   color: var(--sw-ink);
   background: var(--bg-main);
 }
