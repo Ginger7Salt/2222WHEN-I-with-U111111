@@ -1,6 +1,6 @@
 import db from '../db';
 import { isInQuietHours } from './aiService';
-import { scheduleMemoryProcessing } from './memoryProvider';
+import { buildRhythmChatContext } from './rhythmContextService';
 
 // 距离上一条消息（不论发送方）多久以内，视为"用户正在这个对话里"，
 // 此时不主动插入提醒消息，避免打断正在进行的对话。
@@ -381,8 +381,11 @@ export async function triggerRhythmActiveReminder(
       ? `\n【角色近期私下生活的一点心情底色，只用来感受氛围，绝不能在寄语里直接提及、复述或暗示具体内容】：${orbitFlavor}`
       : '';
 
+       // 最近的对话、阶段摘要、记忆：让寄语能和刚刚的聊天接上，不再割裂
+    const chatContext = await buildRhythmChatContext({ chatId, chat, character });
+
     const systemPrompt = `你是一个深爱并陪伴用户的虚拟角色「${character.name}」。
-性格人设：${character.bio || '体贴细腻'}。${worldBookText}${extraNotesText}${userPersonaContext}${orbitContext}
+性格人设：${character.bio || '体贴细腻'}。${worldBookText}${extraNotesText}${userPersonaContext}${orbitContext}${chatContext}
 
 现在是 ${periodStr} 的 ${currentHHMM}。
 ${
@@ -403,7 +406,11 @@ ${
     ? '- 用户刚从上面提到的安排里出来，写得像"啊你出来啦"这种自然反应——可以问问累不累、顺不顺利，不要用"提醒"的语气复述这件事本身。'
     : ''
 }
-- 如果有未完成待办，可以用生活化的方式自然关切地提起它。
+${
+  chatContext
+    ? '- 上面有你们最近的对话，寄语要像接着刚才聊的说下去，和它自然衔接，不要复述聊天原文，也不要表现得像忘了刚才发生的事。\n- 如果最近聊的是沉重、具体或情绪明显的事，请顺着那份情绪说话，不要硬转成日程叮咛或日常客套；日程和待办只在确实自然时带一句，也可以完全不提。'
+    : ''
+}
 - 你自己也有独立的生活，语气里可以自然带一点"我这边也在过我的日子，同时想着你"的味道，但不要具体交代自己在做什么、在哪、和谁在一起。
 - 不要提及系统、日程表、提醒、API、模型、定时器或任何技术实现。
 - 直接输出完整寄语内容，不要带格式、标题、发件人标签或 Markdown。`;
