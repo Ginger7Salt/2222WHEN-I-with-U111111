@@ -4416,4 +4416,15 @@ db.version(58).stores({
   `,
 });
 
+// 「共享世界」：全局共用的设定 / 规则小册子，可选对全部角色或指定角色生效。
+// 完全是新表，不改动任何已有表。
+db.version(59).stores({
+  sharedWorldEntries: `
+    ++id,
+    isEnabled,
+    sortOrder,
+    createdAt
+  `,
+});
+
 export default db;

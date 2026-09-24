@@ -330,6 +330,10 @@ export const MANUAL_SECTIONS = [
                 text: '记录你和角色相处路上的里程碑，也可以留一个正在靠近的重要日子。这里还有 AI 对相处节律的观察，以及"轻提醒"——不重要但想被提起的小事，最多可以留几条，关闭后暂停但不会被删掉。',
               },
               {
+                title: 'Shared World（共享世界）',
+                text: '一本本小册子，用来放适用于全局的设定、规则或统一世界观，同一个世界里的角色不用在每个角色里重复填写。每一本可以单独开关，可以选择对全部角色生效（以后新建的角色也自动适用），或只对指定角色生效，也能用上下箭头调整先后顺序。启用的内容会写进聊天和线下见面的提示词里，位置在核心总提示词之后、角色设定之前，与总提示词并行、不覆盖它。内容每次都会带上，尽量写得精炼。',
+              },
+              {
                 title: 'Margin Notes（页边注）',
                 text: '一个和角色一起"共读"的空间。选一位角色共读一篇文章，逐页往下翻，双方都可以在书页边上留下批注。撕掉某一页会连同批注一起永久删除。',
               },
@@ -396,6 +400,10 @@ export const MANUAL_SECTIONS = [
                 text: 'Track milestones along the way with your character, or pin an upcoming date that matters. It also holds AI observations about the rhythm of your time together, plus "light reminders" — small things worth a nudge, up to a handful at a time; turning one off pauses it without deleting it.',
               },
               {
+                title: 'Shared World',
+                text: 'Booklets for settings, rules or a shared worldview that apply across characters, so characters in the same world do not each need the same text repeated. Each booklet has its own switch and can apply to all characters (including ones you create later) or only to selected ones; the arrows change the order. Enabled booklets are written into chat and in-person prompts, after the core master prompt and before the character\'s own notes, alongside it rather than overriding it. The text is sent every time, so keep it concise.',
+              },
+              {
                 title: 'Margin Notes',
                 text: 'A space to "read together" with a character. Pick someone to read an article with, page by page, and leave marginal notes on either side. Tearing out a page deletes it and its notes permanently.',
               },
@@ -460,6 +468,10 @@ export const MANUAL_SECTIONS = [
               {
                 title: 'Almanac',
                 text: '캐릭터와 함께한 여정의 이정표를 기록하거나, 다가오는 중요한 날을 남겨둘 수 있습니다. 함께한 리듬에 대한 AI의 관찰도 볼 수 있고, "가벼운 알림" — 중요하지는 않지만 상기하고 싶은 일들 — 도 몇 개까지 남길 수 있습니다. 끄면 잠시 멈출 뿐 삭제되지는 않습니다.',
+              },
+              {
+                title: 'Shared World',
+                text: '모든 캐릭터에 공통으로 적용되는 설정, 규칙, 세계관을 작은 책자로 모아두는 공간입니다. 같은 세계의 캐릭터마다 같은 내용을 반복해서 넣지 않아도 됩니다. 책자마다 켜고 끌 수 있고, 모든 캐릭터(나중에 만드는 캐릭터 포함) 또는 선택한 캐릭터에만 적용할 수 있으며, 화살표로 순서를 바꿀 수 있습니다. 켜져 있는 내용은 채팅과 오프라인 만남의 프롬프트에 코어 마스터 프롬프트 뒤, 캐릭터 설정 앞에 들어가며 마스터 프롬프트를 덮어쓰지 않고 함께 적용됩니다. 매번 전달되므로 간결하게 써 주세요.',
               },
               {
                 title: 'Margin Notes',

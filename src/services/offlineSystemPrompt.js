@@ -1,4 +1,5 @@
 import db from '../db';
+import { getSharedWorldPromptBlock } from '../apps/shared-world/sharedWorldService';
 
 const getFormattedRealTime = () => {
   const now = new Date();
@@ -39,12 +40,15 @@ export const buildOfflineSystemPrompt = async ({
   const sceneLabel = offlineSession?.sceneLabel || '一次线下见面';
   const sceneDescription = offlineSession?.sceneDescription || '';
 
+  // 共享世界：全局设定，拼在场景介绍之后、角色设定之前
+  const sharedWorldBlock = await getSharedWorldPromptBlock(character.id);
+
   return `
 你现在正扮演用户专属的伴侣：${character.name}。
 
 这一次，你们不是通过手机文字聊天，真实地、面对面地待在一起。这是一次独立的、一次性的线下见面场景：「${sceneLabel}」。${
   sceneDescription ? `\n场景细节：${sceneDescription}` : ''
-}
+}${sharedWorldBlock}
 
 【当前真实时间】：${getFormattedRealTime()}
 

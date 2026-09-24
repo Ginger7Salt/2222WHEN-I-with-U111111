@@ -37,6 +37,7 @@ import MemoryApp from './apps/memory/MemoryApp';
 import NewspaperApp from './apps/newspaper/NewspaperApp';
 import MarginNotesApp from './apps/margin-notes/MarginNotesApp';
 import AlmanacApp from './apps/almanac/AlmanacApp';
+import SharedWorldApp from './apps/shared-world/SharedWorldApp';
 
 import { startOfflineSessionScheduler, stopOfflineSessionScheduler } from './apps/offline/offlineSessionScheduler';
 import { startOfflineCountdownLockscreenScheduler, stopOfflineCountdownLockscreenScheduler } from './apps/offline/offlineCountdownLockscreenScheduler';
@@ -164,6 +165,7 @@ const REGISTERED_APPS = [
   'askbox',
   'rhythm',
   'almanac',
+  'shared-world',
   'memory',
   'archive',
   'newspaper',
@@ -1104,6 +1106,14 @@ const [hubBackground, setHubBackground] = useState('');
         {currentApp === 'almanac' && (
           <ErrorBoundary>
             <AlmanacApp
+              onBackHub={() => openApp('hub')}
+            />
+          </ErrorBoundary>
+        )}
+
+        {currentApp === 'shared-world' && (
+          <ErrorBoundary>
+            <SharedWorldApp
               onBackHub={() => openApp('hub')}
             />
           </ErrorBoundary>

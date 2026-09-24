@@ -74,6 +74,8 @@ import {
   getAlmanacPromptContext,
 } from '../apps/almanac/services/almanacPromptBuilder';
 
+import { getSharedWorldPromptBlock } from '../apps/shared-world/sharedWorldService';
+
 
 
 /*
@@ -1052,7 +1054,10 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   const activeCallNote = await getActiveCallAwarenessNote(chatId);
   const recentOfflineNote = await getRecentOfflineAwarenessNote(chatId);
 
-  return `${finalBasePrompt}
+  // 共享世界：全局设定，拼在核心总提示词之后、角色设定之前
+  const sharedWorldBlock = await getSharedWorldPromptBlock(character.id);
+
+  return `${finalBasePrompt}${sharedWorldBlock}
 
 【当前真实时间/环境感知】：
 - 当前真实世界时间：${getFormattedRealTime()}
