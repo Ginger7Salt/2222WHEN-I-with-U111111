@@ -36,6 +36,14 @@ import {
 } from './memoryDecayService';
 
 import {
+  runCompoundCompose
+} from './memoryEmotionCompoundService';
+
+import {
+  getEmotionPersonality
+} from './emotionPersonalityService';
+
+import {
   getMemoryTidyAutoExecute
 } from '../../services/memoryTidySettingsService';
 
@@ -546,12 +554,33 @@ export const runMemoryTidyForChat = async (
 
     /*
      * 先把久到该淡出的记忆暂存起来（可恢复），再做合并和情绪回顾，
-     * 这样后两步不会再去处理已经暂存的记忆。
+      * 这样后两步不会再去处理已经暂存的记忆。
      * 暂存本身没有 AI 调用；它是可恢复的低风险动作，所以不受"先让我确认"开关限制。
      */
-    const decay = await runDecayTidy({ allMemories });
+    const chat = await db.chats.get(chatId);
+    const personality = await getEmotionPersonality(chat?.characterId || null);
+
+    const decay = await runDecayTidy({
+      allMemories,
+      decaySpeed: personality.decaySpeed
+    });
 
     if (decay.dormantCount > 0) {
+      allMemories = await getChatMemory(chatId);
+    }
+
+    /*
+     * 复合情绪：零散的情绪该合成、该叠加的先处理掉；本地合成表认不出的，
+     * 这里才让 AI 试着命名（每轮提炼后跑的是不带 AI 的本地版本）。
+     * 这是角色内部的情绪整理，不受"先让我确认"开关限制；被合成的零散情绪
+     * 只是打上标记，随时可追溯。
+     */
+    const compound = await runCompoundCompose(chatId, {
+      useAiFallback: true,
+      allMemories
+    });
+
+    if (compound.created > 0 || compound.absorbed > 0) {
       allMemories = await getChatMemory(chatId);
     }
 
@@ -593,8 +622,12 @@ export const runMemoryTidyForChat = async (
     return {
       skipped: false,
       autoExecute,
-      decay: {
+       decay: {
         dormantCount: decay.dormantCount
+      },
+      compound: {
+        created: compound.created,
+        absorbed: compound.absorbed
       },
       merge: {
         proposed: merge.proposed,

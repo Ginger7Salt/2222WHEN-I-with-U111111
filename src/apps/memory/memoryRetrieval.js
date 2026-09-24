@@ -9,7 +9,28 @@ import {
 import {
   backfillChatMemories
 } from './memoryMigration';
-
+import {
+  buildCharacterActionContext,
+  isMemoryBlockedByRecentAction,
+  pickActiveCharacterActions
+} from './memoryActionContext';
+import {
+  getDecayPenalty,
+  isFadedOutOfRecall
+} from './memoryDecay';
+import {
+  buildCurrentTimeLine,
+  formatMemoryTimeLabel
+} from './memoryTimeContext';
+import {
+  isCompoundEmotion
+} from './memoryEmotionCompound';
+import {
+  getLingeringEmotionContext
+} from './memoryEmotionCompoundService';
+import {
+  buildCommonSenseContext
+} from './memoryCommonSense';
 
 const MAX_MEMORY_ITEMS = 4;
 const MAX_CONTEXT_CHARS = 1800;
@@ -113,8 +134,12 @@ const isRecallableMemory = (memory, chatId) => {
     return false;
   }
 
+
   if (memory.supersededByMemoryId) return false;
   if (memory.duplicateOfMemoryId) return false;
+
+  // 已经合成进某个复合情绪的零散情绪，不再单独召回，由复合情绪代表它们。
+  if (memory.compoundedIntoId) return false;
 
   const temporalStatus = (
     memory.temporalStatus ||
@@ -693,8 +718,14 @@ const getRelevantMemoryContext = async ({
     allRecallableMemories
   );
 
+  /*
+   * 常识、复合情绪同样不参与普通召回排序：
+   * 它们各自有单独的一块（"已确认的常识""近期积累的情绪状态"）稳定带进提示词。
+   */
   const memories = allRecallableMemories.filter((memory) => (
-    memory.type !== MEMORY_TYPES.CHARACTER_ACTION
+    memory.type !== MEMORY_TYPES.CHARACTER_ACTION &&
+    memory.type !== MEMORY_TYPES.COMMON_SENSE &&
+    !isCompoundEmotion(memory)
   ));
 
   if (!memories.length) return '';
@@ -907,13 +938,36 @@ export const getChatMemoryContext = async ({
     );
   }
 
-  if (!relevantContext && !actionContext) {
+  let commonSenseContext = '';
+  let lingeringEmotionContext = '';
+
+  try {
+    const recallable = await getRecallableChatMemories(chatId);
+
+    commonSenseContext = buildCommonSenseContext(recallable);
+
+    lingeringEmotionContext = await getLingeringEmotionContext(chatId, {
+      memories: recallable
+    });
+  } catch (error) {
+    console.warn(
+      '[Memory] Common sense / lingering emotion context skipped safely:',
+      error
+    );
+  }
+
+  if (
+    !relevantContext &&
+    !actionContext &&
+    !commonSenseContext &&
+    !lingeringEmotionContext
+  ) {
     return '';
   }
 
   return `
 ${buildCurrentTimeLine()}
-${relevantContext}${actionContext}`;
+${commonSenseContext}${relevantContext}${lingeringEmotionContext}${actionContext}`;
 };
 
 /*

@@ -54,6 +54,10 @@ import {
   runMemoryProcessingNow
 } from './memoryScheduler';
 
+import {
+  resolveCompoundManually
+} from './memoryEmotionCompoundService';
+
 import './memory.css';
 
 const EMPTY_FORM = {
@@ -496,6 +500,30 @@ export const MemoryApp = ({
     } catch (error) {
       setErrorMessage(
         error?.message || '撤回记忆失败。'
+      );
+    } finally {
+      setProcessingMemoryId(null);
+    }
+  };
+
+  const handleResolveCompound = async (memory) => {
+    if (!memory || processingMemoryId) {
+      return;
+    }
+
+    setProcessingMemoryId(memory.memoryId);
+    setErrorMessage('');
+    setNoticeMessage('');
+
+    try {
+      await resolveCompoundManually(memory.memoryId);
+
+      setNoticeMessage('这份情绪已标记为化解。');
+
+      await loadMemoryData();
+    } catch (error) {
+      setErrorMessage(
+        error?.message || '标记失败。'
       );
     } finally {
       setProcessingMemoryId(null);
@@ -1025,9 +1053,10 @@ const handleDelete = async (memory) => {
                     memory={memory}
                     onEdit={openEditEditor}
                     onWithdraw={handleWithdraw}
-                    onRestore={handleRestore}
+                                       onRestore={handleRestore}
                     onArchive={handleArchive}
                     onDelete={handleDelete}
+                    onResolveCompound={handleResolveCompound}
                     onViewRevisions={(item) => {
                       setRevisionMemory(item);
                     }}

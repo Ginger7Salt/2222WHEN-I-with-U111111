@@ -12,6 +12,10 @@ import {
 } from './memoryDecay';
 
 import {
+  isCompoundFaded
+} from './memoryEmotionCompound';
+
+import {
   setMemoryStatus
 } from './memoryService';
 
@@ -41,14 +45,25 @@ const isActionExpired = (memory, now) => (
   now > getActionWindowEnd(memory) + ACTION_GRACE_DAYS * DAY_MS
 );
 
+
 export const runDecayTidy = async ({
   allMemories = [],
-  now = Date.now()
+  now = Date.now(),
+  decaySpeed = 0.5
 } = {}) => {
   const targets = allMemories
     .filter((memory) => (
       isActionExpired(memory, now) ||
-      shouldBecomeDormant(memory, now)
+      shouldBecomeDormant(memory, now) ||
+      (
+        (
+          memory.status === MEMORY_STATUSES.ACTIVE ||
+          memory.status === MEMORY_STATUSES.TEMPORARY
+        ) &&
+        isCompoundFaded(memory, now, {
+          decaySpeed: memory.emotionSubject === 'user' ? 0.5 : decaySpeed
+        })
+      )
     ))
     .slice(0, MAX_DORMANT_PER_RUN);
 

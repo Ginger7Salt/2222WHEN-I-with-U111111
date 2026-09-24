@@ -26,6 +26,19 @@ import {
   EMOTION_VALENCE_LABELS
 } from './memoryEmotionSignals';
 
+import {
+  isCompoundActive,
+  isCompoundEmotion
+} from './memoryEmotionCompound';
+
+const getResolvedByLabel = (by) => ({
+  comfort: '被安慰',
+  explanation: '被解释清楚',
+  self: '自己想通了',
+  manual: '你手动标记',
+  other: '其他原因'
+}[by] || '已化解');
+
 const getTypeLabel = (type) => (
   MEMORY_TYPE_OPTIONS.find((item) => item.id === type)?.label || '共同记忆'
 );
@@ -197,6 +210,8 @@ export const MemoryCard = ({
   onRestore,
   onArchive,
   onDelete,
+  // 只有复合情绪会用到："已化解"，把一份还没散去的情绪手动标记为已经过去。
+  onResolveCompound,
   onViewRevisions,
   // 只有 type === 'reflection' 的记忆会用到：这条反思是综合自哪几条
   // 具体记忆，调用方（MemoryApp.jsx）按 memory.sourceMemoryIds 解析好
@@ -238,6 +253,10 @@ export const MemoryCard = ({
       await onArchive?.(memory);
     }
 
+    if (action === 'resolve') {
+      await onResolveCompound?.(memory);
+    }
+
     if (action === 'delete') {
       await onDelete?.(memory);
     }
@@ -254,9 +273,17 @@ export const MemoryCard = ({
 
     if (confirmAction?.type === 'restore') {
       return {
-        title: '恢复这条记忆',
+              title: '恢复这条记忆',
         message: '恢复后，这条记忆可以重新作为当前消息框的聊天参考。',
         confirmText: '恢复记忆'
+      };
+    }
+
+    if (confirmAction?.type === 'resolve') {
+      return {
+        title: '标记为已化解',
+        message: '这份情绪会被当作已经过去，不再影响聊天里的语气，并暂存起来，之后可以恢复。',
+        confirmText: '已化解'
       };
     }
 
@@ -309,9 +336,21 @@ export const MemoryCard = ({
           </p>
 
           {temporal?.originalExpression && (
-            <p className="memory-card-relation">
+                        <p className="memory-card-relation">
               时间线索：{temporal.originalExpression}
               {temporal.isAmbiguous ? '（尚未确认具体时间）' : ''}
+            </p>
+          )}
+
+          {isCompoundEmotion(memory) && (
+            <p className="memory-card-relation">
+              {memory.resolvedAt
+                ? `这份情绪已化解（${getResolvedByLabel(memory.resolvedBy)}）${memory.resolvedNote ? `：${memory.resolvedNote}` : ''}`
+                : `复合情绪：由 ${Number(memory.compoundComponentCount) || (memory.compoundComponentIds || []).length} 条相关情绪累积而成${
+                  Number(memory.reliefFactor) > 0
+                    ? `，已缓和约 ${Math.round(Number(memory.reliefFactor) * 100)}%`
+                    : ''
+                }`}
             </p>
           )}
 
@@ -378,9 +417,19 @@ export const MemoryCard = ({
               type="button"
               onClick={() => setConfirmAction({ type: 'withdraw' })}
               className="memory-action-button"
-            >
+                        >
               <Undo2 className="memory-action-icon" />
               <span>撤回</span>
+            </button>
+          )}
+
+          {isCompoundActive(memory) && (
+            <button
+              type="button"
+              onClick={() => setConfirmAction({ type: 'resolve' })}
+              className="memory-action-button"
+            >
+              <span>已化解</span>
             </button>
           )}
 

@@ -61,6 +61,11 @@ import {
 } from './memoryActionContext';
 
 import {
+  runCompoundCompose,
+  runCompoundResolution
+} from './memoryEmotionCompoundService';
+
+import {
   buildMemorySourceBatch,
   getUsableMessages,
   inspectMemorySignals
@@ -257,6 +262,25 @@ const maybeRunMemoryTidy = async (chatId) => {
   }
 };
 
+/*
+ * 每轮提炼跑完之后，顺带整理一下这个聊天的复合情绪：
+ *   1. 零散的情绪该合成、该叠加的，本地规则直接处理（不调用 AI）；
+ *   2. 还没化解的难受情绪，看这批新消息里有没有被安慰、被解释、被想通
+ *      （只有存在这样的情绪、且这批消息里有用户发言时才会调用一次 AI）。
+ * 失败只警告，不影响本轮提炼的正常返回。
+ */
+const maybeUpdateCompoundEmotions = async (chatId, messages = []) => {
+  try {
+    await runCompoundCompose(chatId);
+
+    if (messages.some((message) => message?.sender === 'user')) {
+      await runCompoundResolution(chatId, { messages });
+    }
+  } catch (error) {
+    console.warn('[Memory] Compound emotion update failed safely:', error);
+  }
+};
+
 const clearPendingTimer = (chatId) => {
   const timer = pendingTimers.get(chatId);
 
@@ -425,11 +449,21 @@ const persistExtractionResult = async ({
       : decideMemoryProposal({
         incomingMemory: memory,
         existingMemories,
-        sourceTexts: getSourceTexts(memory)
+              sourceTexts: getSourceTexts(memory)
       });
+
+    /*
+     * 常识（用户是哪里人、住在哪里……）必须经过用户确认才算数，
+     * 所以哪怕 AI 把它放进了 memories，也一律改走待确认列表。
+     */
+    const mustConfirm = (
+      memory.type === MEMORY_TYPES.COMMON_SENSE
+    );
+
     if (
       proposal.proposalType ===
-      MEMORY_CANDIDATE_PROPOSALS.CREATE
+        MEMORY_CANDIDATE_PROPOSALS.CREATE &&
+      !mustConfirm
     ) {
       const createdMemory = await createMemory({
         chatId,
@@ -841,10 +875,11 @@ export const runMemoryProcessing = async (
     const continuationScheduled = await scheduleContinuationIfNeeded({
       chatId,
       lastProcessedMessageId
-    });
+      });
 
     await maybeRunReflection(chatId);
-        await maybeRefreshEmotionPersonality(chatId);
+    await maybeUpdateCompoundEmotions(chatId, sourceBatch);
+    await maybeRefreshEmotionPersonality(chatId);
     await maybeRunMemoryTidy(chatId);
 
     return {

@@ -8,6 +8,10 @@ import {
   isManualAuthorityMemory
 } from './memoryQuality';
 
+import {
+  isCompoundEmotion
+} from './memoryEmotionCompound';
+
 /*
  * 记忆的时间衰减：越久远、越不重要的日常小事和情绪，越不容易被想起。
  *
@@ -69,8 +73,14 @@ const getImportance = (memory) => {
   return Number.isFinite(importance) ? importance : 3;
 };
 
+
 export const isDecayableMemory = (memory) => {
   if (!memory || isManualAuthorityMemory(memory)) {
+    return false;
+  }
+
+  // 复合情绪有自己的一套衰减（memoryEmotionCompound.js），不走这里的通用曲线。
+  if (isCompoundEmotion(memory)) {
     return false;
   }
 

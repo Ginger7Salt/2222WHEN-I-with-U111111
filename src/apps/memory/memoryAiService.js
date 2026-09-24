@@ -118,7 +118,8 @@ const isAllowedMemoryType = (value) => (
     'emotion',
     'expression_rule',
     'reflection',
-    'character_action'
+    'character_action',
+    'common_sense'
   ].includes(value)
 );
 
@@ -445,12 +446,21 @@ const normalizeMemoryItem = (
   // 角色做过的事：归属固定是角色，且是一次性的瞬时事件，不信任 AI 给的值。
   const isCharacterAction = type === 'character_action';
 
+  // 常识：只关于用户或角色自身，且是长期稳定的基本事实，不信任 AI 给的稳定度。
+  const isCommonSense = type === 'common_sense';
+
   const subject = isCharacterAction
     ? MEMORY_SUBJECTS.CHARACTER
-    : normalizeSubject(
-      item?.subject,
-      type
-    );
+    : isCommonSense
+      ? (
+        item?.subject === MEMORY_SUBJECTS.CHARACTER
+          ? MEMORY_SUBJECTS.CHARACTER
+          : MEMORY_SUBJECTS.USER
+      )
+      : normalizeSubject(
+        item?.subject,
+        type
+      );
 
   const memoryScope = isCharacterAction
     ? MEMORY_SCOPES.CONVERSATION
@@ -485,12 +495,15 @@ const normalizeMemoryItem = (
       topicKey
     ),
 
+
     stability: isCharacterAction
       ? MEMORY_STABILITIES.MOMENTARY
-      : normalizeStability(
-        item?.stability,
-        type
-      ),
+      : isCommonSense
+        ? MEMORY_STABILITIES.STABLE
+        : normalizeStability(
+          item?.stability,
+          type
+        ),
 
     memoryScope,
 
@@ -792,8 +805,15 @@ const buildSystemPrompt = () => `
     - avoidRepeatHours：这件事多少小时内不应再重复做，1 到 336 的整数。吃的喝的约 8 到 24，推荐影视书籍音乐约 72 到 168，送礼物约 168 到 336；拿不准就输出 null。
     - character_action 一律放进 memories，不要放进 candidates。
 29. 同一件事在这批消息里只记一次；如果角色只是在回答用户关于这件事的提问，或者复述已经记录过的行为，不要再记。
+30. 常识（type 为 common_sense）：关于用户本人（或角色自身设定）的、长期稳定、不太会变的基本事实，例如用户来自哪里、现在住在哪个城市、职业或学业身份、生日、家里有谁、养了什么宠物、名字和称呼。
+    - 常识一律放进 candidates，不要放进 memories：它们要由用户确认后才算数。
+    - 只记录用户自己明确说出口的；不要推测，不要把角色编造或想象的内容当成用户的常识。
+    - 不记录会很快变化的状态（今天在哪、这周做什么，那是 fact），也不记录偏好和情绪。
+    - subject 为 user（只有角色自己的基本设定才用 character）；stability 为 stable；topicKey 用这条常识本身的简短主题键，例如 hometown、home_city、occupation、birthday、pet。
+    - 如果用户这次说的和之前已有的常识不一样（比如搬家了），仍然输出，让用户决定是否更正，并且沿用同一个 topicKey。
 
 JSON 格式：
+{
 {
   "memories": [
     {
@@ -823,10 +843,10 @@ JSON 格式：
     }
   ],
   "candidates": [
-    {
+     {
       "title": "不超过 50 字",
       "content": "需要确认或暂存的理解",
-      "type": "fact | preference | episode | relationship | character_thought | emotion | expression_rule | reflection",
+      "type": "fact | preference | episode | relationship | character_thought | emotion | expression_rule | reflection | common_sense",
       "priority": 1,
       "subject": "user | character | relationship | shared",
       "emotionSubject": "user | character | shared | null",

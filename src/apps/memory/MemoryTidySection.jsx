@@ -20,8 +20,20 @@ const buildResultMessage = (result) => {
 
   const dormantCount = result.decay?.dormantCount || 0;
 
+
   if (dormantCount > 0) {
     parts.push(`已把 ${dormantCount} 条淡去的旧记忆暂存起来（可在记忆页恢复）`);
+  }
+
+  const compoundCreated = result.compound?.created || 0;
+  const compoundAbsorbed = result.compound?.absorbed || 0;
+
+  if (compoundCreated > 0) {
+    parts.push(`零散的情绪累积成了 ${compoundCreated} 份更重的情绪`);
+  }
+
+  if (compoundAbsorbed > 0) {
+    parts.push(`${compoundAbsorbed} 份已有的情绪又叠加了新的内容`);
   }
 
   const mergeApplied = result.merge?.applied || 0;
