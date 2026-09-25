@@ -79,6 +79,7 @@ import { INTERACTION_TYPES } from './interactions/interactionRules';
 
 import CheckInNotice from './check-in/CheckInNotice';
 import { checkForCrossChatCheckIn } from './check-in/checkInService';
+import ChatEntryCardOverlay from './components/ChatEntryCardOverlay';
 
 import PhotoCaptureButton from './components/cards/PhotoCaptureButton';
 import OfflineInviteArchive from '../offline/OfflineInviteArchive';
@@ -98,6 +99,7 @@ import InteractiveMenuPopover from './components/InteractiveMenuPopover';
 import StickerPickerModal from './components/StickerPickerModal';
 import HeartbeatPulse from './components/HeartbeatPulse';
 import ForwardChatPicker from './components/ForwardChatPicker';
+import BroadcastComposerModal from './components/BroadcastComposerModal';
 import ConfirmModal from '../../components/ConfirmModal';
 
 import {
@@ -105,6 +107,7 @@ import {
 } from './scheduledMessageService';
 
 import { useChatCustomFont } from './hooks/useChatCustomFont';
+import useChatEntryCard from './hooks/useChatEntryCard';
 import { isValidHexColor, getReadableTextColor } from './utils/chatColors';
 
 import InnerWorldApp from '../innerworld/InnerWorldApp';
@@ -294,6 +297,11 @@ const [selectedMessageIds, setSelectedMessageIds] = useState(() => new Set());
 const [showForwardPicker, setShowForwardPicker] = useState(false);
 const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
+// "群发"：跟转发已有消息不是一回事——是现写全新内容，一次发给最多
+// 5 个聊天窗，发送后逐个触发对方的 AI 回复。入口放在"选择消息"
+// 模式的头部，但不依赖有没有勾中消息。
+const [showBroadcastComposer, setShowBroadcastComposer] = useState(false);
+
 
 
 
@@ -329,6 +337,10 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
     chat?.fontUrl,
     chat?.fontFamily,
   );
+
+  // 早安/晚安问候卡、节日彩蛋卡：每个聊天窗第一次进来时各自判断一次，
+  // 播完自动消失，不写进聊天记录。
+  const { entryCard, dismissEntryCard } = useChatEntryCard(chat);
 
   // 本聊天窗自定义字号（px）。未设置时不输出任何规则，保持原有样式不变。
   const chatFontSizePx = Number.isFinite(chat?.chatFontSize)
@@ -1330,6 +1342,93 @@ useLayoutEffect(() => {
     }
   }, [messages, selectedMessageIds, chatId, loadChatData, handleExitSelectionMode]);
 
+  // "群发"：跟上面的转发不一样——drafts 是现写的全新内容（可以有好几条，
+  // 按顺序发出），targetChatIds 是最多 5 个目标聊天窗。每个目标各自
+  // 写入消息、各自触发一次 AI 回复，互不影响；哪个目标凑巧就是当前
+  // 打开的这个聊天窗，就顺便刷新一下当前界面。
+  const handleSendBroadcast = useCallback(async (drafts, targetChatIds) => {
+    if (!Array.isArray(drafts) || drafts.length === 0) return;
+    if (!Array.isArray(targetChatIds) || targetChatIds.length === 0) return;
+
+    const baseTime = Date.now();
+    let shouldRefreshCurrentChat = false;
+
+    for (const targetChatId of targetChatIds) {
+      const targetChat = await db.chats.get(targetChatId);
+      if (!targetChat) continue;
+
+      const targetCharacter = await db.characters.get(targetChat.characterId);
+      const userAvatar = targetChat.userAvatar || targetCharacter?.userAvatar || '';
+      const userName = targetChat.userName || targetCharacter?.userName || '你';
+
+      for (let index = 0; index < drafts.length; index += 1) {
+        const content = drafts[index];
+        // 同一个目标里的好几条草稿，时间戳依次错开一点点，
+        // 保证在消息列表里严格按写作顺序显示，不会因为都用
+        // 同一毫秒时间戳而被打乱。
+        const timestamp = new Date(baseTime + index * 50).toISOString();
+
+        await db.messages.add({
+          chatId: targetChatId,
+          characterId: targetChat.characterId,
+          sender: 'user',
+          type: 'text',
+          content,
+          metadata: {},
+          userAvatar,
+          userName,
+          isRead: true,
+          timestamp,
+        });
+
+        void recordAlmanacEvent({
+          chatId: targetChatId,
+          characterId: targetChat.characterId,
+          eventType: ALMANAC_EVENT_TYPES.USER_MESSAGE,
+          timestamp,
+          metadata: {
+            source: 'broadcast',
+            messageType: 'text',
+          },
+        });
+      }
+
+      try {
+        await cancelPendingScheduledMessagesForChat(
+          targetChatId,
+          'user_sent_new_message',
+        );
+      } catch (error) {
+        console.warn('[Broadcast] 取消旧预约失败：', error);
+      }
+
+      await db.chats.update(targetChatId, {
+        updatedAt: new Date().toISOString(),
+      });
+
+      // 不等待——让每个目标各自独立请求 AI 回复，互不阻塞。
+      void triggerAiResponse(targetChatId);
+
+      if (targetChatId === chatId) {
+        shouldRefreshCurrentChat = true;
+      }
+    }
+
+    setShowBroadcastComposer(false);
+    handleExitSelectionMode();
+
+    triggerGlobalToast({
+      title: '已群发',
+      content: `${drafts.length} 条消息已发给 ${targetChatIds.length} 个聊天窗，对方正在回复`,
+      iconType: 'chat',
+      duration: 2800,
+    });
+
+    if (shouldRefreshCurrentChat) {
+      await loadChatData();
+    }
+  }, [chatId, loadChatData, handleExitSelectionMode]);
+
   const handleStartCall = useCallback((mode) => {
     if (!character?.id) return;
     void startOutgoingCall({ chatId, characterId: character.id, mode });
@@ -1588,6 +1687,8 @@ useLayoutEffect(() => {
         }}
       />
 
+      <ChatEntryCardOverlay card={entryCard} onDone={dismissEntryCard} />
+
       {chat.bgImage && (
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
           <div
@@ -1631,6 +1732,16 @@ useLayoutEffect(() => {
             </div>
 
             <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setShowBroadcastComposer(true)}
+                className="flex items-center gap-1 text-xs font-semibold"
+                style={{ color: 'var(--accent-color)' }}
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span>群发</span>
+              </button>
+
               <button
                 type="button"
                 disabled={selectedMessageIds.size === 0}
@@ -2471,6 +2582,14 @@ useLayoutEffect(() => {
           messageCount={selectedMessageIds.size}
           onClose={() => setShowForwardPicker(false)}
           onForward={handleForwardSelectedTo}
+        />
+      )}
+
+      {showBroadcastComposer && (
+        <BroadcastComposerModal
+          currentChatId={chatId}
+          onClose={() => setShowBroadcastComposer(false)}
+          onSend={handleSendBroadcast}
         />
       )}
 
