@@ -34,6 +34,11 @@ export const logChatApiCall = async ({
   status = 'success',
   latencyMs = 0,
   errorMessage = '',
+  // 用量：不是所有 API/模型都会返回，读不到就存 null，页面里对 null 单独
+  // 处理（不显示这条的用量），不会被误当成 0。
+  promptTokens = null,
+  completionTokens = null,
+  totalTokens = null,
 } = {}) => {
   try {
     let host = '';
@@ -42,6 +47,9 @@ export const logChatApiCall = async ({
     } catch {
       host = clampText(baseUrl, 60);
     }
+
+    const toTokenCount = (value) =>
+      Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : null;
 
     await db.apiCallLogs.add({
       chatId: chatId === undefined || chatId === null ? null : Number(chatId),
@@ -54,6 +62,9 @@ export const logChatApiCall = async ({
       status: status === 'error' ? 'error' : 'success',
       latencyMs: Number.isFinite(latencyMs) ? Math.round(latencyMs) : 0,
       errorMessage: clampText(errorMessage, 160),
+      promptTokens: toTokenCount(promptTokens),
+      completionTokens: toTokenCount(completionTokens),
+      totalTokens: toTokenCount(totalTokens),
       timestamp: nowIso(),
     });
   } catch (error) {

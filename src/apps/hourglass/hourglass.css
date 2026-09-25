@@ -340,6 +340,17 @@
   opacity: 0.75;
 }
 
+.hourglass-row__error {
+  margin-top: 3px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, #c96a5a 12%, transparent);
+  color: #c96a5a;
+  font-size: 10.5px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
 .hourglass-row__time {
   flex-shrink: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

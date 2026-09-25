@@ -90,6 +90,8 @@ const flattenMcpCalls = (messages) => {
             ? new Date(call.completedAt).getTime() -
               new Date(call.startedAt).getTime()
             : null,
+        totalTokens: null,
+        errorMessage: call.status !== 'success' ? call.errorCode : '',
       });
     });
   });
@@ -161,6 +163,8 @@ export const HourglassApp = ({ onBackHub }) => {
       meta: log.host || '',
       status: log.status,
       latencyMs: log.latencyMs,
+      totalTokens: log.totalTokens ?? null,
+      errorMessage: log.errorMessage || '',
     }));
 
     return [...chatRows, ...mcpRows].sort(
@@ -172,6 +176,24 @@ export const HourglassApp = ({ onBackHub }) => {
     () => rows.filter((row) => isSameDay(row.timestamp, new Date().toISOString())).length,
     [rows],
   );
+
+  // 用量汇总：只有主聊天的日志才有 totalTokens，MCP 工具调用没有这个概念。
+  // 不是所有 API/模型都会返回 usage，读不到的记录直接跳过，不算作 0。
+  const totalTokensInWindow = useMemo(
+    () =>
+      chatLogs.reduce(
+        (sum, log) => (Number.isFinite(log.totalTokens) ? sum + log.totalTokens : sum),
+        0,
+      ),
+    [chatLogs],
+  );
+
+  const formatTokenCount = (value) => {
+    if (!Number.isFinite(value)) return '—';
+    if (value >= 10000) return `${(value / 10000).toFixed(1)}万`;
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+    return String(value);
+  };
 
   const nameForRow = (row) => {
     const chatTitle = chatTitleById.get(row.chatId);
@@ -220,6 +242,10 @@ export const HourglassApp = ({ onBackHub }) => {
               <span className="num">{rows.length}</span>
               <span className="label">最近 {retentionDays} 天</span>
             </div>
+            <div className="hourglass-stat-pill">
+              <span className="num">{formatTokenCount(totalTokensInWindow)}</span>
+              <span className="label">用量 tokens</span>
+            </div>
           </div>
         </div>
 
@@ -263,7 +289,15 @@ export const HourglassApp = ({ onBackHub }) => {
                     {Number.isFinite(row.latencyMs)
                       ? ` · ${(row.latencyMs / 1000).toFixed(1)}s`
                       : ''}
+                    {Number.isFinite(row.totalTokens)
+                      ? ` · ${formatTokenCount(row.totalTokens)} tokens`
+                      : ''}
                   </div>
+                  {row.status === 'error' && row.errorMessage && (
+                    <div className="hourglass-row__error">
+                      {row.errorMessage}
+                    </div>
+                  )}
                 </div>
                 <span className="hourglass-row__time">
                   {formatTime(row.timestamp)}

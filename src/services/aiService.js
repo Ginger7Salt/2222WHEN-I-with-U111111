@@ -784,6 +784,9 @@ export const chat = generateResponse;
       error: false,
       content,
       message,
+      // 仅用于「信号沙漏」用量统计；并不是所有 API 都会返回，读不到就是
+      // undefined，不影响正常聊天。
+      usage: data?.usage || null,
     };
   } catch (error) {
     return {
@@ -816,7 +819,7 @@ export const fetchAiCompletionWithTools = async ({
       : await db.settings.get('apiConfig');
     const apiConfig = configOverride || apiSettings?.value || {};
 
-    logChatApiCall({
+       logChatApiCall({
       chatId,
       characterId,
       model: apiConfig.model,
@@ -824,6 +827,9 @@ export const fetchAiCompletionWithTools = async ({
       status: result?.error ? 'error' : 'success',
       latencyMs: Date.now() - startedAt,
       errorMessage: result?.error ? result?.message : '',
+      promptTokens: result?.usage?.prompt_tokens ?? null,
+      completionTokens: result?.usage?.completion_tokens ?? null,
+      totalTokens: result?.usage?.total_tokens ?? null,
     });
   } catch {
     // 记日志本身绝不能影响聊天流程。
