@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Heart,
   ChevronUp,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import { subscribeSummaryStatus } from '../../../services/aiService';
+import ChatHeaderWeatherAmbience from './ChatHeaderWeatherAmbience';
 
 export const ChatHeaderBar = ({
   character,
@@ -32,8 +33,40 @@ export const ChatHeaderBar = ({
 
   // -> 'revealed'（点一下，露出铅笔/占位提示，但还不能编辑）
   // -> 'editing'（再点一下，才是真正的输入框）
-  const [captionStage, setCaptionStage] = useState('idle');
+    const [captionStage, setCaptionStage] = useState('idle');
   const [captionDraft, setCaptionDraft] = useState('');
+
+  // 展开卡片中部（简介/总结 <-> 天气氛围）左右滑动的两页，做法跟首页
+  // 应用区的 AppSwiper 一样：横向 scroll-snap + 底部圆点，不引入额外的
+  // 手势库。
+  const [detailPage, setDetailPage] = useState(0);
+  const detailScrollerRef = useRef(null);
+  const isProgrammaticDetailScroll = useRef(false);
+
+  const handleDetailScroll = () => {
+    if (isProgrammaticDetailScroll.current) return;
+
+    const node = detailScrollerRef.current;
+    if (!node || node.clientWidth === 0) return;
+
+    const index = Math.round(node.scrollLeft / node.clientWidth);
+    setDetailPage((previous) => (previous === index ? previous : index));
+  };
+
+  const goToDetailPage = (index) => {
+    const node = detailScrollerRef.current;
+    if (!node) return;
+
+    isProgrammaticDetailScroll.current = true;
+    node.scrollTo({ left: index * node.clientWidth, behavior: 'smooth' });
+    setDetailPage(index);
+
+    window.setTimeout(() => {
+      isProgrammaticDetailScroll.current = false;
+    }, 400);
+  };
+
+  
 
   useEffect(() => {
     const unsubscribe = subscribeSummaryStatus(({ chatId, isSummarizing: nextIsSummarizing }) => {
@@ -309,81 +342,110 @@ export const ChatHeaderBar = ({
             </div>
           </div>
 
-          {/* 下半区：简介、模式与阶段总结 */}
-          <div
-            className="relative mt-3 space-y-2.5 border-t pt-3"
-            style={{ borderColor: 'var(--divider)' }}
-          >
-            {character.bio && (
-              <p
-                className="rounded-2xl border px-3 py-2.5 font-serif text-[11px] italic leading-relaxed"
-                style={{
-                  background: 'var(--control-soft-bg)',
-                  borderColor: 'var(--divider)',
-                  color: 'var(--text-sub)'
-                }}
-              >
-                “{character.bio}”
-              </p>
-            )}
-
-            <div className="grid grid-cols-2 gap-2">
-              <div
-                className="rounded-2xl border px-3 py-2.5"
-                style={{
-                  background: 'var(--control-soft-bg)',
-                  borderColor: 'var(--divider)'
-                }}
-              >
-                <div
-                  className="flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.1em]"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  <Shield className="h-3 w-3" />
-                  <span>Connection</span>
-                </div>
-
-                <p className="mt-1.5 text-[10px] leading-relaxed opacity-85">
-                  {modeDescription}
-                </p>
-              </div>
-
-              <div
-                className="rounded-2xl border px-3 py-2.5"
-                style={{
-                  background: 'var(--control-soft-bg)',
-                  borderColor: 'var(--divider)'
-                }}
-              >
-                <div
-                  className="flex items-center justify-between font-mono text-[8px] uppercase tracking-[0.1em]"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <ListOrdered className="h-3 w-3" />
-                    Summary
-                  </span>
-                  <span>{summaryEntries.length}</span>
-                </div>
-
-                {isSummarizing ? (
-                  <div className="mt-1.5 flex items-center gap-1.5 text-[10px] italic opacity-70">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>正在整理最新心绪...</span>
-                  </div>
-                ) : summaryEntries.length === 0 ? (
-                  <p className="mt-1.5 text-[10px] italic opacity-60">
-                    尚未留下阶段记录。
-                  </p>
-                ) : (
-                  <p className="mt-1.5 truncate text-[10px] leading-relaxed opacity-85">
-                    {summaryEntries[summaryEntries.length - 1]?.content}
+                   {/* 下半区：简介/总结 与 天气氛围，左右滑动切换 */}
+          <div className="relative mt-3 border-t pt-3" style={{ borderColor: 'var(--divider)' }}>
+            <div
+              ref={detailScrollerRef}
+              onScroll={handleDetailScroll}
+              className="hide-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
+              style={{ scrollbarWidth: 'none' }}
+            >
+              <div className="w-full shrink-0 snap-start space-y-2.5 pr-0.5">
+                {character.bio && (
+                  <p
+                    className="rounded-2xl border px-3 py-2.5 font-serif text-[11px] italic leading-relaxed"
+                    style={{
+                      background: 'var(--control-soft-bg)',
+                      borderColor: 'var(--divider)',
+                      color: 'var(--text-sub)'
+                    }}
+                  >
+                    "{character.bio}"
                   </p>
                 )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div
+                    className="rounded-2xl border px-3 py-2.5"
+                    style={{
+                      background: 'var(--control-soft-bg)',
+                      borderColor: 'var(--divider)'
+                    }}
+                  >
+                    <div
+                      className="flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.1em]"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      <Shield className="h-3 w-3" />
+                      <span>Connection</span>
+                    </div>
+
+                    <p className="mt-1.5 text-[10px] leading-relaxed opacity-85">
+                      {modeDescription}
+                    </p>
+                  </div>
+
+                  <div
+                    className="rounded-2xl border px-3 py-2.5"
+                    style={{
+                      background: 'var(--control-soft-bg)',
+                      borderColor: 'var(--divider)'
+                    }}
+                  >
+                    <div
+                      className="flex items-center justify-between font-mono text-[8px] uppercase tracking-[0.1em]"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <ListOrdered className="h-3 w-3" />
+                        Summary
+                      </span>
+                      <span>{summaryEntries.length}</span>
+                    </div>
+
+                    {isSummarizing ? (
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] italic opacity-70">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>正在整理最新心绪...</span>
+                      </div>
+                    ) : summaryEntries.length === 0 ? (
+                      <p className="mt-1.5 text-[10px] italic opacity-60">
+                        尚未留下阶段记录。
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 truncate text-[10px] leading-relaxed opacity-85">
+                        {summaryEntries[summaryEntries.length - 1]?.content}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full shrink-0 snap-start pl-0.5">
+                <ChatHeaderWeatherAmbience active={isExpanded && detailPage === 1} />
               </div>
             </div>
-          </div>
 
+            <div className="mt-2 flex items-center justify-center gap-1.5">
+              {[0, 1].map((pageIndex) => (
+                <button
+                  key={pageIndex}
+                  type="button"
+                  aria-label={`第 ${pageIndex + 1} 页`}
+                  onClick={() => goToDetailPage(pageIndex)}
+                  className="rounded-full transition-all duration-200"
+                  style={{
+                    width: pageIndex === detailPage ? '1.1rem' : '0.4rem',
+                    height: '0.4rem',
+                    backgroundColor:
+                      pageIndex === detailPage ? 'var(--text-main)' : 'var(--card-border)',
+                    opacity: pageIndex === detailPage ? 0.7 : 0.5,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          
           {/* 操作区 */}
           <div className="relative mt-3 flex items-center justify-between">
             <div

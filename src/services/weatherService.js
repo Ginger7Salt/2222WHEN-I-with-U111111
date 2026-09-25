@@ -220,7 +220,8 @@ const requestTodayWeather = async ({ lat, lng, unit }) => {
   const params = new URLSearchParams({
     latitude: String(lat),
     longitude: String(lng),
-    daily: 'weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max',
+    daily:
+      'weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,sunrise,sunset',
     timezone: 'auto',
     forecast_days: '1',
     wind_speed_unit: 'ms',
@@ -240,6 +241,14 @@ const requestTodayWeather = async ({ lat, lng, unit }) => {
   return {
     label: mapWeatherCode(daily?.weather_code?.[0], daily?.wind_speed_10m_max?.[0]),
     temp: formatTempRange(min, max, unit === 'F' ? 'F' : 'C'),
+    // 供"昼夜进度条"一类的展示用：当地日出/日落（不带时区偏移的本地时间字符串，
+    // 例如 "2026-09-25T06:12"）以及该地点相对 UTC 的偏移秒数。两者都是
+    // 附加字段，不影响原有只读 label/temp 的调用方（如"今日穿搭"）。
+    sunrise: typeof daily?.sunrise?.[0] === 'string' ? daily.sunrise[0] : null,
+    sunset: typeof daily?.sunset?.[0] === 'string' ? daily.sunset[0] : null,
+    utcOffsetSeconds: Number.isFinite(Number(data?.utc_offset_seconds))
+      ? Number(data.utc_offset_seconds)
+      : 0,
   };
 };
 
@@ -284,4 +293,59 @@ export const fetchTodayWeather = async ({ lat, lng, unit = 'C' }) => {
   weatherInFlight.set(key, promise);
 
   return promise;
+};
+
+// ---------- 昼夜进度 ----------
+
+// 把 Open-Meteo 返回的"本地墙上时间"字符串（没有时区偏移，例如
+// "2026-09-25T06:12"）换算成真正的 UTC 毫秒数：先当成 UTC 解析，
+// 再减去该地点相对 UTC 的偏移，得到的就是这一刻在全球统一时间线上
+// 真正对应的时间点，方便和 Date.now() 直接比较。
+const localWallTimeToUtcMs = (isoLikeString, utcOffsetSeconds) => {
+  const asUtc = Date.parse(`${isoLikeString}Z`);
+
+  if (!Number.isFinite(asUtc)) return null;
+
+  return asUtc - utcOffsetSeconds * 1000;
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 根据"今天"的日出/日落，算出此刻是白天还是夜晚，以及在当前这一段
+ * （白天：日出→日落；夜晚：日落→次日日出）里走到了百分之多少。
+ * 夜晚的另一端（昨天日落 / 明天日出）没有请求过，就近似地用
+ * "今天日落/日出 ± 24 小时"代替——对于装饰性的进度条来说已经足够，
+ * 不追求天文级精确。
+ *
+ * 返回 { phase: 'day' | 'night', fraction: 0~1 } ；数据不完整时返回 null。
+ */
+export const computeDayNightProgress = ({ sunrise, sunset, utcOffsetSeconds = 0 }) => {
+  if (!sunrise || !sunset) return null;
+
+  const sunriseMs = localWallTimeToUtcMs(sunrise, utcOffsetSeconds);
+  const sunsetMs = localWallTimeToUtcMs(sunset, utcOffsetSeconds);
+
+  if (!Number.isFinite(sunriseMs) || !Number.isFinite(sunsetMs) || sunsetMs <= sunriseMs) {
+    return null;
+  }
+
+  const nowMs = Date.now();
+
+  if (nowMs >= sunriseMs && nowMs <= sunsetMs) {
+    return {
+      phase: 'day',
+      fraction: (nowMs - sunriseMs) / (sunsetMs - sunriseMs),
+    };
+  }
+
+  const nightStartMs = nowMs > sunsetMs ? sunsetMs : sunsetMs - DAY_MS;
+  const nightEndMs = nowMs > sunsetMs ? sunriseMs + DAY_MS : sunriseMs;
+
+  if (nightEndMs <= nightStartMs) return null;
+
+  return {
+    phase: 'night',
+    fraction: Math.min(1, Math.max(0, (nowMs - nightStartMs) / (nightEndMs - nightStartMs))),
+  };
 };
