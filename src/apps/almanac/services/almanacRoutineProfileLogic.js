@@ -201,6 +201,40 @@ export const analyzeUserRecords = (records = []) => {
   const quietShare = total ? quietSum / total : 0;
   const quietCenter = (quietStart + 3) % 24;
 
+  // 第二安静时段：找一段和上面这段不挨着的连续 2 小时，用来区分"睡觉"和
+  // "短暂休息、在忙别的事"——比如午休或者上班时间，跟夜里睡觉是两回事，
+  // 不应该被同一句话糊在一起。
+  const REST_LEN = 2;
+  const EXCLUDE_PAD = 1;
+
+  const isExcluded = (hour) => {
+    for (let i = -EXCLUDE_PAD; i < 6 + EXCLUDE_PAD; i += 1) {
+      if (((quietStart + i) % 24 + 24) % 24 === hour) return true;
+    }
+    return false;
+  };
+
+  let restStart = null;
+  let restSum = Infinity;
+
+  for (let s = 0; s < 24; s += 1) {
+    let sum = 0;
+    let overlaps = false;
+
+    for (let i = 0; i < REST_LEN; i += 1) {
+      const hour = (s + i) % 24;
+      if (isExcluded(hour)) overlaps = true;
+      sum += hourly[hour];
+    }
+
+    if (!overlaps && sum < restSum) {
+      restSum = sum;
+      restStart = s;
+    }
+  }
+
+  const restShare = total && restStart !== null ? restSum / total : 1;
+
   let peakHour = 0;
   hourly.forEach((count, hour) => {
     if (count > hourly[peakHour]) peakHour = hour;
@@ -231,6 +265,8 @@ export const analyzeUserRecords = (records = []) => {
     quietStart,
     quietShare,
     quietCenter,
+    restStart,
+    restShare,
     peakHour,
     dayCenters,
     firstDateKey: days[0]?.dateKey || null,
@@ -390,14 +426,32 @@ export const buildObservationCandidates = (stats) => {
     });
   }
 
-  if (stats.quietShare <= 0.08) {
-    const start = stats.quietStart;
-    const end = (stats.quietStart + 6) % 24;
+  // 睡眠时段：先看统计有没有算出一段干净的安静时间；算不出来（比如活跃时间
+  // 铺得很开，没有明显的长空档）就用"大多数人 0 点到 8 点睡觉"这个默认猜测
+  // 兜底，等以后数据更多、更明确了再换成真实统计出来的时段。
+  const hasCleanSleepGap = stats.quietShare <= 0.08;
+  const sleepStart = hasCleanSleepGap ? stats.quietStart : 0;
+  const sleepEnd = hasCleanSleepGap ? (stats.quietStart + 6) % 24 : 8;
+
+  list.push({
+    id: 'sleep_window',
+    category: 'rhythm',
+    text: hasCleanSleepGap
+      ? `每天大概 ${sleepStart} 点到 ${sleepEnd} 点，你几乎不出现。TA 猜这段时间你大概率是在睡觉。`
+      : '还没摸出你固定的睡眠时间，TA 先猜你大概 0 点到 8 点前后是在睡觉，等了解得更清楚了会跟着调整。',
+    evidenceDays: days,
+    confidence: hasCleanSleepGap ? confidence : 'low',
+  });
+
+  // 休息时段：跟睡眠时段错开的另一段小空档（比如午休、上班时间），
+  // 明确说不一定是睡觉，避免和上面那条混在一起。
+  if (stats.restStart !== null && stats.restShare <= 0.05) {
+    const restEnd = (stats.restStart + 2) % 24;
 
     list.push({
-      id: 'quiet_gap',
+      id: 'rest_window',
       category: 'rhythm',
-      text: `每天差不多 ${start} 点到 ${end} 点，你多半不在。TA 猜那是你休息，或者忙别的事的时候。`,
+      text: `另外每天大概 ${stats.restStart} 点到 ${restEnd} 点你也不太出现，但这段更像是短暂休息或者在忙别的事，不一定是在睡觉。`,
       evidenceDays: days,
       confidence,
     });
@@ -541,6 +595,10 @@ export const resolveRoutineProfile = ({ stored = null, stats = null, schedules =
     buildObservationCandidates(stats)
   );
 
+  const rawPortrait = profile.characterPortrait && typeof profile.characterPortrait === 'object'
+    ? profile.characterPortrait
+    : null;
+
   return {
     enabled: profile.enabled !== false,
     typeId: type ? type.id : null,
@@ -554,7 +612,19 @@ export const resolveRoutineProfile = ({ stored = null, stats = null, schedules =
     requiredDays: MIN_DAYS,
     daysLeft: Math.max(0, MIN_DAYS - dayCount),
     enoughMessages: (stats?.total || 0) >= MIN_MESSAGES,
+    totalUserMessages: stats?.total || 0,
     peakHour: stats && stats.total ? stats.peakHour : null,
+    // "更深一层的印象"：需要 AI 读聊天内容才能写出来，默认关闭，用户自己开启。
+    portraitEnabled: rawPortrait?.enabled === true,
+    portrait: rawPortrait?.trait
+      ? {
+          trait: rawPortrait.trait,
+          reason: typeof rawPortrait.reason === 'string' ? rawPortrait.reason : '',
+          status: rawPortrait.status || 'guess',
+          generatedAt: rawPortrait.generatedAt || null,
+          basedOnMessageCount: Number(rawPortrait.basedOnMessageCount) || 0,
+        }
+      : null,
   };
 };
 
@@ -578,7 +648,9 @@ export const buildRoutinePromptLines = (view) => {
     (item) => item.enabled !== false && item.status !== 'closed' && item.text
   );
 
-  if (!view.declaredNote && !hasType) return [];
+  const hasPortrait = Boolean(view.portraitEnabled && view.portrait?.trait);
+
+  if (!view.declaredNote && !hasType && !hasPortrait) return [];
 
   const lines = ['【Almanac：user 的作息与相处方式】'];
 
@@ -601,6 +673,15 @@ export const buildRoutinePromptLines = (view) => {
     activeObservations.forEach((item) => {
       lines.push(`- ${item.text}（${STATUS_TEXT[item.status] || STATUS_TEXT.guess}）`);
     });
+  }
+
+  if (view.portraitEnabled && view.portrait?.trait) {
+    lines.push(
+      `你（角色）自己对 user 的印象：${view.portrait.trait}${
+        view.portrait.reason ? `（${view.portrait.reason}）` : ''
+      }`,
+      '这份印象是你自己写下的，请自然地保持这份印象的口吻，不要说"我记录过你是……"这类话。'
+    );
   }
 
   lines.push(

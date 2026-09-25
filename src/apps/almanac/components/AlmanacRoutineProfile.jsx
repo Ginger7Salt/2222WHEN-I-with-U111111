@@ -8,6 +8,15 @@ import {
 
 import { ROUTINE_TYPES, formatHour } from '../services/almanacRoutineProfileLogic';
 
+import {
+  generateCharacterPortrait,
+  setPortraitEnabled,
+  editCharacterPortrait,
+  canManuallyRegeneratePortrait,
+} from '../services/almanacCharacterPortraitService';
+
+import { PORTRAIT_MIN_MESSAGES } from '../services/almanacCharacterPortraitLogic';
+
 import './almanacRoutineProfile.css';
 
 const CONFIDENCE_TEXT = {
@@ -55,6 +64,11 @@ export const AlmanacRoutineProfile = ({
   const [obsDraft, setObsDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [noteSaved, setNoteSaved] = useState(false);
+  const [portraitBusy, setPortraitBusy] = useState(false);
+  const [portraitError, setPortraitError] = useState('');
+  const [editingPortrait, setEditingPortrait] = useState(false);
+  const [portraitTraitDraft, setPortraitTraitDraft] = useState('');
+  const [portraitReasonDraft, setPortraitReasonDraft] = useState('');
 
   const name = characterName || 'TA';
 
@@ -100,6 +114,49 @@ export const AlmanacRoutineProfile = ({
     );
 
     return apply({ observations: next });
+  };
+
+  const togglePortrait = async (enabled) => {
+    try {
+      setPortraitError('');
+      const saved = await setPortraitEnabled(chatId, enabled);
+      if (onConfigSaved) onConfigSaved(saved);
+      await reload();
+    } catch (toggleError) {
+      console.error('[Almanac] 切换角色画像开关失败：', toggleError);
+      setPortraitError('切换失败了，可以再试一次。');
+    }
+  };
+
+  const runGeneratePortrait = async () => {
+    setPortraitBusy(true);
+    setPortraitError('');
+
+    try {
+      const { config: saved } = await generateCharacterPortrait(chatId);
+      if (onConfigSaved) onConfigSaved(saved);
+      await reload();
+    } catch (generateError) {
+      console.error('[Almanac] 生成角色画像失败：', generateError);
+      setPortraitError(generateError?.message || '生成失败了，可以再试一次。');
+    } finally {
+      setPortraitBusy(false);
+    }
+  };
+
+  const saveEditedPortrait = async () => {
+    try {
+      const saved = await editCharacterPortrait(chatId, {
+        trait: portraitTraitDraft,
+        reason: portraitReasonDraft,
+      });
+      if (onConfigSaved) onConfigSaved(saved);
+      setEditingPortrait(false);
+      await reload();
+    } catch (editError) {
+      console.error('[Almanac] 保存角色画像失败：', editError);
+      setPortraitError('保存失败了，可以再试一次。');
+    }
   };
 
   if (!chatId) return null;
@@ -376,6 +433,142 @@ export const AlmanacRoutineProfile = ({
                 );
               })}
             </ul>
+          )}
+        </div>
+      </section>
+
+      {/* 更深一层的印象（AI 根据聊天内容写的） */}
+      <section className="arp-card">
+        <div className="arp-page-inner">
+          <p className="arp-kicker">A DEEPER IMPRESSION</p>
+          <h3 className="arp-title">更深一层的印象</h3>
+          <p className="arp-body">
+            这一项会让 {name} 真的读一遍你们聊过的一些内容，写一句 TA 眼里你是个什么样的人，并说明理由。
+            跟上面按时间统计出来的观察不一样，这项默认关闭，需要你自己打开，而且每次生成都会用到你配置的 API。
+          </p>
+
+          <label className="arp-switch-row">
+            <span>
+              <strong>打开这一项</strong>
+              <small>关闭后不会调用 AI，已经生成过的内容还留着，重新打开还能看到。</small>
+            </span>
+            <input
+              type="checkbox"
+              className="arp-switch"
+              checked={view.portraitEnabled}
+              onChange={(event) => void togglePortrait(event.target.checked)}
+            />
+          </label>
+
+          {view.portraitEnabled && (
+            <>
+              {portraitError && <p className="arp-error">{portraitError}</p>}
+
+              {view.totalUserMessages < PORTRAIT_MIN_MESSAGES ? (
+                <p className="arp-meta">
+                  还需要再多聊一些（目前 {view.totalUserMessages} / {PORTRAIT_MIN_MESSAGES} 句），
+                  内容太少的话 {name} 也写不出什么靠谱的印象。
+                </p>
+              ) : editingPortrait ? (
+                <>
+                  <label className="arp-label" htmlFor="arp-portrait-trait">
+                    印象（一句话）
+                  </label>
+                  <textarea
+                    id="arp-portrait-trait"
+                    className="arp-textarea"
+                    value={portraitTraitDraft}
+                    maxLength={40}
+                    rows={2}
+                    onChange={(event) => setPortraitTraitDraft(event.target.value)}
+                  />
+                  <label className="arp-label" htmlFor="arp-portrait-reason">
+                    理由
+                  </label>
+                  <textarea
+                    id="arp-portrait-reason"
+                    className="arp-textarea"
+                    value={portraitReasonDraft}
+                    maxLength={200}
+                    rows={3}
+                    onChange={(event) => setPortraitReasonDraft(event.target.value)}
+                  />
+                  <div className="arp-row">
+                    <button
+                      type="button"
+                      className="arp-link"
+                      disabled={!portraitTraitDraft.trim()}
+                      onClick={saveEditedPortrait}
+                    >
+                      保存
+                    </button>
+                    <button type="button" className="arp-link" onClick={() => setEditingPortrait(false)}>
+                      取消
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {view.portrait ? (
+                    <>
+                      <p className="arp-hand arp-guidance-text">{view.portrait.trait}</p>
+                      {view.portrait.reason && <p className="arp-body">{view.portrait.reason}</p>}
+                      <p className="arp-meta">
+                        {view.portrait.status === 'edited' ? '你改过' : `${name} 写的`}
+                        {view.portrait.generatedAt &&
+                          ` · ${new Date(view.portrait.generatedAt).toLocaleDateString()}`}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="arp-body">还没生成过，点下面的按钮试试。</p>
+                  )}
+
+                  <div className="arp-row">
+                    <button
+                      type="button"
+                      className="arp-link"
+                      disabled={
+                        portraitBusy ||
+                        !canManuallyRegeneratePortrait({
+                          enabled: view.portraitEnabled,
+                          totalUserMessages: view.totalUserMessages,
+                          portrait: view.portrait,
+                        }).allowed
+                      }
+                      onClick={runGeneratePortrait}
+                    >
+                      {portraitBusy ? '正在生成…' : view.portrait ? '重新生成' : '生成'}
+                    </button>
+
+                    {view.portrait && (
+                      <button
+                        type="button"
+                        className="arp-link"
+                        onClick={() => {
+                          setPortraitTraitDraft(view.portrait.trait || '');
+                          setPortraitReasonDraft(view.portrait.reason || '');
+                          setEditingPortrait(true);
+                        }}
+                      >
+                        改一改
+                      </button>
+                    )}
+                  </div>
+
+                  {view.portrait &&
+                    (() => {
+                      const check = canManuallyRegeneratePortrait({
+                        enabled: view.portraitEnabled,
+                        totalUserMessages: view.totalUserMessages,
+                        portrait: view.portrait,
+                      });
+                      if (check.allowed || check.reason !== 'cooldown') return null;
+                      const hours = Math.max(1, Math.ceil(check.retryAfterMs / 3600000));
+                      return <p className="arp-meta">大概 {hours} 小时后才能再重新生成一次。</p>;
+                    })()}
+                </>
+              )}
+            </>
           )}
         </div>
       </section>

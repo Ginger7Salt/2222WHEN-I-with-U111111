@@ -4,10 +4,15 @@
  * 想加新的里程碑：在 MILESTONE_CATALOG 里加一行就行，格式如下——
  *   { id, type, threshold, building, title }
  * type 目前支持：
- *   'days'         相识第 threshold 天
- *   'messages'     累计第 threshold 条消息
- *   'streak'       连续聊天 threshold 天
- *   'first_night'  第一次在 0 点之后还在聊（不需要 threshold）
+ *   'days'            相识第 threshold 天
+ *   'messages'        累计第 threshold 条消息
+ *   'streak'          连续聊天 threshold 天
+ *   'first_night'     第一次在 0 点之后还在聊（不需要 threshold）
+ *   'signal_timestamp' 某个"第一次"事件发生的时间，来自外部功能模块（比如回忆录、
+ *                      日记、信箱），由调用方在 signals 里按 signalKey 传一个时间戳
+ *                      进来，这里不知道、也不关心那个事件具体是什么
+ *   'signal_count'    某类事件累计达到 threshold 次，signals[signalKey] 是一个
+ *                      按时间升序排好的时间戳数组，第 threshold 个就是点亮时刻
  * building 决定路上画哪种建筑：tower1 tower2 tower3 tower4 hut gate bridge summit
  */
 
@@ -27,6 +32,43 @@ export const MILESTONE_CATALOG = [
   { id: 'streak-30', type: 'streak', threshold: 30, building: 'bridge', title: '连续聊天 30 天' },
 
   { id: 'first-night', type: 'first_night', threshold: 0, building: 'hut', title: '第一次深夜聊天' },
+
+  {
+    id: 'first-gift',
+    type: 'signal_timestamp',
+    signalKey: 'firstGiftAt',
+    building: 'hut',
+    title: '第一次收到心意',
+  },
+  {
+    id: 'stickers-100',
+    type: 'signal_count',
+    signalKey: 'stickerTimestamps',
+    threshold: 100,
+    building: 'gate',
+    title: '发出第 100 个表情包',
+  },
+  {
+    id: 'first-diary',
+    type: 'signal_timestamp',
+    signalKey: 'firstDiaryAt',
+    building: 'hut',
+    title: '第一次写下日记',
+  },
+  {
+    id: 'first-reaction',
+    type: 'signal_timestamp',
+    signalKey: 'firstReactionAt',
+    building: 'hut',
+    title: '第一次点了反应',
+  },
+  {
+    id: 'first-mailbox',
+    type: 'signal_timestamp',
+    signalKey: 'firstMailboxAt',
+    building: 'hut',
+    title: '第一次投进信箱',
+  },
 ];
 
 const DAY_MS = 86400000;
@@ -55,6 +97,7 @@ export const evaluateMilestones = ({
   helpers,
   now = Date.now(),
   catalog = MILESTONE_CATALOG,
+  signals = {},
 }) => {
   const total = allTimes.length;
 
@@ -128,6 +171,19 @@ export const evaluateMilestones = ({
       unlockedAt = firstNightTs;
       fraction = lit ? 1 : 0;
       hint = '尚未发生';
+    } else if (entry.type === 'signal_timestamp') {
+      const raw = signals[entry.signalKey];
+      const ts = raw ? new Date(raw).getTime() : null;
+      lit = Number.isFinite(ts);
+      unlockedAt = lit ? ts : null;
+      fraction = lit ? 1 : 0;
+      hint = '尚未发生';
+    } else if (entry.type === 'signal_count') {
+      const list = Array.isArray(signals[entry.signalKey]) ? signals[entry.signalKey] : [];
+      lit = list.length >= entry.threshold;
+      unlockedAt = lit ? list[entry.threshold - 1] : null;
+      fraction = Math.min(1, list.length / entry.threshold);
+      hint = `已经 ${list.length} / ${entry.threshold} 个`;
     }
 
     const unlockedDay =

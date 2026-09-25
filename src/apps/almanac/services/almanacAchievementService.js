@@ -25,6 +25,63 @@ const toMs = (value) => {
   return Number.isFinite(ms) ? ms : null;
 };
 
+/*
+ * "发出第 100 个表情包""第一次收到心意"这几类里程碑不是靠聊天消息本身算出来的，
+ * 而是来自别的功能模块自己的数据表（回忆录 / 日记 / 信箱）。这里只按 chatId（或
+ * characterId）读一下时间戳，不改动那些模块的任何代码，读取失败就当没有这类信号，
+ * 不影响其余里程碑正常显示。
+ *
+ * 信箱（askBoxQuestions）是按 characterId 存的，不是按 chatId——同一个角色开了
+ * 多个聊天窗，会共用同一份信箱记录，"第一次投进信箱"因此不是这一个聊天窗独有的
+ * 首次事件，而是跟这个角色相关的全部聊天窗共享。
+ */
+const collectSignals = async (chatId) => {
+  const signals = {};
+
+  try {
+    const chat = await db.chats.get(chatId);
+    const characterId = chat?.characterId ?? null;
+
+    const [memoirs, diaries, mailbox] = await Promise.all([
+      db.memoirs ? db.memoirs.where('chatId').equals(chatId).toArray().catch(() => []) : [],
+      db.diaries ? db.diaries.where('chatId').equals(chatId).toArray().catch(() => []) : [],
+      characterId && db.askBoxQuestions
+        ? db.askBoxQuestions.where('characterId').equals(characterId).toArray().catch(() => [])
+        : [],
+    ]);
+
+    const giftTimes = (Array.isArray(memoirs) ? memoirs : [])
+      .filter(
+        (item) =>
+          item &&
+          ['food', 'transfer'].includes(item.eventType) &&
+          item.direction === 'character_to_user'
+      )
+      .map((item) => toMs(item.timestamp))
+      .filter(Boolean);
+
+    if (giftTimes.length) signals.firstGiftAt = Math.min(...giftTimes);
+
+    const diaryTimes = (Array.isArray(diaries) ? diaries : [])
+      .filter((item) => item && item.author === 'user')
+      .map((item) => toMs(item.timestamp))
+      .filter(Boolean);
+
+    if (diaryTimes.length) signals.firstDiaryAt = Math.min(...diaryTimes);
+
+    const mailboxTimes = (Array.isArray(mailbox) ? mailbox : [])
+      .filter((item) => item && item.sender === 'user')
+      .map((item) => toMs(item.createdAt))
+      .filter(Boolean);
+
+    if (mailboxTimes.length) signals.firstMailboxAt = Math.min(...mailboxTimes);
+  } catch (error) {
+    console.warn('[Almanac] 读取跨模块里程碑信号失败：', error);
+  }
+
+  return signals;
+};
+
 export const loadMilestones = async (chatId) => {
   if (!chatId) return null;
 
@@ -49,6 +106,24 @@ export const loadMilestones = async (chatId) => {
     .filter((item) => item.ts !== null)
     .sort((a, b) => a.ts - b.ts);
 
+  const stickerTimestamps = usable
+    .filter((message) => message.sender === 'user' && message.type === 'sticker')
+    .map((message) => toMs(message.timestamp))
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+
+  const reactionTimestamps = messages
+    .flatMap((message) => (Array.isArray(message?.reactions) ? message.reactions : []))
+    .filter((reaction) => reaction?.by === 'user')
+    .map((reaction) => toMs(reaction.at))
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+
+  const extraSignals = await collectSignals(chatId);
+
+  if (reactionTimestamps.length) extraSignals.firstReactionAt = reactionTimestamps[0];
+  if (stickerTimestamps.length) extraSignals.stickerTimestamps = stickerTimestamps;
+
   const helpers = {
     getDateKey: (ts) => getDateKey(ts, timeZone),
     getLocalHour: (ts) => getLocalHour(ts, timeZone),
@@ -59,6 +134,7 @@ export const loadMilestones = async (chatId) => {
     userTimes: stamped.filter((item) => item.sender === 'user').map((item) => item.ts),
     helpers,
     now: Date.now(),
+    signals: extraSignals,
   });
 
   if (!result.hasData) {

@@ -302,6 +302,13 @@
   cursor: pointer;
 }
 
+/* 卡片内部的小开关（比如"更深一层的印象"），需要跟上面的正文隔开一点 */
+.arp-root .arp-card .arp-switch-row {
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--arp-line);
+}
+
 .arp-root .arp-switch-row strong {
   display: block;
   color: var(--almanac-ink);
