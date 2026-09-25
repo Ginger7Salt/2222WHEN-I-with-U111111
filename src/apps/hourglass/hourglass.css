@@ -1,4 +1,144 @@
 /* src/apps/hourglass/hourglass.css */
+/*
+  跟 memory.css 一样的"撑满整页 + 内容居中限宽"结构：根容器
+  min-height: 100vh，内部各段落用同一个 max-width 居中，而不是
+  ChatRoom 里那种 h-[100dvh] + 内部单独滚动区域的写法——那种写法
+  嵌在 Hub 的 currentApp 容器里不会真正撑满整页。
+*/
+
+.hourglass-app {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-height: 100vh;
+  padding: 1rem clamp(1rem, 4vw, 3rem) 4rem;
+  color: var(--text-main);
+}
+
+.hourglass-app::before {
+  position: fixed;
+  z-index: -1;
+  top: -28rem;
+  right: -20rem;
+  display: block;
+  width: min(46rem, 70vw);
+  height: min(46rem, 70vw);
+  border-radius: 50%;
+  background: var(--control-soft-bg);
+  opacity: 0.3;
+  filter: blur(70px);
+  pointer-events: none;
+  content: '';
+}
+
+.hourglass-section {
+  width: min(100%, 640px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---------- 顶部导航 ---------- */
+
+.hourglass-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3.2rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.hourglass-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-sub);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.hourglass-back-button:hover {
+  color: var(--text-main);
+  transform: translateX(-2px);
+}
+
+.hourglass-header-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--text-muted);
+}
+
+.hourglass-kicker {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ---------- 标题区 ---------- */
+
+.hourglass-intro {
+  padding: clamp(2.4rem, 6vw, 4rem) 0 clamp(1.6rem, 4vw, 2.6rem);
+  border-bottom: 1px solid var(--divider);
+}
+
+.hourglass-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.9rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.hourglass-eyebrow::before {
+  display: block;
+  width: 1.8rem;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.hourglass-intro h1 {
+  margin: 0 0 0.6rem;
+  color: var(--text-main);
+  font-family: 'Noto Serif SC', 'Songti SC', STSong, Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  letter-spacing: -0.02em;
+}
+
+.hourglass-intro-text {
+  max-width: 30rem;
+  margin: 0;
+  padding-left: 1rem;
+  border-left: 1px solid var(--text-main);
+  color: var(--text-sub);
+  font-size: 0.78rem;
+  line-height: 1.85;
+}
+
+/* ---------- 汇总卡片 ---------- */
+
+.hourglass-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin-top: clamp(1.6rem, 4vw, 2.4rem);
+  padding: 1rem 1.2rem;
+  border-radius: 1.2rem;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
 
 .hourglass-glyph {
   position: relative;
@@ -76,6 +216,14 @@
   }
 }
 
+.hourglass-stats {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .hourglass-stat-pill {
   display: flex;
   flex-direction: column;
@@ -84,22 +232,32 @@
 
 .hourglass-stat-pill .num {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
   line-height: 1.1;
   color: var(--text-main);
 }
 
 .hourglass-stat-pill .label {
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--text-sub);
   opacity: 0.75;
+}
+
+/* ---------- 保留天数 ---------- */
+
+.hourglass-retention-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 1.1rem;
 }
 
 .hourglass-retention-option {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 10.5px;
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--card-border);
   background: var(--card-bg);
@@ -113,11 +271,33 @@
   color: var(--bg-main);
 }
 
+/* ---------- 时间线列表 ---------- */
+
+.hourglass-list {
+  margin-top: 1.4rem;
+  border-radius: 1.2rem;
+  padding: 0 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
+
+.hourglass-empty {
+  margin-top: 1.4rem;
+  padding: 3rem 1rem;
+  border-radius: 1.2rem;
+  border: 1px dashed var(--divider);
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--text-sub);
+  opacity: 0.75;
+}
+
 .hourglass-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 2px;
+  padding: 12px 2px;
   border-bottom: 1px solid var(--divider);
 }
 
@@ -155,7 +335,7 @@
 
 .hourglass-row__meta {
   margin-top: 1px;
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--text-sub);
   opacity: 0.75;
 }
@@ -167,4 +347,33 @@
   color: var(--text-sub);
   opacity: 0.7;
   text-align: right;
+}
+
+/* ---------- 清空按钮 ---------- */
+
+.hourglass-clear-row {
+  margin-top: 1.1rem;
+  text-align: center;
+}
+
+.hourglass-clear-button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-sub);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.hourglass-clear-button:hover {
+  opacity: 0.9;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 26rem) {
+  .hourglass-summary-card {
+    flex-wrap: wrap;
+  }
 }

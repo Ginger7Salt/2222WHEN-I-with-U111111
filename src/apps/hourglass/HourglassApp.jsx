@@ -12,6 +12,10 @@
 //
 // 「清空记录」只清 apiCallLogs 这张新表，不会动 messages，更不会影响
 // 任何聊天记录本身。
+//
+// 页面结构照抄 memory.css / MemoryApp.jsx 那一套（根容器 min-height:
+// 100vh + 内容居中限宽），不用 h-[100dvh] + 内部单独滚动区域的写法——
+// 后者嵌在 Hub 的 currentApp 容器里撑不满整页。
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Hourglass } from 'lucide-react';
@@ -177,39 +181,37 @@ export const HourglassApp = ({ onBackHub }) => {
   };
 
   return (
-    <div
-      className="relative flex h-[100dvh] flex-col"
-      style={{ background: 'var(--bg-main)' }}
-    >
-      <div
-        className="flex shrink-0 items-center gap-2 border-b px-4 py-3"
-        style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-      >
-        <button
-          type="button"
-          onClick={onBackHub}
-          className="flex items-center justify-center rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
-          style={{ background: 'var(--control-soft-bg)' }}
-          title="返回"
-          aria-label="返回"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <Hourglass className="h-4 w-4" />
-        <span className="text-sm font-medium">信号沙漏</span>
-      </div>
+    <div className="hourglass-app">
+      <div className="hourglass-section">
+        <header className="hourglass-header">
+          <button
+            type="button"
+            onClick={onBackHub}
+            className="hourglass-back-button"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>返回主页</span>
+          </button>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        <div
-          className="mb-4 flex items-center gap-4 rounded-2xl px-4 py-3.5"
-          style={{
-            background: 'var(--card-bg-gradient, var(--card-bg))',
-            border: '1px solid var(--card-border)',
-          }}
-        >
+          <div className="hourglass-header-mark">
+            <Hourglass className="h-4 w-4" />
+            <span className="hourglass-kicker">SIGNAL LOG</span>
+          </div>
+        </header>
+
+        <section className="hourglass-intro">
+          <p className="hourglass-eyebrow">HOURGLASS</p>
+          <h1>信号沙漏</h1>
+          <p className="hourglass-intro-text">
+            主聊天用了哪个模型、成没成功，聊天里又用过哪些 MCP 工具，
+            都安静地落在这里。
+          </p>
+        </section>
+
+        <div className="hourglass-summary-card">
           <HourglassGlyph />
 
-          <div className="flex flex-1 items-center justify-between">
+          <div className="hourglass-stats">
             <div className="hourglass-stat-pill">
               <span className="num">{todayCount}</span>
               <span className="label">今日信号</span>
@@ -221,7 +223,7 @@ export const HourglassApp = ({ onBackHub }) => {
           </div>
         </div>
 
-        <div className="mb-4 flex items-center justify-end gap-1.5">
+        <div className="hourglass-retention-row">
           {RETENTION_DAY_OPTIONS.map((days) => (
             <button
               key={days}
@@ -237,19 +239,13 @@ export const HourglassApp = ({ onBackHub }) => {
         </div>
 
         {isLoading ? null : rows.length === 0 ? (
-          <div className="py-10 text-center text-[12px] leading-relaxed opacity-60">
+          <div className="hourglass-empty">
             这段时间还没有信号需要被记下。
             <br />
             主聊天发生请求、或用到 MCP 工具时，会落在这里。
           </div>
         ) : (
-          <div
-            className="rounded-2xl px-3"
-            style={{
-              background: 'var(--card-bg)',
-              border: '1px solid var(--card-border)',
-            }}
-          >
+          <div className="hourglass-list">
             {rows.map((row) => (
               <div key={row.id} className="hourglass-row">
                 <span
@@ -278,12 +274,11 @@ export const HourglassApp = ({ onBackHub }) => {
         )}
 
         {chatLogs.length > 0 && (
-          <div className="mt-4 text-center">
+          <div className="hourglass-clear-row">
             <button
               type="button"
               onClick={() => setConfirmingClear(true)}
-              className="text-[11px] opacity-50 underline-offset-2 hover:opacity-80 hover:underline"
-              style={{ color: 'var(--text-sub)' }}
+              className="hourglass-clear-button"
             >
               清空主聊天调用记录
             </button>
