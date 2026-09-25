@@ -24,7 +24,7 @@ const MAX_MESSAGES = 5;
 const BroadcastComposer = ({ targets, onClose, onSent }) => {
   const [drafts, setDrafts] = useState(['']);
   const [isSending, setIsSending] = useState(false);
-  const [flyEffectCount, setFlyEffectCount] = useState(0);
+  const [showSendEffect, setShowSendEffect] = useState(false);
 
   const handleDraftChange = (index, value) => {
     setDrafts((previous) => {
@@ -98,7 +98,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
 
       // 先放"纸飞机飞出去"的全屏动效，动效结束后才真正关闭弹窗、
       // 回到会话列表，让人能看清"发出去了"这个反馈。
-      setFlyEffectCount(targets.length);
+      setShowSendEffect(true);
     } catch (err) {
       console.error('[BroadcastComposer] 群发失败：', err);
       setIsSending(false);
@@ -256,8 +256,8 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
         </button>
       </div>
 
-      {flyEffectCount > 0 && (
-        <BroadcastFlyEffect count={flyEffectCount} onDone={handleFlyEffectDone} />
+      {showSendEffect && (
+        <BroadcastFlyEffect onDone={handleFlyEffectDone} />
       )}
     </div>
   );
