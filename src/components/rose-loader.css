@@ -1,0 +1,425 @@
+/* src/components/rose-loader.css */
+
+.rose-loader {
+  position: relative;
+  display: grid;
+  width: min(100%, 23rem);
+  min-height: 22rem;
+  place-items: center;
+  isolation: isolate;
+}
+
+.rose-loader__halo {
+  position: absolute;
+  z-index: -3;
+  top: 46%;
+  left: 50%;
+  width: 20rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--divider);
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    var(--accent-color) 0%,
+    var(--bg-surface-strong) 35%,
+    var(--bg-main) 72%
+  );
+  filter: blur(1.5rem);
+  transform: translate(-50%, -50%) scale(0.55);
+  animation: rose-halo-arrive 2.6s 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.rose-loader__masthead {
+  position: absolute;
+  top: 0.4rem;
+  display: flex;
+  width: min(100%, 18rem);
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  opacity: 0;
+  text-transform: uppercase;
+  transform: translateY(0.4rem);
+  animation: rose-copy-enter 0.8s 0.15s ease-out forwards;
+}
+
+.rose-loader__masthead span:last-child {
+  color: var(--accent-color);
+}
+
+.rose-loader__stage {
+  position: relative;
+  width: 14rem;
+  height: 14rem;
+  margin-top: 1.6rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* 远处的星光，稀疏、若隐若现，衬出"很小的星球"这个感觉。 */
+.rose-loader__star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0;
+  animation: rose-star-twinkle 2.4s ease-in-out infinite;
+}
+
+.rose-loader__planet {
+  position: relative;
+  z-index: 1;
+  width: 5.6rem;
+  height: 5.6rem;
+  margin-bottom: 0.4rem;
+  border-radius: 50%;
+  opacity: 0;
+  background: linear-gradient(
+    155deg,
+    var(--card-bg) 0%,
+    var(--bg-surface-strong) 55%,
+    var(--divider) 100%
+  );
+  box-shadow: 0 0.6rem 1.1rem var(--card-shadow), inset 0 -0.4rem 0.7rem
+    rgba(0, 0, 0, 0.12);
+  transform: translateY(1.2rem) scale(0.85);
+  animation: rose-planet-settle 0.9s 0.35s cubic-bezier(0.34, 1.4, 0.4, 1)
+    forwards;
+}
+
+.rose-loader__stem-anchor {
+  position: absolute;
+  bottom: 5.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rose-loader__stem {
+  position: relative;
+  z-index: 1;
+  width: 0.16rem;
+  height: 3.4rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #6f9b6a 0%, #4d7a4a 100%);
+  transform-origin: bottom center;
+  transform: scaleY(0);
+  animation: rose-stem-grow 0.85s 0.7s cubic-bezier(0.3, 0.9, 0.3, 1) forwards;
+}
+
+.rose-loader__leaf {
+  position: absolute;
+  bottom: 1.3rem;
+  width: 1rem;
+  height: 0.7rem;
+  background: linear-gradient(135deg, #7bab73 0%, #567f52 100%);
+  border-radius: 0 70% 0 70%;
+  opacity: 0;
+  transform: scale(0.4) rotate(var(--leaf-tilt));
+  animation: rose-leaf-open 0.55s cubic-bezier(0.3, 1.3, 0.4, 1) forwards;
+}
+
+.rose-loader__leaf--left {
+  left: -0.75rem;
+  animation-delay: 1.15s;
+}
+
+.rose-loader__leaf--right {
+  right: -0.75rem;
+  animation-delay: 1.3s;
+  transform: scale(0.4) rotate(var(--leaf-tilt)) scaleX(-1);
+}
+
+.rose-loader__bloom {
+  position: relative;
+  z-index: 2;
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
+.rose-loader__petal {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1.35rem;
+  height: 1.7rem;
+  border-radius: 0 70% 70% 70%;
+  background: linear-gradient(155deg, #f2a4bb 0%, #d8577c 60%, #b83c62 100%);
+  box-shadow: 0 0.15rem 0.35rem rgba(120, 30, 60, 0.25);
+  opacity: 0;
+  transform-origin: 50% 90%;
+  transform: rotate(var(--angle)) translateY(-0.15rem) scale(0.25);
+  animation: rose-petal-open 0.6s cubic-bezier(0.24, 1.1, 0.35, 1) forwards;
+}
+
+.rose-loader__bud {
+  position: absolute;
+  z-index: 3;
+  top: 45%;
+  left: 50%;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f7c7d4 0%, #c23b5f 75%);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.3);
+  animation: rose-bud-appear 0.5s 1.85s cubic-bezier(0.3, 1.3, 0.4, 1)
+    forwards;
+}
+
+.rose-loader__dome {
+  position: absolute;
+  z-index: 4;
+  bottom: 0.4rem;
+  left: 50%;
+  width: 9.6rem;
+  height: 11rem;
+  border-radius: 50% 50% 10% 10% / 62% 62% 8% 8%;
+  border: 1px solid var(--divider);
+  background: linear-gradient(
+    170deg,
+    var(--bg-surface-strong) 0%,
+    transparent 55%
+  );
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(-50%) scale(0.92);
+  animation: rose-dome-settle 0.9s 1.7s cubic-bezier(0.2, 0.9, 0.3, 1)
+    forwards;
+}
+
+.rose-loader__dome::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -60%;
+  width: 40%;
+  height: 140%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 45%,
+    transparent 90%
+  );
+  transform: translateX(-20%) rotate(8deg);
+  opacity: 0;
+  animation: rose-dome-glint 1.4s 2.3s ease-out forwards;
+}
+
+.rose-loader__glow {
+  position: absolute;
+  bottom: 3.6rem;
+  left: 50%;
+  width: 5.4rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--accent-color);
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate(-50%, 30%) scale(0.6);
+  animation: rose-glow-breathe 2.4s 2.65s ease-out infinite;
+}
+
+.rose-loader__note {
+  position: absolute;
+  bottom: 0.3rem;
+  margin: 0;
+  max-width: 20rem;
+  padding: 0 1rem;
+  color: var(--text-muted);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.7rem;
+  font-style: italic;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(0.4rem);
+  animation: rose-copy-enter 0.85s 2.55s ease-out forwards;
+}
+
+@keyframes rose-halo-arrive {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.55);
+  }
+  55% {
+    opacity: 0.24;
+  }
+  100% {
+    opacity: 0.12;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes rose-copy-enter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rose-star-twinkle {
+  0%,
+  100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes rose-planet-settle {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes rose-stem-grow {
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes rose-leaf-open {
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(var(--leaf-tilt));
+  }
+}
+
+@keyframes rose-petal-open {
+  60% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateY(-0.55rem) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateY(-0.5rem) scale(1);
+  }
+}
+
+@keyframes rose-bud-appear {
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes rose-dome-settle {
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+@keyframes rose-dome-glint {
+  0% {
+    opacity: 0;
+    transform: translateX(-20%) rotate(8deg);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(260%) rotate(8deg);
+  }
+}
+
+@keyframes rose-glow-breathe {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 30%) scale(0.6);
+  }
+  45% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 30%) scale(1.6);
+  }
+}
+
+@media (max-width: 24rem) {
+  .rose-loader {
+    min-height: 20rem;
+  }
+  .rose-loader__stage {
+    transform: scale(0.88);
+  }
+  .rose-loader__halo {
+    width: 17rem;
+  }
+  .rose-loader__note {
+    bottom: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rose-loader *,
+  .rose-loader *::before,
+  .rose-loader *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .rose-loader__halo {
+    opacity: 0.12;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .rose-loader__masthead,
+  .rose-loader__note {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .rose-loader__star {
+    opacity: 0.5;
+  }
+
+  .rose-loader__planet {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .rose-loader__stem {
+    transform: scaleY(1);
+  }
+
+  .rose-loader__leaf {
+    opacity: 1;
+    transform: scale(1) rotate(var(--leaf-tilt));
+  }
+
+  .rose-loader__leaf--right {
+    transform: scale(1) rotate(var(--leaf-tilt)) scaleX(-1);
+  }
+
+  .rose-loader__petal {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateY(-0.5rem) scale(1);
+  }
+
+  .rose-loader__bud {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .rose-loader__dome {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+
+  .rose-loader__glow {
+    opacity: 0;
+  }
+}

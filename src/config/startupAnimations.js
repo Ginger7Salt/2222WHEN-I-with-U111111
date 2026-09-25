@@ -46,6 +46,14 @@ export const STARTUP_ANIMATIONS = [
     archiveDescription: 'A small cairn settles into balance',
     status: 'READY',
     isAvailable: true
+  },
+  {
+    id: 'rose',
+    title: 'Rose Under Glass',
+    description: 'A small rose blooms beneath the glass, on a tiny distant planet.',
+    archiveDescription: 'A quiet homage to the fox and the rose',
+    status: 'READY',
+    isAvailable: true
   }
 ];
 

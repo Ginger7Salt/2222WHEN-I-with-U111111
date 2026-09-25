@@ -5,6 +5,7 @@ import {
   ChevronDown,
   CircleDot,
   Disc3,
+  Flower2,
   Image,
   Layers3,
   LockKeyhole,
@@ -28,7 +29,8 @@ const ICON_MAP = {
   vinyl: Disc3,
   polaroid: Image,
   letter: Mail,
-  pebble: Layers3
+  pebble: Layers3,
+  rose: Flower2
 };
 
 const readStoredAnimationId = () => {
