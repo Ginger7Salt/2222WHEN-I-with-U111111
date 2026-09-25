@@ -33,6 +33,19 @@
   --am-line: var(--divider);
 }
 
+/* App.jsx 的外层 <main> 除了限宽，还给自己加了上下 padding
+   （顶部约 1.5rem+安全区，底部约 5rem+安全区，给返回主页那圈按钮和手势条留空间）。
+   这段 padding 是外层 <main> 自己的，没有背景色，只会透出页面最底层的颜色——
+   上下滑到头（越界回弹）时看到的那截"App 的底色"就是这里。
+   用负外边距把这段区域"吃回来"，让 Almanac 自己的纸张背景铺到最上和最下，
+   再用等量的内边距把内容位置补回原来的地方，观感不变。 */
+.almanac-app {
+  margin-top: calc(-1.5rem - env(safe-area-inset-top, 0px));
+  margin-bottom: calc(-5rem - env(safe-area-inset-bottom, 0px));
+  padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
 .almanac-content {
   max-width: none;
   padding-inline: clamp(1rem, 4vw, 3rem);
