@@ -1791,7 +1791,7 @@ useLayoutEffect(() => {
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
                       >
                         <BookHeart className="h-4 w-4" />
-                        <span>回忆录<span className="opacity-50">（正在施工）</span></span>
+                        <span>回忆录</span>
                       </button>
                     </div>
                   </>
