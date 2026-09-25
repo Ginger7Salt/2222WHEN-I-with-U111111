@@ -33,7 +33,7 @@ export const ChatHeaderBar = ({
 
   // -> 'revealed'（点一下，露出铅笔/占位提示，但还不能编辑）
   // -> 'editing'（再点一下，才是真正的输入框）
-    const [captionStage, setCaptionStage] = useState('idle');
+  const [captionStage, setCaptionStage] = useState('idle');
   const [captionDraft, setCaptionDraft] = useState('');
 
   // 展开卡片中部（简介/总结 <-> 天气氛围）左右滑动的两页，做法跟首页
@@ -42,6 +42,43 @@ export const ChatHeaderBar = ({
   const [detailPage, setDetailPage] = useState(0);
   const detailScrollerRef = useRef(null);
   const isProgrammaticDetailScroll = useRef(false);
+
+  // 两页内容天然高矮不一样（简介/总结页矮，天气氛围页高）。横向
+  // scroll-snap 的两个子项默认按"最高的那个"撑开整行高度，结果矮的
+  // 那页下面会空出一大块。这里用 ResizeObserver 分别量出两页各自
+  // 的真实高度，外层容器只跟着"当前显示的是哪一页"来定高，不显示
+  // 的那一页多出来的高度会被 overflow-hidden 裁掉，不影响布局。
+  const detailPage0Ref = useRef(null);
+  const detailPage1Ref = useRef(null);
+  const [detailPageHeights, setDetailPageHeights] = useState({ 0: null, 1: null });
+
+  useEffect(() => {
+    if (!isExpanded || typeof ResizeObserver === 'undefined') return undefined;
+
+    const targets = [
+      { index: 0, node: detailPage0Ref.current },
+      { index: 1, node: detailPage1Ref.current },
+    ].filter((item) => item.node);
+
+    if (targets.length === 0) return undefined;
+
+    const observer = new ResizeObserver((entries) => {
+      setDetailPageHeights((previous) => {
+        const next = { ...previous };
+
+        entries.forEach((entry) => {
+          const match = targets.find((item) => item.node === entry.target);
+          if (match) next[match.index] = entry.contentRect.height;
+        });
+
+        return next;
+      });
+    });
+
+    targets.forEach((item) => observer.observe(item.node));
+
+    return () => observer.disconnect();
+  }, [isExpanded]);
 
   const handleDetailScroll = () => {
     if (isProgrammaticDetailScroll.current) return;
@@ -65,8 +102,6 @@ export const ChatHeaderBar = ({
       isProgrammaticDetailScroll.current = false;
     }, 400);
   };
-
-  
 
   useEffect(() => {
     const unsubscribe = subscribeSummaryStatus(({ chatId, isSummarizing: nextIsSummarizing }) => {
@@ -342,87 +377,98 @@ export const ChatHeaderBar = ({
             </div>
           </div>
 
-                   {/* 下半区：简介/总结 与 天气氛围，左右滑动切换 */}
+          {/* 下半区：简介/总结 与 天气氛围，左右滑动切换 */}
           <div className="relative mt-3 border-t pt-3" style={{ borderColor: 'var(--divider)' }}>
             <div
-              ref={detailScrollerRef}
-              onScroll={handleDetailScroll}
-              className="hide-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
-              style={{ scrollbarWidth: 'none' }}
+              className="relative overflow-hidden"
+              style={{
+                height:
+                  detailPageHeights[detailPage] != null
+                    ? `${detailPageHeights[detailPage]}px`
+                    : 'auto',
+                transition: 'height 260ms ease',
+              }}
             >
-              <div className="w-full shrink-0 snap-start space-y-2.5 pr-0.5">
-                {character.bio && (
-                  <p
-                    className="rounded-2xl border px-3 py-2.5 font-serif text-[11px] italic leading-relaxed"
-                    style={{
-                      background: 'var(--control-soft-bg)',
-                      borderColor: 'var(--divider)',
-                      color: 'var(--text-sub)'
-                    }}
-                  >
-                    "{character.bio}"
-                  </p>
-                )}
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div
-                    className="rounded-2xl border px-3 py-2.5"
-                    style={{
-                      background: 'var(--control-soft-bg)',
-                      borderColor: 'var(--divider)'
-                    }}
-                  >
-                    <div
-                      className="flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.1em]"
-                      style={{ color: 'var(--text-muted)' }}
+              <div
+                ref={detailScrollerRef}
+                onScroll={handleDetailScroll}
+                className="hide-scrollbar flex items-start snap-x snap-mandatory overflow-x-auto scroll-smooth"
+                style={{ scrollbarWidth: 'none' }}
+              >
+                <div ref={detailPage0Ref} className="w-full shrink-0 snap-start space-y-2.5 pr-0.5">
+                  {character.bio && (
+                    <p
+                      className="rounded-2xl border px-3 py-2.5 font-serif text-[11px] italic leading-relaxed"
+                      style={{
+                        background: 'var(--control-soft-bg)',
+                        borderColor: 'var(--divider)',
+                        color: 'var(--text-sub)'
+                      }}
                     >
-                      <Shield className="h-3 w-3" />
-                      <span>Connection</span>
-                    </div>
-
-                    <p className="mt-1.5 text-[10px] leading-relaxed opacity-85">
-                      {modeDescription}
+                      “{character.bio}”
                     </p>
-                  </div>
+                  )}
 
-                  <div
-                    className="rounded-2xl border px-3 py-2.5"
-                    style={{
-                      background: 'var(--control-soft-bg)',
-                      borderColor: 'var(--divider)'
-                    }}
-                  >
+                  <div className="grid grid-cols-2 gap-2">
                     <div
-                      className="flex items-center justify-between font-mono text-[8px] uppercase tracking-[0.1em]"
-                      style={{ color: 'var(--text-muted)' }}
+                      className="rounded-2xl border px-3 py-2.5"
+                      style={{
+                        background: 'var(--control-soft-bg)',
+                        borderColor: 'var(--divider)'
+                      }}
                     >
-                      <span className="flex items-center gap-1.5">
-                        <ListOrdered className="h-3 w-3" />
-                        Summary
-                      </span>
-                      <span>{summaryEntries.length}</span>
+                      <div
+                        className="flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.1em]"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        <Shield className="h-3 w-3" />
+                        <span>Connection</span>
+                      </div>
+
+                      <p className="mt-1.5 text-[10px] leading-relaxed opacity-85">
+                        {modeDescription}
+                      </p>
                     </div>
 
-                    {isSummarizing ? (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] italic opacity-70">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>正在整理最新心绪...</span>
+                    <div
+                      className="rounded-2xl border px-3 py-2.5"
+                      style={{
+                        background: 'var(--control-soft-bg)',
+                        borderColor: 'var(--divider)'
+                      }}
+                    >
+                      <div
+                        className="flex items-center justify-between font-mono text-[8px] uppercase tracking-[0.1em]"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <ListOrdered className="h-3 w-3" />
+                          Summary
+                        </span>
+                        <span>{summaryEntries.length}</span>
                       </div>
-                    ) : summaryEntries.length === 0 ? (
-                      <p className="mt-1.5 text-[10px] italic opacity-60">
-                        尚未留下阶段记录。
-                      </p>
-                    ) : (
-                      <p className="mt-1.5 truncate text-[10px] leading-relaxed opacity-85">
-                        {summaryEntries[summaryEntries.length - 1]?.content}
-                      </p>
-                    )}
+
+                      {isSummarizing ? (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[10px] italic opacity-70">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>正在整理最新心绪...</span>
+                        </div>
+                      ) : summaryEntries.length === 0 ? (
+                        <p className="mt-1.5 text-[10px] italic opacity-60">
+                          尚未留下阶段记录。
+                        </p>
+                      ) : (
+                        <p className="mt-1.5 truncate text-[10px] leading-relaxed opacity-85">
+                          {summaryEntries[summaryEntries.length - 1]?.content}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="w-full shrink-0 snap-start pl-0.5">
-                <ChatHeaderWeatherAmbience active={isExpanded && detailPage === 1} />
+                <div ref={detailPage1Ref} className="w-full shrink-0 snap-start pl-0.5">
+                  <ChatHeaderWeatherAmbience active={isExpanded && detailPage === 1} />
+                </div>
               </div>
             </div>
 
@@ -445,7 +491,7 @@ export const ChatHeaderBar = ({
               ))}
             </div>
           </div>
-          
+
           {/* 操作区 */}
           <div className="relative mt-3 flex items-center justify-between">
             <div
