@@ -9,6 +9,8 @@ import NotificationToast from './components/NotificationToast';
 import KeepAliveIndicator from './components/KeepAliveIndicator';
 import HouseManualModal from './components/manual/HouseManualModal';
 
+import HourglassApp from './apps/hourglass/HourglassApp';
+
 import HubHeader from './apps/hub/HubHeader';
 import QuickBoard from './apps/hub/QuickBoard';
 
@@ -168,6 +170,7 @@ const REGISTERED_APPS = [
   'shared-world',
   'memory',
   'archive',
+  'hourglass',
   'newspaper',
   'margin-notes',
   'workflows',
@@ -1110,6 +1113,14 @@ const [hubBackground, setHubBackground] = useState('');
             />
           </ErrorBoundary>
         )}
+
+        {currentApp === 'hourglass' && (
+  <ErrorBoundary>
+    <HourglassApp
+      onBackHub={() => openApp('hub')}
+    />
+  </ErrorBoundary>
+)}
 
         {currentApp === 'shared-world' && (
           <ErrorBoundary>

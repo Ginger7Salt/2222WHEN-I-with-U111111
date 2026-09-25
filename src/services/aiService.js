@@ -57,6 +57,9 @@ import {
   createMcpChatTraceSession,
   getMcpChatTraceSummary,
 } from './mcp/mcpChatTraceService';
+
+import { logChatApiCall } from './apiCallLogService';
+
 import {
   applyRealVoiceIntent,
   buildRealVoiceDecisionInstruction,
@@ -683,7 +686,7 @@ export const generateText = generateResponse;
 export const chat = generateResponse;
 
 
-export const fetchAiCompletionWithTools = async ({
+ const performFetchAiCompletionWithTools = async ({
   systemPrompt = '',
   messages = [],
   apiConfig: configOverride = null,
@@ -789,6 +792,44 @@ export const fetchAiCompletionWithTools = async ({
       message: `网络请求失败: ${error?.message || '未知错误'}`,
     };
   }
+};
+
+export const fetchAiCompletionWithTools = async ({
+  systemPrompt = '',
+  messages = [],
+  apiConfig: configOverride = null,
+  tools = [],
+  chatId = null,
+  characterId = null,
+} = {}) => {
+  const startedAt = Date.now();
+  const result = await performFetchAiCompletionWithTools({
+    systemPrompt,
+    messages,
+    apiConfig: configOverride,
+    tools,
+  });
+
+  try {
+    const apiSettings = configOverride
+      ? null
+      : await db.settings.get('apiConfig');
+    const apiConfig = configOverride || apiSettings?.value || {};
+
+    logChatApiCall({
+      chatId,
+      characterId,
+      model: apiConfig.model,
+      baseUrl: apiConfig.baseUrl,
+      status: result?.error ? 'error' : 'success',
+      latencyMs: Date.now() - startedAt,
+      errorMessage: result?.error ? result?.message : '',
+    });
+  } catch {
+    // 记日志本身绝不能影响聊天流程。
+  }
+
+  return result;
 };
 
 const saveAiErrorMessage = async (chatId, character, result) => {
@@ -1838,7 +1879,8 @@ ${companionshipPrompt}
     chatId,
     characterId: character.id,
     source: 'companionship',
-    requestAiCompletion: fetchAiCompletionWithTools,
+    requestAiCompletion: (args) =>
+      fetchAiCompletionWithTools({ ...args, chatId, characterId: character.id }),
     requestToolApproval: requestMcpToolApproval,
     mcpTraceSession,
      companionshipAuthorization,
@@ -2158,11 +2200,11 @@ const result = await runAiToolOrchestrator({
   apiConfig,
   chatId,
   characterId: character.id,
-  requestAiCompletion: fetchAiCompletionWithTools,
+  requestAiCompletion: (args) =>
+    fetchAiCompletionWithTools({ ...args, chatId, characterId: character.id }),
   requestToolApproval: requestMcpToolApproval,
     mcpTraceSession,
 });
-
 
 
     const nowIso = new Date().toISOString();
@@ -2652,7 +2694,8 @@ const result = await runAiToolOrchestrator({
   apiConfig,
   chatId,
   characterId: character.id,
-  requestAiCompletion: fetchAiCompletionWithTools,
+  requestAiCompletion: (args) =>
+    fetchAiCompletionWithTools({ ...args, chatId, characterId: character.id }),
   requestToolApproval: requestMcpToolApproval,
   mcpTraceSession,
 });

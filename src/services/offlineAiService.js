@@ -134,14 +134,15 @@ export const triggerOfflineAiResponse = async (chatId, offlineSessionId) => {
 
     const mcpTraceSession = createMcpChatTraceSession({ chatId, characterId: character.id });
 
-    const result = await runAiToolOrchestrator({
+      const result = await runAiToolOrchestrator({
       systemPrompt: finalSystemPrompt,
       historyContext,
       apiConfig,
       chatId,
       characterId: character.id,
       source: 'offline',
-      requestAiCompletion: fetchAiCompletionWithTools,
+      requestAiCompletion: (args) =>
+        fetchAiCompletionWithTools({ ...args, chatId, characterId: character.id }),
       requestToolApproval: requestMcpToolApproval,
       mcpTraceSession,
     });
