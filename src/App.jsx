@@ -10,6 +10,7 @@ import KeepAliveIndicator from './components/KeepAliveIndicator';
 import HouseManualModal from './components/manual/HouseManualModal';
 
 import HourglassApp from './apps/hourglass/HourglassApp';
+import MailArchiveApp from './apps/mailArchive/MailArchiveApp';
 
 import HubHeader from './apps/hub/HubHeader';
 import QuickBoard from './apps/hub/QuickBoard';
@@ -171,6 +172,7 @@ const REGISTERED_APPS = [
   'memory',
   'archive',
   'hourglass',
+    'mailArchive',
   'newspaper',
   'margin-notes',
   'workflows',
@@ -949,7 +951,7 @@ const [hubBackground, setHubBackground] = useState('');
             </ErrorBoundary>
 
             <ErrorBoundary>
-              <QuickBoard delay={300} />
+                          <QuickBoard delay={300} onOpenArchive={() => openApp('mailArchive')} />
             </ErrorBoundary>
 
             <ErrorBoundary>
@@ -1121,6 +1123,14 @@ const [hubBackground, setHubBackground] = useState('');
     />
   </ErrorBoundary>
 )}
+
+        {currentApp === 'mailArchive' && (
+          <ErrorBoundary>
+            <MailArchiveApp
+              onBackHub={() => openApp('hub')}
+            />
+          </ErrorBoundary>
+        )}
 
         {currentApp === 'shared-world' && (
           <ErrorBoundary>

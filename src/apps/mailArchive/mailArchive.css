@@ -1,0 +1,263 @@
+/* src/apps/mailArchive/mailArchive.css */
+/*
+  跟 memory.css / hourglass.css 一样的"撑满整页 + 内容居中限宽"结构。
+  注意：不要在根容器上加 isolation: isolate ——之前 hourglass 页面
+  就是因为这一行，把 fixed 定位的确认弹窗困在了局部层叠上下文里，
+  导致点确认没反应。
+*/
+
+.mail-archive-app {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  padding: 1rem clamp(1rem, 4vw, 3rem) 4rem;
+  color: var(--text-main);
+}
+
+.mail-archive-section {
+  width: min(100%, 640px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.mail-archive-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3.2rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.mail-archive-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-sub);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.mail-archive-back-button:hover {
+  color: var(--text-main);
+  transform: translateX(-2px);
+}
+
+.mail-archive-header-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--text-muted);
+}
+
+.mail-archive-kicker {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.mail-archive-intro {
+  padding: clamp(2.4rem, 6vw, 4rem) 0 clamp(1.6rem, 4vw, 2.6rem);
+  border-bottom: 1px solid var(--divider);
+}
+
+.mail-archive-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.9rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.mail-archive-eyebrow::before {
+  display: block;
+  width: 1.8rem;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.mail-archive-intro h1 {
+  margin: 0 0 0.6rem;
+  color: var(--text-main);
+  font-family: 'Noto Serif SC', 'Songti SC', STSong, Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  letter-spacing: -0.02em;
+}
+
+.mail-archive-intro-text {
+  max-width: 30rem;
+  margin: 0;
+  padding-left: 1rem;
+  border-left: 1px solid var(--text-main);
+  color: var(--text-sub);
+  font-size: 0.78rem;
+  line-height: 1.85;
+}
+
+.mail-archive-empty {
+  margin-top: 1.4rem;
+  padding: 3rem 1rem;
+  border-radius: 1.2rem;
+  border: 1px dashed var(--divider);
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--text-sub);
+  opacity: 0.75;
+}
+
+.mail-archive-list {
+  margin-top: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mail-archive-card {
+  position: relative;
+  padding: 1rem;
+  border-radius: 1.5rem;
+  background: var(--control-soft-bg);
+  border: 1px solid var(--card-border);
+  text-align: left;
+}
+
+.mail-archive-card.is-read {
+  opacity: 0.85;
+}
+
+.mail-archive-card.is-unread {
+  border-color: var(--text-main);
+}
+
+.mail-archive-card__dot {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-color);
+}
+
+.mail-archive-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.mail-archive-card__who {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  padding-right: 1.2rem;
+}
+
+.mail-archive-card__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--card-border);
+}
+
+.mail-archive-card__avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card-bg);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mail-archive-card__meta {
+  min-width: 0;
+}
+
+.mail-archive-card__meta h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mail-archive-card__meta span {
+  display: block;
+  margin-top: 1px;
+  font-size: 10px;
+  color: var(--text-sub);
+  opacity: 0.6;
+}
+
+.mail-archive-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.mail-archive-card__action-btn {
+  padding: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-main);
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+
+.mail-archive-card__action-btn:hover {
+  opacity: 1;
+}
+
+.mail-archive-card__action-btn--delete {
+  opacity: 0.35;
+}
+
+.mail-archive-card__content {
+  margin: 0.7rem 0 0;
+  font-family: 'Noto Serif SC', 'Songti SC', STSong, Georgia, serif;
+  font-style: italic;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+.mail-archive-card__toggle {
+  margin-top: 0.4rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  opacity: 0.7;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.mail-archive-card__toggle:hover {
+  opacity: 1;
+}

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Mail, ChevronDown, ChevronUp, Trash2, CheckCircle2, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Mail, ChevronDown, ChevronUp, Trash2, CheckCircle2, MessageSquare, ArrowUpRight } from 'lucide-react';
 import db from '../../db';
 import ConfirmModal from '../../components/ConfirmModal';
 import { subscribeAiEvents } from '../../services/aiService';
 
-export const QuickBoard = ({ delay = 300 }) => {
+export const QuickBoard = ({ delay = 300, onOpenArchive }) => {
   const [messages, setMessages] = useState([]);
   const [isExpanded, setIsExpanded] = useState(true);
   const [expandedCardId, setExpandedCardId] = useState(null);
@@ -54,7 +54,19 @@ export const QuickBoard = ({ delay = 300 }) => {
     }
   };
 
-  const unreadCount = messages.filter((m) => !m.isRead).length;
+   const unreadCount = messages.filter((m) => !m.isRead).length;
+
+  // 首页只展示：最新一封（不管有没有读过）+ 所有未读的。
+  // 其余的（已读、又不是最新那封）藏进「信件存档」，不在首页堆积。
+  const visibleMessages = useMemo(() => {
+    if (messages.length === 0) return [];
+    const newest = messages[0];
+    const restUnread = messages.filter((m) => !m.isRead && m.id !== newest.id);
+    return [newest, ...restUnread];
+  }, [messages]);
+
+  const hiddenCount = messages.length - visibleMessages.length;
+
 
   if (!messages || messages.length === 0) return null;
 
@@ -111,7 +123,7 @@ export const QuickBoard = ({ delay = 300 }) => {
         {/* 留言卡片展开列表 */}
         {isExpanded && (
           <div className="space-y-3 pt-1">
-            {messages.map((item) => {
+            {visibleMessages.map((item) => {
               const isLong = item.content && item.content.length > 90;
               const isCardOpen = expandedCardId === item.id;
               const formattedTime = item.timestamp
@@ -221,9 +233,21 @@ export const QuickBoard = ({ delay = 300 }) => {
                       {isCardOpen ? '收起全文' : '查看完整随笔'}
                     </button>
                   )}
-                </div>
+                              </div>
               );
             })}
+
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => onOpenArchive && onOpenArchive()}
+                className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold opacity-60 hover:opacity-100 transition-opacity"
+                style={{ color: 'var(--text-main)' }}
+              >
+                还有 {hiddenCount} 封信 · 查看全部信件
+                <ArrowUpRight className="w-3 h-3" />
+              </button>
+            )}
           </div>
         )}
       </div>
