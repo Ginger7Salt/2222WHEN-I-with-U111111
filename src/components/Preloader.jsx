@@ -55,6 +55,10 @@ const LOADER_MAP = {
   pebble: {
     Component: PebbleLoader,
     status: 'Stones settling into balance'
+  },
+  rose: {
+    Component: RoseLoader,
+    status: 'Tending a small rose'
   }
 };
 export const Preloader = ({ onFinish }) => {
