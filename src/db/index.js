@@ -4427,4 +4427,16 @@ db.version(59).stores({
   `,
 });
 
+
+// 「信号沙漏」：记录主聊天模型请求（哪个 chat、成功/失败、耗时），
+// 供新增的 hourglass 子应用展示。完全是新表，不改动任何已有表。
+db.version(60).stores({
+  apiCallLogs: `
+    ++id,
+    chatId,
+    characterId,
+    timestamp
+  `,
+});
+
 export default db;
