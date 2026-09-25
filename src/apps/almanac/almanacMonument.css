@@ -6,19 +6,26 @@
    ========================================================================== */
 
 /* -------------------------------------------------------------------------
-   1. 铺满屏幕（做法与记忆 app 一致）
-   根容器不带不透明背景，让首页背景透出来；宽度跟随外壳，不再用 100vw。
+   1. 铺满屏幕
+   App.jsx 里包着所有页面的那层 <main> 是 mx-auto max-w-[420px] px-4，
+   宽屏（平板、桌面浏览器）下会把内容box在一个 420px 的居中窄列里，
+   两侧露出页面背景，悬浮控件（比如桌面挂件、常驻小球）看起来"跑到外面"。
+   这里用经典的"撑破居中容器"写法，把 Almanac 自己撑到整个视口宽度，
+   不去动 App.jsx 的公共布局，其他页面不受影响。
    ------------------------------------------------------------------------- */
 
 .almanac-app {
-  width: 100%;
-  min-width: 0;
+  position: relative;
+  z-index: 1;
+
+  width: 100vw;
+  min-width: 100vw;
   min-height: 100dvh;
-  margin-left: 0;
-  background: transparent;
-  overflow: visible;
-  overflow-x: clip;
-  z-index: auto;
+  margin-left: calc(50% - 50vw);
+
+  overflow-x: hidden;
+
+  background: var(--almanac-paper);
 
   --am-glow: color-mix(in srgb, var(--accent-color) 40%, transparent);
   --am-glow-soft: color-mix(in srgb, var(--accent-color) 14%, transparent);
@@ -29,6 +36,16 @@
 .almanac-content {
   max-width: none;
   padding-inline: clamp(1rem, 4vw, 3rem);
+}
+
+/* 在很宽的桌面窗口下，把正文限制在一个舒适的阅读宽度并居中，
+   避免文字被拉到一整行、多个平台一样很宽的问题；
+   路径和纸张卡片本身已经有自己的最大宽度，不受这里影响。 */
+@media (min-width: 900px) {
+  .almanac-content {
+    max-width: 46rem;
+    margin-inline: auto;
+  }
 }
 
 /* -------------------------------------------------------------------------
