@@ -7,6 +7,10 @@ import {
   Trash2,
   Settings,
   Music2,
+  Send,
+  CheckCircle2,
+  Circle,
+  X,
 } from 'lucide-react';
 
 import GlassCard from '../../components/GlassCard';
@@ -14,6 +18,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import db from '../../db';
 import { subscribeAiEvents } from '../../services/aiService';
 import { destroyChatWithMemories } from '../memory/memoryService';
+import { triggerGlobalToast } from '../../components/NotificationToast';
 
 import ChatRoom from './ChatRoom';
 import CharacterLibrary from './CharacterLibrary';
@@ -21,7 +26,11 @@ import CharacterEditor from './CharacterEditor';
 import NewChatModal from './NewChatModal';
 import CheckInSettings from './check-in/CheckInSettings';
 import CompanionshipPage from './companionship/CompanionshipPage';
+import BroadcastComposer from './components/BroadcastComposer';
 import './check-in/check-in.css';
+
+// "群发"一次最多能选几个目标聊天窗。
+const MAX_BROADCAST_TARGETS = 5;
 
 export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [chats, setChats] = useState([]);
@@ -33,6 +42,12 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [deletingChatTarget, setDeletingChatTarget] = useState(null);
   const [showCheckInSettings, setShowCheckInSettings] = useState(false);
+
+  // "群发"：会话列表自己的多选模式，跟 ChatRoom 里"选择消息"是两码事——
+  // 这里选的是聊天窗本身，选完之后现写新内容一次发给最多 5 个目标。
+  const [broadcastMode, setBroadcastMode] = useState(false);
+  const [broadcastSelectedIds, setBroadcastSelectedIds] = useState(() => new Set());
+  const [showBroadcastComposer, setShowBroadcastComposer] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -91,6 +106,47 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
     (c.title || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleEnterBroadcastMode = () => {
+    setBroadcastMode(true);
+    setBroadcastSelectedIds(new Set());
+  };
+
+  const handleExitBroadcastMode = () => {
+    setBroadcastMode(false);
+    setBroadcastSelectedIds(new Set());
+  };
+
+  const handleToggleBroadcastChat = (chatId) => {
+    setBroadcastSelectedIds((previous) => {
+      const next = new Set(previous);
+
+      if (next.has(chatId)) {
+        next.delete(chatId);
+        return next;
+      }
+
+      if (next.size >= MAX_BROADCAST_TARGETS) {
+        triggerGlobalToast({
+          title: '最多选 5 个',
+          content: `一次最多群发给 ${MAX_BROADCAST_TARGETS} 个聊天窗`,
+          iconType: 'bell',
+          duration: 2200,
+        });
+        return previous;
+      }
+
+      next.add(chatId);
+      return next;
+    });
+  };
+
+  const broadcastTargets = chats
+    .filter((chatItem) => broadcastSelectedIds.has(chatItem.id))
+    .map((chatItem) => ({
+      chat: chatItem,
+      character: characters.find((c) => c.id === chatItem.characterId),
+    }));
+
   if (view === 'chat_room' && activeChatId) {
     return (
       <ChatRoom
@@ -147,95 +203,144 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
 
   return (
     <div className="space-y-5 animate-fade-in-up pb-12 text-xs text-left">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onBackHub}
-          className="flex items-center gap-2 font-semibold opacity-70 hover:opacity-100 transition-opacity"
-          style={{ color: 'var(--text-main)' }}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>返回主页</span>
-        </button>
-
-        <div className="flex items-center gap-2">
+      {broadcastMode ? (
+        <div className="flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={() => setShowCheckInSettings(true)}
-            className="rounded-full p-2 transition-opacity opacity-75 hover:opacity-100"
-            style={{
-              background: 'var(--control-soft-bg)',
-              color: 'var(--text-main)',
-              border: '1px solid var(--card-border)',
-            }}
-            title="角色来讯设置"
-            aria-label="打开角色来讯设置"
+            onClick={handleExitBroadcastMode}
+            className="flex items-center gap-1 text-xs font-semibold opacity-80 hover:opacity-100"
           >
-            <Settings className="w-3.5 h-3.5" />
+            <X className="h-3.5 w-3.5" />
+            <span>取消</span>
           </button>
+
+          <span className="text-xs opacity-70">
+            已选择 {broadcastSelectedIds.size}/{MAX_BROADCAST_TARGETS}
+          </span>
 
           <button
             type="button"
-            onClick={() => setView('companionship')}
-            className="rounded-full p-2 transition-opacity opacity-75 hover:opacity-100"
+            disabled={broadcastSelectedIds.size === 0}
+            onClick={() => setShowBroadcastComposer(true)}
+            className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-all active:scale-95 disabled:opacity-30"
             style={{
-              background: 'var(--control-soft-bg)',
-              color: 'var(--text-main)',
-              border: '1px solid var(--card-border)',
+              background: 'var(--accent-color)',
+              color: 'var(--accent-foreground)',
             }}
-            title="长期陪伴"
-            aria-label="打开长期陪伴"
           >
-            <Music2 className="w-3.5 h-3.5" />
+            <Send className="h-3.5 w-3.5" />
+            <span>群发</span>
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onBackHub}
+            className="flex items-center gap-2 font-semibold opacity-70 hover:opacity-100 transition-opacity"
+            style={{ color: 'var(--text-main)' }}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>返回主页</span>
           </button>
 
-          <div
-            className="flex items-center gap-1 p-1 rounded-full border shadow-sm"
-            style={{
-              background: 'var(--control-soft-bg)',
-              borderColor: 'var(--card-border)',
-            }}
-          >
+          <div className="flex items-center gap-2">
+            {view === 'chats' && filteredChats.length > 0 && (
+              <button
+                type="button"
+                onClick={handleEnterBroadcastMode}
+                className="flex items-center gap-1 rounded-full px-2.5 py-2 transition-opacity opacity-75 hover:opacity-100"
+                style={{
+                  background: 'var(--control-soft-bg)',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--card-border)',
+                }}
+                title="群发消息"
+                aria-label="进入群发模式"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span className="text-[11px] font-medium">群发</span>
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => setView('chats')}
-              className="px-3 py-1 rounded-full transition-all text-xs"
+              onClick={() => setShowCheckInSettings(true)}
+              className="rounded-full p-2 transition-opacity opacity-75 hover:opacity-100"
               style={{
-                background:
-                  view === 'chats'
-                    ? 'var(--accent-color)'
-                    : 'transparent',
-                color:
-                  view === 'chats'
-                    ? 'var(--accent-foreground)'
-                    : 'var(--text-sub)',
-                fontWeight: view === 'chats' ? 600 : 400,
+                background: 'var(--control-soft-bg)',
+                color: 'var(--text-main)',
+                border: '1px solid var(--card-border)',
               }}
+              title="角色来讯设置"
+              aria-label="打开角色来讯设置"
             >
-              对话
+              <Settings className="w-3.5 h-3.5" />
             </button>
 
             <button
               type="button"
-              onClick={() => setView('characters')}
-              className="px-3 py-1 rounded-full transition-all text-xs"
+              onClick={() => setView('companionship')}
+              className="rounded-full p-2 transition-opacity opacity-75 hover:opacity-100"
               style={{
-                background:
-                  view === 'characters'
-                    ? 'var(--accent-color)'
-                    : 'transparent',
-                color:
-                  view === 'characters'
-                    ? 'var(--accent-foreground)'
-                    : 'var(--text-sub)',
-                fontWeight: view === 'characters' ? 600 : 400,
+                background: 'var(--control-soft-bg)',
+                color: 'var(--text-main)',
+                border: '1px solid var(--card-border)',
+              }}
+              title="长期陪伴"
+              aria-label="打开长期陪伴"
+            >
+              <Music2 className="w-3.5 h-3.5" />
+            </button>
+
+            <div
+              className="flex items-center gap-1 p-1 rounded-full border shadow-sm"
+              style={{
+                background: 'var(--control-soft-bg)',
+                borderColor: 'var(--card-border)',
               }}
             >
-              角色
-            </button>
+              <button
+                type="button"
+                onClick={() => setView('chats')}
+                className="px-3 py-1 rounded-full transition-all text-xs"
+                style={{
+                  background:
+                    view === 'chats'
+                      ? 'var(--accent-color)'
+                      : 'transparent',
+                  color:
+                    view === 'chats'
+                      ? 'var(--accent-foreground)'
+                      : 'var(--text-sub)',
+                  fontWeight: view === 'chats' ? 600 : 400,
+                }}
+              >
+                对话
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setView('characters')}
+                className="px-3 py-1 rounded-full transition-all text-xs"
+                style={{
+                  background:
+                    view === 'characters'
+                      ? 'var(--accent-color)'
+                      : 'transparent',
+                  color:
+                    view === 'characters'
+                      ? 'var(--accent-foreground)'
+                      : 'var(--text-sub)',
+                  fontWeight: view === 'characters' ? 600 : 400,
+                }}
+              >
+                角色
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {view === 'chats' && (
         <div className="space-y-4">
@@ -290,6 +395,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                 const char = characters.find(
                   (c) => c.id === chatItem.characterId
                 );
+                const isBroadcastSelected = broadcastSelectedIds.has(chatItem.id);
 
                 return (
                   <GlassCard
@@ -297,9 +403,26 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                     className="flex items-center justify-between p-4 group hover:opacity-95 transition-all relative"
                   >
                     <div
-                      onClick={() => handleOpenChat(chatItem.id)}
+                      onClick={() => (
+                        broadcastMode
+                          ? handleToggleBroadcastChat(chatItem.id)
+                          : handleOpenChat(chatItem.id)
+                      )}
                       className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
                     >
+                      {broadcastMode && (
+                        isBroadcastSelected ? (
+                          <CheckCircle2
+                            className="h-5 w-5 shrink-0"
+                            style={{ color: 'var(--accent-color)' }}
+                          />
+                        ) : (
+                          <Circle
+                            className="h-5 w-5 shrink-0 opacity-30"
+                          />
+                        )
+                      )}
+
                       {char?.avatar ? (
                         <img
                           src={char.avatar}
@@ -402,17 +525,19 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingChatTarget(chatItem);
-                      }}
-                      className="p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--control-soft-bg)] rounded-full"
-                      title="抹去此对话实体"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {!broadcastMode && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingChatTarget(chatItem);
+                        }}
+                        className="p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--control-soft-bg)] rounded-full"
+                        title="抹去此对话实体"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </GlassCard>
                 );
               })}
@@ -460,10 +585,20 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
         chats={chats}
         characters={characters}
       />
+
+      {showBroadcastComposer && (
+        <BroadcastComposer
+          targets={broadcastTargets}
+          onClose={() => setShowBroadcastComposer(false)}
+          onSent={() => {
+            setShowBroadcastComposer(false);
+            handleExitBroadcastMode();
+            loadData();
+          }}
+        />
+      )}
     </div>
   );
 };
 
 export default MessagesApp;
-
-
