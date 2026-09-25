@@ -120,7 +120,7 @@ export const getAlmanacPromptContext = async (chatId) => {
       );
     }
 
-        const routineLines = await getRoutineProfilePromptLines(chatId);
+    const routineLines = await getRoutineProfilePromptLines(chatId);
 
     if (routineLines.length) {
       lines.push(...routineLines);

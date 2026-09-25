@@ -18,6 +18,7 @@ import AlmanacObservation from './components/AlmanacObservation';
 import AlmanacMilestones from './components/AlmanacMilestones';
 import AlmanacReminderManager from './components/AlmanacReminderManager';
 import AlmanacRoutineProfile from './components/AlmanacRoutineProfile';
+import AlmanacAmbience from './components/AlmanacAmbience';
 import AlmanacSettingsPanel from './components/AlmanacSettingsPanel';
 import AlmanacInitialization from './components/AlmanacInitialization';
 
@@ -33,6 +34,7 @@ import {
 import { getRhythmObservation } from './services/almanacRhythmService';
 
 import './almanac.css';
+import './almanacMonument.css';
 
 // 顶部这一排是可以左右滑动的"标签卡片"，点一下就在下方展开对应内容，
 // 一次只展开一个——纯展示层的状态，不涉及任何数据读取或业务逻辑。
@@ -278,6 +280,7 @@ export const AlmanacApp = ({ onBackHub }) => {
 
   return (
     <main className="almanac-app">
+      <AlmanacAmbience />
       <div className="almanac-grain" aria-hidden="true" />
 
       <div className="almanac-content">
@@ -422,7 +425,7 @@ export const AlmanacApp = ({ onBackHub }) => {
               </section>
             )}
 
-                        {activeTab === 'profile' && (
+            {activeTab === 'profile' && (
               <section className="almanac-profile-section almanac-reveal">
                 <AlmanacRoutineProfile
                   chatId={numericChatId}
@@ -435,7 +438,7 @@ export const AlmanacApp = ({ onBackHub }) => {
 
             {activeTab === 'milestones' && (
               <section className="almanac-milestone-section almanac-reveal">
-                                <AlmanacMilestones chatId={numericChatId} />
+                                <AlmanacMilestones chatId={numericChatId} onConfigSaved={setConfig} />
               </section>
             )}
 

@@ -78,7 +78,7 @@ export const getRhythmObservation = async ({ chatId, records = [] }) => {
   const days = new Set(userRecords.map((record) => record.dateKey).filter(Boolean));
 
   if (days.size < MINIMUM_DAYS) {
-       return {
+    return {
       enabled: true,
       sharedWithChar,
       ready: false,
@@ -110,7 +110,7 @@ export const getRhythmObservation = async ({ chatId, records = [] }) => {
     0.35 + days.size / 30 + (rankedHours[0]?.[1] || 0) / 100
   );
 
-    return {
+  return {
     enabled: true,
     sharedWithChar,
     ready: true,

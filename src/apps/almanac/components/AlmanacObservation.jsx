@@ -83,7 +83,7 @@ export const AlmanacObservation = ({
                 。
               </small>
             </>
-                   ) : (
+          ) : (
             <>
               <p className="almanac-observation-message">
                 {rhythmObservation.message}

@@ -1,419 +1,368 @@
 /* ==========================================================================
-   「TA 眼中的你」手作日记页
+   「TA 眼中的你」
+   与 Almanac 其他页面同一套纪念碑谷式外观：实线、卡片、柔和辉光。
+   字号与页面其他部分对齐（标题 1.05rem，正文 0.8rem，元数据 0.64rem）。
    颜色全部来自 almanac.css 里映射好的 --almanac-* 变量，跟随四套主题。
-   这一页没有任何动画，所以不需要额外的"降低动效"处理。
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Long+Cang&display=swap');
-
 .arp-root {
-  --arp-hand: "Long Cang", "Noto Serif SC", "Songti SC", "STSong", cursive;
-  --arp-paper: color-mix(in srgb, var(--almanac-paper) 96%, var(--almanac-ink) 4%);
-  --arp-paper-2: color-mix(in srgb, var(--almanac-paper) 92%, var(--almanac-ink) 8%);
-  --arp-rule: color-mix(in srgb, var(--almanac-ink) 9%, transparent);
-  --arp-glow: color-mix(in srgb, var(--almanac-accent) 42%, transparent);
-  --arp-glow-soft: color-mix(in srgb, var(--almanac-accent) 16%, transparent);
+  --arp-line: var(--almanac-line);
+  --arp-glow: color-mix(in srgb, var(--almanac-accent) 40%, transparent);
+  --arp-glow-soft: color-mix(in srgb, var(--almanac-accent) 14%, transparent);
 
-  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1.6rem;
-  padding: 0.6rem 0 1.2rem;
-  isolation: isolate;
+  gap: 1rem;
+  padding: 0.4rem 0 1rem;
 }
 
-.arp-glow {
-  position: absolute;
-  z-index: -1;
-  width: 22rem;
-  height: 22rem;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--arp-glow-soft), transparent 68%);
-  filter: blur(28px);
-  pointer-events: none;
-}
-
-.arp-glow-a { left: -9rem; top: -4rem; }
-.arp-glow-b { right: -10rem; bottom: 8rem; }
-
-/* -- 纸张 -- */
-
-.arp-page {
-  position: relative;
-  border: 1px solid var(--almanac-line);
-  border-radius: 0.4rem 1.1rem 1.1rem 0.4rem;
-  background: linear-gradient(var(--arp-paper), var(--arp-paper-2));
+.arp-root .arp-card {
+  border: 1px solid var(--arp-line);
+  border-radius: 18px;
+  background: var(--almanac-paper-soft);
   box-shadow:
-    0 1rem 2.4rem color-mix(in srgb, var(--almanac-ink) 10%, transparent),
-    0 0 2.8rem var(--arp-glow-soft);
-  overflow: hidden;
+    0 0.9rem 2.2rem color-mix(in srgb, var(--almanac-ink) 7%, transparent),
+    0 0 2.4rem var(--arp-glow-soft);
 }
 
-.arp-page-a { transform: rotate(-0.5deg); }
-.arp-page-b { transform: rotate(0.45deg); }
-
-/* 横线纸纹 + 左侧留白竖线 + 纸面细颗粒 */
-.arp-page::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, transparent 2.7rem, color-mix(in srgb, var(--almanac-accent) 22%, transparent) 2.7rem 2.75rem, transparent 2.75rem),
-    repeating-linear-gradient(transparent 0 2.05rem, var(--arp-rule) 2.05rem 2.1rem);
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.arp-page::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  mix-blend-mode: soft-light;
-  opacity: 0.16;
-  pointer-events: none;
-}
-
-/* 装订孔 */
-.arp-holes {
-  position: absolute;
-  left: 0.55rem;
-  top: 2.6rem;
-  width: 0.75rem;
-  height: 0.75rem;
-  border-radius: 50%;
-  background: var(--almanac-paper);
-  box-shadow:
-    inset 0 1px 3px color-mix(in srgb, var(--almanac-ink) 35%, transparent),
-    0 5.2rem 0 var(--almanac-paper),
-    0 10.4rem 0 var(--almanac-paper);
-}
-
-/* 顶角斜纹胶带 */
-.arp-tape {
-  position: absolute;
-  top: -0.35rem;
-  width: 5rem;
-  height: 1.3rem;
-  background: repeating-linear-gradient(
-    45deg,
-    color-mix(in srgb, var(--almanac-accent) 18%, transparent) 0 0.4rem,
-    color-mix(in srgb, var(--almanac-accent) 7%, transparent) 0.4rem 0.8rem
-  );
-  border-left: 1px dashed color-mix(in srgb, var(--almanac-accent) 30%, transparent);
-  border-right: 1px dashed color-mix(in srgb, var(--almanac-accent) 30%, transparent);
-  z-index: 2;
-}
-
-.arp-tape-l { left: 1.6rem; transform: rotate(-6deg); }
-.arp-tape-r { right: 1.6rem; transform: rotate(5deg); }
-
-.arp-page-inner {
-  position: relative;
-  z-index: 1;
-  padding: 1.5rem 1.3rem 1.4rem 3.5rem;
+.arp-root .arp-page-inner {
+  padding: 1.15rem 1.2rem 1.1rem;
 }
 
 /* -- 文字 -- */
 
-.arp-kicker {
+.arp-root .arp-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin: 0;
-  font-family: var(--almanac-font-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
   color: var(--almanac-muted);
+  font-family: var(--almanac-font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.arp-title {
-  margin: 0.45rem 0 0;
-  font-family: var(--arp-hand);
-  font-size: 1.85rem;
-  font-weight: 400;
-  line-height: 1.25;
-  color: var(--almanac-ink);
-  text-shadow: 0 0 0.8rem var(--arp-glow);
+/* 小菱形：等距方块的顶面，点亮的一格 */
+.arp-root .arp-kicker::before {
+  content: "";
+  width: 0.42rem;
+  height: 0.42rem;
+  background: var(--almanac-accent);
+  box-shadow: 0 0 0.6rem var(--arp-glow);
+  transform: rotate(45deg);
 }
 
-.arp-squiggle {
-  display: block;
-  margin-top: 0.15rem;
-  color: var(--almanac-ink);
-  filter: drop-shadow(0 0 0.3rem var(--arp-glow));
-}
-
-.arp-body {
-  margin: 0.7rem 0 0;
+.arp-root .arp-title {
+  margin: 0.5rem 0 0;
   font-family: var(--almanac-font-serif);
-  font-size: 0.82rem;
-  line-height: 1.85;
-  color: var(--almanac-ink-soft);
-}
-
-.arp-hand {
-  font-family: var(--arp-hand);
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.4;
   color: var(--almanac-ink);
-  text-shadow: 0 0 0.7rem var(--arp-glow);
+  text-shadow: 0 0 0.9rem var(--arp-glow);
 }
 
-.arp-meta {
-  margin: 0.25rem 0 0;
+.arp-root .arp-body {
+  margin: 0.55rem 0 0;
+  color: var(--almanac-ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.75;
+}
+
+.arp-root .arp-hand {
+  color: var(--almanac-ink);
+  font-family: var(--almanac-font-serif);
+}
+
+.arp-root .arp-meta {
+  margin: 0.3rem 0 0;
+  color: var(--almanac-muted);
   font-family: var(--almanac-font-mono);
   font-size: 0.64rem;
   line-height: 1.6;
-  color: var(--almanac-muted);
 }
 
-.arp-muted {
+.arp-root .arp-muted {
   color: var(--almanac-muted);
-  font-size: 0.82rem;
-}
-
-.arp-error {
-  margin: 0;
-  color: var(--almanac-danger);
   font-size: 0.8rem;
 }
 
-.arp-label {
-  display: block;
-  font-family: var(--almanac-font-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.08em;
-  color: var(--almanac-muted);
+.arp-root .arp-error {
+  margin: 0;
+  color: var(--almanac-danger);
+  font-size: 0.78rem;
 }
 
-/* -- 进度小圆点 -- */
+.arp-root .arp-label {
+  display: block;
+  color: var(--almanac-muted);
+  font-family: var(--almanac-font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+}
 
-.arp-progress {
+/* -- 进度：点亮的小圆点 -- */
+
+.arp-root .arp-progress {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-top: 1rem;
+  margin-top: 0.9rem;
 }
 
-.arp-dots { display: flex; gap: 0.5rem; }
+.arp-root .arp-dots {
+  display: flex;
+  gap: 0.4rem;
+}
 
-.arp-dot {
-  width: 0.85rem;
-  height: 0.85rem;
+.arp-root .arp-dot {
+  width: 0.7rem;
+  height: 0.7rem;
   border-radius: 50%;
-  border: 1.5px dashed color-mix(in srgb, var(--almanac-ink) 34%, transparent);
-  box-sizing: border-box;
+  background: var(--almanac-line);
 }
 
-.arp-dot.is-done {
-  border: 0;
+.arp-root .arp-dot.is-done {
   background: var(--almanac-accent);
-  box-shadow: 0 0 0.7rem var(--arp-glow);
+  box-shadow: 0 0 0.6rem var(--arp-glow);
 }
 
-.arp-progress-text { font-size: 1.05rem; }
+.arp-root .arp-progress-text {
+  color: var(--almanac-ink-soft);
+  font-family: var(--almanac-font-mono);
+  font-size: 0.72rem;
+}
 
 /* -- 行为指引 -- */
 
-.arp-guidance {
-  margin-top: 1rem;
+.arp-root .arp-guidance {
+  margin-top: 0.9rem;
   padding-top: 0.8rem;
-  border-top: 1.5px dotted color-mix(in srgb, var(--almanac-ink) 26%, transparent);
+  border-top: 1px solid var(--arp-line);
 }
 
-.arp-guidance-text {
-  margin: 0.3rem 0 0.35rem;
-  font-size: 1.3rem;
-  line-height: 1.45;
+.arp-root .arp-guidance-text {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.86rem;
+  line-height: 1.7;
 }
 
-/* -- 手写风的小按钮：波浪下划线小字 -- */
+/* -- 按钮：细边框小胶囊 -- */
 
-.arp-link {
+.arp-root .arp-link {
   appearance: none;
-  border: 0;
-  background: transparent;
-  padding: 0.35rem 0;
   min-height: 2.2rem;
-  font-family: var(--arp-hand);
-  font-size: 1.02rem;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid var(--arp-line);
+  border-radius: 999px;
+  background: transparent;
   color: var(--almanac-ink-soft);
-  text-decoration: underline wavy color-mix(in srgb, var(--almanac-accent) 45%, transparent);
-  text-underline-offset: 0.28rem;
+  font-size: 0.72rem;
   cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
 }
 
-.arp-link:hover:not(:disabled),
-.arp-link:focus-visible {
+.arp-root .arp-link:hover:not(:disabled),
+.arp-root .arp-link:focus-visible {
+  border-color: var(--almanac-accent);
+  box-shadow: 0 0 0.9rem var(--arp-glow-soft);
   color: var(--almanac-ink);
   outline: none;
 }
 
-.arp-link:disabled {
+.arp-root .arp-link:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.arp-row {
+.arp-root .arp-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.2rem 1rem;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
-.arp-type-actions {
+.arp-root .arp-row .arp-meta {
+  margin: 0;
+}
+
+.arp-root .arp-type-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 1.1rem;
-  margin-top: 0.8rem;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
 }
 
 /* -- 类型选择 -- */
 
-.arp-type-list {
+.arp-root .arp-type-list {
   list-style: none;
-  margin: 0.5rem 0 0;
+  margin: 0.7rem 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
 }
 
-.arp-type {
+.arp-root .arp-type {
   appearance: none;
   width: 100%;
   min-height: 2.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.8rem;
   text-align: left;
-  border: 1.5px dashed color-mix(in srgb, var(--almanac-ink) 26%, transparent);
-  border-radius: 0.7rem;
+  border: 1px solid var(--arp-line);
+  border-radius: 12px;
   background: transparent;
   color: var(--almanac-ink);
   cursor: pointer;
 }
 
-.arp-type strong { font-family: var(--almanac-font-serif); font-size: 0.86rem; font-weight: 500; }
-.arp-type span { font-size: 0.72rem; color: var(--almanac-muted); }
+.arp-root .arp-type strong {
+  font-family: var(--almanac-font-serif);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
 
-.arp-type.is-active,
-.arp-type:hover {
+.arp-root .arp-type span {
+  color: var(--almanac-muted);
+  font-size: 0.7rem;
+}
+
+.arp-root .arp-type.is-active,
+.arp-root .arp-type:hover {
   border-color: var(--almanac-accent);
   box-shadow: 0 0 0.9rem var(--arp-glow-soft);
 }
 
 /* -- 观察记录 -- */
 
-.arp-obs-list {
+.arp-root .arp-obs-list {
   list-style: none;
-  margin: 0.5rem 0 0;
+  margin: 0.4rem 0 0;
   padding: 0;
 }
 
-.arp-obs {
-  padding: 0.75rem 0 0.55rem;
-  border-bottom: 1.5px dotted color-mix(in srgb, var(--almanac-ink) 26%, transparent);
+.arp-root .arp-obs {
+  padding: 0.75rem 0 0.7rem;
+  border-bottom: 1px solid var(--arp-line);
 }
 
-.arp-obs:last-child { border-bottom: 0; }
+.arp-root .arp-obs:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
 
-.arp-obs-text {
+.arp-root .arp-obs-text {
   margin: 0;
-  font-size: 1.2rem;
-  line-height: 1.45;
+  font-size: 0.84rem;
+  line-height: 1.7;
 }
 
-.arp-obs.is-closed .arp-obs-text {
+.arp-root .arp-obs.is-closed .arp-obs-text {
   color: var(--almanac-muted);
-  text-shadow: none;
   text-decoration: line-through;
 }
 
 /* -- 输入框 -- */
 
-.arp-textarea {
+.arp-root .arp-textarea {
   width: 100%;
   box-sizing: border-box;
-  margin-top: 0.5rem;
-  padding: 0.6rem 0.75rem;
-  border: 1.5px dashed color-mix(in srgb, var(--almanac-ink) 30%, transparent);
-  border-radius: 0.7rem;
-  background: color-mix(in srgb, var(--almanac-paper) 70%, transparent);
+  margin-top: 0.55rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--arp-line);
+  border-radius: 12px;
+  background: var(--almanac-paper);
   color: var(--almanac-ink);
-  font-family: var(--almanac-font-serif);
-  font-size: 0.86rem;
+  font-family: var(--almanac-font-sans);
+  font-size: 0.8rem;
   line-height: 1.7;
   resize: vertical;
 }
 
-.arp-textarea:focus {
+.arp-root .arp-textarea:focus {
   outline: none;
   border-color: var(--almanac-accent);
   box-shadow: 0 0 0.9rem var(--arp-glow-soft);
 }
 
-/* -- 总开关：虚线药丸，开启时带辉光 -- */
+/* -- 总开关：实线药丸，开启时带辉光 -- */
 
-.arp-switch-row {
+.arp-root .arp-switch-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.2rem 0.3rem;
+  padding: 0.2rem 0.2rem;
   cursor: pointer;
 }
 
-.arp-switch-row strong {
+.arp-root .arp-switch-row strong {
   display: block;
-  font-family: var(--almanac-font-serif);
-  font-size: 0.86rem;
-  font-weight: 500;
   color: var(--almanac-ink);
+  font-family: var(--almanac-font-serif);
+  font-size: 0.84rem;
+  font-weight: 500;
 }
 
-.arp-switch-row small {
+.arp-root .arp-switch-row small {
   display: block;
   margin-top: 0.2rem;
-  font-size: 0.72rem;
-  line-height: 1.6;
   color: var(--almanac-muted);
+  font-size: 0.7rem;
+  line-height: 1.6;
 }
 
-.arp-switch {
+.arp-root .arp-switch {
   appearance: none;
   flex: none;
   position: relative;
   width: 2.4rem;
   height: 1.4rem;
   margin: 0;
-  border: 1.5px dashed color-mix(in srgb, var(--almanac-ink) 34%, transparent);
+  border: 1px solid var(--arp-line);
   border-radius: 999px;
-  background: transparent;
+  background: var(--almanac-paper-deep);
   cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.arp-switch::after {
+.arp-root .arp-switch::after {
   content: "";
   position: absolute;
-  top: 0.2rem;
-  left: 0.22rem;
-  width: 0.8rem;
-  height: 0.8rem;
+  top: 0.18rem;
+  left: 0.2rem;
+  width: 0.9rem;
+  height: 0.9rem;
   border-radius: 50%;
   background: var(--almanac-muted);
+  transition: transform 160ms ease, background-color 160ms ease;
 }
 
-.arp-switch:checked {
+.arp-root .arp-switch:checked {
   border-color: var(--almanac-accent);
   box-shadow: 0 0 0.8rem var(--arp-glow);
 }
 
-.arp-switch:checked::after {
-  left: auto;
-  right: 0.22rem;
+.arp-root .arp-switch:checked::after {
+  transform: translateX(1rem);
   background: var(--almanac-accent);
 }
 
-.arp-switch:focus-visible {
+.arp-root .arp-switch:focus-visible {
   outline: 2px solid var(--almanac-accent);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arp-root .arp-link,
+  .arp-root .arp-switch,
+  .arp-root .arp-switch::after {
+    transition: none;
+  }
 }

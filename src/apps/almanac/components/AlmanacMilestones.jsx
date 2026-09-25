@@ -6,7 +6,7 @@ import React, {
 } from 'react';
 
 import AlmanacMilestoneManager from './AlmanacMilestoneManager';
-import AlmanacCompanionshipCard from './AlmanacCompanionshipCard';
+import AlmanacMilestoneJourney from './AlmanacMilestoneJourney';
 
 import {
   getAlmanacImportantDates,
@@ -16,7 +16,7 @@ import {
   getDaysRemaining,
 } from '../services/almanacImportantDateService';
 
-export const AlmanacMilestones = ({ chatId }) => {
+export const AlmanacMilestones = ({ chatId, onConfigSaved }) => {
   const [importantDates, setImportantDates] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [openCreateSignal, setOpenCreateSignal] = useState(0);
@@ -127,7 +127,7 @@ export const AlmanacMilestones = ({ chatId }) => {
             <h2 className="almanac-section-title">这一路走来</h2>
 
             <p className="almanac-milestone-description">
-              一些关于相处的痕迹，也可以留下一个正在靠近的日子。
+              一个个节点会随着相处慢慢点亮，也可以留下一个正在靠近的日子。
             </p>
           </div>
 
@@ -141,7 +141,7 @@ export const AlmanacMilestones = ({ chatId }) => {
           </button>
         </header>
 
-        <AlmanacCompanionshipCard chatId={chatId} />
+        <AlmanacMilestoneJourney chatId={chatId} onConfigSaved={onConfigSaved} />
 
         {!isLoading && nextUpcoming && (
           <div className="almanac-personal-milestone-list">

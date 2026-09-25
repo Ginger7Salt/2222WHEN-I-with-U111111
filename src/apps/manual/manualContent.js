@@ -327,7 +327,7 @@ export const MANUAL_SECTIONS = [
               },
               {
                 title: 'Almanac（岁时纪）',
-                text: '记录你和角色相处路上的里程碑，也可以留一个正在靠近的重要日子。这里还有 AI 对相处节律的观察，以及"轻提醒"——不重要但想被提起的小事，最多可以留几条，关闭后暂停但不会被删掉。',
+                text: '记录你和角色相处路上的里程碑，也可以留一个正在靠近的重要日子。这里还有对相处节律的观察，以及"轻提醒"——不重要但想被提起的小事，最多可以留几条，关闭后暂停但不会被删掉。「TA 眼中的你」一页会按你出现的时间做统计（不读聊天内容），至少要 7 天的记录才会给出作息类型和几条小观察，之前只显示进度。你可以自己选作息类型、改动"TA 会这样对你"、确认或关掉任何一条观察，还能亲手写一段补充，你写的优先级最高。整页有总开关，开启时这些内容会作为背景写进角色的提示词。',
               },
               {
                 title: 'Shared World（共享世界）',
@@ -397,7 +397,7 @@ export const MANUAL_SECTIONS = [
               },
               {
                 title: 'Almanac',
-                text: 'Track milestones along the way with your character, or pin an upcoming date that matters. It also holds AI observations about the rhythm of your time together, plus "light reminders" — small things worth a nudge, up to a handful at a time; turning one off pauses it without deleting it.',
+                text: 'Track milestones along the way with your character, or pin an upcoming date that matters. It also holds observations about the rhythm of your time together, plus "light reminders" — small things worth a nudge, up to a handful at a time; turning one off pauses it without deleting it. The "How they see you" page is built from when you show up (message contents are not read) and needs at least 7 days of records before it names a routine type or offers small observations; until then it only shows progress. You can pick your own routine type, edit how the character will treat you, confirm or switch off any observation, and write a note in your own words, which always takes priority. A master switch controls whether it is written into the character\'s prompt.',
               },
               {
                 title: 'Shared World',
@@ -467,7 +467,7 @@ export const MANUAL_SECTIONS = [
               },
               {
                 title: 'Almanac',
-                text: '캐릭터와 함께한 여정의 이정표를 기록하거나, 다가오는 중요한 날을 남겨둘 수 있습니다. 함께한 리듬에 대한 AI의 관찰도 볼 수 있고, "가벼운 알림" — 중요하지는 않지만 상기하고 싶은 일들 — 도 몇 개까지 남길 수 있습니다. 끄면 잠시 멈출 뿐 삭제되지는 않습니다.',
+                text: '캐릭터와 함께한 여정의 이정표를 기록하거나, 다가오는 중요한 날을 남겨둘 수 있습니다. 함께한 리듬에 대한 AI의 관찰도 볼 수 있고, "가벼운 알림" — 중요하지는 않지만 상기하고 싶은 일들 — 도 몇 개까지 남길 수 있습니다. 끄면 잠시 멈출 뿐 삭제되지는 않습니다. "그 사람 눈에 비친 나" 페이지는 당신이 나타나는 시간대를 바탕으로 만들어지며(메시지 내용은 읽지 않습니다), 최소 7일의 기록이 쌓여야 생활 리듬 유형과 작은 관찰이 나타나고 그 전에는 진행 상황만 보입니다. 리듬 유형을 직접 고르고, 캐릭터가 대하는 방식을 고치고, 관찰을 확인하거나 끌 수 있으며, 직접 쓴 메모는 항상 가장 우선합니다. 전체 스위치로 캐릭터의 프롬프트에 반영할지 정할 수 있습니다.',
               },
               {
                 title: 'Shared World',

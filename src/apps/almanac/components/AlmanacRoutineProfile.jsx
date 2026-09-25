@@ -32,24 +32,6 @@ const SOURCE_TEXT = {
 const MAX_NOTE_LENGTH = 300;
 const MAX_TEXT_LENGTH = 120;
 
-const Squiggle = ({ width = 150 }) => (
-  <svg
-    className="arp-squiggle"
-    width={width}
-    height="10"
-    viewBox={`0 0 ${width} 10`}
-    fill="none"
-    aria-hidden="true"
-  >
-    <path
-      d={`M2 6 C ${width * 0.15} 1, ${width * 0.3} 9, ${width * 0.45} 5 S ${width * 0.75} 1, ${width - 2} 6`}
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-    />
-  </svg>
-);
-
 const Dots = ({ done, total }) => (
   <div className="arp-dots" aria-hidden="true">
     {Array.from({ length: total }, (_, index) => (
@@ -143,16 +125,10 @@ export const AlmanacRoutineProfile = ({
 
   return (
     <div className="arp-root">
-      <div className="arp-glow arp-glow-a" aria-hidden="true" />
-      <div className="arp-glow arp-glow-b" aria-hidden="true" />
+            {error && <p className="arp-error">{error}</p>}
 
-      {error && <p className="arp-error">{error}</p>}
-
-      {/* 第一页：画像与作息类型 */}
-      <section className="arp-page arp-page-a">
-        <span className="arp-tape arp-tape-l" aria-hidden="true" />
-        <span className="arp-tape arp-tape-r" aria-hidden="true" />
-        <span className="arp-holes" aria-hidden="true" />
+      {/* 画像与作息类型 */}
+      <section className="arp-card">
 
         <div className="arp-page-inner">
           <p className="arp-kicker">{learning ? 'STILL LEARNING' : `${name} 眼中的你`}</p>
@@ -164,7 +140,6 @@ export const AlmanacRoutineProfile = ({
                   ? `再过 ${view.daysLeft} 天，${name} 就会大概了解你的作息`
                   : `${name} 还需要多聊几句，才敢下判断`}
               </h3>
-              <Squiggle width={170} />
               <p className="arp-body">
                 {name} 会留意你一般几点出现、几点安静下来。这只是对时间的统计，不是读心，
                 {view.daysLeft > 0
@@ -181,7 +156,6 @@ export const AlmanacRoutineProfile = ({
           ) : (
             <>
               <h3 className="arp-title">{view.typeLabel}</h3>
-              <Squiggle width={130} />
               <p className="arp-body">{portrait}</p>
               <p className="arp-meta">
                 {SOURCE_TEXT[view.source]}
@@ -293,14 +267,11 @@ export const AlmanacRoutineProfile = ({
       </section>
 
       {/* 观察记录 */}
-      <section className="arp-page arp-page-b">
-        <span className="arp-tape arp-tape-l" aria-hidden="true" />
-        <span className="arp-holes" aria-hidden="true" />
+      <section className="arp-card">
 
         <div className="arp-page-inner">
           <p className="arp-kicker">OBSERVATIONS</p>
           <h3 className="arp-title">{name} 悄悄记下的</h3>
-          <Squiggle width={150} />
 
           {visibleObservations.length === 0 ? (
             <p className="arp-body">
@@ -410,14 +381,11 @@ export const AlmanacRoutineProfile = ({
       </section>
 
       {/* 我来告诉 TA */}
-      <section className="arp-page arp-page-a">
-        <span className="arp-tape arp-tape-r" aria-hidden="true" />
-        <span className="arp-holes" aria-hidden="true" />
+      <section className="arp-card">
 
         <div className="arp-page-inner">
           <p className="arp-kicker">IN YOUR OWN WORDS</p>
           <h3 className="arp-title">我来告诉 {name}</h3>
-          <Squiggle width={140} />
           <p className="arp-body">
             比如“我是夜班，周一到周四”。你亲口说的，比任何猜测都优先。偏好和喜好请放进记忆里，这里只写作息和相处方式。
           </p>
