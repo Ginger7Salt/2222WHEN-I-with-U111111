@@ -1,7 +1,7 @@
 // public/sw.js
 
 // 每次发布一个需要用户更新的版本时，递增此版本号以激活新 SW
-const CACHE_NAME = 'when-i-with-u-v15';
+const CACHE_NAME = 'when-i-with-u-v16';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径
 const APP_SCOPE = self.registration.scope;
