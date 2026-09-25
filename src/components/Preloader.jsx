@@ -7,6 +7,7 @@ import VinylLoader from './VinylLoader';
 import PolaroidLoader from './PolaroidLoader';
 import LetterLoader from './LetterLoader';
 import PebbleLoader from './PebbleLoader';
+import RoseLoader from './RoseLoader';
 import {
   getPreloaderQuote,
   getPreloaderQuoteSync,
