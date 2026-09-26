@@ -19,6 +19,7 @@ import { compressImageFile } from './services/snapshotMediaService';
 export const SnapshotCard = ({
   snapshot,
   currentChatId,
+  initialComments = [],
   onDelete,
   onOpenUserProfile,
   onOpenCharProfile
@@ -30,7 +31,13 @@ export const SnapshotCard = ({
     setLocalSnapshot(snapshot);
   }, [snapshot]);
 
-  const [comments, setComments] = useState([]);
+  // 评论初始值由父级 SnapshotsApp 批量查好、按 snapshotId 分组后传进来
+  // （见 SnapshotsApp.jsx 的 loadSnapshots），这里只是拿来做初始 state，
+  // 不再在挂载时自己单独发一次查询——同一屏最多同时挂载 30 张卡片时，
+  // 30 个并发的小查询叠加起来是进入页面卡顿的主因之一。
+  // loadComments 仍然保留，供本卡片自己后续的动作（发评论、AI 回复）
+  // 用来刷新"这一条动态"自己的评论，那属于单次、按需的查询，不在此列。
+  const [comments, setComments] = useState(initialComments);
   const [commentInput, setCommentInput] = useState('');
   const [replyTarget, setReplyTarget] = useState(null);
   const [isSummoning, setIsSummoning] = useState(false);
@@ -59,9 +66,8 @@ export const SnapshotCard = ({
     }
   }, [snapshot.id]);
 
-  useEffect(() => {
-    loadComments();
-  }, [loadComments]);
+  // 注意：这里不再有"挂载时自动 loadComments()"的 effect——评论已经由
+  // initialComments 带进来了。loadComments 只在发评论 / AI 回复之后按需调用。
 
   // 点赞切换（带一个短促的"跳一下"反馈）
   const handleToggleLike = async () => {

@@ -42,6 +42,12 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(defaultChatId);
   const [snapshots, setSnapshots] = useState([]);
+  // 按 snapshotId 分组的评论，和 snapshots 一起批量加载（见 loadSnapshots）。
+  // 目的是避免每张 SnapshotCard 各自单独查一次评论——进入页面时最多同时
+  // 挂载 30 张卡片，30 个并发的小查询叠加渲染是之前"进入 snapshot 卡顿"的
+  // 主因之一，这里改成一次性查完整个聊天窗的评论，按 snapshotId 分组后
+  // 作为初始值传给每张卡片。
+  const [commentsBySnapshot, setCommentsBySnapshot] = useState({});
 
   // 故事条数据
   const [storyChar, setStoryChar] = useState(null);
@@ -80,12 +86,31 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
   const loadSnapshots = useCallback(async () => {
     if (!currentChatId) return;
     try {
-      const list = await db.snapshots
-        .where('chatId')
-        .equals(Number(currentChatId))
-        .reverse()
-        .sortBy('timestamp');
+      const numericChatId = Number(currentChatId);
+
+      // 动态列表和整窗评论一起批量查（snapshotComments 上有 chatId 索引，
+      // 这一次查询覆盖这个聊天窗下所有动态的评论），而不是等下面渲染出
+      // 每张 SnapshotCard 后，让每张卡片各自再去单独查一次自己的评论。
+      const [list, allComments] = await Promise.all([
+        db.snapshots
+          .where('chatId')
+          .equals(numericChatId)
+          .reverse()
+          .sortBy('timestamp'),
+        db.snapshotComments
+          .where('chatId')
+          .equals(numericChatId)
+          .sortBy('createdAt'),
+      ]);
+
       setSnapshots(list);
+
+      const grouped = {};
+      for (const comment of allComments) {
+        if (!grouped[comment.snapshotId]) grouped[comment.snapshotId] = [];
+        grouped[comment.snapshotId].push(comment);
+      }
+      setCommentsBySnapshot(grouped);
     } catch (err) {
       console.error('加载动态失败:', err);
     }
@@ -451,6 +476,7 @@ export const SnapshotsApp = ({ onBackHub, defaultChatId = null }) => {
                 <SnapshotCard
                   snapshot={item}
                   currentChatId={currentChatId}
+                  initialComments={commentsBySnapshot[item.id] || []}
                   onDelete={handleDeleteSnapshot}
                   onOpenUserProfile={() => setIsUserProfileOpen(true)}
                   onOpenCharProfile={(charId) => setSelectedCharId(charId)}
