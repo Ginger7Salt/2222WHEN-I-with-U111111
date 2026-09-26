@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ChevronLeft,
   Sliders,
@@ -9,12 +9,24 @@ import {
   Cat
 } from 'lucide-react';
 import db from '../../db';
-import { generateEnsembleAiResponse } from './ensembleService';
+import {
+  generateEnsembleAiResponse,
+  getRecentEnsembleMessagesWindow,
+  getOlderEnsembleMessagesBefore
+} from './ensembleService';
 import { EnsembleUserSelector } from './components/EnsembleUserSelector';
 import { EnsembleMessageItem } from './components/EnsembleMessageItem';
 import { EnsembleSettingsModal } from './components/EnsembleSettingsModal';
 import { EnsembleImagePromptModal } from './components/EnsembleImagePromptModal';
 import StickerPickerModal from '../messages/components/StickerPickerModal';
+
+// 首屏只加载最近这么多条消息，上滑到顶部再按同样的批量增量加载，
+// 不再每次都把整个大群的历史消息读出来。数值跟主聊天 ChatRoom.jsx
+// 保持一致，方便以后统一调整。
+const INITIAL_VISIBLE_MESSAGE_COUNT = 200;
+const LOAD_MORE_MESSAGE_BATCH = 200;
+const LOAD_MORE_SCROLL_THRESHOLD_PX = 150;
+const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 80;
 
 export const EnsembleRoom = ({
   chatId,
@@ -27,6 +39,7 @@ export const EnsembleRoom = ({
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [aiError, setAiError] = useState('');
   const [quotedMessage, setQuotedMessage] = useState(null);
+  const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
 
   const [userIdentities, setUserIdentities] = useState([]);
   const [currentIdentityId, setCurrentIdentityId] = useState('');
@@ -37,9 +50,25 @@ export const EnsembleRoom = ({
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+  const scrollAreaRef = useRef(null);
+
+  // 分页相关的记账用 ref：当前已加载条数、是否正在加载更早消息、
+  // 加载更早消息前的滚动高度（用于加载完成后把视口钉在原位置，
+  // 不因为顶部插入了新内容而"跳"一下）、当前是否贴在底部。
+  const loadedMessageCountRef = useRef(INITIAL_VISIBLE_MESSAGE_COUNT);
+  const isLoadingMoreRef = useRef(false);
+  const previousScrollHeightRef = useRef(null);
+  const isPinnedToBottomRef = useRef(true);
 
   useEffect(() => {
     onChatRoomStateChange?.(true);
+
+    setHasMoreOlderMessages(true);
+    loadedMessageCountRef.current = INITIAL_VISIBLE_MESSAGE_COUNT;
+    previousScrollHeightRef.current = null;
+    isLoadingMoreRef.current = false;
+    isPinnedToBottomRef.current = true;
+
     void loadRoomData();
 
     return () => {
@@ -73,11 +102,19 @@ export const EnsembleRoom = ({
     await loadMessages();
   };
 
+  /*
+   * 只取"最近 loadedMessageCountRef.current 条"这一窗口，而不是整个
+   * 大群的历史消息。loadedMessageCountRef 会随着用户上滑加载更早消息
+   * 而增大，所以刷新（发消息/删消息/AI 回复后）时不会把已经展开的
+   * 那部分丢掉，也不会因此退化回整表读取。
+   */
   const loadMessages = async () => {
-    const records = await db.ensembleMessages
-      .where('chatId')
-      .equals(chatId)
-      .sortBy('timestamp');
+    const limit = Math.max(
+      loadedMessageCountRef.current,
+      INITIAL_VISIBLE_MESSAGE_COUNT
+    );
+
+    const records = await getRecentEnsembleMessagesWindow(chatId, limit);
 
     const messageMap = new Map(records.map((item) => [item.id, item]));
 
@@ -89,14 +126,111 @@ export const EnsembleRoom = ({
     }));
 
     setMessages(enrichedMessages);
+    loadedMessageCountRef.current = enrichedMessages.length;
+    setHasMoreOlderMessages(enrichedMessages.length >= limit);
 
-    requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'end'
+    if (isPinnedToBottomRef.current) {
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'end'
+        });
       });
-    });
+    }
   };
+
+  /*
+   * 上滑到顶部时，增量加载"比当前最早一条消息还要更早"的一批。
+   * 走 [chatId+timestamp] 复合索引，只读这一批，不会把已加载的部分
+   * 重新读一遍，也不会去扫整个大群的历史。
+   */
+  const handleLoadOlderMessages = async () => {
+    if (isLoadingMoreRef.current || !hasMoreOlderMessages) return;
+
+    const oldestLoaded = messages[0];
+    if (!oldestLoaded) return;
+
+    isLoadingMoreRef.current = true;
+
+    const scrollArea = scrollAreaRef.current;
+    if (scrollArea) {
+      previousScrollHeightRef.current = scrollArea.scrollHeight;
+    }
+
+    try {
+      const olderBatch = await getOlderEnsembleMessagesBefore(
+        chatId,
+        oldestLoaded.timestamp,
+        LOAD_MORE_MESSAGE_BATCH
+      );
+
+      if (olderBatch.length > 0) {
+        setMessages((previous) => {
+          // 引用解析用"这一批 + 已加载的部分"合并出的 map，
+          // 这样更早消息里引用的对象即便在已加载区间里也能对上。
+          const messageMap = new Map(
+            [...olderBatch, ...previous].map((item) => [item.id, item])
+          );
+
+          const enrichedOlder = olderBatch.map((item) => ({
+            ...item,
+            quotedMessage: item.quotedMessageId
+              ? messageMap.get(item.quotedMessageId) || null
+              : null
+          }));
+
+          return [...enrichedOlder, ...previous];
+        });
+
+        loadedMessageCountRef.current += olderBatch.length;
+      }
+
+      setHasMoreOlderMessages(olderBatch.length >= LOAD_MORE_MESSAGE_BATCH);
+    } catch (error) {
+      console.error('Ensemble 加载更早消息失败：', error);
+      isLoadingMoreRef.current = false;
+      return;
+    }
+
+    if (!scrollArea) {
+      isLoadingMoreRef.current = false;
+    }
+  };
+
+  const handleMessagesScroll = (event) => {
+    const scrollArea = event.currentTarget;
+
+    isPinnedToBottomRef.current =
+      scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight
+      <= AUTO_SCROLL_BOTTOM_THRESHOLD_PX;
+
+    if (
+      isLoadingMoreRef.current
+      || scrollArea.scrollTop > LOAD_MORE_SCROLL_THRESHOLD_PX
+      || !hasMoreOlderMessages
+    ) {
+      return;
+    }
+
+    void handleLoadOlderMessages();
+  };
+
+  // 加载更早消息、往顶部插入之后，把视口滚动位置钉住，不因为顶部
+  // 多了一截内容而让画面"跳"一下。
+  useLayoutEffect(() => {
+    const scrollArea = scrollAreaRef.current;
+
+    if (!scrollArea || previousScrollHeightRef.current === null) {
+      return;
+    }
+
+    const newScrollHeight = scrollArea.scrollHeight;
+
+    scrollArea.scrollTop += newScrollHeight - previousScrollHeightRef.current;
+
+    previousScrollHeightRef.current = null;
+    isLoadingMoreRef.current = false;
+  }, [messages]);
 
   const getCurrentIdentity = () => {
     return (
@@ -172,6 +306,10 @@ export const EnsembleRoom = ({
     });
 
     setQuotedMessage(null);
+
+    // 用户自己发消息时始终强制滚到底部，不管之前是否已经上滑到别处
+    // 在看历史消息——跟主聊天 ChatRoom.jsx 发消息时的行为保持一致。
+    isPinnedToBottomRef.current = true;
 
     return {
       ...message,
@@ -292,7 +430,10 @@ export const EnsembleRoom = ({
       setQuotedMessage(null);
     }
 
-    await loadMessages();
+    // 本地直接摘掉这一条即可，不用为了删一条消息重新查一遍数据库；
+    // 分页计数同步减一，保持跟"已加载条数"一致。写法同主聊天 ChatRoom.jsx。
+    setMessages((previous) => previous.filter((message) => message.id !== messageId));
+    loadedMessageCountRef.current = Math.max(0, loadedMessageCountRef.current - 1);
   };
 
   const handleRegenerateMessage = async (message) => {
@@ -416,7 +557,20 @@ export const EnsembleRoom = ({
         </button>
       </div>
 
-      <section className="relative z-10 flex-1 overflow-y-auto px-3 pb-4 pt-14 no-scrollbar">
+      <section
+        ref={scrollAreaRef}
+        onScroll={handleMessagesScroll}
+        className="relative z-10 flex-1 overflow-y-auto px-3 pb-4 pt-14 no-scrollbar"
+      >
+        {hasMoreOlderMessages && messages.length > 0 && (
+          <div
+            className="py-2 text-center text-[10px] opacity-40"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            向上滚动加载更早的消息...
+          </div>
+        )}
+
         {messages.map((message) => (
           <EnsembleMessageItem
             key={message.id}

@@ -1,4 +1,36 @@
+import Dexie from 'dexie';
 import db from '../../db';
+
+/*
+ * 只从 ensembleMessages 表的 [chatId+timestamp] 复合索引里，取某个
+ * 羁绊大群最近的一批消息（按时间正序返回），而不是把整个群的聊天
+ * 记录都读出来、在内存里排序、再截尾——避免群里消息越堆越多之后，
+ * 每次发消息/删消息/AI 回复都要把全群历史读一遍。
+ * 写法参照主聊天 ChatRoom.jsx 里的 getRecentMessagesWindow。
+ */
+export const getRecentEnsembleMessagesWindow = (chatId, limit) => (
+  db.ensembleMessages
+    .where('[chatId+timestamp]')
+    .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
+    .reverse()
+    .limit(limit)
+    .toArray()
+    .then((rows) => rows.reverse())
+);
+
+/*
+ * 加载"比当前已加载的最早一条消息还要更早"的一批消息，用于聊天界面
+ * 下拉到顶部时的增量分页。同样走 [chatId+timestamp] 复合索引。
+ */
+export const getOlderEnsembleMessagesBefore = (chatId, beforeTimestamp, limit) => (
+  db.ensembleMessages
+    .where('[chatId+timestamp]')
+    .between([chatId, Dexie.minKey], [chatId, beforeTimestamp], true, false)
+    .reverse()
+    .limit(limit)
+    .toArray()
+    .then((rows) => rows.reverse())
+);
 
 // 获取全局 API 配置 (读取 db.settings 中 key="apiConfig" 的记录)
 export const getApiConfig = async () => {
@@ -159,13 +191,7 @@ export const generateEnsembleAiResponse = async (chatId, options = {}) => {
   const members = await buildEnsembleMembers(chat);
   const memberById = new Map(members.map((m) => [m.id, m]));
 
-  const historyMsgs = await db.ensembleMessages
-    .where('chatId')
-    .equals(chatId)
-    .reverse()
-    .limit(30)
-    .toArray();
-  historyMsgs.reverse();
+  const historyMsgs = await getRecentEnsembleMessagesWindow(chatId, 30);
 
   const systemPrompt = await buildEnsembleSystemPrompt(chat, members, targetCharacterId);
 
@@ -279,13 +305,7 @@ export const generateEnsembleSummary = async (chatId) => {
   const chat = await db.ensembleChats.get(chatId);
   if (!chat) return;
 
-  const msgs = await db.ensembleMessages
-    .where('chatId')
-    .equals(chatId)
-    .reverse()
-    .limit(40)
-    .toArray();
-  msgs.reverse();
+  const msgs = await getRecentEnsembleMessagesWindow(chatId, 40);
 
   if (msgs.length < 4) return;
 

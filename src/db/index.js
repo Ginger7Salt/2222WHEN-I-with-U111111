@@ -4439,4 +4439,16 @@ db.version(60).stores({
   `,
 });
 
+// 羁绊大群 (Ensemble) 分页加载：ensembleMessages 表之前只有独立的
+// chatId / timestamp 索引，每次都要 .sortBy('timestamp') 把某个大群
+// 的全部消息读进内存再排序，消息一多就会越来越卡。
+// 参照主聊天 messages 表 v37/v46 的做法，加一个 [chatId+timestamp]
+// 复合索引，让"取最近 N 条 / 取某个时间点之前的 N 条"都能直接走索引
+// 区间查询，不用整表扫描。ensembleMessages.timestamp 一直都是
+// Date.now() 数字型时间戳（不像 messages 表历史上混过字符串型），
+// 所以这里不需要额外的类型迁移脚本。
+db.version(61).stores({
+  ensembleMessages: '++id, chatId, senderId, timestamp, [chatId+timestamp]',
+});
+
 export default db;
