@@ -20,6 +20,12 @@ export const EnsembleSettingsModal = ({ chatId, onClose, onUpdated }) => {
   const [localChars, setLocalChars] = useState([]);
   const [relations, setRelations] = useState([]);
 
+  // 按群自定义角色设定：只针对"全局角色库"里的角色生效——本群专属角色
+  // (localChars) 创建时就是直接填 extraNotes，本来就只在这个群里生效，
+  // 不需要 override。结构是 { [全局角色的真实 id]: { notes: string } }，
+  // 读取端见 ensembleService.js 的 buildEnsembleMembers。
+  const [characterOverrides, setCharacterOverrides] = useState({});
+
   // User 身份列表
   const [userIdentities, setUserIdentities] = useState([]);
 
@@ -51,6 +57,7 @@ export const EnsembleSettingsModal = ({ chatId, onClose, onUpdated }) => {
     setLocalChars(chatDoc.localCharacters || []);
     setRelations(chatDoc.relations || []);
     setUserIdentities(chatDoc.userIdentities || []);
+    setCharacterOverrides(chatDoc.characterOverrides || {});
 
     const globals = await db.characters.toArray();
     setAllGlobalChars(globals);
@@ -95,6 +102,13 @@ export const EnsembleSettingsModal = ({ chatId, onClose, onUpdated }) => {
     setLocalBio('');
     setLocalNotes('');
     setShowAddLocalModal(false);
+  };
+
+  const handleUpdateCharacterOverrideNotes = (charId, notes) => {
+    setCharacterOverrides((previous) => ({
+      ...previous,
+      [charId]: { ...(previous[charId] || {}), notes }
+    }));
   };
 
   const handleAddRelation = () => {
@@ -151,6 +165,16 @@ export const EnsembleSettingsModal = ({ chatId, onClose, onUpdated }) => {
   };
 
   const handleSaveAll = async () => {
+    // 只保留仍在本群里、且确实填了内容的全局角色 override，
+    // 取消勾选某个角色之后就不再让它的旧设定继续占着数据。
+    const cleanedCharacterOverrides = Object.fromEntries(
+      Object.entries(characterOverrides).filter(
+        ([charId, override]) =>
+          selectedGlobalIds.includes(Number(charId)) &&
+          override?.notes?.trim()
+      )
+    );
+
     await db.ensembleChats.update(chatId, {
       title,
       scenePrompt,
@@ -161,6 +185,7 @@ export const EnsembleSettingsModal = ({ chatId, onClose, onUpdated }) => {
       localCharacters: localChars,
       relations,
       userIdentities,
+      characterOverrides: cleanedCharacterOverrides,
       updatedAt: Date.now()
     });
     onUpdated();
@@ -294,9 +319,35 @@ export const EnsembleSettingsModal = ({ chatId, onClose, onUpdated }) => {
               {allGlobalChars.map((c) => {
                 const checked = selectedGlobalIds.includes(c.id);
                 return (
-                  <div key={c.id} className="flex items-center justify-between p-2.5 rounded-xl border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}>
-                    <span className="font-semibold">{c.name}</span>
-                    <input type="checkbox" checked={checked} onChange={() => handleToggleGlobalChar(c.id)} className="accent-current w-4 h-4" />
+                  <div key={c.id} className="p-2.5 rounded-xl border space-y-2" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">{c.name}</span>
+                      <input type="checkbox" checked={checked} onChange={() => handleToggleGlobalChar(c.id)} className="accent-current w-4 h-4" />
+                    </div>
+
+                    {/*
+                      按群自定义角色设定：只针对本群生效，不会改动角色库里
+                      这个角色的真实人设。留空则回退到角色原本的 extraNotes。
+                    */}
+                    {checked && (
+                      <div className="space-y-1 pt-1 border-t" style={{ borderColor: 'var(--divider)' }}>
+                        <label className="block opacity-50 text-[10px]">
+                          本群专属补充设定（只在这个大群里生效，不影响角色原本人设）
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={characterOverrides[c.id]?.notes || ''}
+                          onChange={(e) => handleUpdateCharacterOverrideNotes(c.id, e.target.value)}
+                          placeholder={
+                            c.extraNotes
+                              ? `留空则使用角色原本设定：${c.extraNotes}`
+                              : '留空则使用角色原本设定'
+                          }
+                          className="w-full px-2.5 py-1.5 rounded-lg border text-[11px] resize-none"
+                          style={{ backgroundColor: 'var(--modal-bg)', borderColor: 'var(--card-border)' }}
+                        />
+                      </div>
+                    )}
                   </div>
                 );
               })}
