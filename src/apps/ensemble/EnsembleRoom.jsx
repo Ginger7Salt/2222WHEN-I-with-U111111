@@ -25,6 +25,7 @@ export const EnsembleRoom = ({
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [aiError, setAiError] = useState('');
   const [quotedMessage, setQuotedMessage] = useState(null);
 
   const [userIdentities, setUserIdentities] = useState([]);
@@ -203,6 +204,7 @@ export const EnsembleRoom = ({
     if (isAiThinking) return;
 
     setIsAiThinking(true);
+    setAiError('');
 
     try {
       await generateEnsembleAiResponse(chatId, {
@@ -212,6 +214,7 @@ export const EnsembleRoom = ({
       await loadRoomData();
     } catch (error) {
       console.error('Ensemble AI generation failed:', error);
+      setAiError(error?.message || '角色回应生成失败，请稍后重试');
     } finally {
       setIsAiThinking(false);
     }
@@ -295,10 +298,45 @@ export const EnsembleRoom = ({
   const handleRegenerateMessage = async (message) => {
     if (!message || message.senderType === 'user') return;
 
-    await db.ensembleMessages.delete(message.id);
-    await loadMessages();
+    // 必须先检查是否已有生成在进行中，再决定要不要删除这条消息。
+    // 之前的写法是先无条件删除、再调用生成函数、生成函数内部才检查"是否正在生成中"——
+    // 如果这时候正好有另一次生成在进行（比如刚点了"召唤角色"），
+    // 这条消息会被立刻删掉，但重新生成会因为"正在生成中"直接静默跳过，消息就彻底没了。
+    if (isAiThinking) {
+      setAiError('已有角色正在组织发言，请等它说完再重新生成这条消息');
+      return;
+    }
 
-    await handleTriggerAi(message.characterId || message.senderId);
+    setIsAiThinking(true);
+    setAiError('');
+
+    // 记住原消息的时间戳，让重新生成的消息留在原来的位置，
+    // 而不是因为用当前时间戳而排到聊天末尾、打乱对话顺序。
+    const originalTimestamp = message.timestamp;
+
+    // 保留一份原消息快照 (去掉 id 与 loadMessages 拼接出的 quotedMessage)，
+    // 如果重新生成失败，把它加回去，避免用户这句话彻底丢失、又没有任何提示。
+    const { id: _discardId, quotedMessage: _discardQuoted, ...originalMessageSnapshot } = message;
+
+    try {
+      await db.ensembleMessages.delete(message.id);
+      await loadMessages();
+
+      await generateEnsembleAiResponse(chatId, {
+        targetCharacterId: message.characterId || message.senderId,
+        baseTimestamp: originalTimestamp
+      });
+
+      await loadRoomData();
+    } catch (error) {
+      console.error('Ensemble AI regenerate failed:', error);
+      setAiError(error?.message ? `重新生成失败：${error.message}（原消息已恢复）` : '重新生成失败，原消息已恢复');
+
+      await db.ensembleMessages.add(originalMessageSnapshot);
+      await loadMessages();
+    } finally {
+      setIsAiThinking(false);
+    }
   };
 
   const handleAddTemporaryIdentity = async (identity) => {
@@ -401,6 +439,28 @@ export const EnsembleRoom = ({
           >
             <Cat className="h-3.5 w-3.5 animate-bounce" />
             <span>角色正在组织下一段回应</span>
+          </div>
+        )}
+
+        {!isAiThinking && aiError && (
+          <div
+            className="my-3 flex w-fit max-w-full items-start gap-2 rounded-2xl border px-3 py-2 text-xs shadow-sm backdrop-blur-md"
+            style={{
+              backgroundColor: 'var(--control-soft-bg)',
+              borderColor: 'var(--accent-color)',
+              color: 'var(--text-main)'
+            }}
+          >
+            <span className="min-w-0 break-words">{aiError}</span>
+            <button
+              type="button"
+              onClick={() => setAiError('')}
+              aria-label="关闭提示"
+              className="shrink-0 opacity-60 hover:opacity-100"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              ×
+            </button>
           </div>
         )}
 
