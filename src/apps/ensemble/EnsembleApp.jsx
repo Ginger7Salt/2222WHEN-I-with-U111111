@@ -43,11 +43,14 @@ export const EnsembleApp = ({ onBackHub, onChatRoomStateChange }) => {
       scenePrompt: scenePrompt.trim(),
       selectedCharacterIds: selectedIds,
       localCharacters: [],
-      relationsMatrix: [],
+      // 关系矩阵与摘要频率的真实读取字段是 relations / summaryFrequencyRounds
+      // (见 ensembleService.js 与 EnsembleSettingsModal.jsx)。
+      // 之前这里写的是 relationsMatrix / autoSummaryFrequency，从未被读取过，是死代码。
+      relations: [],
       userIdentities: [{ id: 'u_default', name: '我', persona: '主视角' }],
       currentIdentityId: 'u_default',
       aiChainCount: 0,
-      autoSummaryFrequency: 5,
+      summaryFrequencyRounds: 5,
       bgOpacity: 0.2,
       createdAt: Date.now(),
       updatedAt: Date.now()
