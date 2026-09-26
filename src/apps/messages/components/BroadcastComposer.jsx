@@ -159,16 +159,13 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           background: 'var(--card-bg-gradient)',
           border: '1px solid var(--card-border)',
           color: 'var(--text-main)',
-          maxHeight: '86vh',
+          maxHeight: '76vh',
+          paddingBottom: 'max(1.1rem, env(safe-area-inset-bottom))',
         }}
       >
         {/* 暖调纸感叠层：只叠一层柔光渐变+细颗粒，靠混合模式在深色/
             浅色主题下都只是轻轻"提个暖调"，不会盖掉原来的卡片配色。 */}
         <div className="broadcast-paper-tint pointer-events-none absolute inset-0" aria-hidden="true" />
-
-        <div className="relative flex justify-center">
-          <span className="broadcast-grip" />
-        </div>
 
         <div
           className="relative flex items-center justify-between border-b pb-2.5"
@@ -296,14 +293,6 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           mix-blend-mode: soft-light;
         }
 
-        .broadcast-grip {
-          width: 2.25rem;
-          height: 0.28rem;
-          border-radius: 9999px;
-          background: var(--card-border);
-          opacity: 0.6;
-        }
-
         .broadcast-postmark {
           display: inline-flex;
           flex-direction: column;
@@ -312,7 +301,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           width: 1.9rem;
           height: 1.9rem;
           border-radius: 9999px;
-          border: 1.5px dashed var(--accent-color);
+          border: 1.5px solid var(--accent-color);
           color: var(--accent-color);
           transform: rotate(-14deg);
           flex-shrink: 0;
@@ -331,7 +320,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
 
         .broadcast-stamp {
           border-radius: 0.6rem;
-          border: 1.5px dashed var(--card-border);
+          border: 1px solid var(--card-border);
           background: var(--control-soft-bg);
           box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
           transform: rotate(var(--stamp-tilt, 0deg));
@@ -340,7 +329,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
 
         .broadcast-postcard {
           border-radius: 1rem;
-          border: 1.5px dashed var(--card-border);
+          border: 1px solid var(--card-border);
           background: var(--control-soft-bg);
           box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
           transform: rotate(var(--postcard-tilt, 0deg));
@@ -356,23 +345,13 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
 
         .broadcast-postcard-add {
           border-radius: 1rem;
-          border: 1.5px dashed var(--card-border);
+          border: 1px solid var(--card-border);
         }
 
         .broadcast-send-btn {
           border-radius: 9999px;
           background: var(--accent-color);
           color: var(--accent-foreground);
-        }
-
-        .broadcast-send-btn::before {
-          content: '';
-          position: absolute;
-          left: 12%;
-          right: 12%;
-          top: -0.5rem;
-          height: 0;
-          border-top: 1.5px dashed color-mix(in srgb, var(--accent-color) 55%, transparent);
         }
 
         .broadcast-send-stamp {
@@ -382,7 +361,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           width: 1.35rem;
           height: 1.35rem;
           border-radius: 9999px;
-          border: 1.5px dashed color-mix(in srgb, var(--accent-foreground) 70%, transparent);
+          border: 1.5px solid color-mix(in srgb, var(--accent-foreground) 70%, transparent);
         }
 
         .broadcast-send-stamp svg {
