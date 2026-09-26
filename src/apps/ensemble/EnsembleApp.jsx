@@ -122,7 +122,13 @@ export const EnsembleApp = ({ onBackHub, onChatRoomStateChange }) => {
       )}
 
       {deleteTargetId && (
-        <ConfirmModal title="删除大群" message="确定删除此大群吗？" onConfirm={handleDelete} onCancel={() => setDeleteTargetId(null)} />
+        <ConfirmModal
+          isOpen={Boolean(deleteTargetId)}
+          title="删除大群"
+          message="确定删除此大群吗？"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTargetId(null)}
+        />
       )}
     </div>
   );
