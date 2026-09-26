@@ -7,6 +7,7 @@ import MessageRow from './MessageRow';
 const MessageList = ({
   visibleMessages,
   messagesById,
+  bubbleDecoration,
   character,
   activeUserAvatar,
   activeUserName,
@@ -53,6 +54,7 @@ const MessageList = ({
           key={msg.id}
           msg={msg}
           quoted={quoted}
+          bubbleDecoration={bubbleDecoration}
           character={character}
           activeUserAvatar={activeUserAvatar}
           activeUserName={activeUserName}

@@ -410,6 +410,7 @@ const [hubBackground, setHubBackground] = useState('');
     startOfflineCountdownLockscreenScheduler();
     startRhythmScheduler();
     startCallScheduler();
+    startSnapshotGlobalScheduler();
 
       startArchiveScheduler();
 

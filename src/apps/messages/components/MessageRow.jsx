@@ -22,6 +22,7 @@ import LocationCard from './cards/LocationCard';
 import MessageReactions from './MessageReactions';
 import ReactionPickerPopover from './ReactionPickerPopover';
 import { matchSpecialMessageEffect, RECENT_MESSAGE_EFFECT_WINDOW_MS } from './specialMessageEffects';
+import { BubbleDecorationOverlay } from './bubbleDecorations';
 
 import TextCard from './cards/TextCard';
 import ImageCard from './cards/ImageCard';
@@ -53,6 +54,7 @@ const REACTION_LONG_PRESS_MS = 420;
 const MessageRow = ({
   msg,
   quoted,
+  bubbleDecoration,
   character,
   activeUserAvatar,
   activeUserName,
@@ -334,6 +336,7 @@ const MessageRow = ({
               onPointerCancel={handleBubblePointerRelease}
               onContextMenu={handleBubbleContextMenu}
             >
+              <BubbleDecorationOverlay decoration={bubbleDecoration} />
               {showSpecialEffect && <specialEffectRule.Effect />}
 
               <ReactionPickerPopover

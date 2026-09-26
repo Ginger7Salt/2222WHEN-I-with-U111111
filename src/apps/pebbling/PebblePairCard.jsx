@@ -1,6 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Clock3, Trash2, Waves } from 'lucide-react';
-import { PEBBLE_TYPES } from './pebbleTypes';
+import { PEBBLE_TYPES, pickGiftIcon } from './pebbleTypes';
+
+function GiftTag({ gift }) {
+  if (!gift) return null;
+
+  const GiftIcon = pickGiftIcon(gift.categoryKey);
+
+  return (
+    <div className="pebble-gift-tag">
+      <GiftIcon size={12} strokeWidth={1.5} />
+      <span>
+        <em>{gift.name}</em>
+        {gift.desc}
+      </span>
+    </div>
+  );
+}
 
 function formatTime(timestamp) {
   if (!timestamp) return '';
@@ -109,6 +125,7 @@ export default function PebblePairCard({ pebble, character, onDelete, index = 0 
                 {character?.name || '对方'} 回赠的 · {aiStone.name}
               </p>
               <p className="pebble-pair__copy">{pebble.aiResponse.content}</p>
+              <GiftTag gift={pebble.aiResponse.gift} />
             </div>
           </div>
         </div>
@@ -155,6 +172,8 @@ export default function PebblePairCard({ pebble, character, onDelete, index = 0 
         </p>
 
         <p className="pebble-specimen__text">{displayText}</p>
+
+        {isAiInitiated && <GiftTag gift={pebble.aiResponse?.gift} />}
 
         {isPending && (
           <div className="pebble-specimen__status">

@@ -1385,6 +1385,19 @@ useLayoutEffect(() => {
     });
   };
 
+  // 气泡装饰和气泡配色是分开保存的两个字段，互不影响：
+  // 换配色不会清掉装饰，换装饰也不会动配色的 CSS。
+  const handleSaveBubbleDecoration = async (decorationId) => {
+    setChat((previous) => ({
+      ...previous,
+      bubbleDecoration: decorationId,
+    }));
+
+    await db.chats.update(chatId, {
+      bubbleDecoration: decorationId,
+    });
+  };
+
   const handleUpdateBgImage = async (base64Img) => {
     setChat((previous) => ({
       ...previous,
@@ -1914,6 +1927,7 @@ useLayoutEffect(() => {
         <MessageList
           visibleMessages={visibleMessages}
           messagesById={messagesById}
+          bubbleDecoration={chat?.bubbleDecoration || 'none'}
           character={character}
           activeUserAvatar={activeUserAvatar}
           activeUserName={activeUserName}
@@ -2387,6 +2401,8 @@ useLayoutEffect(() => {
         <BubbleCustomizer
           currentCss={currentCss}
           onSave={handleSaveCustomCss}
+          currentDecoration={chat?.bubbleDecoration || 'none'}
+          onSaveDecoration={handleSaveBubbleDecoration}
           onClose={() => setShowBubbleCustomizer(false)}
         />
       )}
