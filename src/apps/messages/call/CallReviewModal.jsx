@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { setAudioRetention } from '../../../services/callService';
+import { triggerGlobalToast } from '../../../components/NotificationToast';
 import db from '../../../db';
 
 // 已结束通话的只读回看：点开一条"通话已结束"的记录条时弹出。
@@ -55,14 +56,24 @@ const extensionForMimeType = (mimeType) => (
 );
 
 const downloadBlob = (blob, filename) => {
-  const objectUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = objectUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+  try {
+    if (!(blob instanceof Blob) || blob.size === 0) {
+      return false;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+    return true;
+  } catch (error) {
+    console.error('[CallReviewModal] 下载语音片段失败：', error);
+    return false;
+  }
 };
 
 // 单条 AI 真实语音轮次的小播放器，样式参考 RealVoiceCard.jsx 的
@@ -202,14 +213,47 @@ const CallReviewModal = ({ message, character, userName, onClose }) => {
     }
   };
 
-  const handleDownloadAll = () => {
-    audioTurns.forEach((turn, index) => {
-      window.setTimeout(() => {
-        const extension = extensionForMimeType(turn.audio?.mimeType);
-        const stamp = turn.at ? new Date(turn.at).getTime() : Date.now();
-        downloadBlob(turn.audio.audioBlob, `${character?.name || 'call'}-${stamp}.${extension}`);
-      }, index * 350);
-    });
+  const handleDownloadAll = async () => {
+    if (audioTurns.length === 0) {
+      triggerGlobalToast({
+        title: '没有可下载的语音',
+        content: '这通电话没有保留下来的语音片段。',
+        iconType: 'bell',
+      });
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let index = 0; index < audioTurns.length; index += 1) {
+      const turn = audioTurns[index];
+      const extension = extensionForMimeType(turn.audio?.mimeType);
+      const stamp = turn.at ? new Date(turn.at).getTime() : Date.now();
+      const ok = downloadBlob(
+        turn.audio?.audioBlob,
+        `${character?.name || 'call'}-${stamp}.${extension}`,
+      );
+
+      if (ok) {
+        successCount += 1;
+      } else {
+        failCount += 1;
+      }
+
+      if (index < audioTurns.length - 1) {
+        // 逐个错开触发，规避浏览器对连续多次自动下载的拦截。
+        await new Promise((resolve) => window.setTimeout(resolve, 350));
+      }
+    }
+
+    if (failCount > 0) {
+      triggerGlobalToast({
+        title: successCount > 0 ? '部分语音下载失败' : '打包下载语音失败',
+        content: `成功 ${successCount} 段，失败 ${failCount} 段。可以在列表里逐条重新下载失败的片段。`,
+        iconType: 'bell',
+      });
+    }
   };
 
   return createPortal(

@@ -74,6 +74,11 @@ import MessageList from './components/MessageList';
 import ParallelOrbit from './components/ParallelOrbit';
 
 import { createInteractionMessage } from './interactions/interactionService';
+import {
+  createPokeMessage,
+  ensurePokeReplies,
+  pickPokeReply,
+} from './interactions/pokeService';
 import { INTERACTION_TYPES } from './interactions/interactionRules';
 
 import CheckInNotice from './check-in/CheckInNotice';
@@ -555,6 +560,32 @@ forceScrollMessageIdRef.current = stickerMsgId;
       await loadChatData();
     } catch (error) {
       console.error('[ChatRoom] 创建聊天互动失败：', error);
+    }
+  };
+
+  // 用户戳一戳角色：intensity 是 'light'（双击头像）还是 'full'
+  // （表情区手势），决定这条消息渲染出来时播放的效果强弱，具体的
+  // 震动/抖动逻辑都在 ChatPokeNotice 里，这里只管把记录写进去。
+  const handlePokeCharacter = async (intensity) => {
+    if (!chat?.id || !character?.id) return;
+
+    try {
+      const phrases = await ensurePokeReplies(character);
+      const reactionText = pickPokeReply(phrases);
+
+      await createPokeMessage({
+        chatId: chat.id,
+        characterId: character.id,
+        direction: 'user_to_char',
+        intensity,
+        reactionText,
+        actorLabel: activeUserName || '你',
+        targetLabel: character.name || '对方',
+      });
+
+      await loadChatData();
+    } catch (error) {
+      console.error('[ChatRoom] 戳一戳失败：', error);
     }
   };
 
@@ -1944,6 +1975,7 @@ useLayoutEffect(() => {
                              onEnterOfflineScene={(sessionId) => setActiveOfflineSessionId(sessionId)}
           onToggleReaction={handleToggleReaction}
           onOpenCompanionOffer={() => setShowCompanionPage(true)}
+          onPokeAvatar={handlePokeCharacter}
           selectionMode={selectionMode}
           selectedMessageIds={selectedMessageIds}
           onToggleSelected={handleToggleMessageSelected}
@@ -1975,13 +2007,23 @@ useLayoutEffect(() => {
 
         {quotedMsg && (
           <div
-            className="mb-2 flex items-center justify-between rounded-2xl p-2 px-3 text-[10px] shadow-md"
+            className="mb-2 flex items-start justify-between rounded-2xl p-2 px-3 text-[10px] shadow-md"
             style={{
               background: 'var(--control-soft-bg)',
               color: 'var(--text-main)',
             }}
           >
-            <div className="truncate pr-2">
+            <div
+              className="pr-2"
+              style={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                overflowWrap: 'anywhere',
+                wordBreak: 'break-word',
+              }}
+            >
               <span className="font-bold">
                 引用 {quotedMsg.sender === 'user'
                   ? activeUserName
@@ -1993,7 +2035,7 @@ useLayoutEffect(() => {
             <button
               type="button"
               onClick={() => setQuotedMsg(null)}
-              className="p-1 opacity-60 hover:opacity-100"
+              className="shrink-0 p-1 opacity-60 hover:opacity-100"
             >
               &times;
             </button>
@@ -2224,6 +2266,11 @@ useLayoutEffect(() => {
 
                 if (type === 'interaction_rps') {
                   void handleCreateInteraction(INTERACTION_TYPES.RPS);
+                  return;
+                }
+
+                if (type === 'interaction_poke') {
+                  void handlePokeCharacter('full');
                   return;
                 }
 

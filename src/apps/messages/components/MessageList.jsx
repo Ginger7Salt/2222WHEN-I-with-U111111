@@ -24,6 +24,7 @@ const MessageList = ({
   onEnterOfflineScene,
   onToggleReaction,
   onOpenCompanionOffer,
+  onPokeAvatar,
   selectionMode,
   selectedMessageIds,
   onToggleSelected,
@@ -67,6 +68,7 @@ const MessageList = ({
           onEnterOfflineScene={onEnterOfflineScene}
           onToggleReaction={onToggleReaction}
           onOpenCompanionOffer={onOpenCompanionOffer}
+          onPokeAvatar={onPokeAvatar}
           selectionMode={selectionMode}
           isSelected={selectedMessageIds ? selectedMessageIds.has(msg.id) : false}
           onToggleSelected={onToggleSelected}

@@ -1,0 +1,91 @@
+/*
+ * 戳一戳/拍一拍相关的全部样式：消息列表里头像被双击时的轻量抖动，
+ * 以及居中系统提示行本身（微信"拍一拍"风格）。
+ * 单独成文件，不往 chat-interactions.css（桌面游戏那套）里加，避免
+ * 越改越大。
+ */
+
+.poke-avatar-wiggle {
+  animation: pokeAvatarWiggle 400ms ease-in-out;
+}
+
+@keyframes pokeAvatarWiggle {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-10deg);
+  }
+  40% {
+    transform: rotate(9deg);
+  }
+  60% {
+    transform: rotate(-6deg);
+  }
+  80% {
+    transform: rotate(4deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.poke-notice-pill {
+  max-width: 82%;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.poke-notice-pill--fresh {
+  animation: pokeNoticeWiggle 550ms ease-in-out;
+}
+
+.poke-notice-pill--fresh.poke-notice-pill--full {
+  animation-name: pokeNoticeWiggleStrong;
+}
+
+@keyframes pokeNoticeWiggle {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pokeNoticeWiggleStrong {
+  0% {
+    transform: translateX(0) scale(1);
+  }
+  20% {
+    transform: translateX(-6px) scale(1.03);
+  }
+  40% {
+    transform: translateX(5px) scale(1.03);
+  }
+  60% {
+    transform: translateX(-4px) scale(1.01);
+  }
+  80% {
+    transform: translateX(3px) scale(1.01);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poke-avatar-wiggle,
+  .poke-notice-pill--fresh {
+    animation: none;
+  }
+}

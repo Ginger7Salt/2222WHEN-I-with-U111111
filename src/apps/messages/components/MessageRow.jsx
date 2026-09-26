@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
+import ChatPokeNotice from '../interactions/ChatPokeNotice';
 import OfflineInviteCard from '../../offline/OfflineInviteCard';
 import RealVoiceCard from '../../../features/real-voice/components/RealVoiceCard';
 import CallLogEntry from './CallLogEntry';
@@ -67,6 +68,7 @@ const MessageRow = ({
   onEnterOfflineScene,
   onToggleReaction,
   onOpenCompanionOffer,
+  onPokeAvatar,
   selectionMode,
   isSelected,
   onToggleSelected,
@@ -100,7 +102,36 @@ const MessageRow = ({
   const canReact = !isErrorMsg
     && msg.type !== 'interaction'
     && msg.type !== 'offline_invite'
-    && msg.type !== 'call';
+    && msg.type !== 'call'
+    && msg.type !== 'poke';
+
+  // 双击角色头像戳一戳：先给头像本身一个瞬时的小抖动反馈，
+  // 不等实际写库/AI反应完成——那部分效果由戳一戳消息自己的
+  // ChatPokeNotice 在渲染出来时负责播放（震动 + 系统提示行抖动）。
+  const [isPokingAvatar, setIsPokingAvatar] = useState(false);
+  const pokeWiggleTimerRef = useRef(null);
+
+  const handleAvatarDoubleClick = useCallback(() => {
+    if (!onPokeAvatar) return;
+
+    setIsPokingAvatar(true);
+
+    if (pokeWiggleTimerRef.current) {
+      window.clearTimeout(pokeWiggleTimerRef.current);
+    }
+
+    pokeWiggleTimerRef.current = window.setTimeout(() => {
+      setIsPokingAvatar(false);
+    }, 400);
+
+    onPokeAvatar('light');
+  }, [onPokeAvatar]);
+
+  useEffect(() => () => {
+    if (pokeWiggleTimerRef.current) {
+      window.clearTimeout(pokeWiggleTimerRef.current);
+    }
+  }, []);
 
   // 长按消息气泡弹出反应选择面板：用 pointer 事件统一处理鼠标和
   // 触屏，按住超过 REACTION_LONG_PRESS_MS 才算长按，普通点击（比如
@@ -172,6 +203,19 @@ const MessageRow = ({
     ? null
     : msg.metadata?.mcpCard;
 
+  // 戳一戳是一条居中的系统提示行，不走头像+气泡那一整套布局，
+  // 单独渲染即可（放在这里而不是提前 return，是为了让上面这些
+  // hook 在每次渲染时都保持同样的调用顺序，不受消息类型影响）。
+  if (msg.type === 'poke') {
+    return (
+      <ChatPokeNotice
+        message={msg}
+        character={character}
+        activeUserName={activeUserName}
+      />
+    );
+  }
+
   return (
     <div
       className={`flex items-start gap-1.5 ${
@@ -222,7 +266,18 @@ const MessageRow = ({
               ? activeUserName
               : (character?.name || '伴侣')}
           </span>
-          <p className="truncate">{quoted.content}</p>
+          <p
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+            }}
+          >
+            {quoted.content}
+          </p>
         </div>
       )}
 
@@ -236,13 +291,19 @@ const MessageRow = ({
             <img
               src={character.avatar}
               alt={character.name}
-              className="h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm"
+              onDoubleClick={handleAvatarDoubleClick}
+              className={`h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm ${
+                isPokingAvatar ? 'poke-avatar-wiggle' : ''
+              }`}
               style={{
                 borderColor: 'var(--card-border)',
               }} loading="lazy" decoding="async" />
           ) : (
             <div
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+              onDoubleClick={handleAvatarDoubleClick}
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                isPokingAvatar ? 'poke-avatar-wiggle' : ''
+              }`}
               style={{
                 background: 'var(--control-soft-bg)',
               }}

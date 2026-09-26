@@ -10,6 +10,7 @@ import {
   Box,
   Swords,
   ShoppingBag,
+  Hand,
 } from 'lucide-react';
 import {
   ORDER_ENTRY_STATES,
@@ -171,6 +172,25 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
               <span>开通亲属卡</span>
             </button>
           </div>
+          <div
+            className="mt-2 border-t pt-2"
+            style={{ borderColor: 'var(--card-border)' }}
+          >
+            <div className="px-2 pb-1 text-[10px] font-semibold opacity-60">
+              轻互动
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleAction('interaction_poke')}
+              className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
+              style={{ backgroundColor: 'var(--control-soft-bg)' }}
+            >
+              <Hand className="h-3.5 w-3.5" />
+              <span>戳一戳</span>
+            </button>
+          </div>
+
           <div
   className="mt-2 border-t pt-2"
   style={{ borderColor: 'var(--card-border)' }}

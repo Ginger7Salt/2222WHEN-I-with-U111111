@@ -94,3 +94,46 @@ img {
 :root[data-theme="cyber-velvet"] {
   color-scheme: dark;
 }
+
+/*
+ * 戳一戳（表情区手势触发的"全屏"档位）：整个视口轻微晃动一下。
+ * 这个类是用 JS 直接挂在 <html> 上的（不是某个组件的内部状态），
+ * 所以放在全局样式表里，具体触发逻辑见
+ * src/apps/messages/interactions/ChatPokeNotice.jsx。
+ */
+.poke-fullscreen-shake {
+  animation: pokeFullscreenShake 600ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes pokeFullscreenShake {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  15% {
+    transform: translate3d(-6px, 3px, 0) rotate(-0.6deg);
+  }
+  30% {
+    transform: translate3d(5px, -3px, 0) rotate(0.5deg);
+  }
+  45% {
+    transform: translate3d(-4px, 2px, 0) rotate(-0.4deg);
+  }
+  60% {
+    transform: translate3d(3px, -2px, 0) rotate(0.3deg);
+  }
+  75% {
+    transform: translate3d(-2px, 1px, 0) rotate(-0.2deg);
+  }
+  90% {
+    transform: translate3d(1px, 0, 0) rotate(0.1deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poke-fullscreen-shake {
+    animation: none;
+  }
+}
