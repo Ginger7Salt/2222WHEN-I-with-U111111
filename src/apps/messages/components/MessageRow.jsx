@@ -336,7 +336,7 @@ const MessageRow = ({
               onPointerCancel={handleBubblePointerRelease}
               onContextMenu={handleBubbleContextMenu}
             >
-              <BubbleDecorationOverlay decoration={bubbleDecoration} />
+              <BubbleDecorationOverlay decoration={bubbleDecoration} isUser={isUser} />
               {showSpecialEffect && <specialEffectRule.Effect />}
 
               <ReactionPickerPopover

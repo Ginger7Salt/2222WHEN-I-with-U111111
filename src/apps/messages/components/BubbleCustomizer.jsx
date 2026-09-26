@@ -314,11 +314,11 @@ export const BubbleCustomizer = ({
           `}</style>
           <div className="preview-scope space-y-1.5 pt-0.5">
             <div className="relative user-bubble chat-font p-2 max-w-[85%] ml-auto text-right">
-              <BubbleDecorationOverlay decoration={decoration} />
+              <BubbleDecorationOverlay decoration={decoration} isUser />
               User 消息气泡预览
             </div>
             <div className="relative ai-bubble chat-font p-2 max-w-[85%] text-left">
-              <BubbleDecorationOverlay decoration={decoration} />
+              <BubbleDecorationOverlay decoration={decoration} isUser={false} />
               伴侣 消息气泡预览
             </div>
           </div>
