@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { MessageCircle, Plus, Send, Trash2, X } from 'lucide-react';
 
 import db from '../../../db';
@@ -18,13 +18,31 @@ import BroadcastFlyEffect from './effects/BroadcastFlyEffect';
 //
 // 这里不复用"转发"那条路径：转发是把已有消息原样搬到别的聊天窗、
 // 不触发 AI；这里是现写新内容、发完就要对方（AI）回应。
+//
+// 视觉上走"明信片"这套意象，跟发送时那个纸飞机+星光的仪式感呼应：
+// 收件人是一张张贴上去的邮票贴纸，每条草稿是一张可以写字的明信片，
+// 发送按钮是"寄出"。还是从底部弹出的那种弹层，只是做得更饱满、
+// 更有质感，不是一张单薄的表单卡。
 
 const MAX_MESSAGES = 5;
+
+// 明信片轻微的随机倾斜角度，让好几张叠在一起时不是死板的一条直线，
+// 用 index 取模、固定一组角度，不用每次渲染都随机（避免文字输入时
+// 因为重渲染导致卡片抖动）。
+const POSTCARD_TILTS = [-1.4, 1.1, -0.8, 1.6, -1.1];
+const STAMP_TILTS = [-4, 3, -3, 4, -2];
 
 const BroadcastComposer = ({ targets, onClose, onSent }) => {
   const [drafts, setDrafts] = useState(['']);
   const [isSending, setIsSending] = useState(false);
   const [showSendEffect, setShowSendEffect] = useState(false);
+
+  const postmarkLabel = useMemo(() => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${month}.${day}`;
+  }, []);
 
   const handleDraftChange = (index, value) => {
     setDrafts((previous) => {
@@ -100,11 +118,11 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
       // 回到会话列表，让人能看清"发出去了"这个反馈。
       setShowSendEffect(true);
     } catch (err) {
-      console.error('[BroadcastComposer] 群发失败：', err);
+      console.error('[BroadcastComposer] 寄出失败：', err);
       setIsSending(false);
       triggerGlobalToast({
-        title: '群发失败',
-        content: '有几条没发出去，稍后再试试吧',
+        title: '寄出失败',
+        content: '有几封没寄出去，稍后再试试吧',
         iconType: 'bell',
         duration: 2600,
       });
@@ -115,8 +133,8 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
     const count = targets.length;
 
     triggerGlobalToast({
-      title: '已群发',
-      content: `已发送给 ${count} 位`,
+      title: '已寄出',
+      content: `已送到 ${count} 位的信箱`,
       iconType: 'chat',
       duration: 2400,
     });
@@ -136,21 +154,32 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
       />
 
       <div
-        className="relative z-10 flex w-full max-w-sm flex-col gap-3 rounded-t-[2rem] p-5 text-xs shadow-2xl sm:rounded-[2rem]"
+        className="relative z-10 flex w-full max-w-sm flex-col gap-3 overflow-hidden rounded-t-[2.25rem] p-5 pt-3 text-xs shadow-2xl sm:rounded-[2.25rem]"
         style={{
           background: 'var(--card-bg-gradient)',
           border: '1px solid var(--card-border)',
           color: 'var(--text-main)',
-          maxHeight: '82vh',
+          maxHeight: '86vh',
         }}
       >
+        {/* 暖调纸感叠层：只叠一层柔光渐变+细颗粒，靠混合模式在深色/
+            浅色主题下都只是轻轻"提个暖调"，不会盖掉原来的卡片配色。 */}
+        <div className="broadcast-paper-tint pointer-events-none absolute inset-0" aria-hidden="true" />
+
+        <div className="relative flex justify-center">
+          <span className="broadcast-grip" />
+        </div>
+
         <div
-          className="flex items-center justify-between border-b pb-2"
-          style={{ borderColor: 'var(--divider)' }}
+          className="relative flex items-center justify-between border-b pb-2.5"
+          style={{ borderColor: 'var(--card-border)' }}
         >
-          <span className="flex items-center gap-1.5 text-sm font-bold">
-            <Send className="h-3.5 w-3.5" />
-            群发给 {targets.length} 位
+          <span className="flex items-center gap-2">
+            <span className="broadcast-postmark">
+              <Send className="h-3 w-3" />
+              <span className="broadcast-postmark-date">{postmarkLabel}</span>
+            </span>
+            <span className="text-sm font-bold">寄往 {targets.length} 位</span>
           </span>
 
           <button
@@ -163,68 +192,70 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           </button>
         </div>
 
-        {/* 收件人一览：只读，回到列表去改勾选 */}
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-          {targets.map(({ chat, character }) => (
+        {/* 收件人一览：贴纸化的小邮票，只读，回到列表去改勾选 */}
+        <div className="relative flex gap-2 overflow-x-auto no-scrollbar py-1">
+          {targets.map(({ chat, character }, index) => (
             <div
               key={chat.id}
-              className="flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5"
-              style={{
-                background: 'var(--control-soft-bg)',
-                borderColor: 'var(--card-border)',
-              }}
+              className="broadcast-stamp flex shrink-0 flex-col items-center gap-1 px-2 py-1.5"
+              style={{ '--stamp-tilt': `${STAMP_TILTS[index % STAMP_TILTS.length]}deg` }}
             >
               {character?.avatar ? (
                 <img
                   src={character.avatar}
                   alt={character.name}
-                  className="h-5 w-5 rounded-full object-cover"
+                  className="h-7 w-7 rounded-md object-cover"
                   loading="lazy"
                   decoding="async"
                 />
               ) : (
                 <div
-                  className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-[10px] font-bold"
                   style={{ background: 'var(--bg-main)' }}
                 >
-                  {character?.name?.[0] || <MessageCircle className="h-3 w-3 opacity-50" />}
+                  {character?.name?.[0] || <MessageCircle className="h-3.5 w-3.5 opacity-50" />}
                 </div>
               )}
-              <span className="whitespace-nowrap text-[10px] font-medium">
+              <span className="whitespace-nowrap text-[9px] font-medium opacity-80">
                 {chat.title || character?.name || '未命名聊天'}
               </span>
             </div>
           ))}
         </div>
 
-        {/* 撰写区：可以写好几条，按顺序依次发出去 */}
-        <div className="max-h-64 space-y-2 overflow-y-auto no-scrollbar pr-0.5">
+        {/* 撰写区：每条草稿是一张可以写字的明信片，可以写好几张，
+            按顺序依次寄出去 */}
+        <div className="relative max-h-64 space-y-2.5 overflow-y-auto no-scrollbar px-0.5 py-1">
           {drafts.map((draft, index) => (
-            <div key={index} className="flex items-start gap-1.5">
+            <div
+              key={index}
+              className="broadcast-postcard relative"
+              style={{ '--postcard-tilt': `${POSTCARD_TILTS[index % POSTCARD_TILTS.length]}deg` }}
+            >
+              <div className="flex items-center justify-between px-3 pt-2">
+                <span className="broadcast-postcard-index">No. {String(index + 1).padStart(2, '0')}</span>
+
+                {drafts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveDraft(index)}
+                    className="rounded-full p-1 opacity-45 hover:opacity-90"
+                    title="撕掉这一张"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
               <textarea
                 value={draft}
                 onChange={(event) => handleDraftChange(index, event.target.value)}
-                placeholder={index === 0 ? '想说点什么...' : '再加一条...'}
+                placeholder={index === 0 ? '写点什么寄给大家...' : '再写一张明信片...'}
                 rows={2}
                 maxLength={500}
-                className="flex-1 resize-none rounded-2xl border px-3 py-2 text-xs outline-none"
-                style={{
-                  background: 'var(--control-soft-bg)',
-                  borderColor: 'var(--card-border)',
-                  color: 'var(--text-main)',
-                }}
+                className="broadcast-postcard-input w-full resize-none bg-transparent px-3 pb-2.5 pt-1 text-xs outline-none"
+                style={{ color: 'var(--text-main)' }}
               />
-
-              {drafts.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => handleRemoveDraft(index)}
-                  className="mt-1 shrink-0 rounded-full p-1.5 opacity-50 hover:opacity-90"
-                  title="删掉这一条"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
             </div>
           ))}
 
@@ -232,11 +263,10 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
             <button
               type="button"
               onClick={handleAddDraft}
-              className="flex w-full items-center justify-center gap-1 rounded-2xl border border-dashed py-1.5 text-[11px] opacity-60 transition-opacity hover:opacity-90"
-              style={{ borderColor: 'var(--card-border)' }}
+              className="broadcast-postcard-add flex w-full items-center justify-center gap-1 py-2.5 text-[11px] opacity-60 transition-opacity hover:opacity-90"
             >
               <Plus className="h-3 w-3" />
-              <span>再加一条</span>
+              <span>再写一张明信片</span>
             </button>
           )}
         </div>
@@ -245,20 +275,120 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           type="button"
           disabled={!canSend}
           onClick={handleSend}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-95 disabled:opacity-40"
-          style={{
-            background: 'var(--accent-color)',
-            color: 'var(--accent-foreground)',
-          }}
+          className="broadcast-send-btn relative flex w-full items-center justify-center gap-2 py-3 text-xs font-semibold transition-all active:scale-95 disabled:opacity-40"
         >
-          <Send className="h-3.5 w-3.5" />
-          <span>{isSending ? '发送中...' : '群发'}</span>
+          <span className="broadcast-send-stamp">
+            <Send className="h-3 w-3" />
+          </span>
+          <span>{isSending ? '寄送中...' : '寄出'}</span>
         </button>
       </div>
 
       {showSendEffect && (
         <BroadcastFlyEffect onDone={handleFlyEffectDone} />
       )}
+
+      <style>{`
+        .broadcast-paper-tint {
+          background:
+            radial-gradient(120% 90% at 20% 0%, rgba(255, 232, 189, 0.16) 0%, transparent 60%),
+            radial-gradient(90% 70% at 100% 100%, rgba(255, 214, 160, 0.12) 0%, transparent 65%);
+          mix-blend-mode: soft-light;
+        }
+
+        .broadcast-grip {
+          width: 2.25rem;
+          height: 0.28rem;
+          border-radius: 9999px;
+          background: var(--card-border);
+          opacity: 0.6;
+        }
+
+        .broadcast-postmark {
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          width: 1.9rem;
+          height: 1.9rem;
+          border-radius: 9999px;
+          border: 1.5px dashed var(--accent-color);
+          color: var(--accent-color);
+          transform: rotate(-14deg);
+          flex-shrink: 0;
+        }
+
+        .broadcast-postmark svg {
+          transform: rotate(45deg);
+        }
+
+        .broadcast-postmark-date {
+          margin-top: 1px;
+          font-size: 6px;
+          letter-spacing: 0.02em;
+          font-weight: 700;
+        }
+
+        .broadcast-stamp {
+          border-radius: 0.6rem;
+          border: 1.5px dashed var(--card-border);
+          background: var(--control-soft-bg);
+          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+          transform: rotate(var(--stamp-tilt, 0deg));
+          transition: transform 0.2s ease;
+        }
+
+        .broadcast-postcard {
+          border-radius: 1rem;
+          border: 1.5px dashed var(--card-border);
+          background: var(--control-soft-bg);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+          transform: rotate(var(--postcard-tilt, 0deg));
+        }
+
+        .broadcast-postcard-index {
+          font-family: Georgia, 'Times New Roman', serif;
+          font-style: italic;
+          font-size: 10px;
+          letter-spacing: 0.05em;
+          opacity: 0.45;
+        }
+
+        .broadcast-postcard-add {
+          border-radius: 1rem;
+          border: 1.5px dashed var(--card-border);
+        }
+
+        .broadcast-send-btn {
+          border-radius: 9999px;
+          background: var(--accent-color);
+          color: var(--accent-foreground);
+        }
+
+        .broadcast-send-btn::before {
+          content: '';
+          position: absolute;
+          left: 12%;
+          right: 12%;
+          top: -0.5rem;
+          height: 0;
+          border-top: 1.5px dashed color-mix(in srgb, var(--accent-color) 55%, transparent);
+        }
+
+        .broadcast-send-stamp {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 1.35rem;
+          height: 1.35rem;
+          border-radius: 9999px;
+          border: 1.5px dashed color-mix(in srgb, var(--accent-foreground) 70%, transparent);
+        }
+
+        .broadcast-send-stamp svg {
+          transform: rotate(45deg);
+        }
+      `}</style>
     </div>
   );
 };
