@@ -14,6 +14,10 @@ export const estimateStorageUsage = async () => {
 // 只清语音消息的音频本体（metadata.audioBlob），保留文字转写，绝不整条删除。
 export const STORAGE_WARNING_THRESHOLD_BYTES = 1024 * 1024 * 1024; // 1GB
 
+// 用户点掉提醒之后的"再提醒"步长：占用量比上次点掉时又明显涨了这么多，
+// 才会重新弹出来，避免手滑/不在意的用户每次打开首页都被同一个提醒烦到。
+export const STORAGE_WARNING_SNOOZE_INCREMENT_BYTES = 512 * 1024 * 1024; // 0.5GB
+
 /**
  * 跟 estimateStorageUsage 类似，但返回原始字节数（不是格式化好的字符串），
  * 方便调用方自己拿去跟阈值比较、或者用 formatBytes 自己格式化展示。
@@ -141,4 +145,5 @@ export default {
   getStorageUsageBytes,
   formatBytes,
   STORAGE_WARNING_THRESHOLD_BYTES,
+  STORAGE_WARNING_SNOOZE_INCREMENT_BYTES,
 };
