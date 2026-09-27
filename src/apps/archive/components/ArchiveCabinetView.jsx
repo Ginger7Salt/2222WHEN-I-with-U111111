@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  Archive,
   ArrowLeft,
   ChevronRight,
   Download,
@@ -23,6 +24,7 @@ import {
   downloadArchivedMediaForChat
 } from '../archiveMediaCleanupService';
 import { triggerGlobalToast } from '../../../components/NotificationToast';
+import ArchiveOrganizerModal from './ArchiveOrganizerModal';
 import '../archive.css';
 import '../archive-cabinet-visual.css';
 
@@ -65,6 +67,7 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
 
   const [isClearingMedia, setIsClearingMedia] = useState(false);
   const [isDownloadingMedia, setIsDownloadingMedia] = useState(false);
+  const [showOrganizer, setShowOrganizer] = useState(false);
 
   const coverInputRef = useRef(null);
 
@@ -126,6 +129,17 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
     await deleteArchivedMessage(chatId, messageId);
     await loadFolders();
     onStatsChanged?.();
+  };
+
+  // ArchiveOrganizerModal 原来是个写好了但没接入口的孤儿组件，2026-09 在
+  // 这里补上入口——它需要的 chatOverview 正好是这个页面本来就有的 prop。
+  const handleCloseOrganizer = async (didArchiveAnything) => {
+    setShowOrganizer(false);
+
+    if (didArchiveAnything) {
+      await loadFolders();
+      onStatsChanged?.();
+    }
   };
 
   // 清理和下载是两件完全独立的事——清理前不会强制走一遍下载，
@@ -257,6 +271,16 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
           flexWrap: 'wrap'
         }}
       >
+        <button
+          type="button"
+          className="cabinet-hud-btn"
+          onClick={() => setShowOrganizer(true)}
+          title="手动挑选还没归档的旧消息，提前收进档案柜"
+        >
+          <Archive className="h-3.5 w-3.5" />
+          <span>整理归档</span>
+        </button>
+
         <button
           type="button"
           className="cabinet-hud-btn"
@@ -508,6 +532,13 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
             ))}
           </div>
         </div>
+      )}
+
+      {showOrganizer && (
+        <ArchiveOrganizerModal
+          chatOverview={chatOverview}
+          onClose={handleCloseOrganizer}
+        />
       )}
     </div>
   );
