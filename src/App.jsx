@@ -29,7 +29,6 @@ import TravelApp from './apps/travels/TravelApp';
 import SnapshotsApp from './apps/snapshots/SnapshotsApp';
 import PebblingApp from './apps/pebbling/PebblingApp';
 import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
-import EnsembleApp from './apps/ensemble/EnsembleApp';
 import BubbleApp from './apps/bubble/BubbleApp';
 import HabitatApp from './apps/habitat/HabitatApp';
 import EphemeraApp from './apps/ephemera/EphemeraApp';
@@ -135,6 +134,32 @@ import { useActiveCall } from './hooks/useActiveCall';
 
 import './apps/daily-offering/daily-offering.css';
 import './apps/manual/manual.css';
+
+// 2026-09 试点：懒加载改造的第一个试验品。跟其余还没改的 34 个模块相比，
+// 唯一的区别就是这一行——从"打包时直接把代码塞进主包"变成"点开羁绊
+// 大群那一刻才单独下载这个模块的代码"。EnsembleApp.jsx 自己和它底下
+// 所有的子组件、service 文件完全不用动，Vite 的 import() 是构建期自动
+// 识别、自动切分的，不需要目标文件本身配合任何写法。
+const EnsembleApp = React.lazy(() => import('./apps/ensemble/EnsembleApp'));
+
+// 只是"这个模块的代码正在下载"那零点几秒到一两秒（视网络而定）的占位，
+// 不是常规的应用内 loading 状态，所以故意做得很轻，没有另起 CSS 文件。
+const EnsembleLoadingFallback = () => (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--text-sub)',
+      fontSize: '13px',
+      backgroundColor: 'var(--bg-main)',
+    }}
+  >
+    正在打开羁绊大群…
+  </div>
+);
 
 const THEME_COLORS = {
   'mono-mist': '#fcfbf7',
@@ -1063,12 +1088,14 @@ const [hubBackground, setHubBackground] = useState('');
 
         {currentApp === 'ensemble' && (
           <ErrorBoundary>
-            <EnsembleApp
-              onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={
-                setIsInsideChatRoom
-              }
-            />
+            <React.Suspense fallback={<EnsembleLoadingFallback />}>
+              <EnsembleApp
+                onBackHub={() => openApp('hub')}
+                onChatRoomStateChange={
+                  setIsInsideChatRoom
+                }
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
