@@ -51,7 +51,6 @@ import {
   pullWorkflowRunStatusFromServer,
 } from './services/workflow/workflowSyncService';
 import {
-  syncAllChatContextsToCloud,
   syncPendingPushMessages,
   syncPendingHomeBoard,
   syncPendingDiaries,
@@ -273,17 +272,16 @@ const [hubBackground, setHubBackground] = useState('');
       });
     };
 
-    const handleAppHiding = () => {
-      if (document.visibilityState === 'hidden') {
-        void syncAllChatContextsToCloud();
-      }
-    };
-
+    // 退后台/锁屏时的云端同步不在这里做——cloudPushService.js 模块加载时
+    // 会自己调用 initAutoContextSync()，监听同一组 visibilitychange/pagehide
+    // 事件，走的是内存热缓存 + 防抖 + 去重 + sendBeacon 的优化路径。这里以前
+    // 还单独挂了一个 handleAppHiding 调用 syncAllChatContextsToCloud()（不带
+    // useCacheFirst/keepalive），等于每次退后台都多做一遍全量数据库扫描，
+    // 还经常因为没传 keepalive 而在页面隐藏的瞬间被浏览器直接掐掉、白扫一遍
+    // 却没发出去。2026-09 排查安卓内存占用问题时发现并删除，避免重复劳动。
     window.addEventListener('focus', handleWakeSync);
     window.addEventListener('pageshow', handleWakeSync);
     document.addEventListener('visibilitychange', handleWakeSync);
-    document.addEventListener('visibilitychange', handleAppHiding);
-    window.addEventListener('pagehide', handleAppHiding);
     window.addEventListener('new-local-message-inserted', handleLocalMessageInserted);
 
     if ('serviceWorker' in navigator) {
@@ -294,8 +292,6 @@ const [hubBackground, setHubBackground] = useState('');
       window.removeEventListener('focus', handleWakeSync);
       window.removeEventListener('pageshow', handleWakeSync);
       document.removeEventListener('visibilitychange', handleWakeSync);
-      document.removeEventListener('visibilitychange', handleAppHiding);
-      window.removeEventListener('pagehide', handleAppHiding);
       window.removeEventListener('new-local-message-inserted', handleLocalMessageInserted);
 
       if ('serviceWorker' in navigator) {
