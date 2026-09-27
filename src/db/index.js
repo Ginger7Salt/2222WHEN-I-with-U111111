@@ -4461,4 +4461,13 @@ db.version(62).stores({
   obsidianWatchFolders: '++id, chatId, createdAt',
 });
 
+// 泡泡模式（Bubble Mode）切片A：房间外壳。
+// 参照 ensembleChats 的写法——只索引 title/createdAt/updatedAt，成员名单
+// selectedCharacterIds 是非索引数组字段，跟着整条记录读写即可，不需要
+// 单独的成员关系表。消息表 bubbleMessages 留到切片B（消息收发主链路）
+// 实现的时候再建，这一版先不加，避免这轮加一张暂时用不上的空表。
+db.version(63).stores({
+  bubbleRooms: '++id, title, createdAt, updatedAt',
+});
+
 export default db;

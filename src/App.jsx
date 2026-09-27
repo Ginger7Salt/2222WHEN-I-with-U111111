@@ -29,6 +29,7 @@ import SnapshotsApp from './apps/snapshots/SnapshotsApp';
 import PebblingApp from './apps/pebbling/PebblingApp';
 import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
 import EnsembleApp from './apps/ensemble/EnsembleApp';
+import BubbleApp from './apps/bubble/BubbleApp';
 import HabitatApp from './apps/habitat/HabitatApp';
 import EphemeraApp from './apps/ephemera/EphemeraApp';
 import AskBoxApp from './apps/askbox/AskBoxApp';
@@ -146,6 +147,7 @@ const CHAT_APPS = [
   'messages',
   'imaginarium',
   'ensemble',
+  'bubble',
   'habitat',
 ];
 
@@ -163,6 +165,7 @@ const REGISTERED_APPS = [
   'pebbling',
   'imaginarium',
   'ensemble',
+  'bubble',
   'habitat',
   'ephemera',
   'askbox',
@@ -1058,6 +1061,17 @@ const [hubBackground, setHubBackground] = useState('');
         {currentApp === 'ensemble' && (
           <ErrorBoundary>
             <EnsembleApp
+              onBackHub={() => openApp('hub')}
+              onChatRoomStateChange={
+                setIsInsideChatRoom
+              }
+            />
+          </ErrorBoundary>
+        )}
+
+        {currentApp === 'bubble' && (
+          <ErrorBoundary>
+            <BubbleApp
               onBackHub={() => openApp('hub')}
               onChatRoomStateChange={
                 setIsInsideChatRoom
