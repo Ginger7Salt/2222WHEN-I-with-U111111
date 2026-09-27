@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   ChevronRight,
+  Download,
+  Loader2,
   Play,
   Trash2,
   X,
@@ -16,6 +18,11 @@ import {
   setArchiveFolderCoverImage,
   setArchiveFolderNote
 } from '../archiveService';
+import {
+  clearArchivedMediaForChat,
+  downloadArchivedMediaForChat
+} from '../archiveMediaCleanupService';
+import { triggerGlobalToast } from '../../../components/NotificationToast';
 import '../archive.css';
 import '../archive-cabinet-visual.css';
 
@@ -55,6 +62,9 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
 
   const [editingNote, setEditingNote] = useState(false);
   const [noteInput, setNoteInput] = useState('');
+
+  const [isClearingMedia, setIsClearingMedia] = useState(false);
+  const [isDownloadingMedia, setIsDownloadingMedia] = useState(false);
 
   const coverInputRef = useRef(null);
 
@@ -118,6 +128,82 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
     onStatsChanged?.();
   };
 
+  // 清理和下载是两件完全独立的事——清理前不会强制走一遍下载，
+  // 下载也不会顺带触发清理，用户自己决定要不要在清理前先下载一份。
+  const handleClearMedia = async () => {
+    if (isClearingMedia) return;
+
+    const confirmed = window.confirm(
+      `确认清空「${characterName}」存档室里的全部语音和图片本体吗？\n\n文字记录会保留，但语音听不了、图片也看不了了，且无法恢复。如果想留个备份，可以先用"打包下载"。`
+    );
+    if (!confirmed) return;
+
+    setIsClearingMedia(true);
+
+    try {
+      const { clearedCount } = await clearArchivedMediaForChat(chatId);
+
+      triggerGlobalToast({
+        title: clearedCount > 0 ? '清理完成' : '没有需要清理的内容',
+        content: clearedCount > 0
+          ? `已清空 ${clearedCount} 条记录里的语音/图片本体，文字记录已保留。`
+          : '这个聊天的存档室里目前没有语音或图片消息。',
+        iconType: 'bell',
+        duration: 5000
+      });
+
+      await loadFolders();
+      onStatsChanged?.();
+    } catch (error) {
+      console.error('[ArchiveCabinet] 清理语音/图片失败：', error);
+      triggerGlobalToast({
+        title: '清理失败',
+        content: '清理过程中出了点问题，请稍后重试。',
+        iconType: 'bell',
+        duration: 5000
+      });
+    } finally {
+      setIsClearingMedia(false);
+    }
+  };
+
+  const handleDownloadMedia = async () => {
+    if (isDownloadingMedia) return;
+
+    setIsDownloadingMedia(true);
+
+    try {
+      const { successCount, failCount, totalCount } =
+        await downloadArchivedMediaForChat(chatId, characterName);
+
+      if (totalCount === 0) {
+        triggerGlobalToast({
+          title: '没有可下载的内容',
+          content: '这个聊天的存档室里目前没有语音或图片消息。',
+          iconType: 'bell',
+          duration: 4000
+        });
+      } else {
+        triggerGlobalToast({
+          title: '打包下载完成',
+          content: `成功 ${successCount} 个，失败 ${failCount} 个，共 ${totalCount} 个文件。`,
+          iconType: 'bell',
+          duration: 5000
+        });
+      }
+    } catch (error) {
+      console.error('[ArchiveCabinet] 打包下载失败：', error);
+      triggerGlobalToast({
+        title: '下载失败',
+        content: '下载过程中出了点问题，请稍后重试。',
+        iconType: 'bell',
+        duration: 5000
+      });
+    } finally {
+      setIsDownloadingMedia(false);
+    }
+  };
+
   const handlePickCoverImage = () => {
     coverInputRef.current?.click();
   };
@@ -162,6 +248,41 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
           {folders.length} 卷封存
         </div>
       </header>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: '8px',
+          padding: '0 16px 12px',
+          flexWrap: 'wrap'
+        }}
+      >
+        <button
+          type="button"
+          className="cabinet-hud-btn"
+          onClick={handleDownloadMedia}
+          disabled={isDownloadingMedia}
+          title="把这个聊天存档室里现存的语音和图片逐个下载到本地"
+        >
+          {isDownloadingMedia
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            : <Download className="h-3.5 w-3.5" />}
+          <span>{isDownloadingMedia ? '下载中…' : '打包下载语音/图片'}</span>
+        </button>
+
+        <button
+          type="button"
+          className="cabinet-hud-btn"
+          onClick={handleClearMedia}
+          disabled={isClearingMedia}
+          title="清空这个聊天存档室里的语音/图片本体，保留文字记录"
+        >
+          {isClearingMedia
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            : <Trash2 className="h-3.5 w-3.5" />}
+          <span>{isClearingMedia ? '清理中…' : '清空语音/图片'}</span>
+        </button>
+      </div>
 
       <main className="cabinet-stage">
         {isLoading && (

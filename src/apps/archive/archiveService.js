@@ -145,20 +145,33 @@ const ensureFirstMessageCached = async (chatId) => {
     return stats.firstMessageAt;
   }
 
+  // 2026-09 修正：原来这里是 .toArray()，把这个聊天在 messages 和
+  // archivedMessages 两张表里的全部记录（含每一条的语音/图片本体）都读进
+  // 内存，只是为了找一个最小时间戳——缓存命中之前只需要付一次这个代价，
+  // 但如果这时候归档已经堆了不少语音/图片，又赶上首页概览对所有聊天并发
+  // 触发这个计算，就会变成一次真实的内存尖峰。
+  //
+  // 改成只取每张表里"插入的第一条"（用已有的 chatId 索引，主键升序），
+  // 前提假设是"插入顺序 = 时间顺序"——messages 表始终是 db.messages.add()
+  // 追加写入，archivedMessages 表的自动归档也是按"越早的消息越先被搬走"
+  // 的顺序 bulkAdd 进去的，两种情况下这个假设都成立，缺点只在于如果用户
+  // 用"手动勾选任意消息"的归档方式、且勾选顺序很跳跃，理论上可能出现
+  // 几毫秒级的误差，但不影响"聊了多少天"这个粒度的展示。
   const [firstActive, firstArchived] = await Promise.all([
-    db.messages.where('chatId').equals(chatId).toArray(),
-    db.archivedMessages.where('chatId').equals(chatId).toArray()
+    db.messages.where('chatId').equals(chatId).first(),
+    db.archivedMessages.where('chatId').equals(chatId).first()
   ]);
 
-  const allTimes = [...firstActive, ...firstArchived]
+  const candidateTimes = [firstActive, firstArchived]
+    .filter(Boolean)
     .map((message) => toSafeTime(message.timestamp))
     .filter((time) => Number.isFinite(time));
 
-  if (allTimes.length === 0) {
+  if (candidateTimes.length === 0) {
     return null;
   }
 
-  const earliestTime = Math.min(...allTimes);
+  const earliestTime = Math.min(...candidateTimes);
   const earliestIso = new Date(earliestTime).toISOString();
 
   await db.archiveStats.put({

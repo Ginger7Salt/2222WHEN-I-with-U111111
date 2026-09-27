@@ -9,6 +9,45 @@ export const estimateStorageUsage = async () => {
   return { usedMB: '未知', quotaMB: '未知' };
 };
 
+// 2026-09：整体存储占用预警的阈值（首页角标用，见 StorageWarningBadge.jsx）。
+// 目前只做"超过就提醒"，不做自动清理——真要清理时，按已确认的方向
+// 只清语音消息的音频本体（metadata.audioBlob），保留文字转写，绝不整条删除。
+export const STORAGE_WARNING_THRESHOLD_BYTES = 1024 * 1024 * 1024; // 1GB
+
+/**
+ * 跟 estimateStorageUsage 类似，但返回原始字节数（不是格式化好的字符串），
+ * 方便调用方自己拿去跟阈值比较、或者用 formatBytes 自己格式化展示。
+ */
+export const getStorageUsageBytes = async () => {
+  if (!navigator.storage || !navigator.storage.estimate) {
+    return { supported: false, usage: 0, quota: 0 };
+  }
+
+  try {
+    const estimate = await navigator.storage.estimate();
+    return {
+      supported: true,
+      usage: estimate.usage || 0,
+      quota: estimate.quota || 0,
+    };
+  } catch (error) {
+    console.warn('[storageUtils] 存储空间估算失败：', error);
+    return { supported: false, usage: 0, quota: 0 };
+  }
+};
+
+export const formatBytes = (bytes = 0) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+
+  return `${(bytes / (1024 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+};
+
 /**
  * 悄悄压缩图片并转为 Base64
  * 
@@ -96,4 +135,10 @@ export const convertFileToBase64 = (file) => {
   });
 };
 
-export default { convertFileToBase64, estimateStorageUsage };
+export default {
+  convertFileToBase64,
+  estimateStorageUsage,
+  getStorageUsageBytes,
+  formatBytes,
+  STORAGE_WARNING_THRESHOLD_BYTES,
+};

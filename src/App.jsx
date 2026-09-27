@@ -16,6 +16,7 @@ import HubHeader from './apps/hub/HubHeader';
 import QuickBoard from './apps/hub/QuickBoard';
 
 import AppGrid from './apps/hub/AppGrid';
+import StorageWarningBadge from './apps/hub/StorageWarningBadge';
 import DesktopPetWidget from './apps/pet/DesktopPetWidget';
 
 import ArchiveApp from './apps/archive/ArchiveApp';
@@ -828,6 +829,12 @@ const [hubBackground, setHubBackground] = useState('');
       />
 
       <DesktopPetWidget />
+
+      {currentApp === 'hub' && (
+        <StorageWarningBadge
+          onOpenSettings={() => openApp('settings')}
+        />
+      )}
 
       <CallOverlayHost />
 
