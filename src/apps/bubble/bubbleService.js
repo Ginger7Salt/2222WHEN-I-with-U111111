@@ -10,7 +10,7 @@
 
 import db from '../../db';
 
-const MAX_MEMBERS = 8;
+export const MAX_MEMBERS = 8;
 
 /**
  * 按更新时间倒序，取所有泡泡房间列表。
