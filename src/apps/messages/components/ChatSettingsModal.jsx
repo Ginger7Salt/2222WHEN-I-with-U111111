@@ -1425,7 +1425,7 @@ const handleToggleLocation = async () => {
           </div>
 
           <p className="text-[10px] opacity-55 leading-relaxed">
-            点色块选择颜色，图标和文字会根据底色自动选深色或白色。仅影响本聊天窗，气泡颜色请用下方的气泡 CSS 定制。
+            点色块选择颜色，图标和文字会根据底色自动选深色或白色。仅影响本聊天窗，气泡底色/形状请用下方的气泡 CSS 定制；下面两个「气泡文字颜色」会覆盖气泡 CSS 里设置的文字色。
           </p>
 
           <ColorSettingRow
@@ -1451,6 +1451,18 @@ const handleToggleLocation = async () => {
             value={chat?.topBtnColor || ''}
             onCommit={(value) => handleCommitChatColor('topBtnColor', value)}
           />
+
+          <ColorSettingRow
+            label="我的气泡文字颜色"
+            value={chat?.userBubbleTextColor || ''}
+            onCommit={(value) => handleCommitChatColor('userBubbleTextColor', value)}
+          />
+
+          <ColorSettingRow
+            label="对方气泡文字颜色"
+            value={chat?.aiBubbleTextColor || ''}
+            onCommit={(value) => handleCommitChatColor('aiBubbleTextColor', value)}
+          />
         </div>
 
         {/* 本窗按钮外观预设：默认 / 毛玻璃 / 黑玻璃…… */}
@@ -1470,7 +1482,7 @@ const handleToggleLocation = async () => {
           </div>
 
           <p className="text-[10px] opacity-55 leading-relaxed">
-            切换输入栏和顶部这批按钮的质感（比如毛玻璃/黑玻璃）。跟上面的颜色是两件事：颜色管底色，这里管要不要加模糊和半透明，两者可以叠加。
+            切换输入栏和顶部这批按钮的质感（比如毛玻璃/黑玻璃），正在输入指示器的卡片外观也会跟着一起换。跟上面的颜色是两件事：颜色管底色，这里管要不要加模糊和半透明，两者可以叠加。
           </p>
 
           <div className="grid grid-cols-3 gap-2 mt-2">

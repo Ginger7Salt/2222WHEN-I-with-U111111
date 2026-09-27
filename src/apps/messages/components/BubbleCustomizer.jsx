@@ -165,6 +165,89 @@ export const BubbleCustomizer = ({
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 .chat-font { font-size: 0.75rem; line-height: 1.5; }`
+    },
+    {
+      name: '薰衣草雾',
+      code: `/* 薰衣草雾 */
+.user-bubble {
+  background: linear-gradient(135deg, #c9b6e4 0%, #9d8ec9 100%);
+  color: #2c2140;
+  border-radius: 1.3rem 1.3rem 0.3rem 1.3rem;
+}
+.ai-bubble {
+  background: #f3effa;
+  color: #453a5c;
+  border: 1px solid rgba(157, 142, 201, 0.35);
+  border-radius: 1.3rem 1.3rem 1.3rem 0.3rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+    },
+    {
+      name: '森野绿洲',
+      code: `/* 森野绿洲 */
+.user-bubble {
+  background: #2f5c46;
+  color: #eafff0;
+  border-radius: 1.1rem 1.1rem 0.25rem 1.1rem;
+}
+.ai-bubble {
+  background: #eef7ef;
+  color: #24402f;
+  border: 1px solid rgba(47, 92, 70, 0.25);
+  border-radius: 1.1rem 1.1rem 1.1rem 0.25rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+    },
+    {
+      name: '落日橘暮',
+      code: `/* 落日橘暮 */
+.user-bubble {
+  background: linear-gradient(135deg, #ff9a5a 0%, #ff5e7e 100%);
+  color: #3a0f0f;
+  border-radius: 1.4rem 1.4rem 0.25rem 1.4rem;
+  font-weight: 500;
+}
+.ai-bubble {
+  background: rgba(255, 154, 90, 0.12);
+  color: var(--text-main);
+  border: 1px solid rgba(255, 94, 126, 0.3);
+  border-radius: 1.4rem 1.4rem 1.4rem 0.25rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+    },
+    {
+      name: '墨黑高对比',
+      code: `/* 墨黑高对比 */
+.user-bubble {
+  background: #0a0a0a;
+  color: #ffffff;
+  border-radius: 0.5rem 0.5rem 0.1rem 0.5rem;
+  font-weight: 500;
+}
+.ai-bubble {
+  background: #ffffff;
+  color: #0a0a0a;
+  border: 1.5px solid #0a0a0a;
+  border-radius: 0.5rem 0.5rem 0.5rem 0.1rem;
+  font-weight: 500;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+    },
+    {
+      name: '樱语粉调',
+      code: `/* 樱语粉调 */
+.user-bubble {
+  background: #ffd6e7;
+  color: #7a2e4d;
+  border-radius: 1.5rem 1.5rem 0.3rem 1.5rem;
+}
+.ai-bubble {
+  background: #fff6f9;
+  color: #7a2e4d;
+  border: 1px solid rgba(255, 214, 231, 0.9);
+  border-radius: 1.5rem 1.5rem 1.5rem 0.3rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
     }
   ];
 

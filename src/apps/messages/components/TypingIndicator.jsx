@@ -4,7 +4,7 @@ import { Sparkles, PhoneCall, PenTool, Activity, Radio } from 'lucide-react';
 // 1. 默认样式 (保持您原有的高审美 Sparkles + 律动三小点设计)
 const DefaultTyping = ({ text }) => (
   <div
-    className="relative overflow-hidden rounded-[1.6rem] border shadow-sm animate-fade-in-up"
+    className="typing-indicator-shell relative overflow-hidden rounded-[1.6rem] border shadow-sm animate-fade-in-up"
     style={{
       background: 'var(--card-bg-gradient)',
       borderColor: 'var(--card-border)',
@@ -75,7 +75,7 @@ const DefaultTyping = ({ text }) => (
 // 2. 新增：模拟打电话 / 通话呼叫中 (Phone Call Indicator)
 const PhoneCallTyping = ({ text }) => (
   <div
-    className="relative overflow-hidden rounded-[1.6rem] border shadow-sm animate-fade-in-up"
+    className="typing-indicator-shell relative overflow-hidden rounded-[1.6rem] border shadow-sm animate-fade-in-up"
     style={{
       background: 'var(--card-bg-gradient)',
       borderColor: 'var(--card-border)',
@@ -122,7 +122,7 @@ const PhoneCallTyping = ({ text }) => (
 // 3. 新增：诗意打字机 (Typewriter)
 const TypewriterTyping = ({ text }) => (
   <div
-    className="relative overflow-hidden rounded-[1.6rem] border shadow-sm animate-fade-in-up"
+    className="typing-indicator-shell relative overflow-hidden rounded-[1.6rem] border shadow-sm animate-fade-in-up"
     style={{
       background: 'var(--card-bg-gradient)',
       borderColor: 'var(--card-border)',
@@ -150,7 +150,7 @@ const TypewriterTyping = ({ text }) => (
 // 4. 新增：柔和音波律动 (Wave Pulse)
 const WavePulseTyping = ({ text }) => (
   <div
-    className="relative overflow-hidden rounded-[1.6rem] border shadow-sm animate-fade-in-up"
+    className="typing-indicator-shell relative overflow-hidden rounded-[1.6rem] border shadow-sm animate-fade-in-up"
     style={{
       background: 'var(--card-bg-gradient)',
       borderColor: 'var(--card-border)',
@@ -179,7 +179,7 @@ const WavePulseTyping = ({ text }) => (
 // ================= 新增：玻璃胶囊美化基础容器 =================
 const TypingBeautyFrame = ({ children }) => (
   <div
-    className="typing-beauty-card animate-fade-in-up"
+    className="typing-indicator-shell typing-beauty-card animate-fade-in-up"
     style={{
       background: 'var(--card-bg-gradient)',
       borderColor: 'var(--card-border)',

@@ -387,6 +387,14 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
   const respondBtnColor = isValidHexColor(chat?.respondBtnColor) ? chat.respondBtnColor : null;
   const topBtnColor = isValidHexColor(chat?.topBtnColor) ? chat.topBtnColor : null;
 
+  // 气泡文字颜色：气泡底色/形状仍然只能靠气泡 CSS（BubbleCustomizer）定制，
+  // 但文字颜色以前只能跟着那份 CSS 里写的 color 走，没有快捷开关——这里补上，
+  // 跟上面几个按钮颜色一样只接受 #rrggbb，用 !important 盖在气泡预设/自定义
+  // CSS 之上（气泡预设的 memoizedStyle 渲染在最前面，这里的 chatColorStyle
+  // 本来就渲染在它后面，层叠顺序天然就能覆盖，不需要再调整渲染顺序）。
+  const userBubbleTextColor = isValidHexColor(chat?.userBubbleTextColor) ? chat.userBubbleTextColor : null;
+  const aiBubbleTextColor = isValidHexColor(chat?.aiBubbleTextColor) ? chat.aiBubbleTextColor : null;
+
   // 本聊天窗的"按钮外观"预设（默认纯色块 / 毛玻璃 / 黑玻璃……），
   // 具体每个预设长什么样在 chatControlStylePresets.js 里注册，这里只
   // 负责挑出当前预设、拼出要覆盖的选择器，交给注册表生成规则。
@@ -406,6 +414,11 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
       // .chat-top-toolbar 外面，是个独立的兄弟节点，上面几条选择器
       // 覆盖不到它，所以单独补一条。
       '.chat-room-container .chat-header-heart-button',
+      // 正在输入指示器（TypingIndicator.jsx）的外层卡片跟着按钮一块换皮肤：
+      // 每种指示器样式的最外层容器都统一挂了 typing-indicator-shell 这个
+      // class（不管走哪个 styleType），选中毛玻璃/黑玻璃时会连它的背景、
+      // 边框、文字色一起接管，默认预设不输出规则所以不受影响。
+      '.chat-room-container .typing-indicator-shell',
     ];
 
     const rules = getControlStyleRules(controlStyleId, selectors);
@@ -454,10 +467,18 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
       rules.push(`${scope} .chat-header-heart-button { background: ${topBtnColor} !important; color: ${fg} !important; }`);
     }
 
+    if (userBubbleTextColor) {
+      rules.push(`${scope} .user-bubble { color: ${userBubbleTextColor} !important; }`);
+    }
+
+    if (aiBubbleTextColor) {
+      rules.push(`${scope} .ai-bubble { color: ${aiBubbleTextColor} !important; }`);
+    }
+
     if (rules.length === 0) return null;
 
     return <style>{rules.join('\n')}</style>;
-  }, [inputBarColor, sendBtnColor, respondBtnColor, topBtnColor]);
+  }, [inputBarColor, sendBtnColor, respondBtnColor, topBtnColor, userBubbleTextColor, aiBubbleTextColor]);
 
   const loadChatData = useCallback(async () => {
     try {
