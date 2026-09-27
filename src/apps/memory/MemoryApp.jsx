@@ -26,6 +26,8 @@ import MemoryCard from './MemoryCard';
 import MemoryExportModal from './MemoryExportModal';
 import MemoryImportModal from './MemoryImportModal';
 import ObsidianImportModal from './obsidianImport/ObsidianImportModal';
+import ObsidianWatchModal from './obsidianImport/ObsidianWatchModal';
+import { scanAllObsidianWatchFolders } from './obsidianImport/obsidianWatchService';
 import MemoryRevisionModal from './MemoryRevisionModal';
 import MemoryGrowthSection from './MemoryGrowthSection';
 import MemorySourceSection from './MemorySourceSection';
@@ -223,6 +225,8 @@ export const MemoryApp = ({
   const [showChatPicker, setShowChatPicker] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showObsidianImportModal, setShowObsidianImportModal] = useState(false);
+  const [showObsidianWatchModal, setShowObsidianWatchModal] = useState(false);
+  const [obsidianPendingUpdates, setObsidianPendingUpdates] = useState([]);
   const [showExportModal, setShowExportModal] = useState(false);
 
   const [form, setForm] = useState(EMPTY_FORM);
@@ -330,6 +334,26 @@ export const MemoryApp = ({
   useEffect(() => {
     void loadMemoryData();
   }, [loadMemoryData]);
+
+  // 打开记忆页时检查一次已连接的 Obsidian 文件夹有没有新增/修改的笔记
+  // （不开后台定时器，只在这里检查一次）。只是标记出有更新，具体导入
+  // 仍然要走 ObsidianWatchModal 里那套确认界面，不会静默写入记忆。
+  useEffect(() => {
+    let cancelled = false;
+
+    scanAllObsidianWatchFolders()
+      .then((results) => {
+        if (!cancelled) setObsidianPendingUpdates(results);
+      })
+      .catch(() => {
+        // 某个文件夹授权失效或扫描失败不应该挡住整个记忆页，
+        // 静默跳过，用户可以在"自动同步 Obsidian"里手动重新授权。
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const visibleMemories = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -904,6 +928,17 @@ const handleDelete = async (memory) => {
 
             <button
               type="button"
+              onClick={() => setShowObsidianWatchModal(true)}
+              className="memory-tool-button"
+            >
+              <RefreshCw className="memory-icon" />
+              {obsidianPendingUpdates.length > 0
+                ? `自动同步 Obsidian (${obsidianPendingUpdates.length})`
+                : '自动同步 Obsidian'}
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowExportModal(true)}
               className="memory-tool-button"
             >
@@ -1398,6 +1433,21 @@ const handleDelete = async (memory) => {
           chats={chats}
           initialChatId={selectedChatId}
           onClose={() => setShowObsidianImportModal(false)}
+          onCompleted={handleImportCompleted}
+          onError={(message) => {
+            setErrorMessage(message);
+          }}
+        />
+      )}
+
+      {showObsidianWatchModal && (
+        <ObsidianWatchModal
+          chats={chats}
+          initialPendingUpdates={obsidianPendingUpdates}
+          onClose={() => {
+            setShowObsidianWatchModal(false);
+            setObsidianPendingUpdates([]);
+          }}
           onCompleted={handleImportCompleted}
           onError={(message) => {
             setErrorMessage(message);

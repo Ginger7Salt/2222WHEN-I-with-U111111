@@ -4451,4 +4451,14 @@ db.version(61).stores({
   ensembleMessages: '++id, chatId, senderId, timestamp, [chatId+timestamp]',
 });
 
+// Obsidian 文件夹订阅（OB 导入"入口2"）：记录用户通过 File System Access
+// API 授权的 Obsidian 文件夹，绑定到哪个消息框，以及每个笔记文件当前的
+// mtime，用于"打开记忆页时检查一次有没有改动"。directoryHandle 是浏览器
+// 原生的 FileSystemDirectoryHandle（可结构化克隆，Dexie 能直接存取），
+// fileState 是一个 { [相对路径]: { mtime, lastImportedAt } } 的普通对象，
+// 两者都是非索引字段，跟着整条记录读写即可，不需要单独建表拆分。
+db.version(62).stores({
+  obsidianWatchFolders: '++id, chatId, createdAt',
+});
+
 export default db;

@@ -1,11 +1,13 @@
-// Obsidian note import - manual-upload entry point.
+// Obsidian note import - shared parsing/writing core for both entry points.
 //
-// This is entry point 1 from the confirmed OB import design: a plain file
-// picker over one or more .md files, run through the shared parser
-// (obsidianMarkdownParser.js) and written into this project's existing
-// memory system via memoryService.js's createMemory/updateMemory, exactly
-// like any other memory. Entry point 2 (File System Access polling) is a
-// separate, later piece of work and does not live here.
+// parseObsidianFiles() is entry point 1: a plain file picker over one or
+// more .md files. parseObsidianFileEntries() is the lower-level function it
+// wraps, and is what entry point 2 (obsidianWatchService.js's folder scan)
+// calls directly, since a folder scan already has each file's relative
+// path from walking the directory tree. importObsidianEntries() writes the
+// result into this project's existing memory system via memoryService.js's
+// createMemory/updateMemory, exactly like any other memory, and is shared
+// by both entry points unchanged.
 
 import db from '../../../db';
 import { createMemory, updateMemory } from '../memoryService';
@@ -33,25 +35,23 @@ const readFileText = (file) => (
     })
 );
 
-// Reads and parses every .md file the user picked. Never throws for a
-// single bad file - a note that fails to read/parse is kept in the result
-// with its own `error`, so one broken file doesn't block importing the
-// rest of the batch.
-export const parseObsidianFiles = async (fileList) => {
-  const files = Array.from(fileList || []).filter(
-    (file) => /\.md$/i.test(file.name)
-  );
-
+// Reads and parses a list of { relativePath, file } entries - the shape a
+// recursive folder scan naturally produces. Never throws for a single bad
+// file - a note that fails to read/parse is kept in the result with its
+// own `error`, so one broken file doesn't block importing the rest of the
+// batch.
+export const parseObsidianFileEntries = async (fileEntries) => {
   const notes = [];
 
-  for (const file of files) {
+  for (const { relativePath, file } of fileEntries || []) {
     try {
       const text = await readFileText(file);
 
-      notes.push(parseObsidianNote(file.name, text));
+      notes.push(parseObsidianNote(file.name, text, { relativePath }));
     } catch (error) {
       notes.push({
         fileName: file.name,
+        relativePath: relativePath || file.name,
         noteTitle: file.name,
         frontmatter: {},
         tags: [],
@@ -78,14 +78,34 @@ export const parseObsidianFiles = async (fileList) => {
   };
 };
 
-// A stable-ish key for "this heading, in this file" so re-importing the
+// Reads and parses every .md file the user picked from a plain
+// <input type="file" multiple> - no folder structure is available here
+// (webkitRelativePath is only populated by a folder-select input), so
+// notes are identified by file name alone.
+export const parseObsidianFiles = async (fileList) => {
+  const files = Array.from(fileList || []).filter(
+    (file) => /\.md$/i.test(file.name)
+  );
+
+  return parseObsidianFileEntries(
+    files.map((file) => ({
+      relativePath: file.webkitRelativePath || file.name,
+      file
+    }))
+  );
+};
+
+// A stable-ish key for "this heading, in this note" so re-importing the
 // same note (e.g. after editing it in Obsidian) updates the existing
-// memory instead of creating a duplicate every time. Renaming the file or
-// the heading breaks the match on purpose - there is no reliable way to
+// memory instead of creating a duplicate every time. Keyed on the note's
+// relative path rather than its bare file name, so two same-named notes in
+// different subfolders (routine in a real Obsidian vault once the watch
+// entry point recurses into subfolders) don't collide. Renaming the file
+// or the heading breaks the match on purpose - there is no reliable way to
 // tell a rename apart from "this is actually new content" from a plain
 // markdown file alone.
-const buildObsidianKey = (fileName, entry) => (
-  `obsidian::${fileName}::${entry.level}::${entry.title}`
+const buildObsidianKey = (note, entry) => (
+  `obsidian::${note.relativePath || note.fileName}::${entry.level}::${entry.title}`
 );
 
 // obsidianKey is a small additive field, same convention as this project's
@@ -124,7 +144,7 @@ export const importObsidianEntries = async ({
       jobs.push({
         note,
         entry,
-        obsidianKey: buildObsidianKey(note.fileName, entry)
+        obsidianKey: buildObsidianKey(note, entry)
       });
     }
   }

@@ -244,13 +244,21 @@ const normalizeTags = (value) => {
 // so the import UI can let the user pick which ones to bring in, and an
 // optional per-entry type/importance when the note's frontmatter specifies
 // one (falling back to whatever default the import screen picks otherwise).
-export const parseObsidianNote = (fileName, rawText) => {
+//
+// `relativePath` is optional and only meaningful when the note came from a
+// folder scan (the watch-folder entry point) rather than a flat file picker
+// - it disambiguates same-named notes living in different subfolders, so
+// callers that recurse into subfolders should always pass it. It falls
+// back to `fileName` for the plain multi-file-picker path, which never
+// exposes folder structure.
+export const parseObsidianNote = (fileName, rawText, { relativePath = '' } = {}) => {
   const { frontmatter, body } = parseFrontmatter(rawText);
   const noteTitle = deriveNoteTitle(fileName, frontmatter);
   const rawSections = splitBodyIntoSections(body, noteTitle);
+  const identityPath = relativePath || fileName;
 
   const entries = rawSections.map((section, index) => ({
-    clientEntryId: `${fileName}::${index}::${section.title}`,
+    clientEntryId: `${identityPath}::${index}::${section.title}`,
     title: section.title,
     content: section.content,
     level: section.level,
@@ -260,6 +268,7 @@ export const parseObsidianNote = (fileName, rawText) => {
 
   return {
     fileName,
+    relativePath: identityPath,
     noteTitle,
     frontmatter,
     tags: normalizeTags(frontmatter.tags),

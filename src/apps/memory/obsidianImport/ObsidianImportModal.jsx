@@ -22,17 +22,40 @@ const getChatLabel = (chat) => (
   chat?.title || `消息框 ${chat?.id || ''}`
 );
 
+const collectAllEntryIds = (parseResult) => (
+  new Set(
+    (parseResult?.notes || [])
+      .filter((note) => !note.error)
+      .flatMap((note) => note.entries.map((entry) => entry.clientEntryId))
+  )
+);
+
 export const ObsidianImportModal = ({
   chats = [],
   initialChatId = null,
+
+  // 供"文件夹自动检测"入口（ObsidianWatchModal）复用这同一个确认/导入
+  // 界面：传入已经扫描好的 parseResult 并关闭文件选择器，其余全部一致
+  // （同一套勾选、去重、写入 memory 的逻辑），保证两个入口体验一致。
+  initialParseResult = null,
+  allowFileUpload = true,
+  eyebrow = 'OBSIDIAN INTAKE',
+  title = '导入 Obsidian 笔记',
+  description = (
+    '选择一个或多个 Obsidian 的 .md 文件，每个标题下的内容会拆分成'
+    + '一条独立的记忆。笔记不会自动按角色归属，导入到哪个消息框由你在'
+    + '下面手动选择。'
+  ),
   onClose,
   onCompleted,
   onError
 }) => {
   const fileInputRef = useRef(null);
 
-  const [parseResult, setParseResult] = useState(null);
-  const [selectedEntryIds, setSelectedEntryIds] = useState(() => new Set());
+  const [parseResult, setParseResult] = useState(initialParseResult);
+  const [selectedEntryIds, setSelectedEntryIds] = useState(
+    () => collectAllEntryIds(initialParseResult)
+  );
   const [targetChatId, setTargetChatId] = useState(initialChatId || '');
   const [defaultType, setDefaultType] = useState(MEMORY_TYPES.FACT);
   const [defaultImportance, setDefaultImportance] = useState(3);
@@ -60,11 +83,7 @@ export const ObsidianImportModal = ({
       const result = await parseObsidianFiles(files);
 
       setParseResult(result);
-      setSelectedEntryIds(new Set(
-        result.notes
-          .filter((note) => !note.error)
-          .flatMap((note) => note.entries.map((entry) => entry.clientEntryId))
-      ));
+      setSelectedEntryIds(collectAllEntryIds(result));
     } catch (error) {
       const message = error?.message || '读取 Obsidian 笔记失败。';
 
@@ -103,11 +122,7 @@ export const ObsidianImportModal = ({
       return;
     }
 
-    setSelectedEntryIds(new Set(
-      parseResult.notes
-        .filter((note) => !note.error)
-        .flatMap((note) => note.entries.map((entry) => entry.clientEntryId))
-    ));
+    setSelectedEntryIds(collectAllEntryIds(parseResult));
   };
 
   const handleStartImport = () => {
@@ -178,8 +193,8 @@ export const ObsidianImportModal = ({
         >
           <div className="memory-modal-header">
             <div>
-              <p className="memory-eyebrow">OBSIDIAN INTAKE</p>
-              <h2 id="obsidian-import-title">导入 Obsidian 笔记</h2>
+              <p className="memory-eyebrow">{eyebrow}</p>
+              <h2 id="obsidian-import-title">{title}</h2>
             </div>
 
             <button
@@ -194,46 +209,46 @@ export const ObsidianImportModal = ({
           </div>
 
           <div className="memory-import-copy">
-            <p>
-              选择一个或多个 Obsidian 的 .md 文件，每个标题下的内容会拆分成
-              一条独立的记忆。笔记不会自动按角色归属，导入到哪个消息框由你在
-              下面手动选择。
-            </p>
+            <p>{description}</p>
           </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".md,text/markdown"
-            multiple
-            className="memory-hidden-file-input"
-            onChange={handleFileChange}
-          />
+          {allowFileUpload && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".md,text/markdown"
+                multiple
+                className="memory-hidden-file-input"
+                onChange={handleFileChange}
+              />
 
-          <button
-            type="button"
-            className="memory-file-picker"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isParsing || isImporting}
-          >
-            <FileText className="memory-file-picker-icon" />
-            <span>
-              <strong>
-                {isParsing
-                  ? '正在阅读笔记'
-                  : parseResult
-                    ? '已读取笔记文件'
-                    : '选择 .md 笔记文件'}
-              </strong>
-              <small>
-                {parseResult
-                  ? `共 ${parseResult.summary.noteCount} 篇笔记，`
-                    + `解析出 ${parseResult.summary.totalEntryCount} 条内容`
-                  : '支持一次选择多个文件'}
-              </small>
-            </span>
-            <Upload className="memory-icon" />
-          </button>
+              <button
+                type="button"
+                className="memory-file-picker"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isParsing || isImporting}
+              >
+                <FileText className="memory-file-picker-icon" />
+                <span>
+                  <strong>
+                    {isParsing
+                      ? '正在阅读笔记'
+                      : parseResult
+                        ? '已读取笔记文件'
+                        : '选择 .md 笔记文件'}
+                  </strong>
+                  <small>
+                    {parseResult
+                      ? `共 ${parseResult.summary.noteCount} 篇笔记，`
+                        + `解析出 ${parseResult.summary.totalEntryCount} 条内容`
+                      : '支持一次选择多个文件'}
+                  </small>
+                </span>
+                <Upload className="memory-icon" />
+              </button>
+            </>
+          )}
 
           {localError && (
             <div className="memory-message memory-message-error">
@@ -321,7 +336,10 @@ export const ObsidianImportModal = ({
 
               <div className="obsidian-entry-list">
                 {parseResult.notes.map((note) => (
-                  <div key={note.fileName} className="obsidian-note-group">
+                  <div
+                    key={note.relativePath || note.fileName}
+                    className="obsidian-note-group"
+                  >
                     <p className="obsidian-note-group-title">
                       {note.noteTitle}
                       {note.tags?.length > 0 && ` · ${note.tags.join(', ')}`}
