@@ -5,9 +5,61 @@
 // and no File/Blob APIs here on purpose - see obsidianImportService.js for
 // reading files and writing parsed sections into memories.
 
-import { MEMORY_TYPES } from '../memoryConstants';
+import { MEMORY_TYPE_OPTIONS, MEMORY_TYPES } from '../memoryConstants';
 
 const VALID_MEMORY_TYPES = new Set(Object.values(MEMORY_TYPES));
+
+const TYPE_LABEL_BY_ID = new Map(
+  MEMORY_TYPE_OPTIONS.map((option) => [option.id, option.label])
+);
+
+const TYPE_ID_BY_LABEL = new Map(
+  MEMORY_TYPE_OPTIONS.map((option) => [option.label, option.id])
+);
+
+// The one line this project's Obsidian export writes right under each
+// memory's heading, and the one line parseObsidianNote() below recognizes
+// on the way back in - kept as a matched read/write pair here so the two
+// directions can never drift out of sync with each other. Anything that
+// doesn't match this exact shape is just left as ordinary note content,
+// so a plain, hand-written Obsidian note is completely unaffected.
+const MEMORY_METADATA_LINE_PATTERN = (
+  /^>\s*类型[:：]\s*(.+?)\s*[·,，]\s*重要度[:：]\s*([1-5])\s*$/
+);
+
+export const buildMemoryMetadataLine = ({ type, importance }) => {
+  const label = TYPE_LABEL_BY_ID.get(type)
+    || TYPE_LABEL_BY_ID.get(MEMORY_TYPES.FACT);
+
+  const safeImportance = Math.min(
+    5,
+    Math.max(1, Math.round(Number(importance) || 3))
+  );
+
+  return `> 类型：${label} · 重要度：${safeImportance}`;
+};
+
+// Looks for the metadata line as the very first line of a section's
+// content. Returns null (leaving the section untouched) unless the line
+// matches exactly and its type label is one this project recognizes -
+// a manually edited or unrelated blockquote line is never mistaken for it.
+const extractMemoryMetadataLine = (content) => {
+  const lines = String(content || '').split(/\r?\n/);
+  const match = lines[0]?.match(MEMORY_METADATA_LINE_PATTERN);
+
+  if (!match) return null;
+
+  const [, label, importanceText] = match;
+  const type = TYPE_ID_BY_LABEL.get(label.trim());
+
+  if (!type) return null;
+
+  return {
+    type,
+    importance: Number(importanceText),
+    remainingContent: lines.slice(1).join('\n').trim()
+  };
+};
 
 const FRONTMATTER_DELIMITER = /^---\s*$/;
 
@@ -242,8 +294,13 @@ const normalizeTags = (value) => {
 // flat list of importable entries (one per heading-level section, per the
 // confirmed "按标题分块" design). Each entry carries its own client-side id
 // so the import UI can let the user pick which ones to bring in, and an
-// optional per-entry type/importance when the note's frontmatter specifies
-// one (falling back to whatever default the import screen picks otherwise).
+// optional per-entry type/importance - taken from this project's own
+// "> 类型：... · 重要度：n" marker line when a section starts with one (see
+// above; this is how re-importing this project's own Obsidian export
+// recovers the original type/importance instead of falling back to the
+// import screen's defaults), otherwise from the note's frontmatter, when
+// it specifies one (falling back to whatever default the import screen
+// picks otherwise).
 //
 // `relativePath` is optional and only meaningful when the note came from a
 // folder scan (the watch-folder entry point) rather than a flat file picker
@@ -257,14 +314,22 @@ export const parseObsidianNote = (fileName, rawText, { relativePath = '' } = {})
   const rawSections = splitBodyIntoSections(body, noteTitle);
   const identityPath = relativePath || fileName;
 
-  const entries = rawSections.map((section, index) => ({
-    clientEntryId: `${identityPath}::${index}::${section.title}`,
-    title: section.title,
-    content: section.content,
-    level: section.level,
-    type: normalizeFrontmatterType(frontmatter.type),
-    importance: normalizeFrontmatterImportance(frontmatter.importance)
-  }));
+  const entries = rawSections.map((section, index) => {
+    const metadataMatch = extractMemoryMetadataLine(section.content);
+
+    return {
+      clientEntryId: `${identityPath}::${index}::${section.title}`,
+      title: section.title,
+      content: metadataMatch
+        ? metadataMatch.remainingContent
+        : section.content,
+      level: section.level,
+      type: metadataMatch?.type
+        || normalizeFrontmatterType(frontmatter.type),
+      importance: metadataMatch?.importance
+        || normalizeFrontmatterImportance(frontmatter.importance)
+    };
+  });
 
   return {
     fileName,

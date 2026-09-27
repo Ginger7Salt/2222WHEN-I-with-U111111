@@ -347,7 +347,7 @@ export const MemoryApp = ({
       })
       .catch(() => {
         // 某个文件夹授权失效或扫描失败不应该挡住整个记忆页，
-        // 静默跳过，用户可以在"自动同步 Obsidian"里手动重新授权。
+        // 静默跳过，用户可以在"同步 Obsidian"里手动重新授权。
       });
 
     return () => {
@@ -933,8 +933,8 @@ const handleDelete = async (memory) => {
             >
               <RefreshCw className="memory-icon" />
               {obsidianPendingUpdates.length > 0
-                ? `自动同步 Obsidian (${obsidianPendingUpdates.length})`
-                : '自动同步 Obsidian'}
+                ? `同步 Obsidian (${obsidianPendingUpdates.length})`
+                : '同步 Obsidian'}
             </button>
 
             <button
