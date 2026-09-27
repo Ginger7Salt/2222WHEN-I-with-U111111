@@ -281,7 +281,7 @@ export const buildAppGridItems = ({
         <div>
           <AppTitle en="Bubble" zh="泡泡" mode={nameMode} />
           <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
-            Group Bubbles
+            Group Bubbles装修中
           </p>
         </div>
       </GlassCard>
