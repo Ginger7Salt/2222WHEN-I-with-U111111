@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import db from '../../db';
+import { compressImageFile } from '../../utils/imageHelper';
 
 const GALLERY_ID = 'main';
 
@@ -111,8 +112,11 @@ export const PinnedGallery = ({ delay = 200 }) => {
     void saveGallery(nextGallery);
   };
 
-  const handlePhotoUpload = (event, id) => {
+  const handlePhotoUpload = async (event, id) => {
     const file = event.target.files?.[0];
+
+    // 允许连续选择同一张图片
+    event.target.value = '';
 
     if (!file) return;
 
@@ -121,23 +125,18 @@ export const PinnedGallery = ({ delay = 200 }) => {
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setStorageWarning(
-        '图片超过 2MB，仍会尝试保存，但建议使用较小的图片以避免 IndexedDB 存储空间不足。'
-      );
-    } else {
-      setStorageWarning('');
-    }
+    setStorageWarning('');
 
-    const reader = new FileReader();
-
-    reader.onload = async () => {
-      const imageData = reader.result;
-
-      if (typeof imageData !== 'string') {
-        setStorageWarning('图片读取失败，请重新选择。');
-        return;
-      }
+    try {
+      // 之前这里直接 FileReader.readAsDataURL 存原图，手机原图动辄几 MB，
+      // 换几轮图存储占用就很明显。跟"主界面背景"用的是同一个压缩工具，
+      // 压完再存，体积小很多，换图也不再需要靠原图大小去提醒用户了。
+      const imageData = await compressImageFile(file, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.8,
+        outputType: 'base64',
+      });
 
       const nextGallery = {
         ...gallery,
@@ -153,16 +152,10 @@ export const PinnedGallery = ({ delay = 200 }) => {
 
       setGallery(nextGallery);
       await saveGallery(nextGallery);
-    };
-
-    reader.onerror = () => {
-      setStorageWarning('图片读取失败，请重新选择。');
-    };
-
-    reader.readAsDataURL(file);
-
-    // 允许连续选择同一张图片
-    event.target.value = '';
+    } catch (error) {
+      console.error('置顶图集图片压缩失败:', error);
+      setStorageWarning('图片处理失败，请重新选择。');
+    }
   };
 
   const handleEditingToggle = async () => {
@@ -292,4 +285,3 @@ export const PinnedGallery = ({ delay = 200 }) => {
 };
 
 export default PinnedGallery;
-

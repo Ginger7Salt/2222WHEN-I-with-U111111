@@ -4470,4 +4470,21 @@ db.version(63).stores({
   bubbleRooms: '++id, title, createdAt, updatedAt',
 });
 
+// 修一个从 v1 就带着的老毛病：pinnedGallery（首页"置顶图集"）和 profile
+// （个人资料）这两张表把 photos / avatar / banner 这些存着大段 base64
+// 图片的字段也一起声明成了索引字段。这两张表全应用范围内都只用
+// db.xxx.get(id) / .put(...) 整行读写，从没有任何地方用
+// .where('photos') / .where('avatar') / .where('banner') 查询过——
+// 建索引纯粹是白费功夫：每次换一张图，IndexedDB 除了要写正文，还要
+// 额外维护一份几乎同样大小的索引条目，新旧索引条目的回收时机又不一定
+// 跟正文同步，这基本就是"换新图后旧数据没删干净、存储占用跟着叠"这个
+// 反馈的根源。这里只去掉多余的索引声明，两张表都只留 id 这个主键，
+// 已有数据的字段值不受影响，不需要迁移脚本。
+// chats / characters / homeBoard / snapshotNpcs 也有同样问题，先不动，
+// 范围明确后单独一轮再处理。
+db.version(64).stores({
+  pinnedGallery: 'id',
+  profile: 'id',
+});
+
 export default db;
