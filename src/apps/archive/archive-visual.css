@@ -425,8 +425,8 @@
 .archive-app .archive-detail-enter-btn{
   flex:0 0 auto;
   border:0;
-  padding:11px 17px;
-  border-radius:3px;
+  padding:12px 20px;
+  border-radius:12px;
   color:#fff;
   background:#111;
   cursor:pointer;
@@ -440,11 +440,12 @@
 }
 
 .archive-app .archive-carousel-hint{
-  margin:26px 0 0;
+  margin:36px 0 0;
   text-align:center;
-  color:#999994;
-  font-size:11px;
+  color:#b3b3ad;
+  font-size:10.5px;
   letter-spacing:.04em;
+  opacity:.85;
 }
 
 /* ============================================================

@@ -263,17 +263,10 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
         </div>
       </header>
 
-      <div
-        style={{
-          display: 'flex',
-          gap: '8px',
-          padding: '0 16px 12px',
-          flexWrap: 'wrap'
-        }}
-      >
+      <div className="cabinet-action-row">
         <button
           type="button"
-          className="cabinet-hud-btn"
+          className="cabinet-action-btn"
           onClick={() => setShowOrganizer(true)}
           title="手动挑选还没归档的旧消息，提前收进档案柜"
         >
@@ -283,7 +276,7 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
 
         <button
           type="button"
-          className="cabinet-hud-btn"
+          className="cabinet-action-btn"
           onClick={handleDownloadMedia}
           disabled={isDownloadingMedia}
           title="把这个聊天存档室里现存的语音和图片逐个下载到本地"
@@ -296,7 +289,7 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
 
         <button
           type="button"
-          className="cabinet-hud-btn"
+          className="cabinet-action-btn is-danger"
           onClick={handleClearMedia}
           disabled={isClearingMedia}
           title="清空这个聊天存档室里的语音/图片本体，保留文字记录"

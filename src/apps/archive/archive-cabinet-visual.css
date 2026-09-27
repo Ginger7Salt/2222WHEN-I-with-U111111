@@ -64,6 +64,59 @@
   transition:color .2s ease,transform .2s ease;
 }
 .cabinet-hud-btn:hover{color:#000;transform:translateY(-1px)}
+
+/* ---------- 功能按钮行（整理归档 / 打包下载 / 清空媒体）----------
+   跟 .cabinet-hud-btn 分开：那个是纯文字链接（返回唱片架用），
+   这几个是真正的操作按钮，需要看起来像按钮——有背景、有边界、
+   有足够的点按区域，不能靠文字链接的样式硬凑。 */
+.cabinet-action-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:0 20px 16px;
+}
+.cabinet-action-btn{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  border:1px solid rgba(0,0,0,.1);
+  border-radius:999px;
+  background:rgba(255,255,255,.7);
+  box-shadow:0 2px 8px rgba(0,0,0,.05);
+  color:#3d3d3a;
+  font-size:11.5px;
+  font-weight:500;
+  padding:8px 14px;
+  cursor:pointer;
+  transition:background .2s ease,transform .2s ease,box-shadow .2s ease;
+  white-space:nowrap;
+}
+.cabinet-action-btn:hover{
+  background:#fff;
+  transform:translateY(-1px);
+  box-shadow:0 6px 16px rgba(0,0,0,.09);
+}
+.cabinet-action-btn:disabled{
+  opacity:.55;
+  cursor:default;
+  transform:none;
+  box-shadow:0 2px 8px rgba(0,0,0,.05);
+}
+.cabinet-action-btn.is-danger{
+  color:#a13636;
+  border-color:rgba(161,54,54,.25);
+}
+.cabinet-action-btn.is-danger:hover{
+  background:#fff6f6;
+}
+
+@media (max-width:480px){
+  .cabinet-action-row{padding:0 16px 14px}
+  .cabinet-action-btn{
+    flex:1 1 calc(50% - 10px);
+    justify-content:center;
+  }
+}
 .cabinet-title-stamp{display:flex;flex-direction:column;align-items:center;gap:4px}
 .stamp-box{padding:2px 9px;border-radius:3px;background:#111;color:#fff;font-size:8px;letter-spacing:.18em}
 .cabinet-char-name{font-size:12px;font-weight:600;color:var(--c-ink)}
