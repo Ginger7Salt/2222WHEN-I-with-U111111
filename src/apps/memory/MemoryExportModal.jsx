@@ -6,10 +6,12 @@ import {
   downloadMemoryExport
 } from './memoryImportExport';
 import { downloadObsidianMarkdownExport } from './obsidianImport/obsidianMarkdownExporter';
+import { downloadOperitArchive } from './operitImport/operitExportService';
 
 const EXPORT_FORMATS = {
   JSON: 'json',
-  OBSIDIAN_MARKDOWN: 'obsidian_markdown'
+  OBSIDIAN_MARKDOWN: 'obsidian_markdown',
+  OPERIT_JSON: 'operit_json'
 };
 
 const formatDate = (value) => {
@@ -81,6 +83,14 @@ export const MemoryExportModal = ({
             ? `已导出 ${result.fileCount} 个消息框、共 ${result.memoryCount} 条记忆的 .md 文件（打包为 zip）。`
             : `已导出“${currentChat?.title || '当前消息框'}”的 ${result.memoryCount} 条记忆为 .md 文件。`
         );
+      } else if (format === EXPORT_FORMATS.OPERIT_JSON) {
+        const result = await downloadOperitArchive(exportScope);
+
+        onCompleted?.(
+          scope === 'current_chat'
+            ? `已导出“${currentChat?.title || '当前消息框'}”的 ${result.memoryCount} 条记忆为 Operit 归档。`
+            : `已导出全部消息框的 ${result.memoryCount} 条记忆为 Operit 归档。`
+        );
       } else {
         const payload = await downloadMemoryExport(exportScope);
 
@@ -135,6 +145,18 @@ export const MemoryExportModal = ({
                 只导出正式记忆本身，不包含待确认片段、修订记录和原始聊天。
               </p>
             </>
+          ) : format === EXPORT_FORMATS.OPERIT_JSON ? (
+            <>
+              <p>
+                导出为 Operit 能识别的记忆归档（.json），用于把这边的记忆
+                带去 Operit。只导出正式记忆本身，不包含待确认片段和修订记录。
+              </p>
+              <p>
+                本项目没有 Operit 的 source/标签/文件夹这几个概念，导出时
+                会按类型、所属消息框等信息尽量还原成接近的值，不是逐字段
+                精确对应。
+              </p>
+            </>
           ) : (
             <>
               <p>
@@ -180,6 +202,23 @@ export const MemoryExportModal = ({
             <span>
               <strong>Obsidian Markdown（.md）</strong>
               <small>只包含正式记忆，方便放进 Obsidian 库里查看和编辑。</small>
+            </span>
+          </label>
+
+          <label className="memory-choice-item">
+            <input
+              type="radio"
+              name="memoryExportFormat"
+              value={EXPORT_FORMATS.OPERIT_JSON}
+              checked={format === EXPORT_FORMATS.OPERIT_JSON}
+              onChange={() => {
+                setFormat(EXPORT_FORMATS.OPERIT_JSON);
+                setPreview(null);
+              }}
+            />
+            <span>
+              <strong>Operit 归档（.json）</strong>
+              <small>用于导入到 Operit，不能再导回本项目。</small>
             </span>
           </label>
         </div>
@@ -282,7 +321,9 @@ export const MemoryExportModal = ({
               ? '正在导出'
               : format === EXPORT_FORMATS.OBSIDIAN_MARKDOWN
                 ? '导出 Markdown'
-                : '导出 JSON'}
+                : format === EXPORT_FORMATS.OPERIT_JSON
+                  ? '导出 Operit 归档'
+                  : '导出 JSON'}
           </button>
         </div>
       </section>
