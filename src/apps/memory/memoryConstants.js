@@ -128,7 +128,8 @@ export const MEMORY_SOURCE_KINDS = {
   SUMMARY_ASSISTED: 'summary_assisted',
   IMPORTED: 'imported',
   USER_CREATED: 'user_created',
-  OBSIDIAN_IMPORT: 'obsidian_import'
+  OBSIDIAN_IMPORT: 'obsidian_import',
+  OPERIT_IMPORT: 'operit_import'
 };
 
 export const MEMORY_CANDIDATE_STATUSES = {
