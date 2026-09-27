@@ -7,13 +7,17 @@
 //
 // 和旧的 snapshotSchedulerService.js（只盯当前打开的一个 chatId）不同，
 // 这里每次巡检会遍历数据库里【所有】聊天窗，逐个按角色 4 小时冷却 /
-// NPC 8 小时 30% 概率的规则判断是否该发一条新动态。
-//
-// 发帖判定规则与旧的 snapshotSchedulerService.js 保持完全一致，没有新增/更改业务逻辑，
-// 只是把作用范围从"当前打开的一个 chatId"扩大到"所有 chatId"。
+// NPC 4 小时冷却 + 每个 NPC 独立 60% 概率的规则判断是否该发一条新动态。
 //
 // 说明：这里沿用角色的 isAutoMessageActive 字段作为唯一开关（和旧版 snapshotSchedulerService.js
 // 一致），不接入 SettingsPage 里"全局主动消息"总开关，也不接入免打扰时段——这是你在这次澄清里选择的行为。
+//
+// 【2026-09 频率调整说明】
+// 旧版：NPC 冷却 8 小时 + 全局只随机抽 1 个 NPC + 30% 概率命中一次。
+// 新版：NPC 冷却缩到 4 小时（与 char 对齐），冷却改为按【每个 NPC 各自】计算
+// （而不是"该 chat 下任意 NPC 最后一次发帖"这种全局冷却），且每个已过冷却的 NPC
+// 各自独立 roll 一次 60% 概率——同一轮巡检里，运气好可以有多个 NPC 同时发新动态，
+// 更接近真实生活圈的感觉。
 import db from '../../../db';
 import { generateCharacterPost, generateNpcPost, getApiConfig } from './snapshotAiService';
 import { getNpcsByChatId } from './snapshotNpcService';
@@ -21,8 +25,8 @@ import { triggerSystemNotification } from '../../../services/aiService';
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const CHAR_POST_COOLDOWN_MS = 4 * 60 * 60 * 1000;
-const NPC_POST_COOLDOWN_MS = 8 * 60 * 60 * 1000;
-const NPC_TRIGGER_PROBABILITY = 0.3;
+const NPC_POST_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+const NPC_TRIGGER_PROBABILITY = 0.6;
 
 let schedulerTimer = null;
 let isRunningCheck = false;
@@ -81,27 +85,23 @@ const tryPostForCharacter = async (chat, character, now) => {
   }
 };
 
-// NPC 偶发生活动态（该聊天窗下存在 NPC、30% 概率命中、且距上次 NPC 发帖超过 8 小时）
-const tryPostForNpc = async (chat, character, now) => {
+// 单个 NPC 距其上一次发帖是否已经过了冷却时间（注意：是这个 NPC 自己的最后一次
+// 发帖时间，不是"该 chat 下任意 NPC"的最后一次发帖时间——这样才能让多个 NPC
+// 互不占用彼此的冷却名额）。
+const isNpcOffCooldown = async (chat, npc, now) => {
+  const lastNpcPost = await db.snapshots
+    .where('chatId')
+    .equals(chat.id)
+    .and((s) => s.authorType === 'npc' && s.npcId === npc.id)
+    .last();
+
+  return !lastNpcPost || now - lastNpcPost.timestamp > NPC_POST_COOLDOWN_MS;
+};
+
+const postNpcSnapshot = async (chat, character, npc, now) => {
   try {
-    const npcs = await getNpcsByChatId(chat.id);
-    if (npcs.length === 0) return null;
-    if (Math.random() >= NPC_TRIGGER_PROBABILITY) return null;
-
-    const lastNpcPost = await db.snapshots
-      .where('chatId')
-      .equals(chat.id)
-      .and((s) => s.authorType === 'npc')
-      .last();
-
-    if (lastNpcPost && now - lastNpcPost.timestamp <= NPC_POST_COOLDOWN_MS) {
-      return null;
-    }
-
-    const pickedNpc = npcs[Math.floor(Math.random() * npcs.length)];
-
     const postData = await generateNpcPost(
-      pickedNpc,
+      npc,
       chat.id,
       character?.name || '朋友',
       chat.userName || '常客'
@@ -110,8 +110,8 @@ const tryPostForNpc = async (chat, character, now) => {
     const snapshotId = await db.snapshots.add({
       chatId: chat.id,
       authorType: 'npc',
-      npcId: pickedNpc.id,
-      authorName: pickedNpc.name,
+      npcId: npc.id,
+      authorName: npc.name,
       authorAvatar: '',
       mediaUrl: '',
       imagePrompt: postData.imagePrompt,
@@ -124,7 +124,7 @@ const tryPostForNpc = async (chat, character, now) => {
     });
 
     void triggerSystemNotification(
-      `${pickedNpc.name} 发布了一条新动态`,
+      `${npc.name} 发布了一条新动态`,
       getNotificationPreview(postData.content),
       ''
     );
@@ -132,11 +132,32 @@ const tryPostForNpc = async (chat, character, now) => {
     return snapshotId;
   } catch (error) {
     console.error(
-      `[SnapshotGlobalScheduler] 聊天窗 ${chat.id} NPC 动态生成失败：`,
+      `[SnapshotGlobalScheduler] 聊天窗 ${chat.id} NPC(${npc.name}) 动态生成失败：`,
       error
     );
     return null;
   }
+};
+
+// NPC 偶发生活动态：该聊天窗下每一个已过冷却（4 小时）的 NPC，各自独立
+// 60% 概率判定是否发帖——同一轮巡检里可以有多个 NPC 同时发。
+const tryPostForNpc = async (chat, character, now) => {
+  const npcs = await getNpcsByChatId(chat.id);
+  if (npcs.length === 0) return [];
+
+  const postedIds = [];
+
+  for (const npc of npcs) {
+    const offCooldown = await isNpcOffCooldown(chat, npc, now);
+    if (!offCooldown) continue;
+
+    if (Math.random() >= NPC_TRIGGER_PROBABILITY) continue;
+
+    const snapshotId = await postNpcSnapshot(chat, character, npc, now);
+    if (snapshotId) postedIds.push(snapshotId);
+  }
+
+  return postedIds;
 };
 
 const processChat = async (chat, now) => {
@@ -146,9 +167,9 @@ const processChat = async (chat, now) => {
 
   // 角色和 NPC 各自独立判定，互不占用彼此的发帖机会。
   const charPostId = await tryPostForCharacter(chat, character, now);
-  const npcPostId = await tryPostForNpc(chat, character, now);
+  const npcPostIds = await tryPostForNpc(chat, character, now);
 
-  return [charPostId, npcPostId].filter(Boolean);
+  return [charPostId, ...npcPostIds].filter(Boolean);
 };
 
 export const checkAndTriggerGlobalSnapshotPosts = async () => {

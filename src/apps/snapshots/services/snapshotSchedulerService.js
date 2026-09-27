@@ -4,7 +4,14 @@
 // 相对旧版的改动：NPC 来源从全局 `db.snapshotSettings.get('npcs')`
 // 改为按 chatId 专属的 `getNpcsByChatId(chatId)`；
 // generateNpcPost 调用同步适配新签名 (npc, chatId, charName, userName)。
-// 其余调度/冷却逻辑不变。
+//
+// 【2026-09 频率调整说明】
+// 旧版：NPC 冷却 8 小时 + 全局只随机抽 1 个 NPC + 30% 概率命中一次。
+// 新版：NPC 冷却缩到 4 小时（与 char 对齐），冷却按【每个 NPC 各自】的最后一次
+// 发帖时间计算（不再是"该 chat 下任意 NPC 最后一次发帖"），且每个已过冷却的
+// NPC 各自独立 roll 一次 60% 概率——同一轮巡检可以有多个 NPC 同时发新动态。
+// 和 snapshotGlobalScheduler.js 保持同一套规则，两处重复实现属于本项目里
+// 已有的"调度器各自独立成文件"惯例，不合并。
 //
 import db from '../../../db';
 import { generateCharacterPost, generateNpcPost } from './snapshotAiService';
@@ -100,20 +107,27 @@ class SnapshotScheduler {
         }
       }
 
-      // 2. 检查 NPC 是否偶发生活动态 (冷却 8 小时，30% 随机触发)
+      // 2. 检查 NPC 是否偶发生活动态
+      // 冷却 4 小时，每个已过冷却的 NPC 各自独立 60% 概率触发，
+      // 同一轮巡检可以有多个 NPC 同时发帖。
       const npcs = await getNpcsByChatId(this.activeChatId);
+      let hasNpcPosted = false;
 
-      if (npcs.length > 0 && Math.random() < 0.3) {
+      for (const npc of npcs) {
         const lastNpcPost = await db.snapshots
           .where('chatId')
           .equals(this.activeChatId)
-          .and(s => s.authorType === 'npc')
+          .and(s => s.authorType === 'npc' && s.npcId === npc.id)
           .last();
 
-        if (!lastNpcPost || now - lastNpcPost.timestamp > 8 * 60 * 60 * 1000) {
-          const pickedNpc = npcs[Math.floor(Math.random() * npcs.length)];
+        const offCooldown = !lastNpcPost || now - lastNpcPost.timestamp > 4 * 60 * 60 * 1000;
+        if (!offCooldown) continue;
+
+        if (Math.random() >= 0.6) continue;
+
+        try {
           const postData = await generateNpcPost(
-            pickedNpc,
+            npc,
             this.activeChatId,
             char?.name || '朋友',
             chat.userName || '常客'
@@ -122,8 +136,8 @@ class SnapshotScheduler {
           await db.snapshots.add({
             chatId: this.activeChatId,
             authorType: 'npc',
-            npcId: pickedNpc.id,
-            authorName: pickedNpc.name,
+            npcId: npc.id,
+            authorName: npc.name,
             authorAvatar: '',
             mediaUrl: '',
             imagePrompt: postData.imagePrompt,
@@ -134,8 +148,14 @@ class SnapshotScheduler {
             timestamp: now,
             createdAt: now
           });
-          this.notify();
+          hasNpcPosted = true;
+        } catch (err) {
+          console.error(`[SnapshotScheduler] NPC(${npc.name}) 动态生成失败:`, err);
         }
+      }
+
+      if (hasNpcPosted) {
+        this.notify();
       }
     } catch (err) {
       console.error('[SnapshotScheduler] 调度检查异常:', err);
