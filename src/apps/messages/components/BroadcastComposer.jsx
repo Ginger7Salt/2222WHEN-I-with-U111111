@@ -143,59 +143,55 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4 overflow-hidden">
-      {/* 遮罩背景 */}
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-hidden">
+      {/* 遮罩背景：纯净微暗遮罩，不加模糊滤镜 */}
       <div
-        className="fixed inset-0 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 transition-opacity"
         style={{
-          background:
-            'var(--modal-backdrop, color-mix(in srgb, var(--bg-main, #f6f6f7) 70%, transparent))',
+          background: 'rgba(0, 0, 0, 0.45)',
         }}
         onClick={() => !isSending && onClose()}
       />
 
-      {/* 1. 背景罗盘刻度轮盘 (黑白弥散微转动效) */}
+      {/* 1. 背景罗盘刻度轮盘：去除模糊光晕，保持纯净线条与慢速旋转 */}
       <div className="compass-stage" aria-hidden="true">
-        <div className="compass-diffuse-glow" />
-        <svg className="compass-dial-svg" viewBox="0 0 500 500" fill="none" stroke="currentColor">
-          <circle cx="250" cy="250" r="235" strokeWidth="0.75" strokeOpacity="0.25" />
-          <circle cx="250" cy="250" r="225" strokeWidth="0.5" strokeDasharray="2 6" strokeOpacity="0.35" />
-          <circle cx="250" cy="250" r="195" strokeWidth="1" strokeOpacity="0.3" />
+        <svg className="compass-dial-svg" viewBox="0 0 500 500" fill="none">
+          <circle cx="250" cy="250" r="235" stroke="currentColor" strokeWidth="0.75" strokeOpacity="0.25" />
+          <circle cx="250" cy="250" r="225" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 6" strokeOpacity="0.35" />
+          <circle cx="250" cy="250" r="195" stroke="currentColor" strokeWidth="1" strokeOpacity="0.28" />
 
           {/* 罗盘方位标记 (N, E, S, W) */}
-          <text x="250" y="24" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none">N · 000°</text>
-          <text x="480" y="254" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none">E · 090°</text>
-          <text x="250" y="488" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none">S · 180°</text>
-          <text x="22" y="254" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none">W · 270°</text>
+          <text x="250" y="24" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none" fillOpacity="0.75">N · 000°</text>
+          <text x="480" y="254" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none" fillOpacity="0.75">E · 090°</text>
+          <text x="250" y="488" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none" fillOpacity="0.75">S · 180°</text>
+          <text x="22" y="254" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none" fillOpacity="0.75">W · 270°</text>
 
-          {/* 极坐标十字分线 */}
-          <line x1="250" y1="18" x2="250" y2="482" strokeWidth="0.6" strokeOpacity="0.22" />
-          <line x1="18" y1="250" x2="482" y2="250" strokeWidth="0.6" strokeOpacity="0.22" />
+          {/* 极坐标十字射线 */}
+          <line x1="250" y1="18" x2="250" y2="482" stroke="currentColor" strokeWidth="0.6" strokeOpacity="0.2" />
+          <line x1="18" y1="250" x2="482" y2="250" stroke="currentColor" strokeWidth="0.6" strokeOpacity="0.2" />
 
-          {/* 45度斜向指示虚线 */}
-          <line x1="85" y1="85" x2="415" y2="415" strokeWidth="0.5" strokeDasharray="3 4" strokeOpacity="0.18" />
-          <line x1="85" y1="415" x2="415" y2="85" strokeWidth="0.5" strokeDasharray="3 4" strokeOpacity="0.18" />
+          {/* 45度斜向虚线 */}
+          <line x1="85" y1="85" x2="415" y2="415" stroke="currentColor" strokeWidth="0.5" strokeDasharray="3 4" strokeOpacity="0.18" />
+          <line x1="85" y1="415" x2="415" y2="85" stroke="currentColor" strokeWidth="0.5" strokeDasharray="3 4" strokeOpacity="0.18" />
 
           {/* 内圈同心圆与小刻度 */}
-          <circle cx="250" cy="250" r="150" strokeWidth="0.5" strokeDasharray="1 4" strokeOpacity="0.25" />
-          <circle cx="250" cy="250" r="110" strokeWidth="0.75" strokeOpacity="0.22" />
+          <circle cx="250" cy="250" r="150" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 4" strokeOpacity="0.22" />
+          <circle cx="250" cy="250" r="110" stroke="currentColor" strokeWidth="0.75" strokeOpacity="0.2" />
         </svg>
       </div>
 
-      {/* 2. 前景：纯净拼贴信卡 */}
+      {/* 2. 前景：居中拼贴信卡 */}
       <div
-        className="collage-card relative z-20 flex w-full max-w-[385px] flex-col gap-3.5 overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
+        className="collage-card relative z-20 flex w-full max-w-[380px] flex-col gap-4 overflow-hidden rounded-[24px]"
         style={{
           background: 'var(--card-bg, #ffffff)',
           color: 'var(--text-main, #111111)',
-          maxHeight: '85vh',
-          paddingBottom: 'max(1.2rem, env(safe-area-inset-bottom))',
+          maxHeight: '90vh',
         }}
       >
         {/* 顶部：邮戳与标题栏 */}
         <div className="card-header flex items-center justify-between pb-3">
           <div className="flex items-center gap-2.5">
-            {/* 罗盘造型印戳 */}
             <div className="postmark-seal">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="2" x2="12" y2="22" />
@@ -205,7 +201,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
               <span className="postmark-date">{postmarkLabel}</span>
             </div>
             <div className="flex flex-col text-left">
-              <h3 className="text-[13.5px] font-bold tracking-tight">
+              <h3 className="text-[13px] font-bold tracking-tight">
                 寻迹信标 · 寄往 {targets.length} 方位
               </h3>
               <p className="text-[10px] opacity-60">向定锚目标并发投递信笺</p>
@@ -317,7 +313,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
       )}
 
       <style>{`
-        /* 背景罗盘舞台 */
+        /* 背景纯净罗盘舞台 (无模糊层) */
         .compass-stage {
           position: fixed;
           top: 50%;
@@ -326,57 +322,47 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           width: 580px;
           height: 580px;
           pointer-events: none;
-          z-index: 12;
+          z-index: 15;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--text-main, #222);
-        }
-
-        .compass-diffuse-glow {
-          position: absolute;
-          width: 440px;
-          height: 440px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.01) 60%, transparent 80%);
-          filter: blur(24px);
+          color: rgba(255, 255, 255, 0.4);
         }
 
         .compass-dial-svg {
           width: 100%;
           height: 100%;
           animation: slowRotate 160s linear infinite;
-          opacity: 0.55;
         }
 
-        /* 拼贴信笺卡片主体 */
+        /* 居中拼贴信卡主体 */
         .collage-card {
-          padding: 20px 18px 18px;
+          padding: 22px 20px 20px;
           border: 1px solid var(--card-border, rgba(0, 0, 0, 0.08));
           box-shadow: 
             0 1px 3px rgba(0, 0, 0, 0.04),
-            0 20px 45px -10px rgba(0, 0, 0, 0.12),
-            0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+            0 20px 45px -10px rgba(0, 0, 0, 0.2),
+            0 0 0 1px rgba(255, 255, 255, 0.8) inset;
           animation: cardPopIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         /* 顶栏分割与邮戳 */
         .card-header {
-          border-bottom: 1px solid var(--card-border, rgba(0, 0, 0, 0.07));
+          border-bottom: 1px solid var(--card-border, rgba(0, 0, 0, 0.08));
         }
 
         .postmark-seal {
-          width: 34px;
-          height: 34px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
-          border: 1.2px dashed currentColor;
+          border: 1px dashed currentColor;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           transform: rotate(-10deg);
           flex-shrink: 0;
-          background: var(--control-soft-bg, rgba(0, 0, 0, 0.02));
+          background: rgba(0, 0, 0, 0.02);
         }
 
         .postmark-date {
@@ -391,13 +377,14 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           width: 26px;
           height: 26px;
           border-radius: 50%;
-          border: 1px solid var(--card-border, rgba(0, 0, 0, 0.1));
+          border: 1px solid var(--card-border, rgba(0, 0, 0, 0.12));
           background: transparent;
           display: flex;
           align-items: center;
           justify-content: center;
           opacity: 0.6;
           transition: all 0.2s ease;
+          cursor: pointer;
         }
 
         .btn-close:hover:not(:disabled) {
@@ -406,10 +393,10 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           transform: rotate(90deg);
         }
 
-        /* 齿孔邮票贴纸 */
+        /* 邮票贴纸 */
         .stamp-pill {
           background: var(--card-bg, #ffffff);
-          border: 1px solid var(--card-border, #d4d4d8);
+          border: 1px solid var(--card-border, #e4e4e7);
           border-radius: 8px;
           padding: 6px 8px;
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
@@ -421,9 +408,9 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           z-index: 2;
         }
 
-        /* 拼贴信纸卡片区 */
+        /* 拼贴信纸草稿区 */
         .postcard-stack {
-          max-height: 240px;
+          max-height: 250px;
         }
 
         .postcard-sheet {
@@ -431,14 +418,14 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           border: 1px solid var(--card-border, rgba(0, 0, 0, 0.08));
           border-radius: 14px;
           padding: 10px 12px;
-          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.035);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
           transition: transform 0.25s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
 
         .postcard-sheet:hover,
         .postcard-sheet:focus-within {
           border-color: rgba(0, 0, 0, 0.22);
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
         }
 
         .sheet-index {
@@ -451,6 +438,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
 
         .sheet-delete-btn {
           color: #a1a1aa;
+          cursor: pointer;
         }
 
         .sheet-textarea::placeholder {
@@ -464,6 +452,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           border-radius: 12px;
           color: var(--text-main, #333333);
           opacity: 0.7;
+          cursor: pointer;
         }
 
         .btn-add-sheet:hover {
@@ -472,7 +461,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           background: rgba(0, 0, 0, 0.02);
         }
 
-        /* 底部启程发送按钮 */
+        /* 底部印发启程按钮 */
         .btn-seal-send {
           height: 42px;
           border-radius: 9999px;
@@ -481,6 +470,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           letter-spacing: 0.04em;
           box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
           transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          cursor: pointer;
         }
 
         .btn-seal-send:hover:not(:disabled) {

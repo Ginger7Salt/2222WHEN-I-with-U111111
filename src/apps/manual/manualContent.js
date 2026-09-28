@@ -50,6 +50,7 @@ export const MANUAL_UI_TEXT = {
     footerBrand: 'WHEN I with U',
     footerTag: 'KEEP WHAT MATTERS',
     pageFooter: 'by shadow',
+    reopenOnboarding: '重新查看引导',
   },
   en: {
     kicker: 'THE HOUSE MANUAL',
@@ -64,6 +65,7 @@ export const MANUAL_UI_TEXT = {
     footerBrand: 'WHEN I with U',
     footerTag: 'KEEP WHAT MATTERS',
     pageFooter: 'by shadow',
+    reopenOnboarding: 'Revisit the guide',
   },
   ko: {
     kicker: 'THE HOUSE MANUAL',
@@ -78,6 +80,7 @@ export const MANUAL_UI_TEXT = {
     footerBrand: 'WHEN I with U',
     footerTag: 'KEEP WHAT MATTERS',
     pageFooter: 'by shadow',
+    reopenOnboarding: '다시 안내 보기',
   },
 };
 

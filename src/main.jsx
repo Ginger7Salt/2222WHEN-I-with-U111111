@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import OnboardingGate from './components/OnboardingGate.jsx';
+import OnboardingIntro from './components/OnboardingIntro.jsx';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -13,7 +14,9 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <OnboardingGate>
-      <App />
+      <OnboardingIntro>
+        <App />
+      </OnboardingIntro>
     </OnboardingGate>
   </React.StrictMode>,
 );

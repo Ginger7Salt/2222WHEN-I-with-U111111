@@ -13,6 +13,7 @@ import {
   storeManualLang,
 } from './manualBlocks';
 import { TutorialLibrary } from './TutorialLibrary';
+import { reopenOnboardingIntro } from '../../components/OnboardingIntro.jsx';
 
 // 说明书的文案已经全部搬到 manualContent.js（按 zh / en / ko 三语分层存放）。
 // 这个文件只负责：管理"当前选的是哪个语言"这一个状态，然后把对应语言的
@@ -158,6 +159,16 @@ export const ManualApp = ({ onBack }) => {
             <TutorialLibrary lang={lang} />
           ) : (
             renderManualBlocks(currentText.body)
+          )}
+
+          {currentSection.id === 'welcome' && (
+            <button
+              type="button"
+              className="manual-reopen-onboarding"
+              onClick={() => reopenOnboardingIntro()}
+            >
+              {ui.reopenOnboarding}
+            </button>
           )}
         </div>
 

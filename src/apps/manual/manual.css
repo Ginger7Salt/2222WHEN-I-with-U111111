@@ -362,6 +362,31 @@
   border-top: 1px solid var(--divider);
 }
 
+/* "重新查看引导"——只出现在序言页，重新弹出首次引导的 5 屏流程 */
+.manual-reopen-onboarding {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 1.1rem;
+  padding: 0.5rem 1rem;
+
+  border: 1px solid var(--hm-line-strong, rgba(0, 0, 0, 0.36));
+  border-radius: 100px;
+  background: transparent;
+  color: #000;
+
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.manual-reopen-onboarding:hover {
+  background: #000;
+  color: #fff;
+}
+
 /* ==========================================================
    普通说明项目
    ========================================================== */
