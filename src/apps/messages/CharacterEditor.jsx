@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   ArrowLeft, Save, Trash2, Upload, Plus, BookOpen, Brain,
   List, User, X, Activity, Shield, ChevronDown, ChevronRight, FoldVertical, UnfoldVertical
@@ -10,6 +10,49 @@ import RingtonePanel from '../../features/real-voice/components/RingtonePanel';
 import VoicemailPanel from '../../features/real-voice/components/VoicemailPanel';
 import { normalizeVoiceProfile } from '../../features/real-voice/realVoiceDefaults';
 
+// 随内容自动变长，且超出最大高度显示滚动条的自适应文本框组件
+const AutoGrowingTextarea = ({
+  value,
+  onChange,
+  placeholder,
+  minHeight = '96px',
+  maxHeight = '240px',
+  className = '',
+  ...props
+}) => {
+  const textareaRef = useRef(null);
+
+  const adjustHeight = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  useEffect(() => {
+    adjustHeight();
+  }, [value]);
+
+  const handleChange = (e) => {
+    adjustHeight();
+    onChange?.(e);
+  };
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={value}
+      onChange={handleChange}
+      placeholder={placeholder}
+      style={{
+        minHeight,
+        maxHeight,
+      }}
+      className={`w-full bg-black/5 dark:bg-white/10 rounded-xl p-3 outline-none resize-none overflow-y-auto leading-relaxed transition-[height] duration-75 text-xs sm:text-sm custom-scrollbar ${className}`}
+      {...props}
+    />
+  );
+};
 
 export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
   const [character, setCharacter] = useState({
@@ -26,12 +69,10 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     autoDiary: characterData?.autoDiary ?? true,
     userPersona: characterData?.userPersona || '',
     userAvatar: characterData?.userAvatar || '',
-       statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此'],
-voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
+    statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此'],
+    voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
     ringtone: characterData?.ringtone || null,
     voicemail: characterData?.voicemail || null,
-
-
   });
 
   // 控制世界书与知识库手风琴折叠展开状态 (Key: entryId -> boolean)
@@ -215,34 +256,32 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
               />
             </div>
 
-                        <div>
+            <div>
               <label className="block opacity-60 mb-1">角色简介 (Bio)</label>
-              <textarea
-                rows={3}
-                placeholder="一句话性格描述..."
+              <AutoGrowingTextarea
+                placeholder="一句话性格描述与主要特征..."
                 value={character.bio}
+                minHeight="90px"
+                maxHeight="220px"
                 onChange={(e) => setCharacter({ ...character, bio: e.target.value })}
-                className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-y overflow-y-auto max-h-32 min-h-[48px]"
               />
             </div>
-
           </div>
         </div>
 
-              <div>
+        <div>
           <label className="block opacity-60 mb-1">其它补充说明 (Extra Notes)</label>
-          <textarea
-            rows={3}
+          <AutoGrowingTextarea
             placeholder="关于角色的特殊补充偏好或人设限制..."
             value={character.extraNotes}
+            minHeight="100px"
+            maxHeight="260px"
             onChange={(e) => setCharacter({ ...character, extraNotes: e.target.value })}
-            className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-y overflow-y-auto max-h-32 min-h-[48px]"
           />
         </div>
-
       </GlassCard>
 
-            <VoiceProfilePanel
+      <VoiceProfilePanel
         value={character.voiceProfile}
         onChange={(voiceProfile) => {
           setCharacter((previous) => ({
@@ -259,12 +298,11 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
             ...previous,
             ringtone,
           }));
-               }}
+        }}
       />
 
       <VoicemailPanel
         value={character.voicemail}
-        character={character}
         onChange={(voicemail) => {
           setCharacter((previous) => ({
             ...previous,
@@ -273,21 +311,20 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
         }}
       />
 
-
       {/* 2. 状态列表 (Status List) */}
-      <GlassCard className="space-y-3">
+      <GlassCard className="space-y-4">
         <div className="flex items-center gap-2 font-bold text-sm">
           <Activity className="w-4 h-4" />
-          <span>角色状态列表 (Status Pool)</span>
+          <span>待机状态与心境 (Custom Statuses)</span>
         </div>
-        <p className="opacity-60 text-[10px]">角色会从中随机抽取状态显示在顶部状态栏。</p>
 
         <div className="flex gap-2">
           <input
             type="text"
-            placeholder="例如: 正在咖啡馆看书..."
+            placeholder="新增一个状态，如：正在图书馆发呆..."
             value={newStatus}
             onChange={(e) => setNewStatus(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addStatus()}
             className="flex-1 bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none"
           />
           <button type="button" onClick={addStatus} className="px-3 py-2 rounded-lg bg-black/10 dark:bg-white/10 font-semibold">
@@ -295,29 +332,34 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {character.statusList.map((st, idx) => (
-            <span key={idx} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/10 text-[11px]">
-              <span>{st}</span>
-              <button type="button" onClick={() => removeStatus(idx)} className="opacity-50 hover:opacity-100">
+        <div className="flex flex-wrap gap-2 pt-1">
+          {character.statusList.map((status, idx) => (
+            <div key={idx} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/5 dark:bg-white/5 border border-white/10">
+              <span>{status}</span>
+              <button type="button" onClick={() => removeStatus(idx)} className="opacity-40 hover:opacity-100">
                 <X className="w-3 h-3" />
               </button>
-            </span>
+            </div>
           ))}
         </div>
       </GlassCard>
 
-      {/* 3. 总结与频率设置 */}
-      <GlassCard className="space-y-3">
+      {/* 3. 记忆与阶段总结频率 */}
+      <GlassCard className="space-y-4">
         <div className="flex items-center gap-2 font-bold text-sm">
           <List className="w-4 h-4" />
-          <span>对话总结 (Summary Settings)</span>
+          <span>记忆整理与阶段总结 (Summaries)</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span>总结触发频率 (对话轮数)</span>
+          <div className="space-y-0.5">
+            <span className="font-medium">自动总结频率 (轮次)</span>
+            <p className="text-[10px] opacity-50">每对话指定轮数，将自动压缩提炼长期记忆</p>
+          </div>
           <input
             type="number"
+            min="5"
+            max="50"
             value={character.summaryFrequency}
             onChange={(e) => setCharacter({ ...character, summaryFrequency: parseInt(e.target.value) || 10 })}
             className="w-20 bg-black/5 dark:bg-white/10 rounded-lg p-1.5 text-center outline-none"
@@ -355,31 +397,31 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
         </div>
       </GlassCard>
 
-      {/* 4. 角色的世界书 (支持展开与折叠) */}
-      <GlassCard className="space-y-3">
+      {/* 4. 世界书 (World Book) */}
+      <GlassCard className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 font-bold text-sm">
             <BookOpen className="w-4 h-4" />
-            <span>角色的世界书 (World Book)</span>
+            <span>世界书 (World Book - 场景与背景)</span>
           </div>
 
           {character.worldBookEntries.length > 0 && (
-            <div className="flex items-center gap-2 text-[10px]">
-              <button
-                type="button"
-                onClick={() => toggleAllWorldEntries(false)}
-                className="flex items-center gap-1 opacity-60 hover:opacity-100"
-              >
-                <FoldVertical className="w-3 h-3" />
-                <span>全部收起</span>
-              </button>
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => toggleAllWorldEntries(true)}
-                className="flex items-center gap-1 opacity-60 hover:opacity-100"
+                className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded opacity-60 hover:opacity-100"
+                title="全部展开"
               >
-                <UnfoldVertical className="w-3 h-3" />
-                <span>全部展开</span>
+                <UnfoldVertical className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleAllWorldEntries(false)}
+                className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded opacity-60 hover:opacity-100"
+                title="全部折叠"
+              >
+                <FoldVertical className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
@@ -393,12 +435,12 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
             onChange={(e) => setNewWorldTitle(e.target.value)}
             className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none"
           />
-          <textarea
-            rows={2}
+          <AutoGrowingTextarea
             placeholder="详细世界观与条目正文..."
             value={newWorldContent}
+            minHeight="96px"
+            maxHeight="240px"
             onChange={(e) => setNewWorldContent(e.target.value)}
-            className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-none"
           />
           <button type="button" onClick={addWorldEntry} className="w-full py-2 rounded-xl bg-black/10 dark:bg-white/10 font-semibold">
             添加世界书条目
@@ -433,7 +475,7 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
                 </div>
 
                 {isExpanded && (
-                  <div className="px-3 pb-3 pt-1 border-t border-black/5 dark:border-white/5 text-[11px] opacity-80 leading-relaxed font-sans">
+                  <div className="px-3 pb-3 pt-1 border-t border-black/5 dark:border-white/5 text-[11px] opacity-80 leading-relaxed font-sans whitespace-pre-wrap">
                     {w.content}
                   </div>
                 )}
@@ -443,31 +485,31 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
         </div>
       </GlassCard>
 
-      {/* 5. 角色的知识库 (支持展开与折叠) */}
-      <GlassCard className="space-y-3">
+      {/* 5. 专属知识库 (Knowledge Base) */}
+      <GlassCard className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 font-bold text-sm">
             <Brain className="w-4 h-4" />
-            <span>角色的知识库 (Knowledge Base)</span>
+            <span>专属知识库 (Knowledge Base)</span>
           </div>
 
           {character.knowledgeEntries.length > 0 && (
-            <div className="flex items-center gap-2 text-[10px]">
-              <button
-                type="button"
-                onClick={() => toggleAllKnowledgeEntries(false)}
-                className="flex items-center gap-1 opacity-60 hover:opacity-100"
-              >
-                <FoldVertical className="w-3 h-3" />
-                <span>全部收起</span>
-              </button>
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => toggleAllKnowledgeEntries(true)}
-                className="flex items-center gap-1 opacity-60 hover:opacity-100"
+                className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded opacity-60 hover:opacity-100"
+                title="全部展开"
               >
-                <UnfoldVertical className="w-3 h-3" />
-                <span>全部展开</span>
+                <UnfoldVertical className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleAllKnowledgeEntries(false)}
+                className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded opacity-60 hover:opacity-100"
+                title="全部折叠"
+              >
+                <FoldVertical className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
@@ -481,12 +523,12 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
             onChange={(e) => setNewKnowledgeTitle(e.target.value)}
             className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none"
           />
-          <textarea
-            rows={2}
+          <AutoGrowingTextarea
             placeholder="知识库正文细节..."
             value={newKnowledgeContent}
+            minHeight="96px"
+            maxHeight="240px"
             onChange={(e) => setNewKnowledgeContent(e.target.value)}
-            className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-none"
           />
           <button type="button" onClick={addKnowledgeEntry} className="w-full py-2 rounded-xl bg-black/10 dark:bg-white/10 font-semibold">
             添加知识库条目
@@ -521,7 +563,7 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
                 </div>
 
                 {isExpanded && (
-                  <div className="px-3 pb-3 pt-1 border-t border-black/5 dark:border-white/5 text-[11px] opacity-80 leading-relaxed font-sans">
+                  <div className="px-3 pb-3 pt-1 border-t border-black/5 dark:border-white/5 text-[11px] opacity-80 leading-relaxed font-sans whitespace-pre-wrap">
                     {k.content}
                   </div>
                 )}
@@ -563,12 +605,12 @@ voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
         <div className="pt-2 border-t border-white/10 space-y-3">
           <div>
             <label className="block opacity-60 mb-1">我的人设 (User Persona - RP 模式生效)</label>
-            <textarea
-              rows={3}
+            <AutoGrowingTextarea
               placeholder="在此设定您的特定身份、称呼与背景..."
               value={character.userPersona}
+              minHeight="100px"
+              maxHeight="260px"
               onChange={(e) => setCharacter({ ...character, userPersona: e.target.value })}
-              className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-y overflow-y-auto max-h-48 min-h-[64px]"
             />
           </div>
 
