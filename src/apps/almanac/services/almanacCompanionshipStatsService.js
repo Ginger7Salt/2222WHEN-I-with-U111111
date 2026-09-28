@@ -56,7 +56,8 @@ const pickFunFact = (totalMinutes) => {
 
 /**
  * 计算某个聊天窗的陪伴统计：相识天数、消息总数、一个随机的趣味时长换算。
- * 直接读取 db.messages 现算现出，不依赖任何 Almanac 记录表，
+ * 直接读取 db.messages + db.archivedMessages 现算现出（归档只是把消息搬了
+ * 位置，不是删除，所以两张表都要算），不依赖任何 Almanac 记录表，
  * 不会给发消息主流程增加额外负担。
  */
 export const getCompanionshipStats = async (chatId) => {
@@ -64,16 +65,28 @@ export const getCompanionshipStats = async (chatId) => {
     return null;
   }
 
+  // 归档功能会把旧消息从 messages 表物理搬到 archivedMessages 表（不是打标记），
+  // 所以这里的"留下的话"必须把两张表都算进去，否则归档过的聊天窗会显得比
+  // 实际"变短"——这也是导致本统计和里程碑成就（同样会漏算归档消息，但因为
+  // 点亮后永久缓存所以不会倒退）看起来数字不同步的原因。
   let messages = [];
+  let archivedMessages = [];
 
   try {
-    messages = await db.messages.where('chatId').equals(chatId).toArray();
+    [messages, archivedMessages] = await Promise.all([
+      db.messages.where('chatId').equals(chatId).toArray(),
+      db.archivedMessages
+        ? db.archivedMessages.where('chatId').equals(chatId).toArray()
+        : [],
+    ]);
   } catch (error) {
     console.warn('[Almanac] 读取陪伴统计失败：', error);
     return null;
   }
 
-  if (!messages.length) {
+  const allMessages = [...messages, ...archivedMessages];
+
+  if (!allMessages.length) {
     return {
       daysTogether: 0,
       totalMessageCount: 0,
@@ -81,14 +94,14 @@ export const getCompanionshipStats = async (chatId) => {
     };
   }
 
-  const timestamps = messages
+  const timestamps = allMessages
     .map((message) => new Date(message.timestamp).getTime())
     .filter((value) => Number.isFinite(value));
 
   if (!timestamps.length) {
     return {
       daysTogether: 0,
-      totalMessageCount: messages.length,
+      totalMessageCount: allMessages.length,
       funFact: null,
     };
   }
@@ -97,7 +110,7 @@ export const getCompanionshipStats = async (chatId) => {
   const now = Date.now();
 
   const daysTogether = getDayCount(firstTimestamp, now);
-  const totalMessageCount = messages.length;
+  const totalMessageCount = allMessages.length;
 
   const estimatedMinutes =
     (totalMessageCount * AVERAGE_SECONDS_PER_MESSAGE) / 60;
