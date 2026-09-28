@@ -1186,6 +1186,7 @@ const [hubBackground, setHubBackground] = useState('');
           <ErrorBoundary>
             <CallHistoryApp
               onBackHub={() => openApp('hub')}
+              hubBackground={hubBackground}
             />
           </ErrorBoundary>
         )}

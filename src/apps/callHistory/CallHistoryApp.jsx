@@ -336,7 +336,7 @@ const CallHistoryRow = ({
   );
 };
 
-const CallHistoryApp = ({ onBackHub }) => {
+const CallHistoryApp = ({ onBackHub, hubBackground }) => {
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -529,6 +529,20 @@ const CallHistoryApp = ({ onBackHub }) => {
 
   return createPortal(
     <div className="call-history-app">
+      {/*
+        进入这个页面时的"雾气散开、记忆慢慢回放"效果：背景图共享主
+        界面的 hubBackground（跟 hub/聊天列表同一张），一层负责从
+        失焦大幅模糊 + 轻微放大，缓缓聚焦到清晰；另一层是纯色雾气
+        （颜色取当前主题的 --bg-main，深色/浅色模式都自动适配，不用
+        写死白色雾），从完全遮住背景到逐渐透明散开，露出下面的画面。
+        两层都只在组件挂载时播放一次动画，不需要额外的 JS 状态。
+      */}
+      <div
+        className="call-history-bg-layer"
+        style={hubBackground ? { backgroundImage: `url("${hubBackground}")` } : undefined}
+      />
+      <div className="call-history-mist-layer" />
+
       <div className="call-history-hud">
         <button
           type="button"

@@ -31,14 +31,90 @@
   box-sizing: border-box;
 }
 
+/* ---------- 背景层：跟主界面共享同一张 hubBackground，进场时
+   "雾气散开、记忆慢慢回放"的效果 ----------
+   两层都是绝对定位，z-index 会自动盖在下面 flex 子元素（position:
+   static）的上面——所以真正的 UI 内容各自都补了 position: relative
+   + z-index: 1，才能显示在这两层背景之上。 */
+
+.call-history-bg-layer {
+  position: absolute;
+  inset: -6%;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: var(--bg-main);
+  animation: cha-bg-focus-in 1.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.call-history-mist-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: var(--bg-main);
+  animation: cha-mist-dissolve 1.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.05s;
+}
+
+@keyframes cha-bg-focus-in {
+  0% {
+    filter: blur(30px) saturate(105%);
+    transform: scale(1.08);
+  }
+  100% {
+    filter: blur(0) saturate(115%);
+    transform: scale(1);
+  }
+}
+
+@keyframes cha-mist-dissolve {
+  0% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.65;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes cha-content-rise-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-history-bg-layer,
+  .call-history-mist-layer,
+  .call-history-hud,
+  .call-history-page-title,
+  .call-history-filter-tabs,
+  .call-history-toolbar,
+  .call-history-list-wrap {
+    animation: none !important;
+  }
+}
+
 /* ---------- 顶部 HUD ---------- */
 
 .call-history-hud {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 20px 20px 0;
   flex-shrink: 0;
+  animation: cha-content-rise-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .call-history-hud-back {
@@ -88,8 +164,12 @@
 /* ---------- 页面大标题（杂志感 kicker + 标题） ---------- */
 
 .call-history-page-title {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
   padding: 16px 24px 0;
+  animation: cha-content-rise-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.08s;
 }
 
 .call-history-page-kicker {
@@ -129,11 +209,15 @@
 /* ---------- 筛选标签（全部 / 未接通 / 有语音留存） ---------- */
 
 .call-history-filter-tabs {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
   display: flex;
   gap: 8px;
   padding: 16px 20px 0;
   overflow-x: auto;
+  animation: cha-content-rise-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.14s;
 }
 
 .call-history-filter-tab {
@@ -183,6 +267,8 @@
 /* ---------- 多选工具栏 ---------- */
 
 .call-history-toolbar {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -196,6 +282,7 @@
   backdrop-filter: blur(20px) saturate(120%);
   -webkit-backdrop-filter: blur(20px) saturate(120%);
   flex-wrap: wrap;
+  animation: cha-content-rise-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .call-history-toolbar-btn {
@@ -246,10 +333,14 @@
 /* ---------- 列表容器 + 按日期分组 ---------- */
 
 .call-history-list-wrap {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   padding: 18px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+  animation: cha-content-rise-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.2s;
 }
 
 .call-history-empty {
