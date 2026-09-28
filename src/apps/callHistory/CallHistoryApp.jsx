@@ -627,15 +627,24 @@ const CallHistoryApp = ({ onBackHub }) => {
 
       <div className="call-history-list-wrap">
         {isLoading && (
-          <div className="call-history-empty">正在读取通话记录。</div>
+          <div className="call-history-empty">
+            <Loader2 className="call-history-empty-icon h-6 w-6 animate-spin" />
+            <p>正在读取通话记录。</p>
+          </div>
         )}
 
         {!isLoading && items.length === 0 && (
-          <div className="call-history-empty">还没有任何通话记录。</div>
+          <div className="call-history-empty">
+            <Phone className="call-history-empty-icon h-6 w-6" />
+            <p>还没有任何通话记录。</p>
+          </div>
         )}
 
         {!isLoading && items.length > 0 && filteredItems.length === 0 && (
-          <div className="call-history-empty">这个筛选条件下没有记录。</div>
+          <div className="call-history-empty">
+            <Phone className="call-history-empty-icon h-6 w-6" />
+            <p>这个筛选条件下没有记录。</p>
+          </div>
         )}
 
         {!isLoading && dayGroups.map((group) => (
