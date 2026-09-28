@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MessageCircle, Plus, Send, Trash2, X } from 'lucide-react';
 
 import db from '../../../db';
@@ -142,25 +143,25 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
     onSent?.();
   };
 
-  return (
-    /* 外层全屏固定：完全居中，不加任何模糊 */
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-hidden">
-      {/* 遮罩背景：纯净微暗遮罩，不加模糊滤镜，彻底遮挡背后文字 */}
+  // 通过 Portal 渲染到 body 根层级，避开页面中局部容器 overflow: hidden 裁剪与相对定位限制
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* 遮罩背景：全屏微灰遮罩，完全遮蔽底层列表，杜绝重叠与毛边 */}
       <div
-        className="fixed inset-0 transition-opacity"
+        className="fixed inset-0"
         style={{
-          background: 'rgba(246, 246, 247, 0.88)',
+          background: 'rgba(246, 246, 247, 0.94)',
         }}
         onClick={() => !isSending && onClose()}
       />
 
-      {/* 1. 背景罗盘刻度轮盘 (黑白纯净线稿，无发脏的模糊晕光) */}
+      {/* 1. 背景罗盘刻度轮盘 (黑白纯净线稿) */}
       <div className="compass-stage pointer-events-none" aria-hidden="true">
         <svg className="compass-dial-svg" viewBox="0 0 500 500" fill="none" stroke="#222222">
           {/* 最外圈精密刻度大环 */}
-          <circle cx="250" cy="250" r="235" strokeWidth="0.75" strokeOpacity="0.28" />
+          <circle cx="250" cy="250" r="235" strokeWidth="0.75" strokeOpacity="0.25" />
           <circle cx="250" cy="250" r="225" strokeWidth="0.5" strokeDasharray="2 6" strokeOpacity="0.35" />
-          <circle cx="250" cy="250" r="195" strokeWidth="1" strokeOpacity="0.25" />
+          <circle cx="250" cy="250" r="195" strokeWidth="1" strokeOpacity="0.2" />
 
           {/* 罗盘方位标记 (N, E, S, W) */}
           <text x="250" y="24" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="#111111" stroke="none">N · 000°</text>
@@ -177,15 +178,18 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           <line x1="85" y1="415" x2="415" y2="85" strokeWidth="0.5" strokeDasharray="3 4" strokeOpacity="0.18" />
 
           {/* 内圈同心圆与小刻度 */}
-          <circle cx="250" cy="250" r="150" strokeWidth="0.5" strokeDasharray="1 4" strokeOpacity="0.22" />
+          <circle cx="250" cy="250" r="150" strokeWidth="0.5" strokeDasharray="1 4" strokeOpacity="0.2" />
           <circle cx="250" cy="250" r="110" strokeWidth="0.75" strokeOpacity="0.2" />
         </svg>
       </div>
 
-      {/* 2. 前景：纯净居中拼贴信卡 */}
-      <div className="collage-card relative z-20 flex w-full max-w-[380px] flex-col gap-4">
-        {/* 顶栏：罗盘印戳 + 标题 */}
-        <div className="card-header flex items-center justify-between pb-3">
+      {/* 2. 前景：纯净居中拼贴信卡 (固定最大高与弹性布局，永不截断顶底) */}
+      <div 
+        className="collage-card relative z-20 flex w-full max-w-[380px] flex-col gap-3.5"
+        style={{ maxHeight: 'calc(100vh - 40px)' }}
+      >
+        {/* 顶栏：罗盘印戳 + 标题 (shrink-0 确保不被挤压) */}
+        <div className="card-header shrink-0 flex items-center justify-between pb-3">
           <div className="flex items-center gap-2.5">
             <div className="postmark-seal">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#111111" strokeWidth="2">
@@ -214,8 +218,8 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           </button>
         </div>
 
-        {/* 3. 邮票贴纸：收件人一览 */}
-        <div className="stamps-strip no-scrollbar flex gap-2.5 overflow-x-auto py-1">
+        {/* 3. 邮票贴纸：收件人一览 (shrink-0) */}
+        <div className="stamps-strip shrink-0 no-scrollbar flex gap-2.5 overflow-x-auto py-1">
           {targets.map(({ chat, character }, index) => (
             <div
               key={chat.id}
@@ -242,12 +246,12 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           ))}
         </div>
 
-        {/* 4. 明信片信纸草稿（拼贴信纸堆叠） */}
-        <div className="postcard-stack no-scrollbar flex flex-col gap-2.5 overflow-y-auto max-h-[230px] px-0.5 py-1">
+        {/* 4. 明信片信纸草稿 (flex-1 min-h-0 可纵向自适应滚动) */}
+        <div className="postcard-stack flex-1 min-h-0 no-scrollbar flex flex-col gap-2.5 overflow-y-auto px-0.5 py-1">
           {drafts.map((draft, index) => (
             <div
               key={index}
-              className="postcard-sheet relative"
+              className="postcard-sheet relative shrink-0"
               style={{ transform: `rotate(${POSTCARD_TILTS[index % POSTCARD_TILTS.length]}deg)` }}
             >
               <div className="sheet-meta flex items-center justify-between pb-1">
@@ -277,24 +281,24 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
           ))}
         </div>
 
-        {/* 附写下一张便签 */}
+        {/* 附写下一张便签 (shrink-0) */}
         {drafts.length < MAX_MESSAGES && (
           <button
             type="button"
             onClick={handleAddDraft}
-            className="btn-add-sheet flex w-full items-center justify-center gap-1.5 py-2.5 text-[11px] transition-all"
+            className="btn-add-sheet shrink-0 flex w-full items-center justify-center gap-1.5 py-2.5 text-[11px] transition-all"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>附写下一张便签</span>
           </button>
         )}
 
-        {/* 5. 底部发送按钮 */}
+        {/* 5. 底部发送按钮 (shrink-0 确保完整展示) */}
         <button
           type="button"
           disabled={!canSend}
           onClick={handleSend}
-          className="btn-seal-send relative flex w-full items-center justify-center gap-2 text-xs font-semibold disabled:opacity-40"
+          className="btn-seal-send shrink-0 relative flex w-full items-center justify-center gap-2 text-xs font-semibold disabled:opacity-40"
         >
           <Send className="h-3.5 w-3.5" style={{ transform: 'rotate(45deg)' }} />
           <span>{isSending ? '印发启程中...' : '印发启程 · 寄出信笺'}</span>
@@ -482,6 +486,13 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
       `}</style>
     </div>
   );
+
+  // 保证在 SSR 或 DOM 未就绪时安全降级
+  if (typeof document === 'undefined') {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };
 
 export default BroadcastComposer;
