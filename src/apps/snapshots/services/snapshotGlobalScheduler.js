@@ -22,6 +22,7 @@ import db from '../../../db';
 import { generateCharacterPost, generateNpcPost, getApiConfig } from './snapshotAiService';
 import { getNpcsByChatId } from './snapshotNpcService';
 import { triggerSystemNotification } from '../../../services/aiService';
+import { pickDailyLifeTopic, describeDailyLifeTopicAsHint } from '../../../services/dailyLifeTopicPicker';
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const CHAR_POST_COOLDOWN_MS = 4 * 60 * 60 * 1000;
@@ -51,7 +52,8 @@ const tryPostForCharacter = async (chat, character, now) => {
       return null;
     }
 
-    const postData = await generateCharacterPost(character.id, chat.id);
+    const topicHint = describeDailyLifeTopicAsHint(await pickDailyLifeTopic(chat.id));
+    const postData = await generateCharacterPost(character.id, chat.id, topicHint);
 
     const snapshotId = await db.snapshots.add({
       chatId: chat.id,

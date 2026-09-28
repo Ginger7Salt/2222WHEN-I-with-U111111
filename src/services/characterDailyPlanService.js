@@ -1,6 +1,7 @@
 import db from '../db';
 import { buildRhythmPersonaBrief } from './rhythmReminderService';
 import { inspectMemorySignals } from '../apps/memory/memorySignals';
+import { pickDailyLifeTopic, describeDailyLifeTopic } from './dailyLifeTopicPicker';
 
 // "今日角色安排"是角色自己对今天的大致想法/安排，不是精确日程表，
 // 也刻意跟用户的真实课表/工作日程完全独立——这是角色自己的一天，
@@ -89,7 +90,7 @@ const fetchAiText = async (apiConfig, systemPrompt) => {
   return String(data?.choices?.[0]?.message?.content || '').trim();
 };
 
-const buildDailyPlanPrompt = ({ character, worldBookText, extraNotesText }) => {
+const buildDailyPlanPrompt = ({ character, worldBookText, extraNotesText, topicDescription }) => {
   const periodLines = PERIOD_DEFS.map((period) => period.label).join('\n');
 
   const exampleLines = PERIOD_DEFS
@@ -105,6 +106,7 @@ const buildDailyPlanPrompt = ({ character, worldBookText, extraNotesText }) => {
 请分别针对以下 5 个时段各写一条简短安排（标题 + 一句话描述）：
 
 ${periodLines}
+${topicDescription ? `\n有一点额外的灵感可以参考，不强制用在哪一条上，也可以完全不用，自然、不生硬就好：\n${topicDescription}\n` : ''}
 
 严格按以下格式输出，每个时段一行，字段之间用 ||| 分隔，
 一共 5 行，不要标题、不要编号、不要 Markdown、不要多余说明：
@@ -231,10 +233,14 @@ export const generateDailyPlanIfNeeded = async (chatId) => {
 
     const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
 
+    const dailyLifeTopic = await pickDailyLifeTopic(chatId);
+    const topicDescription = describeDailyLifeTopic(dailyLifeTopic);
+
     const systemPrompt = buildDailyPlanPrompt({
       character,
       worldBookText,
-      extraNotesText
+      extraNotesText,
+      topicDescription
     });
 
     const rawResponse = await fetchAiText(apiConfig, systemPrompt);
@@ -272,10 +278,11 @@ const buildMurmurPrompt = ({
   worldBookText,
   extraNotesText,
   targetItem,
-  moodContext
+  moodContext,
+  topicDescription
 }) => {
   return `你正在扮演角色「${character.name}」。
-现在你心里冒出一个关于用户的念头，想在自己"今日安排"里的一项旁边
+现在你心里冒出一个念头，想在自己"今日安排"里的一项旁边
 随手写一句碎碎念——这不是发给用户的消息，只是你自己心里的悄悄话，
 用户之后可能会翻看到，但你现在并不知道ta会不会看到。
 
@@ -287,7 +294,7 @@ const buildMurmurPrompt = ({
 ${
   moodContext
     ? `你隐约察觉到用户最近可能不太好，ta说过类似这样的话："${moodContext}"。这只是一种模糊的感知，不是确切的事实，不要在碎碎念里直接引用、复述或点破这句话。`
-    : '这一刻你只是单纯地想到了用户，没有特别的原因。'
+    : topicDescription || '这一刻你只是单纯地想到了用户，没有特别的原因。'
 }
 
 写一句第一人称的碎碎念，控制在 30 字以内。
@@ -372,12 +379,20 @@ export const maybeGenerateCharacterMurmur = async (chatId) => {
 
     const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
 
+    // 有明确的用户情绪信号时，碎碎念应该优先回应那个信号（上面
+    // moodContext 分支），话题池只在没有情绪信号时才需要，
+    // 所以只在这种情况下才去抽话题池，省一次不必要的 NPC/资讯查询。
+    const topicDescription = moodContext
+      ? ''
+      : describeDailyLifeTopic(await pickDailyLifeTopic(chatId));
+
     const systemPrompt = buildMurmurPrompt({
       character,
       worldBookText,
       extraNotesText,
       targetItem,
-      moodContext
+      moodContext,
+      topicDescription
     });
 
     const rawResponse = await fetchAiText(apiConfig, systemPrompt);
