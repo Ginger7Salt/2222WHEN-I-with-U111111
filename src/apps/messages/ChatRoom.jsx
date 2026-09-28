@@ -395,6 +395,12 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
   const userBubbleTextColor = isValidHexColor(chat?.userBubbleTextColor) ? chat.userBubbleTextColor : null;
   const aiBubbleTextColor = isValidHexColor(chat?.aiBubbleTextColor) ? chat.aiBubbleTextColor : null;
 
+  // 输入框里"正在打的字"的颜色。以前这个颜色只能跟着 inputBarColor 自动换
+  // （深底自动换白字），设了这个之后就按用户挑的颜色走，不再自动计算——
+  // 渲染顺序放在 chatColorStyle 规则数组最后一条，这样不管有没有设置
+  // inputBarColor，都能覆盖掉前面那条自动算出来的颜色。
+  const inputTextColor = isValidHexColor(chat?.inputTextColor) ? chat.inputTextColor : null;
+
   // 本聊天窗的"按钮外观"预设（默认纯色块 / 毛玻璃 / 黑玻璃……），
   // 具体每个预设长什么样在 chatControlStylePresets.js 里注册，这里只
   // 负责挑出当前预设、拼出要覆盖的选择器，交给注册表生成规则。
@@ -475,10 +481,17 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
       rules.push(`${scope} .ai-bubble { color: ${aiBubbleTextColor} !important; }`);
     }
 
+    // 必须放在 inputBarColor 那条规则之后（数组里靠后=CSS 里靠后=层叠时
+    // 优先级更高），这样用户单独设置了输入框文字颜色时，能盖过前面自动
+    // 计算出来的那个颜色。
+    if (inputTextColor) {
+      rules.push(`${scope} .chat-input-bar textarea { color: ${inputTextColor} !important; }`);
+    }
+
     if (rules.length === 0) return null;
 
     return <style>{rules.join('\n')}</style>;
-  }, [inputBarColor, sendBtnColor, respondBtnColor, topBtnColor, userBubbleTextColor, aiBubbleTextColor]);
+  }, [inputBarColor, sendBtnColor, respondBtnColor, topBtnColor, userBubbleTextColor, aiBubbleTextColor, inputTextColor]);
 
   const loadChatData = useCallback(async () => {
     try {

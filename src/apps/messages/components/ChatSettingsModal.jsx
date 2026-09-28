@@ -1425,13 +1425,19 @@ const handleToggleLocation = async () => {
           </div>
 
           <p className="text-[10px] opacity-55 leading-relaxed">
-            点色块选择颜色，图标和文字会根据底色自动选深色或白色。仅影响本聊天窗，气泡底色/形状请用下方的气泡 CSS 定制；下面两个「气泡文字颜色」会覆盖气泡 CSS 里设置的文字色。
+            点色块选择颜色，图标和文字会根据底色自动选深色或白色。仅影响本聊天窗，气泡底色/形状请用下方的气泡 CSS 定制；「输入框文字颜色」和下面两个「气泡文字颜色」都会覆盖各自默认的自动配色。
           </p>
 
           <ColorSettingRow
             label="输入框底色"
             value={chat?.inputBarColor || ''}
             onCommit={(value) => handleCommitChatColor('inputBarColor', value)}
+          />
+
+          <ColorSettingRow
+            label="输入框文字颜色"
+            value={chat?.inputTextColor || ''}
+            onCommit={(value) => handleCommitChatColor('inputTextColor', value)}
           />
 
           <ColorSettingRow

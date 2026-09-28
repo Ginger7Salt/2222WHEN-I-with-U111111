@@ -4,14 +4,16 @@
 // CSS 预设/自定义 CSS 那一套；装饰则是叠加在气泡角上的一小一大两个图标（不对称
 // 摆放，不是沿边一整排），任意配色都可以搭配任意装饰，互不影响。
 //
-// 三套装饰是从预览稿里挑出来定下的："星星散点" / "新月剪影" / "幽灵剪影"，
+// 最早三套装饰是从预览稿里挑出来定下的："星星散点" / "新月剪影" / "幽灵剪影"，
 // 都用同一种"一大一小、不对称"的摆法，只是换了图案和配色。之前"沿边一排图标"
 // 的版本被否掉了（太机械），改成了这个更随手、更不对称的构图。
+// 2026-09 又追加了四套（爱心/雪花/樱花瓣/泡泡水光），沿用同一套摆法和结构，
+// 只是换图案换色，不用改 BubbleDecorationOverlay 本身。
 //
 // 图标直接用 lucide-react（项目里稳定在用、版本锁定），不依赖 lucide-animated，
 // 因为这里是静态贴上去的小装饰，不需要 hover 动效。
 import React from 'react';
-import { Star, Moon, Ghost } from 'lucide-react';
+import { Star, Moon, Ghost, Heart, Snowflake, Flower2, Droplet } from 'lucide-react';
 
 export const BUBBLE_DECORATIONS = {
   none: {
@@ -35,6 +37,30 @@ export const BUBBLE_DECORATIONS = {
     name: '幽灵剪影',
     Icon: Ghost,
     color: '#C7BFE0',
+  },
+  'heart-scatter': {
+    id: 'heart-scatter',
+    name: '爱心飘落',
+    Icon: Heart,
+    color: '#F2708C',
+  },
+  'snow-scatter': {
+    id: 'snow-scatter',
+    name: '雪花纷飞',
+    Icon: Snowflake,
+    color: '#9FD3E8',
+  },
+  'bloom-scatter': {
+    id: 'bloom-scatter',
+    name: '樱花瓣落',
+    Icon: Flower2,
+    color: '#F3A6C4',
+  },
+  'bubble-scatter': {
+    id: 'bubble-scatter',
+    name: '泡泡水光',
+    Icon: Droplet,
+    color: '#7FD1D9',
   },
 };
 
