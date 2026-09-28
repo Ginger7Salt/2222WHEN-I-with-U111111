@@ -12,6 +12,7 @@ import {
   storeManualLang,
 } from '../../apps/manual/manualBlocks';
 import { TutorialLibrary } from '../../apps/manual/TutorialLibrary';
+import { reopenOnboardingIntro } from '../OnboardingIntro.jsx';
 
 export const HouseManualModal = ({
   isOpen,
@@ -201,6 +202,16 @@ export const HouseManualModal = ({
                 <TutorialLibrary lang={lang} />
               ) : (
                 renderManualBlocks(currentText.body)
+              )}
+
+              {currentSection.id === 'welcome' && (
+                <button
+                  type="button"
+                  className="house-manual-modal__reopen-onboarding"
+                  onClick={() => reopenOnboardingIntro()}
+                >
+                  {ui.reopenOnboarding}
+                </button>
               )}
             </div>
 
