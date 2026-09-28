@@ -120,14 +120,19 @@ export const isRealVoiceAvailableForCharacter = (character) => (
 /**
  * 当前是否已经存在一通"响铃中/进行中"的通话。
  * UI 一次只承载一通通话，来电调度器和用户手动拨打之前都要先检查这个。
+ *
+ * 不传 chatId：全局检查（是否任意聊天窗正在通话）——保持原有调用方行为不变。
+ * 传入 chatId：只检查这一个聊天窗是否正在通话——供"通话期间暂停该聊天窗的
+ * 主动消息/寄语"这类按聊天窗区分的场景使用（checkAndTriggerAutoMessage、
+ * generateAndDeliverProactiveMessage、triggerRhythmActiveReminder）。
  */
-export const hasAnyLiveCall = async () => {
+export const hasAnyLiveCall = async (chatId = null) => {
   const liveCalls = await db.messages
     .where('type')
     .equals('call')
     .filter((message) => (
-      message.metadata?.status === 'ringing'
-      || message.metadata?.status === 'active'
+      (message.metadata?.status === 'ringing' || message.metadata?.status === 'active')
+      && (chatId == null || message.chatId === chatId)
     ))
     .toArray();
 

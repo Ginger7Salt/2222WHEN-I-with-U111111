@@ -5,6 +5,7 @@ import { syncScheduledTaskToCloud } from '../../services/cloudPushService';
 import { AWAY_RETURN_TYPE } from './away/awayState';
 import { executeAwayReturn } from './away/awayService';
 import { checkCompanionsForNeglect } from '../companion/companionService';
+import { hasAnyLiveCall } from '../../services/callService';
 
 
 const SCHEDULE_PATTERN =
@@ -736,6 +737,16 @@ export const generateAndDeliverProactiveMessage = async ({
       error: true,
       code: 'CHAT_OR_CHARACTER_NOT_FOUND',
       message: '未找到对应的聊天或角色。'
+    };
+  }
+
+  // 这个聊天窗正在通话中（响铃/进行中）时，不要在 chatroom 里插入主动消息，
+  // 只暂停这一个聊天窗；到期的预约消息/工作流调用方决定是否要重试或延后。
+  if (await hasAnyLiveCall(chatId)) {
+    return {
+      error: true,
+      code: 'CHAT_ON_LIVE_CALL',
+      message: '该聊天窗正在通话中，暂不发送主动消息。'
     };
   }
 

@@ -1,6 +1,7 @@
 import db from '../db';
 import { isInQuietHours } from './aiService';
 import { buildRhythmChatContext } from './rhythmContextService';
+import { hasAnyLiveCall } from './callService';
 
 // 距离上一条消息（不论发送方）多久以内，视为"用户正在这个对话里"，
 // 此时不主动插入提醒消息，避免打断正在进行的对话。
@@ -160,6 +161,14 @@ export async function triggerRhythmActiveReminder(
     if (chat?.rhythmEnabled === false) {
       return {
         status: 'rhythm_disabled_for_chat'
+      };
+    }
+
+    // 这个聊天窗正在通话中（响铃/进行中）时，不要在 chatroom 里插入寄语，
+    // 只暂停这一个聊天窗，不影响其他聊天窗的寄语调度。
+    if (await hasAnyLiveCall(chatId)) {
+      return {
+        status: 'chat_on_live_call'
       };
     }
 

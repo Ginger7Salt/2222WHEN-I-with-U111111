@@ -35,7 +35,7 @@ import {
 import { recordChatAtCurrentPlace } from '../apps/location/placePatternService';
 import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDirective';
 import { getReactionLabel } from '../apps/messages/reactionLabels';
-import { getActiveCallAwarenessNote } from './callService';
+import { getActiveCallAwarenessNote, hasAnyLiveCall } from './callService';
 
 import {
   proposeOfflineSessionByCharacter,
@@ -1568,9 +1568,16 @@ export const checkAndTriggerAutoMessage = async () => {
           character = await db.characters.get(selectedChat.characterId);
         }
 
-        if (character) {
+        // 这个聊天窗正在通话中（响铃/进行中）时，不要在 chatroom 里插入
+        // 主动消息——只暂停这一个聊天窗，不影响其他聊天窗的调度。
+        const chatIsOnLiveCall = character && await hasAnyLiveCall(selectedChat.id);
+
+        if (character && !chatIsOnLiveCall) {
           console.log(`[AutoScheduler] 决定在聊天窗 ${selectedChat.title} (ID: ${selectedChat.id}) 中主动发送聊天消息。`);
           generatedId = await generateCompanionProactiveMessage(selectedChat.id);
+        } else if (chatIsOnLiveCall) {
+          console.log(`[AutoScheduler] 聊天窗 ${selectedChat.title} (ID: ${selectedChat.id}) 正在通话中，跳过本次主动消息，降级为生成主页留言。`);
+          actionType = 'homeBoard';
         } else {
           console.log('[AutoScheduler] 无法定位对应聊天窗的角色设定，降级为生成主页留言。');
           actionType = 'homeBoard';
