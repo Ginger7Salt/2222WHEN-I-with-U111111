@@ -164,7 +164,11 @@ export const runGrowthUpdate = async (
 
     const triggers = collectGrowthTriggers({
       allMemories: memories,
-      seenKeys: state.seenTriggerKeys
+      seenKeys: state.seenTriggerKeys,
+      // 没复盘过的话，从这个聊天的记忆任务建立时开始算，而不是从"从来没复盘过"
+      // 直接当作"现在就该复盘"——不然一个刚建立不久、已经攒了几条记忆的聊天，
+      // 第一次判断成长就会顺带触发一次复盘，跟"避免长得太快"的初衷不符。
+      lastPeriodicReviewAt: state.lastPeriodicReviewAt || job.createdAt || null
     });
 
     if (!triggers.length) {

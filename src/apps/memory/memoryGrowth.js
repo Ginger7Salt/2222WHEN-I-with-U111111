@@ -1,5 +1,6 @@
 import {
-  MEMORY_STATUSES
+  MEMORY_STATUSES,
+  MEMORY_TYPES
 } from './memoryConstants';
 
 import {
@@ -15,11 +16,13 @@ import {
  * 事件推低，推到很低就"回落"（不再生效），之后如果又出现同样的事，还可以再长出来。
  * 它不会随时间自己消失——只有新的经历才能改变它。
  *
- * 四个方面：
+ * 五个方面：
  *   trait     性格倾向（例如更容易不安、更愿意坦率表达）
  *   attitude  对用户的态度（例如更依赖、更信任、更小心）
  *   selfview  对自己的认识（例如觉得自己其实很在意这段关系）
  *   opinion   自己的主见（角色自己形成的想法，不是用户的）
+ *   habit     日常习惯 / 相处细节（例如会记得用户不吃辣、习惯晚安后多聊一句才睡——
+ *             具体的、看得见的相处细节，跟 trait 这种抽象的性格倾向是两种东西）
  *
  * 数据存在这个聊天的 memoryJobs 记录的 growth 字段上（附加字段，不用升级数据库），
  * 所以每个聊天各有一份，同一个角色在不同聊天里成长得不一样。
@@ -29,14 +32,16 @@ export const GROWTH_DIMENSIONS = {
   TRAIT: 'trait',
   ATTITUDE: 'attitude',
   SELFVIEW: 'selfview',
-  OPINION: 'opinion'
+  OPINION: 'opinion',
+  HABIT: 'habit'
 };
 
 export const GROWTH_DIMENSION_LABELS = {
   trait: '性格倾向',
   attitude: '对用户的态度',
   selfview: '对自己的认识',
-  opinion: '自己的主见'
+  opinion: '自己的主见',
+  habit: '日常习惯'
 };
 
 export const GROWTH_STATUSES = {
@@ -69,6 +74,25 @@ export const LINGERING_DAYS = 3;
 
 // 只有情绪触发（没有重大事件）的成长判断，两次之间至少间隔这么久。
 export const EMOTION_TRIGGER_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+/*
+ * 定期轻量复盘：没有重大事件、也没有堆成复合情绪时，偶尔看一眼最近的日常记忆，
+ * 判断有没有值得注意的变化。特意按"周"级别节流（比情绪触发的 6 小时慢得多），
+ * 而且要求这段时间里真的攒够几条日常记忆才值得看一次，避免显得成长得太快、不真实。
+ * 具体"这些记忆加起来算不算变化"完全交给 AI 判断，这里只负责决定"该不该看一眼"。
+ */
+export const PERIODIC_REVIEW_INTERVAL_MS = 7 * DAY_MS;
+export const MIN_PERIODIC_REVIEW_MEMORIES = 5;
+
+// 复盘时只看这几类"日常"记忆——重大事件（milestone）和情绪已经有自己的触发方式了。
+const PERIODIC_REVIEW_MEMORY_TYPES = [
+  MEMORY_TYPES.FACT,
+  MEMORY_TYPES.PREFERENCE,
+  MEMORY_TYPES.RELATIONSHIP,
+  MEMORY_TYPES.BELIEF
+];
+
+const MAX_PERIODIC_REVIEW_ITEMS = 10;
 
 const MAX_SEEN_KEYS = 300;
 const MAX_HISTORY = 20;
@@ -150,7 +174,10 @@ export const normalizeGrowthState = (raw) => ({
   seenTriggerKeys: Array.isArray(raw?.seenTriggerKeys)
     ? raw.seenTriggerKeys.filter((key) => typeof key === 'string').slice(-MAX_SEEN_KEYS)
     : [],
-  lastRunAt: raw?.lastRunAt || null
+  lastRunAt: raw?.lastRunAt || null,
+  // 上一次"定期轻量复盘"是什么时候——跟 lastRunAt 分开记，因为 lastRunAt 每次
+  // 判断（不管是哪种触发）都会更新，没法单独用来算"距上次复盘过了多久"。
+  lastPeriodicReviewAt: raw?.lastPeriodicReviewAt || null
 });
 
 export const getActiveItems = (items = []) => (
@@ -215,15 +242,18 @@ const describeMemory = (memory) => (
 );
 
 /*
- * 三类触发：
+ * 四类触发：
  *   milestone：关系里的重大事件（提炼时 AI 标出来的）；
  *   compound_lingering：复合情绪长期没有化解（难受的，或者开心的）；
- *   compound_resolved：复合情绪被安慰、被解释、被想通了——这是把成长往回推的信号。
- * 每个触发有唯一的 key，处理过就记下来，不会重复触发。
+ *   compound_resolved：复合情绪被安慰、被解释、被想通了——这是把成长往回推的信号；
+ *   periodic_review：没有以上两类时，按周期偶尔看一眼最近积累的日常记忆
+ *     （见下面 periodic_review 那一段，节流方式不一样，不用 seenTriggerKeys 去重）。
+ * 前三类每个触发有唯一的 key，处理过就记下来，不会重复触发。
  */
 export const collectGrowthTriggers = ({
   allMemories = [],
   seenKeys = [],
+  lastPeriodicReviewAt = null,
   now = Date.now()
 } = {}) => {
   const seen = new Set(seenKeys);
@@ -288,6 +318,38 @@ export const collectGrowthTriggers = ({
           at: memory.compoundedAt || memory.createdAt || null
         });
       }
+    }
+  }
+
+  /*
+   * periodic_review：距上次复盘够久了，而且这段时间里真的攒够了几条日常记忆
+   * （事实/偏好/关系理解/对用户的看法），才值得让 AI 看一眼——完全没什么新鲜事的
+   * 沉默期，或者刚复盘过没多久，都不会触发。够不够"变化"完全交给 AI 判断，
+   * 这里给的只是最近这段时间的记忆摘要，不代表已经发生了什么变化。
+   */
+  const dueForReview = (now - toTime(lastPeriodicReviewAt)) >= PERIODIC_REVIEW_INTERVAL_MS;
+
+  if (dueForReview) {
+    const windowStart = now - PERIODIC_REVIEW_INTERVAL_MS;
+
+    const recentDaily = allMemories.filter((memory) => (
+      isLiveMemory(memory) &&
+      PERIODIC_REVIEW_MEMORY_TYPES.includes(memory?.type) &&
+      toTime(memory.createdAt) >= windowStart
+    ));
+
+    if (recentDaily.length >= MIN_PERIODIC_REVIEW_MEMORIES) {
+      const picked = [...recentDaily]
+        .sort((left, right) => toTime(right.createdAt) - toTime(left.createdAt))
+        .slice(0, MAX_PERIODIC_REVIEW_ITEMS);
+
+      triggers.push({
+        key: `pr:${now}`,
+        kind: 'periodic_review',
+        label: '常规复盘（没有大事，只是照例看一眼最近的相处）',
+        text: picked.map(describeMemory).join('\n'),
+        at: new Date(now).toISOString()
+      });
     }
   }
 
@@ -522,6 +584,12 @@ export const applyGrowthOps = ({
 
   for (const trigger of triggers) {
     seen.add(trigger.key);
+
+    // periodic_review 不靠 seenTriggerKeys 去重（key 每次都不一样），
+    // 靠这个时间戳记住"刚看过一次"，够 PERIODIC_REVIEW_INTERVAL_MS 天才能再看下一次。
+    if (trigger.kind === 'periodic_review') {
+      next.lastPeriodicReviewAt = nowIso;
+    }
   }
 
   next.seenTriggerKeys = [...seen].slice(-MAX_SEEN_KEYS);
@@ -553,7 +621,8 @@ export const buildGrowthContext = (items = []) => {
     GROWTH_DIMENSIONS.TRAIT,
     GROWTH_DIMENSIONS.ATTITUDE,
     GROWTH_DIMENSIONS.SELFVIEW,
-    GROWTH_DIMENSIONS.OPINION
+    GROWTH_DIMENSIONS.OPINION,
+    GROWTH_DIMENSIONS.HABIT
   ]
     .map((dimension) => {
       const lines = active
