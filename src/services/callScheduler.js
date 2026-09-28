@@ -58,7 +58,7 @@ const buildCallDecisionPrompt = ({ character, worldBookText, extraNotesText }) =
  *
  * 串行执行、一次最多打进一通,避免多个角色同时抢着打电话。
  */
-export const runCallScheduler = async () => {
+export const runCallScheduler = async (providedChats = null) => {
   if (isCallChecking) return;
   isCallChecking = true;
 
@@ -67,7 +67,9 @@ export const runCallScheduler = async () => {
       return;
     }
 
-    const chats = await db.chats.toArray();
+    // globalChatScheduler.js 会传入已经查好的 chats 数组；单独调用时
+    // 不传，还是自己查一次，行为不变。
+    const chats = providedChats || (await db.chats.toArray());
 
     const eligibleChats = chats.filter(
       (chat) =>

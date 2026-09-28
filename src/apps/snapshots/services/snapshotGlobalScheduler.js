@@ -172,7 +172,7 @@ const processChat = async (chat, now) => {
   return [charPostId, ...npcPostIds].filter(Boolean);
 };
 
-export const checkAndTriggerGlobalSnapshotPosts = async () => {
+export const checkAndTriggerGlobalSnapshotPosts = async (providedChats = null) => {
   if (isRunningCheck) return [];
   isRunningCheck = true;
 
@@ -186,7 +186,9 @@ export const checkAndTriggerGlobalSnapshotPosts = async () => {
   }
 
   try {
-    const allChats = await db.chats.toArray();
+    // globalChatScheduler.js 会传入已经查好的 chats 数组；单独调用时
+    // 不传，还是自己查一次，行为不变。
+    const allChats = providedChats || (await db.chats.toArray());
     const now = Date.now();
     const posted = [];
 

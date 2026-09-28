@@ -49,7 +49,7 @@ const cleanupExpiredOrbitsSafely = async () => {
  *
  * 每次调度检查开始前，会先清理十个自然日以前的旧轨迹。
  */
-export const runParallelOrbitScheduler = async () => {
+export const runParallelOrbitScheduler = async (providedChats = null) => {
   if (isParallelOrbitChecking) {
     console.log(
       '[parallelOrbitScheduler] 上一次检查尚未结束，跳过本次。'
@@ -63,7 +63,9 @@ export const runParallelOrbitScheduler = async () => {
     // 清理失败不能阻止后续聊天窗检查。
     await cleanupExpiredOrbitsSafely();
 
-    const chats = await db.chats.toArray();
+    // globalChatScheduler.js 会传入已经查好的 chats 数组；单独调用时
+    // 不传，还是自己查一次，行为不变。
+    const chats = providedChats || (await db.chats.toArray());
 
     // 过滤异常或不完整的聊天数据。
     const validChats = chats.filter(

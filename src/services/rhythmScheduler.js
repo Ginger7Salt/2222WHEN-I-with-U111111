@@ -22,7 +22,7 @@ let isRhythmChecking = false;
  * 串行执行而不是 Promise.all：避免多个聊天窗同时请求 AI 接口，
  * 造成并发过高、被限流，或一次性消耗大量 Token。
  */
-export const runRhythmScheduler = async () => {
+export const runRhythmScheduler = async (providedChats = null) => {
   if (isRhythmChecking) {
     console.log('[rhythmScheduler] 上一次检查尚未结束，跳过本次。');
     return;
@@ -31,7 +31,9 @@ export const runRhythmScheduler = async () => {
   isRhythmChecking = true;
 
   try {
-    const chats = await db.chats.toArray();
+    // globalChatScheduler.js 会传入已经查好的 chats 数组；单独调用
+    // （比如手动触发一次检查）时不传，还是自己查一次，行为不变。
+    const chats = providedChats || (await db.chats.toArray());
 
     const eligibleChats = chats.filter(
       (chat) =>

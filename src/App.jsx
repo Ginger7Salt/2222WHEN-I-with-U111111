@@ -70,10 +70,6 @@ import {
 } from './services/mcp/mcpOAuthService';
 
 import RhythmApp from './apps/rhythm/RhythmApp';
-import {
-  startRhythmScheduler,
-  stopRhythmScheduler,
-} from './services/rhythmScheduler';
 
 import db from './db';
 
@@ -81,11 +77,6 @@ import {
     startAutoMessageScheduler,
   stopAutoMessageScheduler,
 } from './services/aiService';
-
-import {
-  startSnapshotGlobalScheduler,
-  stopSnapshotGlobalScheduler
-} from './apps/snapshots/services/snapshotGlobalScheduler';
 
 import {
   getLockscreenCompanionEnabled,
@@ -113,19 +104,12 @@ import WorkflowApp from './apps/workflows/WorkflowApp';
 
 import {
   checkAlmanacGreetings,
-  startAlmanacGreetingScheduler,
-  stopAlmanacGreetingScheduler,
 } from './apps/almanac/services/almanacGreetingService';
 
 import {
-  startParallelOrbitScheduler,
-  stopParallelOrbitScheduler,
-} from './services/parallelOrbitScheduler';
-
-import {
-  startCallScheduler,
-  stopCallScheduler,
-} from './services/callScheduler';
+  startGlobalChatScheduler,
+  stopGlobalChatScheduler,
+} from './services/globalChatScheduler';
 
 import CallOverlayHost from './apps/messages/call/CallOverlayHost';
 import { useActiveCall } from './hooks/useActiveCall';
@@ -379,11 +363,13 @@ const [hubBackground, setHubBackground] = useState('');
   }, []);
 
   useEffect(() => {
+    // 周期性检查已经并入 globalChatScheduler.js（跟 rhythm/call/
+    // snapshotGlobal/parallelOrbit 共用同一个基准 tick，见下面另一个
+    // useEffect），这里只保留"App 切回前台时立刻看一眼"这个独立的
+    // 触发点，不再自己单独起一个 3 分钟的 setInterval。
     const handleAlmanacWake = () => {
       void checkAlmanacGreetings();
     };
-
-    startAlmanacGreetingScheduler();
 
     window.addEventListener(
       'focus',
@@ -401,8 +387,6 @@ const [hubBackground, setHubBackground] = useState('');
     );
 
     return () => {
-      stopAlmanacGreetingScheduler();
-
       window.removeEventListener(
         'focus',
         handleAlmanacWake
@@ -429,13 +413,13 @@ const [hubBackground, setHubBackground] = useState('');
         startAutoMessageScheduler();
     startTravelPostcardScheduler();
     startScheduledMessageScheduler();
-    startParallelOrbitScheduler();
     startWorkflowScheduler();
     startOfflineSessionScheduler();
     startOfflineCountdownLockscreenScheduler();
-    startRhythmScheduler();
-    startCallScheduler();
-    startSnapshotGlobalScheduler();
+    // rhythm / call / snapshotGlobal / almanacGreeting / parallelOrbit
+    // 这五个原本各自独立遍历全部聊天窗的调度器，合并到了
+    // globalChatScheduler.js 的共享基准 tick 里，见该文件顶部说明。
+    startGlobalChatScheduler();
 
       startArchiveScheduler();
 
@@ -448,14 +432,11 @@ const [hubBackground, setHubBackground] = useState('');
     stopAutoMessageScheduler();
     stopTravelPostcardScheduler();
     stopScheduledMessageScheduler();
-    stopParallelOrbitScheduler();
     stopWorkflowScheduler();
     stopOfflineSessionScheduler();
-    
+
         stopOfflineCountdownLockscreenScheduler();
-    stopSnapshotGlobalScheduler();
-    stopRhythmScheduler();
-    stopCallScheduler();
+    stopGlobalChatScheduler();
        stopArchiveScheduler();
   };
 }, []);

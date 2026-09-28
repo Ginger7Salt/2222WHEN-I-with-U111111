@@ -141,13 +141,15 @@ const processChat = async (chat) => {
   await processReminderForChat(chat);
 };
 
-export const checkAlmanacGreetings = async () => {
+export const checkAlmanacGreetings = async (providedChats = null) => {
   if (schedulerState.processing) return;
 
   schedulerState.processing = true;
 
   try {
-    const chats = await db.chats.toArray();
+    // globalChatScheduler.js 会传入已经查好的 chats 数组；App.jsx 里
+    // focus/pageshow/visibilitychange 直接调用时不传，还是自己查一次，行为不变。
+    const chats = providedChats || (await db.chats.toArray());
 
     for (const chat of chats) {
       try {
