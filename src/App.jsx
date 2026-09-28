@@ -20,6 +20,7 @@ import StorageWarningBadge from './apps/hub/StorageWarningBadge';
 import DesktopPetWidget from './apps/pet/DesktopPetWidget';
 
 import ArchiveApp from './apps/archive/ArchiveApp';
+import CallHistoryApp from './apps/callHistory/CallHistoryApp';
 
 import SettingsPage from './apps/settings/SettingsPage';
 import MessagesApp from './apps/messages/MessagesApp';
@@ -183,6 +184,7 @@ const REGISTERED_APPS = [
   'shared-world',
   'memory',
   'archive',
+  'callHistory',
   'hourglass',
     'mailArchive',
   'newspaper',
@@ -1175,6 +1177,14 @@ const [hubBackground, setHubBackground] = useState('');
                 {currentApp === 'archive' && (
           <ErrorBoundary>
             <ArchiveApp
+              onBackHub={() => openApp('hub')}
+            />
+          </ErrorBoundary>
+        )}
+
+        {currentApp === 'callHistory' && (
+          <ErrorBoundary>
+            <CallHistoryApp
               onBackHub={() => openApp('hub')}
             />
           </ErrorBoundary>

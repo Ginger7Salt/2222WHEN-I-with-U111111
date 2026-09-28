@@ -4487,4 +4487,105 @@ db.version(64).stores({
   profile: 'id',
 });
 
+// ============================================================
+// v65：一次性数据修复 —— 把之前被自动/手动归档误搬进 archivedMessages
+// 表的 call 类型消息（语音通话记录）搬回 messages 表。
+//
+// 背景：archiveService.js 此前对 call 类型消息一视同仁地参与归档，
+// 消息被搬进 archivedMessages 后，CallReviewModal（保留/下载/删除
+// 语音）和归档查看器互相不认识对方——call 消息的语音存在
+// message.metadata.turns[].audio.audioBlob，跟归档查看器/
+// archiveMediaCleanupService.js 认的 metadata.audioBlob 是两套
+// 完全不同的字段形状，导致语音数据还在但没有任何界面能管理。
+// 现在 archiveService.js 已经改成从源头排除 call 类型消息，不会再
+// 归档新的通话记录；这里再补一次历史数据修复，把过去已经被搬进
+// archivedMessages 的 call 记录挪回 messages 表，配合新的全局
+// "通话记录"管理界面（src/apps/callHistory）统一查看/删除/打包
+// 下载语音。
+//
+// messages/archivedMessages 表结构本身不变（索引跟 v46 一致），
+// 这里只是为了挂一个 upgrade 钩子，照抄一遍现有的索引声明。
+// ============================================================
+db.version(65).stores({
+  messages:
+    '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex, mode, offlineSessionId, [chatId+timestamp], [chatId+mode]',
+  archivedMessages:
+    '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex, mode, offlineSessionId, archivedAt, [chatId+timestamp]',
+}).upgrade(async (tx) => {
+  const v65GetDayKey = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  try {
+    const archivedTable = tx.table('archivedMessages');
+    const messagesTable = tx.table('messages');
+    const statsTable = tx.table('archiveStats');
+
+    const callRecords = await archivedTable
+      .where('type')
+      .equals('call')
+      .toArray();
+
+    if (callRecords.length === 0) {
+      console.log('[db v65 迁移] 没有发现被误归档的通话记录，跳过。');
+      return;
+    }
+
+    const idsToDelete = callRecords.map((record) => record.id);
+    const affectedChatIds = [...new Set(callRecords.map((record) => record.chatId))];
+
+    const payload = callRecords.map((record) => {
+      const restored = { ...record };
+      delete restored.id;
+      delete restored.archivedAt;
+      return restored;
+    });
+
+    await messagesTable.bulkAdd(payload);
+    await archivedTable.bulkDelete(idsToDelete);
+
+    // 顺带修正 archiveStats：这些记录搬走之后，受影响聊天的归档统计
+    // （总归档消息数/归档天数）要跟着重新算一遍，避免展示的数字比
+    // 实际剩下的归档内容多。逻辑跟 archiveService.js 里
+    // recomputeArchiveStatsAfterDeletion 一致，这里不能直接 import
+    // 那个文件（会跟 db/index.js 形成循环依赖），所以就地重写一份。
+    for (const chatId of affectedChatIds) {
+      // eslint-disable-next-line no-await-in-loop
+      const remaining = await archivedTable.where('chatId').equals(chatId).toArray();
+
+      const dayKeys = new Set(
+        remaining
+          .map((message) => v65GetDayKey(message.timestamp))
+          .filter(Boolean)
+      );
+
+      // eslint-disable-next-line no-await-in-loop
+      const currentStats = await statsTable.get(chatId);
+
+      if (currentStats) {
+        // eslint-disable-next-line no-await-in-loop
+        await statsTable.put({
+          ...currentStats,
+          archivedDayKeys: Array.from(dayKeys),
+          totalArchivedDays: dayKeys.size,
+          totalArchivedMessages: remaining.length,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    console.log(
+      `[db v65 迁移] 已把 ${callRecords.length} 条被误归档的通话记录搬回 messages 表，涉及 ${affectedChatIds.length} 个聊天窗。`
+    );
+  } catch (error) {
+    console.error('[db v65 迁移] 迁移被误归档的通话记录失败：', error);
+  }
+});
+
 export default db;

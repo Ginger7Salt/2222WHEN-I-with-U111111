@@ -28,6 +28,14 @@ const isValidChatId = (chatId) => (
   chatId !== ''
 );
 
+// call 类型消息（语音通话记录）从来不参与归档——它的语音数据存在
+// message.metadata.turns[].audio.audioBlob，跟归档查看器/
+// archiveMediaCleanupService.js 认的字段形状不一样，之前混进归档
+// 后台会导致 CallReviewModal 打不开、语音数据没有出口。call 消息现在
+// 统一交给独立的"通话记录"全局管理界面（src/apps/callHistory）管理，
+// 永远留在 db.messages 里，这里所有归档候选集都要把它过滤掉。
+const isArchivableMessage = (message) => message?.type !== 'call';
+
 const nowIso = () => new Date().toISOString();
 
 const toSafeDate = (value) => {
@@ -535,10 +543,14 @@ export const getArchivableMessagePreview = async (chatId) => {
     return [];
   }
 
-  const [records, cursorId] = await Promise.all([
+  const [rawRecords, cursorId] = await Promise.all([
     db.messages.where('chatId').equals(chatId).toArray(),
     getMemorySafeCursorId(chatId)
   ]);
+
+  // call 类型消息不进入"手动整理归档"的可选列表——它永远不归档，
+  // 交由通话记录管理界面单独处理，见上面 isArchivableMessage 的说明。
+  const records = rawRecords.filter(isArchivableMessage);
 
   const sorted = [...records].sort((a, b) => (
     (toSafeTime(a.timestamp) || 0) - (toSafeTime(b.timestamp) || 0)
@@ -707,6 +719,10 @@ export const archiveMessagesBefore = async (chatId, cutoffTimestamp) => {
     .toArray();
 
   const candidateMessages = allMessages.filter((message) => {
+    if (!isArchivableMessage(message)) {
+      return false;
+    }
+
     const time = toSafeTime(message.timestamp);
     return time !== null && time < cutoffTime;
   });
@@ -736,10 +752,10 @@ export const archiveSpecificMessages = async (chatId, messageIds) => {
     .map((id) => Number(id))
     .filter(Number.isFinite);
 
-  const candidateMessages = await db.messages
+  const candidateMessages = (await db.messages
     .where('id')
     .anyOf(numericIds)
-    .toArray();
+    .toArray()).filter(isArchivableMessage);
 
   return archiveMessagesInternal(chatId, candidateMessages);
 };

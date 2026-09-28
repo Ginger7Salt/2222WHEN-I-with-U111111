@@ -29,6 +29,7 @@ import {
   Feather,
   Repeat,
   FolderArchive,
+  PhoneCall,
   ArrowUpRight,
   Globe,
   Hourglass,
@@ -369,6 +370,35 @@ export const buildAppGridItems = ({
           <AppTitle en="Archive Room" zh="存档室" mode={nameMode} />
           <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-40">
             Old Messages
+          </p>
+        </div>
+      </GlassCard>
+    ),
+  },
+
+  {
+    id: 'callHistory',
+    colSpan: 1,
+    content: (
+      <GlassCard
+        blur={false}
+        onClick={() => onOpenApp('callHistory')}
+        className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
+      >
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: 'var(--control-soft-bg)' }}
+        >
+          <PhoneCall
+            className="h-5 w-5 opacity-90"
+            style={{ color: 'var(--text-main)' }}
+          />
+        </div>
+
+        <div>
+          <AppTitle en="Call History" zh="通话记录" mode={nameMode} />
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-40">
+            Voice Calls
           </p>
         </div>
       </GlassCard>
