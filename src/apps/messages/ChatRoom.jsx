@@ -73,7 +73,7 @@ import McpToolApprovalModal from './mcp/McpToolApprovalModal';
 import MessageList from './components/MessageList';
 import ParallelOrbit from './components/ParallelOrbit';
 
-import { createInteractionMessage } from './interactions/interactionService';
+import { createInteractionMessage, createTruthOrDareMessage } from './interactions/interactionService';
 import {
   createPokeMessage,
   ensurePokeReplies,
@@ -628,6 +628,23 @@ forceScrollMessageIdRef.current = stickerMsgId;
       await loadChatData();
     } catch (error) {
       console.error('[ChatRoom] 创建聊天互动失败：', error);
+    }
+  };
+
+  // 真心话大冒险走单独的流程（出题人轮流是角色还是用户），
+  // 不复用上面 pending/resolve 那一套通用互动创建逻辑。
+  const handleTruthOrDare = async () => {
+    if (!chat?.id || !character?.id) return;
+
+    try {
+      await createTruthOrDareMessage({
+        chatId: chat.id,
+        characterId: character.id,
+      });
+
+      await loadChatData();
+    } catch (error) {
+      console.error('[ChatRoom] 创建真心话大冒险失败：', error);
     }
   };
 
@@ -2335,6 +2352,21 @@ useLayoutEffect(() => {
 
                 if (type === 'interaction_rps') {
                   void handleCreateInteraction(INTERACTION_TYPES.RPS);
+                  return;
+                }
+
+                if (type === 'interaction_lottery') {
+                  void handleCreateInteraction(INTERACTION_TYPES.LOTTERY);
+                  return;
+                }
+
+                if (type === 'interaction_intimacy_qa') {
+                  void handleCreateInteraction(INTERACTION_TYPES.INTIMACY_QA);
+                  return;
+                }
+
+                if (type === 'interaction_truth_or_dare') {
+                  void handleTruthOrDare();
                   return;
                 }
 

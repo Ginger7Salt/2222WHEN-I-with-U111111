@@ -25,6 +25,8 @@ import {
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
 import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
 import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/companion/companionOfferService';
+import { BUBBLE_STYLE_PROMPT_NOTE, applyBubbleStyleDirective } from '../apps/messages/bubbleStyleDirective';
+import { getAvatarHistorySwitchNote, applyAvatarHistorySwitchDirective } from '../apps/messages/avatarHistoryDirective';
 import { applyMemoirNoteDirective, MEMOIR_NOTE_PROMPT } from '../apps/memoir/memoirNoteDirective';
 import {
   recordFoodMemoir,
@@ -2143,10 +2145,24 @@ const companionOfferNote = options.ignoreAway
   ? ''
   : await getCompanionOfferNote({ chatId, chat });
 
+// #3 气泡风格：角色任何一次回复都能自主决定换配色+装饰，不设概率/冷却
+// 限制（跟小伙伴邀请不同），只在 ignoreAway 时跟其它"可选行为"一样收起。
+const bubbleStyleNote = options.ignoreAway ? '' : BUBBLE_STYLE_PROMPT_NOTE;
+
+// #3 头像历史相册：换头像视觉冲击比换气泡颜色大，这里跟小伙伴邀请一样
+// 走"概率 + 冷却"，只有真的把选项交给角色时才会往提示词里加字。
+const avatarHistorySwitchNote = options.ignoreAway
+  ? ''
+  : await getAvatarHistorySwitchNote({ characterId: character.id, character });
+
 const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   awayOfferNote ? `\n\n${awayOfferNote}` : ''
 }${
   companionOfferNote ? `\n\n${companionOfferNote}` : ''
+}${
+  bubbleStyleNote ? `\n\n${bubbleStyleNote}` : ''
+}${
+  avatarHistorySwitchNote ? `\n\n${avatarHistorySwitchNote}` : ''
 }`;
 
 const historyContext = buildHistoryContext(
@@ -2267,12 +2283,29 @@ const contentAfterPlaceNote = await applyPlaceNoteDirective({
 
 // 取出角色的 [COMPANION_OFFER: ...] 标签（一律从正文去掉）；
 // 只有这次真的把选项交给了角色时，才会生成一张邀请卡片消息。
-const { content: visibleReplyContent, offerMessage: companionOfferMessage } =
+const { content: contentAfterCompanionOffer, offerMessage: companionOfferMessage } =
   await applyCompanionOfferDirective({
     chatId,
     content: contentAfterPlaceNote,
     offered: Boolean(companionOfferNote),
   });
+
+// 取出角色的 [BUBBLE_STYLE: ...] 标签（一律从正文去掉）；标签里写的配色/
+// 装饰名字只要能匹配上已知名单就直接落库生效，不需要额外的"是否交出过
+// 选项"校验（这个功能本身就不设限制，参见 bubbleStyleDirective.js 顶部
+// 注释）。
+const { content: contentAfterBubbleStyle } = await applyBubbleStyleDirective({
+  chatId,
+  content: contentAfterCompanionOffer,
+});
+
+// 取出角色的 [AVATAR_HISTORY_SWITCH] 标签（一律从正文去掉）；
+// 只有这次真的把选项交给了角色时，才会随机换回一张历史头像。
+const { content: visibleReplyContent } = await applyAvatarHistorySwitchDirective({
+  characterId: character.id,
+  content: contentAfterBubbleStyle,
+  offered: Boolean(avatarHistorySwitchNote),
+});
 
 const mcpTrace = getMcpChatTraceSummary(
   mcpTraceSession,

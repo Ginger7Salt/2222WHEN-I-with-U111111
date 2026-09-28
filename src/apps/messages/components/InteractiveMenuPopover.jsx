@@ -11,6 +11,9 @@ import {
   Swords,
   ShoppingBag,
   Hand,
+  Scroll,
+  HelpCircle,
+  Flame,
 } from 'lucide-react';
 import {
   ORDER_ENTRY_STATES,
@@ -227,6 +230,45 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
   >
     <Swords className="h-3.5 w-3.5" />
     <span>猜拳</span>
+  </button>
+</div>
+
+          <div
+  className="mt-2 border-t pt-2"
+  style={{ borderColor: 'var(--card-border)' }}
+>
+  <div className="px-2 pb-1 text-[10px] font-semibold opacity-60">
+    情侣小游戏
+  </div>
+
+  <button
+    type="button"
+    onClick={() => handleAction('interaction_lottery')}
+    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
+    style={{ backgroundColor: 'var(--control-soft-bg)' }}
+  >
+    <Scroll className="h-3.5 w-3.5" />
+    <span>抽签筒</span>
+  </button>
+
+  <button
+    type="button"
+    onClick={() => handleAction('interaction_intimacy_qa')}
+    className="mt-1 flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
+    style={{ backgroundColor: 'var(--control-soft-bg)' }}
+  >
+    <HelpCircle className="h-3.5 w-3.5" />
+    <span>亲密问答卡</span>
+  </button>
+
+  <button
+    type="button"
+    onClick={() => handleAction('interaction_truth_or_dare')}
+    className="mt-1 flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
+    style={{ backgroundColor: 'var(--control-soft-bg)' }}
+  >
+    <Flame className="h-3.5 w-3.5" />
+    <span>真心话大冒险</span>
   </button>
 </div>
 

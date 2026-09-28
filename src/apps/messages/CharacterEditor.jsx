@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   ArrowLeft, Save, Trash2, Upload, Plus, BookOpen, Brain,
-  List, User, X, Activity, Shield, ChevronDown, ChevronRight, FoldVertical, UnfoldVertical
+  List, User, X, Activity, Shield, ChevronDown, ChevronRight, FoldVertical, UnfoldVertical,
+  Image as ImageIcon
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import db from "../../db";
@@ -9,6 +10,8 @@ import VoiceProfilePanel from '../../features/real-voice/components/VoiceProfile
 import RingtonePanel from '../../features/real-voice/components/RingtonePanel';
 import VoicemailPanel from '../../features/real-voice/components/VoicemailPanel';
 import { normalizeVoiceProfile } from '../../features/real-voice/realVoiceDefaults';
+import AvatarHistoryModal from './components/AvatarHistoryModal';
+import { recordAvatarHistory, deleteAvatarHistoryEntry } from './avatarHistoryService';
 
 // 随内容自动变长，且超出最大高度显示滚动条的自适应文本框组件
 const AutoGrowingTextarea = ({
@@ -89,6 +92,13 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const avatarInputRef = useRef(null);
   const userAvatarInputRef = useRef(null);
+
+  // 历史相册：mount 时的原始头像记一份快照，保存时用来判断"这次是不是
+  // 真的换了头像"；选中一张历史图只是放进草稿（pendingAvatarHistoryId
+  // 记下待消费的历史条目 id），要点顶部"保存"才真正生效。
+  const originalAvatarRef = useRef(characterData?.avatar || '');
+  const [showAvatarHistory, setShowAvatarHistory] = useState(false);
+  const [pendingAvatarHistoryId, setPendingAvatarHistoryId] = useState(null);
 
   const handleImageUpload = (e, targetField) => {
     const file = e.target.files?.[0];
@@ -188,6 +198,19 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
         await db.characters.put(payload);
       }
 
+      // 头像历史相册：这次保存如果真的换了头像（跟 mount 时的原始头像
+      // 不一样），把原始头像存进历史相册；如果这次换的是从历史相册里
+      // 选回来的图，把那条记录从相册里消费掉（它现在是"在用"的头像了）。
+      if (payload.id) {
+        const originalAvatar = originalAvatarRef.current;
+        if (originalAvatar && originalAvatar !== payload.avatar) {
+          await recordAvatarHistory(payload.id, originalAvatar);
+        }
+        if (pendingAvatarHistoryId != null) {
+          await deleteAvatarHistoryEntry(pendingAvatarHistoryId);
+        }
+      }
+
       if (onSaved) onSaved(payload);
       onBack();
     } catch (err) {
@@ -242,6 +265,16 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
             </div>
             <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatar')} />
             <span className="text-[10px] opacity-50 block">角色头像</span>
+            {character.id && (
+              <button
+                type="button"
+                onClick={() => setShowAvatarHistory(true)}
+                className="flex items-center gap-0.5 justify-center w-full text-[9px] opacity-50 hover:opacity-90"
+              >
+                <ImageIcon className="w-2.5 h-2.5" />
+                <span>历史相册</span>
+              </button>
+            )}
           </div>
 
           <div className="flex-1 space-y-3">
@@ -661,6 +694,19 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 头像历史相册：选中一张只是放进草稿，要点顶部"保存"才真正生效 */}
+      {showAvatarHistory && character.id && (
+        <AvatarHistoryModal
+          characterId={character.id}
+          onClose={() => setShowAvatarHistory(false)}
+          onRestore={(entry) => {
+            setCharacter((prev) => ({ ...prev, avatar: entry.avatar }));
+            setPendingAvatarHistoryId(entry.id);
+            setShowAvatarHistory(false);
+          }}
+        />
       )}
     </div>
   );
