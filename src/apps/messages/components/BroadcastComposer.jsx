@@ -29,8 +29,8 @@ const MAX_MESSAGES = 5;
 // 明信片轻微的随机倾斜角度，让好几张叠在一起时不是死板的一条直线，
 // 用 index 取模、固定一组角度，不用每次渲染都随机（避免文字输入时
 // 因为重渲染导致卡片抖动）。
-const POSTCARD_TILTS = [-1.4, 1.1, -0.8, 1.6, -1.1];
-const STAMP_TILTS = [-4, 3, -3, 4, -2];
+const POSTCARD_TILTS = [-1.2, 1.4, -1.5, 1.2, -1.0];
+const STAMP_TILTS = [-3.5, 2.8, -2.2, 3.2, -2.5];
 
 const BroadcastComposer = ({ targets, onClose, onSent }) => {
   const [drafts, setDrafts] = useState(['']);
@@ -143,101 +143,134 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4 animate-fade-in-up">
+    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4 overflow-hidden">
+      {/* 遮罩背景 */}
       <div
-        className="fixed inset-0 backdrop-blur-md"
+        className="fixed inset-0 backdrop-blur-sm transition-opacity"
         style={{
           background:
-            'var(--modal-backdrop, color-mix(in srgb, var(--bg-main) 72%, transparent))',
+            'var(--modal-backdrop, color-mix(in srgb, var(--bg-main, #f6f6f7) 70%, transparent))',
         }}
         onClick={() => !isSending && onClose()}
       />
 
+      {/* 1. 背景罗盘刻度轮盘 (黑白弥散微转动效) */}
+      <div className="compass-stage" aria-hidden="true">
+        <div className="compass-diffuse-glow" />
+        <svg className="compass-dial-svg" viewBox="0 0 500 500" fill="none" stroke="currentColor">
+          <circle cx="250" cy="250" r="235" strokeWidth="0.75" strokeOpacity="0.25" />
+          <circle cx="250" cy="250" r="225" strokeWidth="0.5" strokeDasharray="2 6" strokeOpacity="0.35" />
+          <circle cx="250" cy="250" r="195" strokeWidth="1" strokeOpacity="0.3" />
+
+          {/* 罗盘方位标记 (N, E, S, W) */}
+          <text x="250" y="24" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none">N · 000°</text>
+          <text x="480" y="254" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none">E · 090°</text>
+          <text x="250" y="488" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none">S · 180°</text>
+          <text x="22" y="254" fontSize="10" fontFamily="Georgia, serif" fontWeight="bold" textAnchor="middle" fill="currentColor" stroke="none">W · 270°</text>
+
+          {/* 极坐标十字分线 */}
+          <line x1="250" y1="18" x2="250" y2="482" strokeWidth="0.6" strokeOpacity="0.22" />
+          <line x1="18" y1="250" x2="482" y2="250" strokeWidth="0.6" strokeOpacity="0.22" />
+
+          {/* 45度斜向指示虚线 */}
+          <line x1="85" y1="85" x2="415" y2="415" strokeWidth="0.5" strokeDasharray="3 4" strokeOpacity="0.18" />
+          <line x1="85" y1="415" x2="415" y2="85" strokeWidth="0.5" strokeDasharray="3 4" strokeOpacity="0.18" />
+
+          {/* 内圈同心圆与小刻度 */}
+          <circle cx="250" cy="250" r="150" strokeWidth="0.5" strokeDasharray="1 4" strokeOpacity="0.25" />
+          <circle cx="250" cy="250" r="110" strokeWidth="0.75" strokeOpacity="0.22" />
+        </svg>
+      </div>
+
+      {/* 2. 前景：纯净拼贴信卡 */}
       <div
-        className="relative z-10 flex w-full max-w-sm flex-col gap-3 overflow-hidden rounded-t-[2.25rem] p-5 pt-3 text-xs shadow-2xl sm:rounded-[2.25rem]"
+        className="collage-card relative z-20 flex w-full max-w-[385px] flex-col gap-3.5 overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
         style={{
-          background: 'var(--card-bg-gradient)',
-          border: '1px solid var(--card-border)',
-          color: 'var(--text-main)',
-          maxHeight: '76vh',
-          paddingBottom: 'max(1.1rem, env(safe-area-inset-bottom))',
+          background: 'var(--card-bg, #ffffff)',
+          color: 'var(--text-main, #111111)',
+          maxHeight: '85vh',
+          paddingBottom: 'max(1.2rem, env(safe-area-inset-bottom))',
         }}
       >
-        {/* 暖调纸感叠层：只叠一层柔光渐变+细颗粒，靠混合模式在深色/
-            浅色主题下都只是轻轻"提个暖调"，不会盖掉原来的卡片配色。 */}
-        <div className="broadcast-paper-tint pointer-events-none absolute inset-0" aria-hidden="true" />
-
-        <div
-          className="relative flex items-center justify-between border-b pb-2.5"
-          style={{ borderColor: 'var(--card-border)' }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="broadcast-postmark">
-              <Send className="h-3 w-3" />
-              <span className="broadcast-postmark-date">{postmarkLabel}</span>
-            </span>
-            <span className="text-sm font-bold">寄往 {targets.length} 位</span>
-          </span>
+        {/* 顶部：邮戳与标题栏 */}
+        <div className="card-header flex items-center justify-between pb-3">
+          <div className="flex items-center gap-2.5">
+            {/* 罗盘造型印戳 */}
+            <div className="postmark-seal">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="2" x2="12" y2="22" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <polygon points="12 2 15 9 22 12 15 15 12 22 9 15 2 12 9 9 12 2" />
+              </svg>
+              <span className="postmark-date">{postmarkLabel}</span>
+            </div>
+            <div className="flex flex-col text-left">
+              <h3 className="text-[13.5px] font-bold tracking-tight">
+                寻迹信标 · 寄往 {targets.length} 方位
+              </h3>
+              <p className="text-[10px] opacity-60">向定锚目标并发投递信笺</p>
+            </div>
+          </div>
 
           <button
             type="button"
             onClick={onClose}
             disabled={isSending}
-            className="rounded-full p-1 opacity-60 hover:opacity-100 disabled:opacity-30"
+            className="btn-close"
+            title="收起"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
-        {/* 收件人一览：贴纸化的小邮票，只读，回到列表去改勾选 */}
-        <div className="relative flex gap-2 overflow-x-auto no-scrollbar py-1">
+        {/* 3. 邮票贴纸受众区 */}
+        <div className="stamps-strip no-scrollbar flex gap-2.5 overflow-x-auto py-1">
           {targets.map(({ chat, character }, index) => (
             <div
               key={chat.id}
-              className="broadcast-stamp flex shrink-0 flex-col items-center gap-1 px-2 py-1.5"
-              style={{ '--stamp-tilt': `${STAMP_TILTS[index % STAMP_TILTS.length]}deg` }}
+              className="stamp-pill flex shrink-0 flex-col items-center gap-1"
+              style={{ transform: `rotate(${STAMP_TILTS[index % STAMP_TILTS.length]}deg)` }}
             >
               {character?.avatar ? (
                 <img
                   src={character.avatar}
                   alt={character.name}
-                  className="h-7 w-7 rounded-md object-cover"
+                  className="stamp-avatar h-7 w-7 rounded object-cover"
                   loading="lazy"
                   decoding="async"
                 />
               ) : (
                 <div
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-[10px] font-bold"
-                  style={{ background: 'var(--bg-main)' }}
+                  className="stamp-avatar flex h-7 w-7 items-center justify-center rounded text-[10px] font-bold"
+                  style={{ background: 'var(--bg-main, #f4f4f5)' }}
                 >
                   {character?.name?.[0] || <MessageCircle className="h-3.5 w-3.5 opacity-50" />}
                 </div>
               )}
-              <span className="whitespace-nowrap text-[9px] font-medium opacity-80">
-                {chat.title || character?.name || '未命名聊天'}
+              <span className="stamp-name max-w-[72px] truncate text-[9px] font-medium opacity-85">
+                {chat.title || character?.name || '未命名'}
               </span>
             </div>
           ))}
         </div>
 
-        {/* 撰写区：每条草稿是一张可以写字的明信片，可以写好几张，
-            按顺序依次寄出去 */}
-        <div className="relative max-h-64 space-y-2.5 overflow-y-auto no-scrollbar px-0.5 py-1">
+        {/* 4. 拼贴信纸草稿区 */}
+        <div className="postcard-stack no-scrollbar flex flex-col gap-2.5 overflow-y-auto px-0.5 py-1">
           {drafts.map((draft, index) => (
             <div
               key={index}
-              className="broadcast-postcard relative"
-              style={{ '--postcard-tilt': `${POSTCARD_TILTS[index % POSTCARD_TILTS.length]}deg` }}
+              className="postcard-sheet relative"
+              style={{ transform: `rotate(${POSTCARD_TILTS[index % POSTCARD_TILTS.length]}deg)` }}
             >
-              <div className="flex items-center justify-between px-3 pt-2">
-                <span className="broadcast-postcard-index">No. {String(index + 1).padStart(2, '0')}</span>
+              <div className="sheet-meta flex items-center justify-between pb-1">
+                <span className="sheet-index">No. {String(index + 1).padStart(2, '0')} · Postcard</span>
 
                 {drafts.length > 1 && (
                   <button
                     type="button"
                     onClick={() => handleRemoveDraft(index)}
-                    className="rounded-full p-1 opacity-45 hover:opacity-90"
-                    title="撕掉这一张"
+                    className="sheet-delete-btn p-1 transition-colors hover:text-red-500"
+                    title="撕除这一张"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
@@ -247,11 +280,10 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
               <textarea
                 value={draft}
                 onChange={(event) => handleDraftChange(index, event.target.value)}
-                placeholder={index === 0 ? '写点什么寄给大家...' : '再写一张明信片...'}
+                placeholder={index === 0 ? '在信纸上落笔寄给大家的话...' : '再写一张明信片...'}
                 rows={2}
                 maxLength={500}
-                className="broadcast-postcard-input w-full resize-none bg-transparent px-3 pb-2.5 pt-1 text-xs outline-none"
-                style={{ color: 'var(--text-main)' }}
+                className="sheet-textarea w-full resize-none bg-transparent text-xs leading-relaxed outline-none"
               />
             </div>
           ))}
@@ -260,24 +292,23 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
             <button
               type="button"
               onClick={handleAddDraft}
-              className="broadcast-postcard-add flex w-full items-center justify-center gap-1 py-2.5 text-[11px] opacity-60 transition-opacity hover:opacity-90"
+              className="btn-add-sheet flex w-full items-center justify-center gap-1.5 py-2.5 text-[11px] transition-all"
             >
-              <Plus className="h-3 w-3" />
-              <span>再写一张明信片</span>
+              <Plus className="h-3.5 w-3.5" />
+              <span>附写下一张便签</span>
             </button>
           )}
         </div>
 
+        {/* 5. 底部发送按钮 */}
         <button
           type="button"
           disabled={!canSend}
           onClick={handleSend}
-          className="broadcast-send-btn relative flex w-full items-center justify-center gap-2 py-3 text-xs font-semibold transition-all active:scale-95 disabled:opacity-40"
+          className="btn-seal-send relative flex w-full items-center justify-center gap-2 text-xs font-semibold disabled:opacity-40"
         >
-          <span className="broadcast-send-stamp">
-            <Send className="h-3 w-3" />
-          </span>
-          <span>{isSending ? '寄送中...' : '寄出'}</span>
+          <Send className="h-3.5 w-3.5" style={{ transform: 'rotate(45deg)' }} />
+          <span>{isSending ? '印发启程中...' : '印发启程 · 寄出信笺'}</span>
         </button>
       </div>
 
@@ -286,86 +317,196 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
       )}
 
       <style>{`
-        .broadcast-paper-tint {
-          background:
-            radial-gradient(120% 90% at 20% 0%, rgba(255, 232, 189, 0.16) 0%, transparent 60%),
-            radial-gradient(90% 70% at 100% 100%, rgba(255, 214, 160, 0.12) 0%, transparent 65%);
-          mix-blend-mode: soft-light;
+        /* 背景罗盘舞台 */
+        .compass-stage {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 580px;
+          height: 580px;
+          pointer-events: none;
+          z-index: 12;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--text-main, #222);
         }
 
-        .broadcast-postmark {
-          display: inline-flex;
+        .compass-diffuse-glow {
+          position: absolute;
+          width: 440px;
+          height: 440px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.01) 60%, transparent 80%);
+          filter: blur(24px);
+        }
+
+        .compass-dial-svg {
+          width: 100%;
+          height: 100%;
+          animation: slowRotate 160s linear infinite;
+          opacity: 0.55;
+        }
+
+        /* 拼贴信笺卡片主体 */
+        .collage-card {
+          padding: 20px 18px 18px;
+          border: 1px solid var(--card-border, rgba(0, 0, 0, 0.08));
+          box-shadow: 
+            0 1px 3px rgba(0, 0, 0, 0.04),
+            0 20px 45px -10px rgba(0, 0, 0, 0.12),
+            0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+          animation: cardPopIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 顶栏分割与邮戳 */
+        .card-header {
+          border-bottom: 1px solid var(--card-border, rgba(0, 0, 0, 0.07));
+        }
+
+        .postmark-seal {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          border: 1.2px dashed currentColor;
+          display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          width: 1.9rem;
-          height: 1.9rem;
-          border-radius: 9999px;
-          border: 1.5px solid var(--accent-color);
-          color: var(--accent-color);
-          transform: rotate(-14deg);
+          transform: rotate(-10deg);
           flex-shrink: 0;
+          background: var(--control-soft-bg, rgba(0, 0, 0, 0.02));
         }
 
-        .broadcast-postmark svg {
-          transform: rotate(45deg);
-        }
-
-        .broadcast-postmark-date {
-          margin-top: 1px;
-          font-size: 6px;
-          letter-spacing: 0.02em;
+        .postmark-date {
+          font-size: 7px;
           font-weight: 700;
+          letter-spacing: 0.05em;
+          margin-top: 1px;
+          opacity: 0.85;
         }
 
-        .broadcast-stamp {
-          border-radius: 0.6rem;
-          border: 1px solid var(--card-border);
-          background: var(--control-soft-bg);
-          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
-          transform: rotate(var(--stamp-tilt, 0deg));
-          transition: transform 0.2s ease;
+        .btn-close {
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          border: 1px solid var(--card-border, rgba(0, 0, 0, 0.1));
+          background: transparent;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0.6;
+          transition: all 0.2s ease;
         }
 
-        .broadcast-postcard {
-          border-radius: 1rem;
-          border: 1px solid var(--card-border);
-          background: var(--control-soft-bg);
-          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
-          transform: rotate(var(--postcard-tilt, 0deg));
+        .btn-close:hover:not(:disabled) {
+          opacity: 1;
+          border-color: currentColor;
+          transform: rotate(90deg);
         }
 
-        .broadcast-postcard-index {
+        /* 齿孔邮票贴纸 */
+        .stamp-pill {
+          background: var(--card-bg, #ffffff);
+          border: 1px solid var(--card-border, #d4d4d8);
+          border-radius: 8px;
+          padding: 6px 8px;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stamp-pill:hover {
+          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+          z-index: 2;
+        }
+
+        /* 拼贴信纸卡片区 */
+        .postcard-stack {
+          max-height: 240px;
+        }
+
+        .postcard-sheet {
+          background: var(--control-soft-bg, #fafaf9);
+          border: 1px solid var(--card-border, rgba(0, 0, 0, 0.08));
+          border-radius: 14px;
+          padding: 10px 12px;
+          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.035);
+          transition: transform 0.25s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .postcard-sheet:hover,
+        .postcard-sheet:focus-within {
+          border-color: rgba(0, 0, 0, 0.22);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+        }
+
+        .sheet-index {
           font-family: Georgia, 'Times New Roman', serif;
           font-style: italic;
           font-size: 10px;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.06em;
+          opacity: 0.55;
+        }
+
+        .sheet-delete-btn {
+          color: #a1a1aa;
+        }
+
+        .sheet-textarea::placeholder {
           opacity: 0.45;
         }
 
-        .broadcast-postcard-add {
-          border-radius: 1rem;
-          border: 1px solid var(--card-border);
+        /* 添加信笺按钮 */
+        .btn-add-sheet {
+          background: transparent;
+          border: 1px dashed var(--card-border, rgba(0, 0, 0, 0.16));
+          border-radius: 12px;
+          color: var(--text-main, #333333);
+          opacity: 0.7;
         }
 
-        .broadcast-send-btn {
+        .btn-add-sheet:hover {
+          opacity: 1;
+          border-color: currentColor;
+          background: rgba(0, 0, 0, 0.02);
+        }
+
+        /* 底部启程发送按钮 */
+        .btn-seal-send {
+          height: 42px;
           border-radius: 9999px;
-          background: var(--accent-color);
-          color: var(--accent-foreground);
+          background: var(--text-main, #111111);
+          color: var(--card-bg, #ffffff);
+          letter-spacing: 0.04em;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .broadcast-send-stamp {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 1.35rem;
-          height: 1.35rem;
-          border-radius: 9999px;
-          border: 1.5px solid color-mix(in srgb, var(--accent-foreground) 70%, transparent);
+        .btn-seal-send:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
+          filter: brightness(1.05);
         }
 
-        .broadcast-send-stamp svg {
-          transform: rotate(45deg);
+        .btn-seal-send:active:not(:disabled) {
+          transform: scale(0.98);
+        }
+
+        @keyframes slowRotate {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        @keyframes cardPopIn {
+          0% {
+            opacity: 0;
+            transform: scale(0.96) translateY(10px);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
         }
       `}</style>
     </div>
