@@ -13,7 +13,8 @@ import {
   Hand,
   Scroll,
   HelpCircle,
-  Flame,
+    Flame,
+  Moon,
 } from 'lucide-react';
 import {
   ORDER_ENTRY_STATES,
@@ -269,6 +270,16 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
   >
     <Flame className="h-3.5 w-3.5" />
     <span>真心话大冒险</span>
+  </button>
+
+  <button
+    type="button"
+    onClick={() => handleAction('interaction_divination')}
+    className="mt-1 flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
+    style={{ backgroundColor: 'var(--control-soft-bg)' }}
+  >
+    <Moon className="h-3.5 w-3.5" />
+    <span>占卜</span>
   </button>
 </div>
 

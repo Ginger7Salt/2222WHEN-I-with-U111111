@@ -74,6 +74,8 @@ import MessageList from './components/MessageList';
 import ParallelOrbit from './components/ParallelOrbit';
 
 import { createInteractionMessage, createTruthOrDareMessage } from './interactions/interactionService';
+import DivinationSetupModal from './interactions/divination/DivinationSetupModal';
+import { createDivinationMessage } from './interactions/divination/divinationService';
 import {
   createPokeMessage,
   ensurePokeReplies,
@@ -220,7 +222,8 @@ export const ChatRoom = ({
   const [showCalendar, setShowCalendar] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
-    const [showOrderModal, setShowOrderModal] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [showDivinationModal, setShowDivinationModal] = useState(false);
   const [checkInDelivery, setCheckInDelivery] = useState(null);
   const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
     const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
@@ -645,6 +648,26 @@ forceScrollMessageIdRef.current = stickerMsgId;
       await loadChatData();
     } catch (error) {
       console.error('[ChatRoom] 创建真心话大冒险失败：', error);
+    }
+  };
+
+    // 占卜：设置面板里选好牌组、牌阵、写好问题之后，在这里抽牌并插入消息，
+  // 角色的解读由 divinationService 异步生成。
+  const handleCreateDivination = async ({ question, deckId, spreadId }) => {
+    if (!chat?.id || !character?.id) return;
+
+    try {
+      await createDivinationMessage({
+        chatId: chat.id,
+        characterId: character.id,
+        question,
+        deckId,
+        spreadId,
+      });
+
+      await loadChatData();
+    } catch (error) {
+      console.error('[ChatRoom] 创建占卜失败：', error);
     }
   };
 
@@ -2370,6 +2393,13 @@ useLayoutEffect(() => {
                   return;
                 }
 
+              if (type === 'interaction_divination') {
+                  // 先收起键盘，避免和面板弹出的时机互相打架
+                  inputRef.current?.blur();
+                  setShowDivinationModal(true);
+                  return;
+                }
+
                 if (type === 'interaction_poke') {
                   void handlePokeCharacter('full');
                   return;
@@ -2620,6 +2650,12 @@ useLayoutEffect(() => {
       />
 
       
+      <DivinationSetupModal
+        isOpen={showDivinationModal}
+        onClose={() => setShowDivinationModal(false)}
+        onSubmit={handleCreateDivination}
+      />
+
       {showOrderModal && (
         <Suspense fallback={null}>
           <OrderRequestModal

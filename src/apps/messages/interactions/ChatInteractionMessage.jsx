@@ -5,6 +5,7 @@ import RockPaperScissorsInteraction from './RockPaperScissorsInteraction';
 import LotteryDrawInteraction from './LotteryDrawInteraction';
 import IntimacyQaInteraction from './IntimacyQaInteraction';
 import TruthOrDareInteraction from './TruthOrDareInteraction';
+import DivinationInteraction from './divination/DivinationInteraction';
 import { INTERACTION_TYPES } from './interactionRules';
 
 export const ChatInteractionMessage = ({
@@ -56,6 +57,14 @@ export const ChatInteractionMessage = ({
       <IntimacyQaInteraction
         message={message}
         onResolved={onResolved}
+      />
+    );
+  }
+
+  if (interactionType === INTERACTION_TYPES.DIVINATION) {
+    return (
+      <DivinationInteraction
+        message={message}
       />
     );
   }
