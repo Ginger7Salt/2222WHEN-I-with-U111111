@@ -1,27 +1,43 @@
 // src/apps/rp/RpRoom.jsx
 //
-// 长RP子应用切片A：会话空壳。
+// 长RP子应用切片C：真正的消息收发管道接入房间。
 //
-// 2026-09 美化重做：照抄 ChatRoom.jsx 的外壳思路——整个房间是
-// `fixed inset-0` 铺满全屏、脱离hub那层padding容器，不是嵌在页面
-// 流里的一个普通区块。头部和输入栏都是"浮"在背景上的透明元素，不是
-// 贴边的实心长条；中间内容区域是唯一可以滚动的部分。
+// 外壳（fixed铺满全屏、浮动头尾）是切片A就定好的，这次没动；新增的是
+// 中间消息区域从占位文案换成真实的 RpMessageCard 列表 + 可用的底部
+// 输入框，事件驱动靠订阅 rpAiService（照抄 BubbleRoom.jsx 订阅
+// bubbleAiService 那一套：收到事件就整表重拉一次这个会话的消息，
+// 消息量还不大，不做增量更新）。
 //
-// 依然零消息收发逻辑、零AI调用——这些是切片B的范围，这里只是把最终
-// 会长成什么样的骨架先搭对。
+// 编辑并截断（跟用户确认过的方案）：点"编辑"→改文字→保存时，如果这条
+// 消息后面还有消息，先弹确认框，确认了才真的截断；如果这条已经是最后
+// 一条，直接保存不用问。
+//
+// 总结/楼层折叠存档 UI 不在这个切片范围内（跟用户确认过留到下一个切片），
+// 所以 session.collapseEarlierFloors 这个字段目前没有对应的界面。
 
-import React, { useEffect, useState } from 'react';
-import { ArrowLeft, ScrollText, BookOpen } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ScrollText, BookOpen, SendHorizontal } from 'lucide-react';
 
 import db from '../../db';
+import ConfirmModal from '../../components/ConfirmModal';
 import { getRpSessionById, updateRpSessionPreset } from './rpService';
+import { getRpMessages, switchRpMessageVersion, editRpMessageAndTruncate } from './rpMessageService';
+import { sendRpMessage, rerollRpMessage, subscribeRpAiEvents } from './rpAiService';
 import RpPresetManager from './RpPresetManager';
+import RpMessageCard from './RpMessageCard';
 
 const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const [session, setSession] = useState(null);
   const [character, setCharacter] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPresetManager, setShowPresetManager] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [inputText, setInputText] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [pendingEdit, setPendingEdit] = useState(null); // { messageId, newContent }
+
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     onChatRoomStateChange?.(true);
@@ -30,7 +46,33 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeRpAiEvents((event) => {
+      if (event.sessionId !== Number(sessionId)) return;
+
+      if (event.type === 'RP_MESSAGE_ADDED') {
+        void refreshMessages();
+      } else if (event.type === 'RP_TYPING_START') {
+        setIsTyping(true);
+      } else if (event.type === 'RP_TYPING_END') {
+        setIsTyping(false);
+      }
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages, isTyping]);
+
+  const refreshMessages = async () => {
+    const rows = await getRpMessages(sessionId);
+    setMessages(rows);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -42,12 +84,60 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
       setCharacter(c);
     }
 
+    await refreshMessages();
     setLoading(false);
   };
 
   const handleSelectPreset = async (presetId) => {
     await updateRpSessionPreset(sessionId, presetId);
     setSession((prev) => (prev ? { ...prev, presetId } : prev));
+  };
+
+  const handleSend = async () => {
+    const text = inputText.trim();
+    if (!text || isSending) return;
+
+    setIsSending(true);
+    setInputText('');
+    try {
+      await sendRpMessage(sessionId, text);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleSwitchVersion = async (messageId, direction) => {
+    await switchRpMessageVersion(messageId, direction);
+    await refreshMessages();
+  };
+
+  const handleReroll = async (messageId) => {
+    await rerollRpMessage(sessionId, messageId);
+  };
+
+  const handleEditAndTruncate = (messageId, newContent, hasFollowing) => {
+    if (hasFollowing) {
+      setPendingEdit({ messageId, newContent });
+      return;
+    }
+    void applyEdit(messageId, newContent);
+  };
+
+  const applyEdit = async (messageId, newContent) => {
+    await editRpMessageAndTruncate(sessionId, messageId, newContent);
+    await refreshMessages();
+  };
+
+  const handleQuote = (text) => {
+    const quoted = String(text || '').split('\n')[0].slice(0, 40);
+    setInputText((prev) => (prev ? `${prev}\n> ${quoted}\n` : `> ${quoted}\n`));
   };
 
   if (loading) {
@@ -71,6 +161,8 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
       </div>
     );
   }
+
+  const lastCharacterMessageId = [...messages].reverse().find((m) => m.senderType === 'character')?.id;
 
   return (
     <div
@@ -131,30 +223,78 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
       </header>
 
       {/* 唯一可滚动的区域 */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 overflow-y-auto px-8 text-center">
-        <ScrollText className="h-8 w-8 opacity-30" />
-        <p
-          className="text-[13px] italic leading-relaxed opacity-55"
-          style={{ fontFamily: 'Georgia, "Noto Serif SC", "Songti SC", serif' }}
-        >
-          故事还没有开始。
-          <br />
-          消息管道、渲染器和预设系统会在接下来的切片里陆续接入这里。
-        </p>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-4">
+        <div className="mx-auto flex max-w-[620px] flex-col gap-8 pt-2">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-center opacity-55">
+              <ScrollText className="h-8 w-8 opacity-30" />
+              <p
+                className="text-[13px] italic leading-relaxed"
+                style={{ fontFamily: 'Georgia, "Noto Serif SC", "Songti SC", serif' }}
+              >
+                故事还没有开始。
+                <br />
+                在下面写下第一句话吧。
+              </p>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <RpMessageCard
+                key={msg.id}
+                message={msg}
+                character={character}
+                session={session}
+                canReroll={msg.senderType === 'character' && msg.id === lastCharacterMessageId}
+                hasFollowingMessages={messages[messages.length - 1]?.id !== msg.id}
+                onSwitchVersion={(direction) => handleSwitchVersion(msg.id, direction)}
+                onReroll={() => handleReroll(msg.id)}
+                onEditAndTruncate={(newContent) => handleEditAndTruncate(
+                  msg.id,
+                  newContent,
+                  messages[messages.length - 1]?.id !== msg.id
+                )}
+                onQuote={handleQuote}
+              />
+            ))
+          )}
+
+          {isTyping ? (
+            <div className="flex flex-col items-center gap-2 opacity-50">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-bold"
+                style={{ backgroundColor: 'var(--control-soft-bg)' }}
+              >
+                {character?.name?.[0] || '?'}
+              </div>
+              <p className="text-[11px] italic">{character?.name || 'TA'} 正在书写...</p>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {/* 浮动底栏：跟顶栏一样是透明浮动的圆角输入条，不是贴边的实心一整条 */}
       <div className="z-20 shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-2">
         <div
-          className="flex items-center rounded-full px-4 py-2.5 shadow-lg backdrop-blur-md"
+          className="flex items-end gap-2 rounded-[26px] px-4 py-2.5 shadow-lg backdrop-blur-md"
           style={{ backgroundColor: 'color-mix(in srgb, var(--card-bg) 88%, transparent)' }}
         >
-          <input
-            type="text"
-            disabled
-            placeholder="即将上线..."
-            className="w-full bg-transparent text-xs opacity-50 outline-none"
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="写下这一段..."
+            rows={1}
+            className="max-h-32 w-full resize-none bg-transparent py-1 text-xs outline-none"
           />
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!inputText.trim() || isSending}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full disabled:opacity-30"
+            style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+          >
+            <SendHorizontal className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 
@@ -169,6 +309,21 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
             onClose={() => setShowPresetManager(false)}
           />
         </div>
+      )}
+
+      {pendingEdit && (
+        <ConfirmModal
+          isOpen={Boolean(pendingEdit)}
+          title="编辑并截断"
+          message="这条消息之后还有其他楼层。保存这次修改会把这条消息之后的所有内容永久删除，确定吗？"
+          confirmText="保存并截断"
+          onConfirm={() => {
+            const { messageId, newContent } = pendingEdit;
+            setPendingEdit(null);
+            void applyEdit(messageId, newContent);
+          }}
+          onCancel={() => setPendingEdit(null)}
+        />
       )}
     </div>
   );

@@ -68,6 +68,34 @@ export const applyRegexScripts = (text, scripts = [], { source, phase }) => {
 };
 
 /**
+ * 把 rpMessages 记录数组转成喂给 chat completions 的 {role, content} 历史
+ * 数组。只取最近 contextWindowSize 条（0 或未传代表不限制），每条先过一遍
+ * 对应方向的正则脚本（phase:'prompt'，character消息的 source 是
+ * 'ai_output'，user消息是'user_input'）——这一步是"写入历史给下一轮AI看"
+ * 的处理，跟界面上怎么显示（phase:'display'）是分开算的两件事，允许用户
+ * 用正则脚本让AI看到的和自己看到的不是同一份文本。
+ *
+ * 纯函数，不碰数据库——调用方（rpAiService）负责先把消息从 db 里取出来。
+ */
+export const buildRpHistoryContext = (messages = [], regexScripts = [], contextWindowSize = 0) => {
+  const windowed = contextWindowSize > 0 && messages.length > contextWindowSize
+    ? messages.slice(-contextWindowSize)
+    : messages;
+
+  return windowed
+    .map((m) => {
+      const source = m.senderType === 'user' ? 'user_input' : 'ai_output';
+      const content = applyRegexScripts(m.content, regexScripts, { source, phase: 'prompt' }).trim();
+      if (!content) return null;
+      return {
+        role: m.senderType === 'user' ? 'user' : 'assistant',
+        content,
+      };
+    })
+    .filter(Boolean);
+};
+
+/**
  * 组装最终的system prompt。
  *
  * - worldBookText / historyText 是调用方（切片C的消息管道）传进来的
@@ -113,5 +141,6 @@ export const assembleRpSystemPrompt = ({ preset, character, session, worldBookTe
 export default {
   applyMacros,
   applyRegexScripts,
+  buildRpHistoryContext,
   assembleRpSystemPrompt,
 };

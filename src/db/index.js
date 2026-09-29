@@ -4637,5 +4637,7 @@ db.version(68).stores({
 db.version(69).stores({
   rpPresets: '++id, name, createdAt, updatedAt',
 });
-
+db.version(70).stores({
+  rpMessages: '++id, sessionId, senderType, timestamp, [sessionId+timestamp]',
+});
 export default db;

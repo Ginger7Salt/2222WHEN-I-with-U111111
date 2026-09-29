@@ -21,6 +21,7 @@
 //     开关放在会话设置里，不放在预设（rpPresets）上——切片B补的字段。
 
 import db from '../../db';
+import { deleteAllRpMessagesForSession } from './rpMessageService';
 
 /**
  * 按更新时间倒序，取所有长RP会话列表。
@@ -97,15 +98,15 @@ export const createRpSession = async ({ characterId, title } = {}) => {
 };
 
 /**
- * 删除一个长RP会话。切片A还没有 rpMessages 表，这里先只删会话本身；
- * 等切片B建了消息表之后，这里要补一句级联删除该会话下的所有消息
- * （照抄 bubbleService.deleteBubbleRoom 级联删 bubbleMessages 的做法），
- * 到时候记得回来改这个函数，不要漏了。
+ * 删除一个长RP会话，级联删掉这个会话下的所有 rpMessages
+ * （照抄 bubbleService.deleteBubbleRoom 级联删 bubbleMessages 的做法）。
  */
 export const deleteRpSession = async (sessionId) => {
   if (sessionId === null || sessionId === undefined) return;
+  const numericId = Number(sessionId);
   try {
-    await db.rpSessions.delete(Number(sessionId));
+    await deleteAllRpMessagesForSession(numericId);
+    await db.rpSessions.delete(numericId);
   } catch (err) {
     console.error('[rpService] 删除会话失败:', err);
   }
