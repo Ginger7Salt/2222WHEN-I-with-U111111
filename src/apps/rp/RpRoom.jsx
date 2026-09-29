@@ -1,9 +1,13 @@
 // src/apps/rp/RpRoom.jsx
 //
 // 长RP子应用切片A：会话空壳。
-// 头部 + 角色信息条 + 禁用的输入框 + 占位提示，零消息收发逻辑、零AI调用
-// ——照抄 BubbleRoom.jsx 切片A当初的做法（先把壳搭起来，切片B再接真正
-// 的消息管道/渲染器/预设组装）。
+// 2026-09 视觉重做：用户反馈不喜欢"一整条顶栏 + 一整条底栏"的传统聊天室
+// 布局，改成——中间消息区是唯一会滚动的区域（absolute inset-0
+// overflow-y-auto），返回按钮和输入框都是悬浮在这个区域之上的毛玻璃
+// 胶囊/圆形控件（absolute定位，不随内容滚动），标题本身挪进了可滚动区域
+// 顶部的"章节头"里，跟着内容一起滚走，而不是钉死在屏幕最上方。
+//
+// 仍然是零消息收发逻辑、零AI调用（切片B的范围）。
 
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, ScrollText } from 'lucide-react';
@@ -50,11 +54,7 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 py-20 text-xs opacity-60">
         <p>这个会话不存在，可能已被删除。</p>
-        <button
-          type="button"
-          onClick={onBack}
-          className="underline"
-        >
+        <button type="button" onClick={onBack} className="underline">
           返回列表
         </button>
       </div>
@@ -63,61 +63,80 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
 
   return (
     <div
-      className="flex h-full flex-col"
+      className="relative h-full overflow-hidden"
       style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-main)' }}
     >
-      <div
-        className="flex items-center gap-3 border-b px-4 py-3 shrink-0"
-        style={{ borderColor: 'var(--divider)' }}
+      {/* 悬浮返回按钮：毛玻璃圆形，钉在左上角，不随内容滚动 */}
+      <button
+        type="button"
+        onClick={onBack}
+        className="absolute left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--card-bg) 82%, transparent)',
+          boxShadow: 'var(--card-shadow)',
+          color: 'var(--text-main)',
+        }}
       >
-        <button type="button" onClick={onBack} className="opacity-70 hover:opacity-100">
-          <ArrowLeft className="w-4 h-4" />
-        </button>
+        <ArrowLeft className="h-4 w-4" />
+      </button>
 
-        {character?.avatar ? (
-          <img
-            src={character.avatar}
-            alt={character.name}
-            className="w-8 h-8 rounded-full object-cover shrink-0"
-          />
-        ) : (
-          <div
-            className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold"
-            style={{ backgroundColor: 'var(--control-soft-bg)' }}
+      {/* 唯一会滚动的区域，上下留出空间给悬浮的返回按钮/输入框，避免遮挡 */}
+      <div className="absolute inset-0 overflow-y-auto pb-28 pt-4">
+        {/* 章节头：标题和角色信息放在这里，会跟着内容一起滚走，
+            不是钉死在屏幕顶端的一整条bar */}
+        <div
+          className="relative mx-4 mt-10 overflow-hidden rounded-[2rem] px-5 pb-6 pt-8 text-center"
+          style={{
+            background: `linear-gradient(160deg, var(--bg-blob-1) 0%, var(--bg-surface) 75%)`,
+          }}
+        >
+          {character?.avatar ? (
+            <img
+              src={character.avatar}
+              alt={character.name}
+              className="mx-auto h-16 w-16 rounded-full object-cover shadow-sm"
+              style={{ boxShadow: 'var(--card-shadow)' }}
+            />
+          ) : (
+            <div
+              className="mx-auto flex h-16 w-16 items-center justify-center rounded-full text-base font-bold"
+              style={{ backgroundColor: 'var(--control-soft-bg)' }}
+            >
+              {character?.name?.[0] || '?'}
+            </div>
+          )}
+
+          <h2
+            className="mt-3 text-lg font-bold"
+            style={{ fontFamily: 'Georgia, "Noto Serif SC", serif' }}
           >
-            {character?.name?.[0] || '?'}
-          </div>
-        )}
-
-        <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold truncate">{session.title}</h2>
-          <p className="text-[10px] opacity-50 truncate">
+            {session.title}
+          </h2>
+          <p className="mt-0.5 text-[11px] opacity-60">
             {character?.name || '（角色已被删除）'}
+          </p>
+        </div>
+
+        <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center opacity-50">
+          <ScrollText className="h-8 w-8 opacity-40" />
+          <p className="text-xs leading-relaxed">
+            消息收发、渲染器和预设系统
+            <br />
+            在接下来的切片里陆续接入
           </p>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center opacity-50">
-        <ScrollText className="w-8 h-8 opacity-40" />
-        <p className="text-xs leading-relaxed">
-          会话壳已经搭好，消息收发、渲染器和预设系统
-          <br />
-          在接下来的切片里陆续接入。
-        </p>
-      </div>
-
-      <div
-        className="shrink-0 border-t p-3"
-        style={{ borderColor: 'var(--divider)' }}
-      >
+      {/* 悬浮输入条：毛玻璃胶囊，左右留白不贴边，钉在底部不随内容滚动 */}
+      <div className="absolute inset-x-4 bottom-4 z-20">
         <input
           type="text"
           disabled
           placeholder="即将上线..."
-          className="w-full rounded-full border px-4 py-2 text-xs opacity-50 outline-none"
+          className="w-full rounded-full px-4 py-3 text-xs opacity-60 outline-none backdrop-blur-md"
           style={{
-            backgroundColor: 'var(--control-soft-bg)',
-            borderColor: 'var(--card-border)',
+            backgroundColor: 'color-mix(in srgb, var(--card-bg) 82%, transparent)',
+            boxShadow: 'var(--card-shadow)',
           }}
         />
       </div>
