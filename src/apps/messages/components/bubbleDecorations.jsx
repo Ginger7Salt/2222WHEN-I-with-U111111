@@ -4,22 +4,38 @@
 // CSS 预设/自定义 CSS 那一套；装饰则是叠加在气泡角上的一小一大两个图标（不对称
 // 摆放，不是沿边一整排），任意配色都可以搭配任意装饰，互不影响。
 //
-// 最早三套装饰是从预览稿里挑出来定下的："星星散点" / "新月剪影" / "幽灵剪影"，
-// 都用同一种"一大一小、不对称"的摆法，只是换了图案和配色。之前"沿边一排图标"
-// 的版本被否掉了（太机械），改成了这个更随手、更不对称的构图。
-// 2026-09 又追加了四套（爱心/雪花/樱花瓣/泡泡水光），沿用同一套摆法和结构，
-// 只是换图案换色，不用改 BubbleDecorationOverlay 本身。
-//
-// 图标直接用 lucide-react（项目里稳定在用、版本锁定），不依赖 lucide-animated，
-// 因为这里是静态贴上去的小装饰，不需要 hover 动效。
+// 构图规范：同一种"一大一小、不对称"摆放，配合微倾斜角度与阴影，保持线条描边质感。
+// 图标直接用 lucide-react，不依赖 lucide-animated，静态展示轻量无多余开销。
 import React from 'react';
-import { Star, Moon, Ghost, Heart, Snowflake, Flower2, Droplet } from 'lucide-react';
+import {
+  // 原有 7 款图标
+  Star,
+  Moon,
+  Ghost,
+  Heart,
+  Snowflake,
+  Flower2,
+  Droplet,
+  // 新增 10 款图标（均为 lucide-react 稳定内置）
+  Sparkles,
+  PawPrint,
+  Zap,
+  Music2,
+  Coffee,
+  Sprout,
+  Ribbon,
+  Gamepad2,
+  Cloud,
+  Feather, // 替换 butterfly，feather(羽毛) 在 lucide 各版本兼容性极好且质感极佳
+} from 'lucide-react';
 
 export const BUBBLE_DECORATIONS = {
   none: {
     id: 'none',
     name: '无装饰',
   },
+
+  // ===== 原有经典 7 套 =====
   'star-scatter': {
     id: 'star-scatter',
     name: '星星散点',
@@ -61,6 +77,68 @@ export const BUBBLE_DECORATIONS = {
     name: '泡泡水光',
     Icon: Droplet,
     color: '#7FD1D9',
+  },
+
+  // ===== 2026 新增 10 套 =====
+  'sparkle-scatter': {
+    id: 'sparkle-scatter',
+    name: '星芒闪烁',
+    Icon: Sparkles,
+    color: '#FCD34D',
+  },
+  'paw-scatter': {
+    id: 'paw-scatter',
+    name: '萌爪肉垫',
+    Icon: PawPrint,
+    color: '#F472B6',
+  },
+  'feather-scatter': {
+    id: 'feather-scatter',
+    name: '轻灵羽毛',
+    Icon: Feather,
+    color: '#C084FC',
+  },
+  'zap-scatter': {
+    id: 'zap-scatter',
+    name: '赛博闪电',
+    Icon: Zap,
+    color: '#FACC15',
+  },
+  'music-scatter': {
+    id: 'music-scatter',
+    name: '律动音符',
+    Icon: Music2,
+    color: '#60A5FA',
+  },
+  'coffee-scatter': {
+    id: 'coffee-scatter',
+    name: '暖调咖啡',
+    Icon: Coffee,
+    color: '#D97706',
+  },
+  'sprout-scatter': {
+    id: 'sprout-scatter',
+    name: '嫩芽新生',
+    Icon: Sprout,
+    color: '#4ADE80',
+  },
+  'ribbon-scatter': {
+    id: 'ribbon-scatter',
+    name: '优雅丝带',
+    Icon: Ribbon,
+    color: '#FB7185',
+  },
+  'game-scatter': {
+    id: 'game-scatter',
+    name: '复古像素',
+    Icon: Gamepad2,
+    color: '#38BDF8',
+  },
+  'cloud-scatter': {
+    id: 'cloud-scatter',
+    name: '棉花晴云',
+    Icon: Cloud,
+    color: '#93C5FD',
   },
 };
 
