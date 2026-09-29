@@ -14,6 +14,11 @@
 // 共享同一个 groupId（见 bubbleAiService.js），这里按 groupId 分组
 // 渲染——同一组只显示一次头像/名字，气泡紧凑堆叠，不需要额外的时间
 // 窗口判断。
+//
+// 切片C的@定向标记：用户发的消息如果带 targetCharacterId（@了某个角色），
+// 在这条消息组上方显示一个小小的"→ 角色名"标记——这只是给发消息的你自己
+// 看的提示，方便回头翻聊天记录时分辨哪条是定向发的，跟AI/角色完全无关
+// （其他角色永远不会看到、也不知道这条消息存在）。
 
 import React from 'react';
 import { TextCard } from '../messages/components/cards/TextCard';
@@ -82,6 +87,12 @@ const BubbleMessageRow = ({ messages, membersById }) => {
         const isUser = group.senderType === 'user';
         const character = !isUser ? membersById[group.senderId] : null;
 
+        // 定向标记：一组消息共享同一次发送的 targetCharacterId，取第一条
+        // 就够了。只有用户发的消息才可能带这个字段。
+        const targetCharacter = isUser
+          ? membersById[group.items[0]?.targetCharacterId]
+          : null;
+
         return (
           <div
             key={group.key}
@@ -104,6 +115,12 @@ const BubbleMessageRow = ({ messages, membersById }) => {
               {!isUser && (
                 <span className="text-[10px] opacity-50 px-1">
                   {character?.name || '未知角色'}
+                </span>
+              )}
+
+              {targetCharacter && (
+                <span className="text-[10px] opacity-50 px-1">
+                  → {targetCharacter.name}
                 </span>
               )}
 

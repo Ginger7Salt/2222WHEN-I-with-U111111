@@ -428,7 +428,7 @@ const describeUserReactionForPrompt = (msg) => {
   return `（对方对这句话点了"${label}"的反应）`;
 };
 
-const formatMsgContentForPrompt = (msg, options = {}) => {
+export const formatMsgContentForPrompt = (msg, options = {}) => {
   if (!msg) {
     return '';
   }

@@ -1,15 +1,20 @@
 // src/apps/bubble/BubbleRoom.jsx
 //
-// 泡泡模式（Bubble Mode）切片B："最小核心链路"：广播发送 + 每个角色
-// 独立隔离上下文、顺序逐个生成回复 + 消息渲染（气泡折叠）+ 记忆写入。
+// 泡泡模式（Bubble Mode）：广播发送 + 每个角色独立隔离上下文、顺序逐个
+// 生成回复 + 消息渲染（气泡折叠）+ 记忆写入 + composer 的"+"菜单（发语音/
+// 图片/转账）+ 房间共用人设编辑面板 + 切片C的@定向可见度。
 // 编排逻辑在 bubbleAiService.js（不进 aiService.js 那个大文件），渲染
 // 用轻量的 BubbleMessageRow.jsx（不是整个复用 messages/MessageRow.jsx）。
 //
-// 这一轮还没有的（下一轮再做）：语音/图片/转账的"发送方"入口（AI侧已经
-// 顺带支持了，因为复用了 aiService.js 的 parseAiResponseToMessages 和
-// messages 的卡片组件——只是composer这边还没有让用户主动选"发语音/发
-// 图片/发转账"的"+"菜单）、房间共用人设的编辑入口（数据字段已经在读，
-// 只是还没有设置面板）、@定向可见度（切片C）。
+// @定向（切片C）：输入框里打 "@" 会弹出房间成员列表（只在输入框整体是
+// "@" + 还没打空格的搜索词时触发——即 @ 必须是这条消息唯一/领头的token，
+// 不支持句子中间插入@，这是跟用户确认过的简化范围，不是bug）。选中后自动
+// 插入"@角色名 "，发送时用 parseMention 把这个前缀解析成 targetCharacterId
+// 和剩余正文，交给 sendBubbleBroadcastMessage——真正的可见度隔离逻辑在
+// bubbleAiService.js（哪个角色能看到这条消息、该派给谁回复），这边只负责
+// UI 交互和解析。定向消息在消息列表里会带一个"→ 角色名"小标记（跟用户确
+// 认过要加），方便你自己回头看聊天记录时分辨哪条是定向发的——这个标记只是
+// 给你自己看的，其他角色完全不知道这条消息存在，更不会看到这个标记。
 //
 // 房间外观自定义（背景图/输入框与按钮颜色/按钮外观预设/消息气泡配色与装
 // 饰），参照 messages 聊天室 ChatRoom.jsx 的同一套机制原样搬过来，作用域
@@ -18,9 +23,26 @@
 // header/footer 布局：跟 ChatRoom.jsx 的 .chat-input-bar 一样的悬浮胶囊条
 // （rounded-full + shadow-2xl + backdrop-blur-2xl，外层 px-4 留边距），
 // 不是贴边通栏 + border 分割线的"长条"样式。
+//
+// composer 的"+"菜单（发语音/图片/转账）：照抄 ChatRoom.jsx 那一套
+// selectedType + extraInputMeta 的写法——点"+"弹出小菜单选类型，选中后在
+// 输入行上方多显示一条小"修饰条"（图片填画面描述、转账填金额+留言，语音
+// 直接用主输入框打字当"语音内容"），发送时把 {type, content, metadata}
+// 一起交给 sendBubbleBroadcastMessage。跟 ChatRoom 不同的是泡泡模式目前
+// 没有"表情包/礼物/外卖/亲属卡"这些——AI侧的 parseAiResponseToMessages
+// 已经顺带支持了角色回复语音/图片/转账，但用户主动发送这一轮只做语音/
+// 图片/转账三种（跟用户确认过的范围）。
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Settings, SendHorizontal } from 'lucide-react';
+import {
+  ArrowLeft,
+  Settings,
+  SendHorizontal,
+  Plus,
+  Image as ImageIcon,
+  Volume2,
+  DollarSign,
+} from 'lucide-react';
 
 import db from '../../db';
 import { getBubbleRoomById, getBubbleMessages } from './bubbleService';
@@ -43,7 +65,14 @@ const BubbleRoom = ({ roomId, onBack, onChatRoomStateChange }) => {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
 
+  // composer 的"+"菜单状态：selectedType 决定这次发送的消息类型，
+  // extraInputMeta 装类型专属的附加字段（目前只有 transfer 的 amount）。
+  const [selectedType, setSelectedType] = useState('text');
+  const [extraInputMeta, setExtraInputMeta] = useState({});
+  const [showInputMenu, setShowInputMenu] = useState(false);
+
   const scrollRef = useRef(null);
+  const textInputRef = useRef(null);
 
   const membersById = useMemo(() => (
     members.reduce((acc, m) => {
@@ -126,15 +155,57 @@ const BubbleRoom = ({ roomId, onBack, onChatRoomStateChange }) => {
     setRoom((prev) => (prev ? { ...prev, ...patch } : prev));
   };
 
-  const handleSend = async () => {
-    const text = inputText.trim();
-    if (!text || isSending || !room?.id) return;
+  // @ 定向：只在输入框整体是"@" + 还没打空格的搜索词时触发候选列表
+  // （比如 "@" 或 "@晓"），一旦打了空格就说明这个 @ 已经"选完了"，不再是
+  // 正在输入中的 mention——不支持句子中间插入 @，这是跟用户确认过的简化
+  // 范围。
+  const mentionQuery = /^@([^\s@]*)$/.exec(inputText)?.[1] ?? null;
+  const mentionCandidates = mentionQuery === null
+    ? []
+    : members.filter((m) => (m.name || '').includes(mentionQuery));
 
-    setInputText('');
+  const handleSelectMention = (member) => {
+    setInputText(`@${member.name} `);
+    textInputRef.current?.focus();
+  };
+
+  // 把 "@角色名 剩余内容" 解析成 { targetCharacterId, content }；角色名对不
+  // 上房间任何一个成员（比如打了一半就发送、或者名字里正好没匹配上）就当
+  // 普通广播处理，不报错也不强行猜测。
+  const parseMention = (text) => {
+    const match = /^@(\S+)\s+([\s\S]*)$/.exec(text);
+    if (!match) return { targetCharacterId: null, content: text };
+
+    const [, name, rest] = match;
+    const member = members.find((m) => m.name === name);
+    if (!member) return { targetCharacterId: null, content: text };
+
+    return { targetCharacterId: member.id, content: rest.trim() };
+  };
+
+  const handleSend = async () => {
+    const raw = inputText.trim();
+    const { targetCharacterId, content: parsed } = parseMention(raw);
+
+    // 纯文本模式下解析完没内容就不发（比如只打了"@晓晓 "就点发送）；
+    // 非文本类型（语音/图片/转账）允许内容为空（比如转账只填了金额没留
+    // 言），跟 ChatRoom.jsx 的发送判断一致。
+    if (selectedType === 'text' && !parsed) return;
+    if (isSending || !room?.id) return;
+
     setIsSending(true);
 
     try {
-      await sendBubbleBroadcastMessage(room.id, text);
+      await sendBubbleBroadcastMessage(room.id, {
+        type: selectedType,
+        content: parsed || (selectedType === 'image' ? '画面描述' : ''),
+        metadata: extraInputMeta,
+        targetCharacterId,
+      });
+
+      setInputText('');
+      setSelectedType('text');
+      setExtraInputMeta({});
     } finally {
       setIsSending(false);
     }
@@ -328,6 +399,34 @@ const BubbleRoom = ({ roomId, onBack, onChatRoomStateChange }) => {
         className="z-20 shrink-0 px-4 pt-1"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
       >
+        {/* 类型修饰条：选了语音/图片/转账之后才出现，跟 ChatRoom.jsx 的
+            MODIFIER 小面板同一个思路——图片填画面描述、转账填金额+留言，
+            语音直接用下面主输入框打字当"语音内容"，不需要额外字段。 */}
+        {selectedType !== 'text' && (
+          <div
+            className="mb-2 rounded-2xl p-2.5 text-[11px] space-y-2"
+            style={{ background: 'var(--card-bg-gradient)', border: '1px solid var(--card-border)' }}
+          >
+            <div className="flex items-center justify-between font-mono text-[10px] opacity-60">
+              <span>MODIFIER: {selectedType.toUpperCase()}</span>
+              <button type="button" onClick={() => { setSelectedType('text'); setExtraInputMeta({}); }}>
+                &times;
+              </button>
+            </div>
+
+            {selectedType === 'transfer' && (
+              <input
+                type="text"
+                placeholder="转账数字"
+                value={extraInputMeta.amount || ''}
+                onChange={(e) => setExtraInputMeta({ ...extraInputMeta, amount: e.target.value })}
+                className="w-full rounded-xl p-2 font-mono outline-none"
+                style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}
+              />
+            )}
+          </div>
+        )}
+
         <div
           className="bubble-room-input-bar flex items-center gap-2 rounded-full px-3 py-2 shadow-2xl backdrop-blur-2xl"
           style={{
@@ -336,24 +435,129 @@ const BubbleRoom = ({ roomId, onBack, onChatRoomStateChange }) => {
             boxShadow: '0 16px 40px rgba(0, 0, 0, 0.15)',
           }}
         >
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                void handleSend();
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowInputMenu((prev) => !prev)}
+              className={`bubble-room-top-btn rounded-full p-2 transition-all active:scale-90 ${
+                showInputMenu || selectedType !== 'text' ? 'opacity-100' : 'opacity-70 hover:opacity-100'
+              }`}
+              style={{
+                background: showInputMenu || selectedType !== 'text' ? 'var(--control-soft-bg)' : 'transparent',
+                color: 'var(--text-main)',
+              }}
+              title="更多输入方式"
+            >
+              <Plus className={`h-4 w-4 transition-transform duration-300 ${showInputMenu ? 'rotate-45' : ''}`} />
+            </button>
+
+            {showInputMenu && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowInputMenu(false)} />
+
+                <div
+                  className="absolute bottom-full left-0 z-40 mb-2 w-36 overflow-hidden rounded-2xl py-1 shadow-xl"
+                  style={{
+                    background: 'var(--card-bg-gradient)',
+                    color: 'var(--text-main)',
+                    border: '1px solid var(--card-border)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => { setShowInputMenu(false); setSelectedType('image'); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                    <span>画面描述</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowInputMenu(false); setSelectedType('voice'); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                    <span>模拟语音</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowInputMenu(false); setSelectedType('transfer'); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <DollarSign className="h-4 w-4" />
+                    <span>心意转账</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="relative flex-1 min-w-0">
+            {/* 候选列表完全从 inputText 派生（不是单独的 open/close 状态）——
+                打空格、清空输入框或直接选中一个成员都会让它自然消失，不需要
+                一个"点击外部关闭"的遮罩（那样反而容易误触把 "@" 也清掉）。 */}
+            {mentionCandidates.length > 0 && (
+              <div
+                className="absolute bottom-full left-0 z-40 mb-2 w-40 max-h-48 overflow-y-auto rounded-2xl py-1 shadow-xl"
+                style={{
+                  background: 'var(--card-bg-gradient)',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--card-border)',
+                }}
+              >
+                {mentionCandidates.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleSelectMention(m)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                  >
+                    <div
+                      className="w-5 h-5 rounded-full overflow-hidden shrink-0 flex items-center justify-center text-[9px] font-semibold"
+                      style={{ backgroundColor: 'var(--control-soft-bg)' }}
+                    >
+                      {m.avatar ? (
+                        <img src={m.avatar} alt={m.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{(m.name || '?').slice(0, 1)}</span>
+                      )}
+                    </div>
+                    <span className="truncate">{m.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <input
+              ref={textInputRef}
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+              placeholder={
+                selectedType === 'text'
+                  ? '跟房间里的大家说点什么...（打 @ 可以定向发给某个角色）'
+                  : selectedType === 'transfer'
+                    ? '心意留言（可留空）'
+                    : selectedType === 'voice'
+                      ? '模拟语音内容...'
+                      : '输入图片的视觉描写细节...'
               }
-            }}
-            placeholder={`跟房间里的大家说点什么...`}
-            className="w-full bg-transparent text-xs outline-none chat-input-font"
-          />
+              className="w-full bg-transparent text-xs outline-none chat-input-font"
+            />
+          </div>
 
           <button
             type="button"
             onClick={() => void handleSend()}
-            disabled={!inputText.trim() || isSending}
+            disabled={(selectedType === 'text' && !parseMention(inputText.trim()).content) || isSending}
             className="bubble-room-send-btn shrink-0 rounded-full p-2 transition-transform active:scale-90 disabled:opacity-40"
             style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
           >

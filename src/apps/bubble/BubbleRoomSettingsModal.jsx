@@ -15,11 +15,18 @@
 // 段进去即可）——本文件只负责"打开它"的入口按钮，弹窗本体由父组件
 // BubbleRoom.jsx 渲染（跟 ChatRoom.jsx 管理 showBubbleCustomizer 的方式一致）。
 //
-// 切片A还没有消息收发，所以气泡配色/装饰、气泡文字颜色这几项现在设置了也
-// 看不出效果——等切片B把 MessageList/MessageRow 接进来（复用 messages 那
-// 一套真实的 .user-bubble/.ai-bubble class）才会生效。这是有意提前放好设
-// 置入口，省得切片B再回来加一遍。发送按钮颜色（sendBtnColor）留到切片B
-// 真正有发送按钮的时候再加，这一轮不加对应的设置项。
+// 切片B已经把消息收发接上了，气泡配色/装饰、气泡文字颜色这几项现在都能看
+// 到实际效果。发送按钮颜色（sendBtnColor）这一轮仍然没加对应设置项——泡
+// 泡模式的发送按钮目前固定用 --control-soft-bg，跟消息 app 那边可自定义
+// 的 sendBtnColor 不是一回事，等真有需求再补。
+//
+// 房间人设（userName/userPersona）：整个房间共用一份（已跟用户确认，不是
+// 每个角色单独一份），字段直接存在 bubbleRooms 记录上，跟角色自己的一对
+// 一聊天人设完全独立。生成回复时 bubbleAiService.js 的
+// buildBubbleSystemPrompt 优先用 room.userName/room.userPersona，房间没填
+// 才退回角色自己的默认人设。UI 上照抄 messages/ChatSettingsModal.jsx 编辑
+// 用户人设那两个输入框的写法：本地 state + onBlur 才提交，不是每敲一个字
+// 就写一次 Dexie。
 
 import React, { useRef, useState } from 'react';
 import { X, Upload, Trash2, Eye, EyeOff, Palette, Image as ImageIcon } from 'lucide-react';
@@ -58,6 +65,9 @@ const BubbleRoomSettingsModal = ({ room, onClose, onUpdated, onOpenBubbleCustomi
   const [isBgDimmed, setIsBgDimmed] = useState(room?.isBgDimmed ?? true);
   const [bgOpacity, setBgOpacity] = useState(room?.bgOpacity ?? 0.3);
   const bgImage = room?.bgImage || '';
+
+  const [userName, setUserName] = useState(room?.userName || '');
+  const [userPersona, setUserPersona] = useState(room?.userPersona || '');
 
   if (!room?.id) return null;
 
@@ -98,6 +108,13 @@ const BubbleRoomSettingsModal = ({ room, onClose, onUpdated, onOpenBubbleCustomi
     const next = styleId || 'default';
     if (next === (room?.controlStyle || 'default')) return;
     void commit({ controlStyle: next });
+  };
+
+  const handleCommitUserIdentity = () => {
+    void commit({
+      userName: (userName || '').trim(),
+      userPersona: (userPersona || '').trim(),
+    });
   };
 
   return (
@@ -204,7 +221,7 @@ const BubbleRoomSettingsModal = ({ room, onClose, onUpdated, onOpenBubbleCustomi
         <SectionCard
           title="输入框与按钮颜色"
           tag="ROOM COLORS"
-          description="点色块选颜色，图标文字会自动挑深色或白色。消息气泡文字颜色现在设置了还看不出效果，等消息功能上线后生效。"
+          description="点色块选颜色，图标文字会自动挑深色或白色。"
         >
           <ColorSettingRow
             label="输入框底色"
@@ -222,15 +239,60 @@ const BubbleRoomSettingsModal = ({ room, onClose, onUpdated, onOpenBubbleCustomi
             onCommit={(value) => handleCommitColor('topBtnColor', value)}
           />
           <ColorSettingRow
-            label="我的气泡文字颜色（预留）"
+            label="我的气泡文字颜色"
             value={room?.userBubbleTextColor || ''}
             onCommit={(value) => handleCommitColor('userBubbleTextColor', value)}
           />
           <ColorSettingRow
-            label="角色气泡文字颜色（预留）"
+            label="角色气泡文字颜色"
             value={room?.aiBubbleTextColor || ''}
             onCommit={(value) => handleCommitColor('aiBubbleTextColor', value)}
           />
+        </SectionCard>
+
+        {/* 房间共用人设 */}
+        <SectionCard
+          title="房间人设"
+          tag="ROOM PERSONA"
+          description="整个房间共用一份，房间里所有角色生成回复时都会看到这份人设；不填就退回每个角色自己一对一聊天的默认人设。"
+        >
+          <div>
+            <label className="block text-[10px] opacity-60 mb-1">
+              你在本房间的称呼
+            </label>
+            <input
+              type="text"
+              value={userName}
+              placeholder="例如：阿泽 / 主人 / User"
+              onChange={(e) => setUserName(e.target.value)}
+              onBlur={handleCommitUserIdentity}
+              className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs"
+              style={{
+                background: 'var(--bg-main)',
+                borderColor: 'var(--card-border)',
+                color: 'var(--text-main)',
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] opacity-60 mb-1">
+              本房间你的专属人设
+            </label>
+            <textarea
+              rows={3}
+              value={userPersona}
+              placeholder="例如：刚下班的程序员 / 喜欢弹吉他的室友..."
+              onChange={(e) => setUserPersona(e.target.value)}
+              onBlur={handleCommitUserIdentity}
+              className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs leading-relaxed overflow-y-auto resize-y max-h-32 min-h-[48px]"
+              style={{
+                background: 'var(--bg-main)',
+                borderColor: 'var(--card-border)',
+                color: 'var(--text-main)',
+              }}
+            />
+          </div>
         </SectionCard>
 
         {/* 按钮外观预设 */}
@@ -261,7 +323,7 @@ const BubbleRoomSettingsModal = ({ room, onClose, onUpdated, onOpenBubbleCustomi
           </div>
         </SectionCard>
 
-        {/* 消息气泡配色与装饰（复用 messages 的 BubbleCustomizer，切片B消息上线后生效） */}
+        {/* 消息气泡配色与装饰（复用 messages 的 BubbleCustomizer） */}
         <button
           type="button"
           onClick={() => {
@@ -271,7 +333,7 @@ const BubbleRoomSettingsModal = ({ room, onClose, onUpdated, onOpenBubbleCustomi
           className="w-full p-2.5 rounded-xl flex items-center justify-between border"
           style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
         >
-          <span className="font-semibold">消息气泡配色与装饰（预留，消息功能上线后生效）</span>
+          <span className="font-semibold">消息气泡配色与装饰</span>
           <Palette className="w-3.5 h-3.5 opacity-60" />
         </button>
       </div>
