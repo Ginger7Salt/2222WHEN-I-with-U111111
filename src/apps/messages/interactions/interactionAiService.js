@@ -22,7 +22,7 @@ const dispatchLocalMessageEvent = (chatId) => {
  * 取角色/聊天/接口配置这三样，凑不齐（角色不存在、接口没配好）就返回
  * null——调用方拿到 null 就安静放弃，不影响互动结果本身已经落库这件事。
  */
-const getGenerationContext = async (chatId) => {
+export const getGenerationContext = async (chatId) => {
   const [chat, apiSetting] = await Promise.all([
     db.chats.get(chatId),
     db.settings.get('apiConfig'),
@@ -40,7 +40,7 @@ const getGenerationContext = async (chatId) => {
   return { chat, character, apiConfig };
 };
 
-const requestAiText = async ({ apiConfig, systemPrompt }) => {
+export const requestAiText = async ({ apiConfig, systemPrompt }) => {
   const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -67,7 +67,7 @@ const requestAiText = async ({ apiConfig, systemPrompt }) => {
   return removeEmoji(data?.choices?.[0]?.message?.content || '');
 };
 
-const insertCharacterTextMessage = async ({
+export const insertCharacterTextMessage = async ({
   chatId,
   character,
   content,

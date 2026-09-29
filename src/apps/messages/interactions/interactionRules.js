@@ -1,3 +1,5 @@
+import { DECK_IDS } from './divination/divinationDecks';
+
 export const INTERACTION_TYPES = {
   COIN: 'coin',
   DICE: 'dice',
@@ -5,6 +7,7 @@ export const INTERACTION_TYPES = {
   LOTTERY: 'lottery',
   INTIMACY_QA: 'intimacy_qa',
   TRUTH_OR_DARE: 'truth_or_dare',
+  DIVINATION: 'divination',
 };
 
 export const RPS_CHOICES = ['剪刀', '石头', '布'];
@@ -146,6 +149,8 @@ export const getInteractionLabel = (interactionType) => {
       return '问答卡';
     case INTERACTION_TYPES.TRUTH_OR_DARE:
       return '真心话大冒险';
+    case INTERACTION_TYPES.DIVINATION:
+      return '占卜';
     default:
       return '互动';
   }
@@ -186,6 +191,20 @@ export const getInteractionSummary = (metadata = {}) => {
   if (interactionType === INTERACTION_TYPES.TRUTH_OR_DARE) {
     const modeText = result.mode === 'dare' ? '大冒险' : '真心话';
     return `用户向你发起了「${modeText}」，题目是：${result.prompt || '未知题目'}。`;
+  }
+
+  if (interactionType === INTERACTION_TYPES.DIVINATION) {
+    const cards = Array.isArray(result.cards) ? result.cards : [];
+    const isTarot = result.deckId === DECK_IDS.TAROT;
+
+    const cardText = cards
+      .map((card) => {
+        const orientation = isTarot ? (card.reversed ? '逆位' : '正位') : '';
+        return `${card.positionLabel}：${card.name}${orientation}`;
+      })
+      .join('；');
+
+    return `用户占卜了一个问题：「${result.question || '未知问题'}」，抽到：${cardText || '未知牌面'}。`;
   }
 
   return '完成了一次聊天互动。';
