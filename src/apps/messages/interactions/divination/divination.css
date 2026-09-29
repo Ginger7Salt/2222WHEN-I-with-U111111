@@ -1,11 +1,168 @@
 /* src/apps/messages/interactions/divination/divination.css
  *
  * 占卜小卡片的样式：设置面板 + 聊天里的牌阵消息 + 卡面。
- * 颜色全部指向全局主题变量（src/styles/themes.css）和
- * chat-interactions.css 里 .chat-interaction 上定义的 --interaction-* 别名，
- * 所以会跟着当前主题变色。卡面和消息里的元素都挂在 .chat-interaction 之下，
- * 能直接用这些别名；设置面板不在 .chat-interaction 里，直接用全局变量。
+ * 所有颜色都来自 src/styles/themes.css 的全局变量，
+ * 在 .divination-scope 上统一起一层 --dv-* 别名，切换主题时自动跟随。
+ * 只有一处用到固定色：遮罩的半透明黑（和其它弹窗一致）。
  */
+
+.divination-scope {
+  --dv-bg: var(--card-bg);
+  --dv-surface: var(--control-soft-bg);
+  --dv-surface-strong: var(--bg-surface-strong);
+  --dv-line: var(--card-border);
+  --dv-ink: var(--text-main);
+  --dv-sub: var(--text-sub);
+  --dv-muted: var(--text-muted);
+  --dv-accent: var(--accent-color);
+  --dv-accent-ink: var(--accent-foreground);
+  --dv-star: color-mix(in srgb, var(--dv-ink) 30%, transparent);
+  --dv-serif: Georgia, 'Times New Roman', serif;
+  --dv-mono: 'SFMono-Regular', Consolas, monospace;
+}
+
+.divination-scope *,
+.divination-scope *::before,
+.divination-scope *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- 卡面 ---------- */
+
+.dv-card {
+  --dv-card-w: 82px;
+  position: relative;
+  display: flex;
+  width: var(--dv-card-w);
+  aspect-ratio: 5 / 7.4;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 6px 5px 7px;
+  border: 1px solid var(--dv-line);
+  border-radius: 10px;
+  background: linear-gradient(160deg, var(--dv-bg), var(--dv-surface-strong));
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--dv-ink) 12%, transparent);
+  color: var(--dv-ink);
+}
+
+.dv-card::before {
+  position: absolute;
+  inset: 3px;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 7px;
+  content: '';
+  pointer-events: none;
+}
+
+.dv-card--gentle {
+  color: color-mix(in srgb, var(--dv-accent) 62%, var(--dv-muted));
+  background: linear-gradient(160deg, var(--dv-bg), var(--dv-surface));
+}
+
+.dv-card--weighty {
+  border-color: var(--ink-card-border);
+  background: var(--ink-card-bg);
+  color: var(--text-on-ink);
+}
+
+.dv-card--weighty .dv-card-name,
+.dv-card--weighty .dv-card-index {
+  color: var(--text-on-ink);
+}
+
+.dv-card--weighty .dv-card-tag,
+.dv-card--weighty .dv-card-index {
+  color: var(--text-on-ink-muted);
+}
+
+.dv-card--missing {
+  align-items: center;
+  justify-content: center;
+}
+
+.dv-card-index {
+  align-self: flex-start;
+  padding-left: 3px;
+  color: var(--dv-muted);
+  font-family: var(--dv-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+}
+
+.dv-card-motif {
+  display: grid;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  place-items: center;
+}
+
+.dv-card-motif svg,
+.dv-motif {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.dv-card-motif svg {
+  width: 76%;
+  height: auto;
+  opacity: 0.86;
+}
+
+.dv-card--reversed .dv-card-motif svg {
+  transform: rotate(180deg);
+}
+
+.dv-card-name {
+  position: relative;
+  color: var(--dv-ink);
+  font-family: var(--dv-serif);
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.dv-card-tag {
+  position: relative;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 999px;
+  color: var(--dv-muted);
+  font-family: var(--dv-mono);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+}
+
+/* 牌背：主题强调色 + 反色的星形纹样 */
+.dv-card--back {
+  justify-content: center;
+  border-color: var(--dv-accent);
+  background: linear-gradient(
+    160deg,
+    var(--dv-accent),
+    color-mix(in srgb, var(--dv-accent) 76%, var(--dv-bg))
+  );
+  color: var(--dv-accent-ink);
+}
+
+.dv-card--back::before {
+  border-color: color-mix(in srgb, var(--dv-accent-ink) 34%, transparent);
+}
+
+.dv-back-ornament {
+  width: 66%;
+  height: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 1.3;
+  opacity: 0.9;
+}
 
 /* ---------- 聊天里的牌阵消息 ---------- */
 
@@ -13,27 +170,62 @@
   width: min(100%, 300px);
 }
 
-.divination-question {
+.dv-question {
   margin: 2px 15px 10px;
   padding-left: 9px;
-  border-left: 2px solid var(--interaction-line);
-  color: var(--interaction-ink);
-  font-family: Georgia, 'Times New Roman', serif;
+  border-left: 2px solid var(--dv-line);
+  color: var(--dv-ink);
+  font-family: var(--dv-serif);
   font-size: 12.5px;
   line-height: 1.5;
   word-break: break-word;
 }
 
-.divination-cards {
+.dv-table {
+  --dv-gap: 8px;
+  position: relative;
   display: flex;
   justify-content: center;
-  gap: 8px;
-  padding: 4px 12px 12px;
-  perspective: 620px;
+  gap: var(--dv-gap);
+  padding: 6px 12px 12px;
+  perspective: 700px;
 }
 
-.divination-slot {
+.dv-table--single .dv-card {
+  --dv-card-w: 112px;
+}
+
+.dv-table--single {
+  --dv-gap: 0px;
+}
+
+/* 出牌时中心的一圈柔光 */
+.dv-table.is-playing::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  margin: -75px 0 0 -75px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--dv-accent) 30%, transparent),
+    transparent 68%
+  );
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  animation: dvBurst 900ms ease-out 1350ms both;
+}
+
+.dv-slot {
+  --mid: 0;
+  --dv-slot-w: 82px;
+  position: relative;
+  z-index: 1;
   display: flex;
+  width: var(--dv-slot-w);
   flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
@@ -43,195 +235,176 @@
   background: none;
   color: inherit;
   cursor: pointer;
+  transition: transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
   -webkit-tap-highlight-color: transparent;
 }
 
-.divination-slot-label {
-  max-width: 82px;
+.dv-table--single .dv-slot {
+  --dv-slot-w: 112px;
+}
+
+/* 还没发出的牌：全部叠在中间，略微扇开 */
+.dv-slot:not(.is-dealt) {
+  z-index: calc(10 - var(--i));
+  transform:
+    translateX(calc((var(--mid) - var(--i)) * (var(--dv-slot-w) + var(--dv-gap))))
+    rotate(calc((var(--i) - var(--mid)) * 3deg));
+}
+
+.dv-slot-label {
+  max-width: 100%;
   overflow: hidden;
-  color: var(--interaction-muted);
-  font-family: 'SFMono-Regular', Consolas, monospace;
+  color: var(--dv-muted);
+  font-family: var(--dv-mono);
   font-size: 9px;
   letter-spacing: 0.06em;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: opacity 320ms ease;
 }
 
-.divination-slot[aria-pressed='true'] .divination-card {
-  outline: 1px solid var(--interaction-accent);
+.dv-slot:not(.is-dealt) .dv-slot-label {
+  opacity: 0;
+}
+
+.dv-lift,
+.dv-flipper,
+.dv-face {
+  display: block;
+}
+
+.dv-lift {
+  transition: transform 260ms ease;
+}
+
+.dv-slot.is-up .dv-lift {
+  transform: translateY(-3px);
+}
+
+.dv-slot.is-selected .dv-lift {
+  transform: translateY(-5px);
+}
+
+.dv-slot.is-selected .dv-card {
+  outline: 1px solid var(--dv-accent);
   outline-offset: 2px;
 }
 
-.divination-slot:focus-visible .divination-card {
-  outline: 1px solid var(--interaction-accent);
+.dv-slot:focus-visible .dv-card {
+  outline: 1px solid var(--dv-accent);
   outline-offset: 2px;
 }
 
-.divination-detail {
+.dv-flipper {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 640ms cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+.dv-slot:not(.is-up) .dv-flipper {
+  transform: rotateY(180deg);
+}
+
+.dv-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.dv-face--back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+}
+
+.dv-face--back .dv-card {
+  width: 100%;
+  height: 100%;
+}
+
+/* 叠着的时候轻轻晃一下 */
+.dv-table.is-playing .dv-slot:not(.is-dealt) .dv-lift {
+  animation: dvWobble 700ms ease-in-out 2;
+}
+
+.dv-detail-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 260ms ease;
+}
+
+.dv-detail-wrap.is-open {
+  grid-template-rows: 1fr;
+}
+
+.dv-detail-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dv-detail {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   margin: 0 12px 10px;
   padding: 9px 11px;
-  border: 1px solid var(--interaction-line);
+  border: 1px solid var(--dv-line);
   border-radius: 12px;
-  background: var(--interaction-soft);
-  color: var(--interaction-ink);
-  font-family: Georgia, 'Times New Roman', serif;
+  background: var(--dv-surface);
+  color: var(--dv-ink);
+  font-family: var(--dv-serif);
   font-size: 11.5px;
   line-height: 1.55;
 }
 
-.divination-detail strong {
+.dv-detail strong {
   font-size: 12px;
   font-weight: 600;
 }
 
-.divination-detail-keywords {
-  color: var(--interaction-muted);
-  font-size: 10.5px;
-}
-
-/* ---------- 卡面 ---------- */
-
-.divination-card {
-  position: relative;
+.dv-detail-chips {
   display: flex;
-  width: 78px;
-  aspect-ratio: 5 / 7.4;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  overflow: hidden;
-  padding: 6px 5px 7px;
-  border: 1px solid var(--interaction-line);
-  border-radius: 10px;
-  background:
-    linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--interaction-paper) 92%, white),
-      var(--interaction-paper-deep)
-    );
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--interaction-ink) 14%, transparent);
-  color: var(--interaction-ink);
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
-.divination-cards--single .divination-card {
-  width: 104px;
-}
-
-/* 卡面内侧的细边框 */
-.divination-card::before {
-  position: absolute;
-  inset: 3px;
-  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-  border-radius: 7px;
-  content: '';
-  pointer-events: none;
-}
-
-.divination-card--tarot {
-  color: var(--interaction-ink);
-}
-
-.divination-card--gentle {
-  color: color-mix(in srgb, var(--interaction-accent) 60%, var(--interaction-muted));
-  background:
-    linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--interaction-paper) 96%, white),
-      var(--interaction-soft)
-    );
-}
-
-.divination-card--weighty {
-  color: var(--interaction-ink);
-  background:
-    linear-gradient(
-      160deg,
-      var(--interaction-soft),
-      color-mix(in srgb, var(--interaction-paper-deep) 78%, var(--interaction-ink))
-    );
-}
-
-.divination-card--missing {
-  align-items: center;
-  justify-content: center;
-}
-
-.divination-card-index {
-  align-self: flex-start;
-  padding-left: 3px;
-  color: var(--interaction-muted);
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  font-size: 8px;
-  letter-spacing: 0.1em;
-}
-
-.divination-card-motif {
-  display: grid;
-  width: 100%;
-  min-height: 0;
-  flex: 1 1 auto;
-  place-items: center;
-}
-
-.divination-card-motif svg {
-  width: 76%;
-  height: auto;
-  fill: none;
-  opacity: 0.86;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.6;
-}
-
-/* 逆位：只倒转图案，牌名保持正向，保证文字可读 */
-.divination-card--reversed .divination-card-motif svg {
-  transform: rotate(180deg);
-}
-
-.divination-card-name {
-  position: relative;
-  color: var(--interaction-ink);
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 12px;
-  line-height: 1.2;
-  text-align: center;
-}
-
-.divination-card-tag {
-  position: relative;
-  padding: 1px 5px;
-  border: 1px solid var(--interaction-line);
+.dv-chip {
+  padding: 1px 7px;
+  border: 1px solid var(--dv-line);
   border-radius: 999px;
-  color: var(--interaction-muted);
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  font-size: 8px;
-  letter-spacing: 0.06em;
+  color: var(--dv-sub);
+  font-size: 10px;
 }
 
-.divination-card--reveal {
-  animation: divinationCardReveal 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  animation-delay: calc(var(--divination-index, 0) * 160ms);
-}
-
-@keyframes divinationCardReveal {
-  from {
-    opacity: 0;
-    transform: translateY(8px) rotateY(80deg) scale(0.94);
+@keyframes dvWobble {
+  0%,
+  100% {
+    translate: 0 0;
   }
 
-  to {
+  50% {
+    translate: 0 -3px;
+  }
+}
+
+@keyframes dvBurst {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  35% {
     opacity: 1;
-    transform: none;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
   }
 }
 
 /* ---------- 设置面板 ---------- */
 
-.divination-setup-backdrop {
+.dv-backdrop {
   position: fixed;
   z-index: 50;
   inset: 0;
@@ -240,142 +413,275 @@
   justify-content: center;
   background: rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(4px);
-  animation: divinationBackdropIn 180ms ease-out both;
+  animation: dvFadeIn 180ms ease-out both;
 }
 
-.divination-setup {
+.dv-sheet {
+  position: relative;
   display: flex;
   width: 100%;
   max-width: 384px;
   max-height: 92vh;
   max-height: 92dvh;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
   overflow-y: auto;
-  padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
-  border: 1px solid var(--card-border);
+  padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+  border: 1px solid var(--dv-line);
   border-radius: 24px 24px 0 0;
-  background: var(--card-bg);
+  background-color: var(--dv-bg);
+  background-image:
+    radial-gradient(
+      circle at 50% -10%,
+      color-mix(in srgb, var(--dv-accent) 10%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(circle at 8% 6%, var(--dv-star) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 22% 14%, var(--dv-star) 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 36% 4%, var(--dv-star) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 63% 9%, var(--dv-star) 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 78% 3%, var(--dv-star) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 91% 12%, var(--dv-star) 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 95% 30%, var(--dv-star) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 4% 34%, var(--dv-star) 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 12% 58%, var(--dv-star) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 93% 55%, var(--dv-star) 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 6% 80%, var(--dv-star) 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 96% 78%, var(--dv-star) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 20% 94%, var(--dv-star) 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 74% 95%, var(--dv-star) 0 1px, transparent 1.5px);
   box-shadow: var(--card-shadow);
-  color: var(--text-main);
+  color: var(--dv-ink);
 }
 
 @media (min-width: 640px) {
-  .divination-setup-backdrop {
+  .dv-backdrop {
     align-items: center;
     padding: 16px;
   }
 
-  .divination-setup {
+  .dv-sheet {
     border-radius: 24px;
   }
 }
 
-.divination-setup-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.divination-setup-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.divination-setup .interaction-kicker {
-  color: var(--text-muted);
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  font-size: 8px;
-  letter-spacing: 0.14em;
-}
-
-.divination-setup-title {
-  margin: 0;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.divination-setup-close {
+.dv-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
   display: grid;
   width: 30px;
   height: 30px;
   place-items: center;
   border: 0;
   border-radius: 50%;
-  background: var(--control-soft-bg);
-  color: var(--text-main);
+  background: var(--dv-surface);
+  color: var(--dv-ink);
   cursor: pointer;
 }
 
-.divination-setup-section {
+.dv-header {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 34px 0;
+  text-align: center;
 }
 
-.divination-setup-label {
+.dv-kicker {
+  color: var(--dv-muted);
+  font-family: var(--dv-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+}
+
+.dv-title {
   margin: 0;
-  color: var(--text-muted);
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  font-size: 10px;
+  font-family: var(--dv-serif);
+  font-size: 22px;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
 }
 
-.divination-decks {
+.dv-divider {
+  display: flex;
+  width: 120px;
+  align-items: center;
+  gap: 8px;
+  color: var(--dv-muted);
+}
+
+.dv-divider::before,
+.dv-divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--dv-line);
+  content: '';
+}
+
+.dv-divider i {
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+
+.dv-subtitle {
+  margin: 0;
+  color: var(--dv-muted);
+  font-size: 12px;
+}
+
+.dv-step {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.dv-step-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  color: var(--dv-sub);
+  font-family: var(--dv-serif);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.dv-step-label span {
+  color: var(--dv-muted);
+  font-family: var(--dv-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.dv-decks {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.divination-spreads {
+.dv-spreads {
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.divination-option {
+.dv-tile {
   display: flex;
+  min-width: 0;
   flex-direction: column;
-  gap: 2px;
-  padding: 9px 12px;
-  border: 1px solid var(--card-border);
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px 10px;
+  border: 1px solid var(--dv-line);
   border-radius: 14px;
-  background: var(--control-soft-bg);
-  color: var(--text-main);
-  text-align: left;
+  background: var(--dv-surface);
+  color: var(--dv-ink);
+  text-align: center;
   cursor: pointer;
   transition:
     border-color 160ms ease,
     background-color 160ms ease;
 }
 
-.divination-option[aria-pressed='true'] {
-  border-color: var(--accent-color);
-  background: color-mix(in srgb, var(--accent-color) 10%, var(--card-bg));
+.dv-tile[aria-pressed='true'] {
+  border-color: var(--dv-accent);
+  background: color-mix(in srgb, var(--dv-accent) 9%, var(--dv-bg));
 }
 
-.divination-option-title {
-  font-family: Georgia, 'Times New Roman', serif;
+.dv-tile-title {
+  font-family: var(--dv-serif);
   font-size: 13px;
   font-weight: 600;
 }
 
-.divination-option-desc {
-  color: var(--text-muted);
-  font-size: 11px;
+.dv-tile-desc {
+  color: var(--dv-muted);
+  font-size: 10.5px;
   line-height: 1.4;
 }
 
-.divination-question-input {
+/* 牌组磁贴里的三张迷你牌 */
+.dv-fan {
+  display: flex;
+  height: 56px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.dv-fan .dv-card {
+  --dv-card-w: 34px;
+  flex: 0 0 auto;
+  padding: 3px 2px;
+  border-radius: 6px;
+}
+
+.dv-fan .dv-card::before {
+  inset: 2px;
+  border-radius: 4px;
+}
+
+.dv-fan .dv-card + .dv-card {
+  margin-left: -8px;
+}
+
+.dv-fan .dv-card:nth-child(1) {
+  transform: rotate(-9deg);
+}
+
+.dv-fan .dv-card:nth-child(2) {
+  z-index: 1;
+  transform: translateY(-3px);
+}
+
+.dv-fan .dv-card:nth-child(3) {
+  transform: rotate(9deg);
+}
+
+.dv-fan .dv-card-motif svg {
+  width: 84%;
+}
+
+/* 牌阵磁贴里的位置示意 */
+.dv-diagram {
+  display: flex;
+  height: 34px;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+}
+
+.dv-dslot {
+  width: 18px;
+  height: 27px;
+  border: 1px solid color-mix(in srgb, var(--dv-ink) 40%, transparent);
+  border-radius: 3px;
+  background: var(--dv-bg);
+}
+
+.dv-dslot.is-raised {
+  margin-bottom: 7px;
+}
+
+.dv-tile[aria-pressed='true'] .dv-dslot {
+  border-color: var(--dv-accent);
+  background: color-mix(in srgb, var(--dv-accent) 14%, var(--dv-bg));
+}
+
+/* 问题输入 */
+.dv-question-input {
   width: 100%;
   resize: none;
   padding: 10px 12px;
-  border: 1px solid var(--card-border);
+  border: 1px solid var(--dv-line);
   border-radius: 14px;
-  background: var(--control-soft-bg);
-  color: var(--text-main);
+  background: var(--dv-surface);
+  color: var(--dv-ink);
   font-family: inherit;
   /* 16px 可以避免 iOS 在聚焦输入框时自动放大页面 */
   font-size: 16px;
@@ -383,42 +689,53 @@
   outline: none;
 }
 
-.divination-question-input:focus {
-  border-color: var(--accent-color);
+.dv-question-input:focus {
+  border-color: var(--dv-accent);
 }
 
-.divination-question-count {
+.dv-question-count {
   align-self: flex-end;
-  color: var(--text-muted);
-  font-family: 'SFMono-Regular', Consolas, monospace;
+  color: var(--dv-muted);
+  font-family: var(--dv-mono);
   font-size: 10px;
 }
 
-.divination-submit {
+.dv-submit {
+  display: flex;
   width: 100%;
-  padding: 12px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px;
   border: 0;
   border-radius: 14px;
-  background: var(--accent-color);
-  color: var(--accent-foreground);
+  background: var(--dv-accent);
+  color: var(--dv-accent-ink);
   font-size: 14px;
   font-weight: 600;
+  letter-spacing: 0.2em;
   cursor: pointer;
   transition:
     opacity 160ms ease,
     transform 160ms ease;
 }
 
-.divination-submit:active:not(:disabled) {
+.dv-submit svg {
+  width: 10px;
+  height: 10px;
+  fill: currentColor;
+}
+
+.dv-submit:active:not(:disabled) {
   transform: scale(0.98);
 }
 
-.divination-submit:disabled {
+.dv-submit:disabled {
   cursor: default;
   opacity: 0.45;
 }
 
-@keyframes divinationBackdropIn {
+@keyframes dvFadeIn {
   from {
     opacity: 0;
   }
@@ -429,13 +746,18 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .divination-card--reveal,
-  .divination-setup-backdrop {
+  .dv-backdrop,
+  .dv-table.is-playing::after,
+  .dv-table.is-playing .dv-slot:not(.is-dealt) .dv-lift {
     animation: none;
   }
 
-  .divination-option,
-  .divination-submit {
+  .dv-slot,
+  .dv-flipper,
+  .dv-lift,
+  .dv-detail-wrap,
+  .dv-tile,
+  .dv-submit {
     transition: none;
   }
 }
