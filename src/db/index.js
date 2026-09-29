@@ -4622,4 +4622,16 @@ db.version(67).stores({
   bubbleMessages: '++id, roomId, senderId, senderType, timestamp, groupId, [roomId+timestamp]',
 });
 
+// ============================================================
+// v68：长RP（长文/SillyTavern式）子应用切片A —— 只建 rpSessions 一张表。
+//
+// 跟泡泡模式切片A当初的做法一样：只建这一局真正用得到的表，消息表/
+// 预设表/世界书表全部留到各自要用到的切片再建。presetId/
+// attachedWorldBookIds 这些字段先在记录里占位好（写 null / []），
+// 等预设系统、世界书系统的切片落地了再真正读写。
+// ============================================================
+db.version(68).stores({
+  rpSessions: '++id, characterId, createdAt, updatedAt',
+});
+
 export default db;

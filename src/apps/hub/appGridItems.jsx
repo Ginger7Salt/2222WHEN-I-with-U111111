@@ -33,6 +33,7 @@ import {
   ArrowUpRight,
   Globe,
   Hourglass,
+  ScrollText,
 } from 'lucide-react';
 
 import GlassCard from '../../components/GlassCard';
@@ -283,6 +284,35 @@ export const buildAppGridItems = ({
           <AppTitle en="Bubble" zh="泡泡" mode={nameMode} />
           <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
             Group Bubbles装修中
+          </p>
+        </div>
+      </GlassCard>
+    ),
+  },
+
+  {
+    id: 'rp',
+    colSpan: 1,
+    content: (
+      <GlassCard
+        blur={false}
+        onClick={() => onOpenApp('rp')}
+        className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
+      >
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: 'var(--control-soft-bg)' }}
+        >
+          <ScrollText
+            className="h-5 w-5 opacity-90"
+            style={{ color: 'var(--text-main)' }}
+          />
+        </div>
+
+        <div>
+          <AppTitle en="RP" zh="长文" mode={nameMode} />
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+            装修中
           </p>
         </div>
       </GlassCard>
