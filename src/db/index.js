@@ -4601,4 +4601,25 @@ db.version(66).stores({
   characterAvatarHistory: '++id, characterId, createdAt',
 });
 
+// ============================================================
+// v67：泡泡模式（Bubble Mode）切片B——消息表 bubbleMessages。
+//
+// 房间里的每一条消息（用户的广播 + 每个角色各自的回复）都存在这一张表，
+// 是渲染房间聊天记录、以及给每个角色组装"隔离上下文"的唯一数据源。
+// senderId 是 'user' 或角色 id，senderType 是 'user'/'character'，跟
+// bubbleRooms.selectedCharacterIds 的角色 id 对应。groupId：同一次AI
+// 回复用 ||| 拆出来的好几条消息共享同一个 groupId，用于UI折叠显示——
+// 从建表第一天就把 [roomId+timestamp] 复合索引加上，不像 ensembleMessages
+// 当初那样后补。
+//
+// 角色在房间里的回复，为了免费接入现有记忆系统，还会额外镜像写一份进
+// messages 表（该角色自己真实的一对一聊天 chatId 下面，打 mode:'bubble' +
+// bubbleRoomId 标记，跟"线下邀约"用 mode:'offline' 是同一个做法）——
+// 这次迁移不改 messages 表结构，mode 字段本来就是不限定值的字符串，
+// 不需要为 'bubble' 这个新值单独加索引或迁移。
+// ============================================================
+db.version(67).stores({
+  bubbleMessages: '++id, roomId, senderId, senderType, timestamp, groupId, [roomId+timestamp]',
+});
+
 export default db;

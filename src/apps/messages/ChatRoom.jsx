@@ -166,7 +166,7 @@ const getRecentMessagesWindow = (chatId, limit) => (
     .where('[chatId+timestamp]')
     .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
     .reverse()
-    .filter((message) => message.mode !== 'offline')
+    .filter((message) => message.mode !== 'offline' && message.mode !== 'bubble')
     .limit(limit)
     .toArray()
     .then((rows) => rows.reverse())
@@ -187,7 +187,7 @@ const getOlderMessagesBefore = (chatId, beforeTimestamp, limit) => (
       false,
     )
     .reverse()
-    .filter((message) => message.mode !== 'offline')
+    .filter((message) => message.mode !== 'offline' && message.mode !== 'bubble')
     .limit(limit)
     .toArray()
     .then((rows) => rows.reverse())

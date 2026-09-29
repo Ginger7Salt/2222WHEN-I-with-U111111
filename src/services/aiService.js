@@ -1822,7 +1822,7 @@ export const triggerCompanionshipResponse = async ({
     const recentMsgs = (await db.messages
     .where('chatId')
     .equals(chatId)
-    .sortBy('timestamp')).filter((m) => m.mode !== 'offline');
+    .sortBy('timestamp')).filter((m) => m.mode !== 'offline' && m.mode !== 'bubble');
 
   const historyContext = buildHistoryContext(
     recentMsgs
@@ -2132,7 +2132,7 @@ if (character.voiceProfile?.enabled && character.voiceProfile?.aiMaySendVoice) {
 
 
     const recentMsgs = (await getRecentChatMessages(chatId, 60))
-      .filter((m) => m.mode !== 'offline');
+      .filter((m) => m.mode !== 'offline' && m.mode !== 'bubble');
 // 角色"自己决定离线"：只有用户开启、并且这一次被选中时，才把说明带进提示词，
 // 其余时候一个字都不加。上线后自动回复的那一次也不再提供这个选项。
 const awayOfferNote = options.ignoreAway
@@ -2687,7 +2687,7 @@ export const rerollAiResponse = async (chatId, messageId) => {
         const allMessages = (await db.messages
       .where('chatId')
       .equals(chatId)
-      .sortBy('timestamp')).filter((m) => m.mode !== 'offline');
+      .sortBy('timestamp')).filter((m) => m.mode !== 'offline' && m.mode !== 'bubble');
 
     const targetIndex = allMessages.findIndex((message) => message.id === messageId);
 
@@ -2998,7 +2998,7 @@ export const generateCompanionProactiveMessage = async (chatId, options = {}) =>
     const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
 
     // 1. 获取近期聊天记录上下文（获取最后 15 条消息作为短期记忆）
-           const msgs = (await getRecentChatMessages(chatId, 60)).filter((m) => m.mode !== 'offline');
+           const msgs = (await getRecentChatMessages(chatId, 60)).filter((m) => m.mode !== 'offline' && m.mode !== 'bubble');
     const recentMessages = msgs.slice(-15);
     
     // 如果最后一条消息已经是 AI 刚才发的，或者距离最后一条消息发送还没有过去 5 分钟，
