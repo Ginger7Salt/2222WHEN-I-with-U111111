@@ -4634,4 +4634,8 @@ db.version(68).stores({
   rpSessions: '++id, characterId, createdAt, updatedAt',
 });
 
+db.version(69).stores({
+  rpPresets: '++id, name, createdAt, updatedAt',
+});
+
 export default db;

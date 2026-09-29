@@ -11,15 +11,17 @@
 // 会长成什么样的骨架先搭对。
 
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, ScrollText } from 'lucide-react';
+import { ArrowLeft, ScrollText, BookOpen } from 'lucide-react';
 
 import db from '../../db';
-import { getRpSessionById } from './rpService';
+import { getRpSessionById, updateRpSessionPreset } from './rpService';
+import RpPresetManager from './RpPresetManager';
 
 const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const [session, setSession] = useState(null);
   const [character, setCharacter] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showPresetManager, setShowPresetManager] = useState(false);
 
   useEffect(() => {
     onChatRoomStateChange?.(true);
@@ -41,6 +43,11 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
     }
 
     setLoading(false);
+  };
+
+  const handleSelectPreset = async (presetId) => {
+    await updateRpSessionPreset(sessionId, presetId);
+    setSession((prev) => (prev ? { ...prev, presetId } : prev));
   };
 
   if (loading) {
@@ -113,8 +120,14 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
           <span className="text-[11px] font-semibold">{session.title}</span>
         </div>
 
-        {/* 右侧占位，让中间的角色药丸保持视觉居中 */}
-        <div className="h-8 w-8" />
+        <button
+          type="button"
+          onClick={() => setShowPresetManager(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-full shadow-sm backdrop-blur-md"
+          style={{ backgroundColor: 'color-mix(in srgb, var(--card-bg) 82%, transparent)' }}
+        >
+          <BookOpen className="h-4 w-4" />
+        </button>
       </header>
 
       {/* 唯一可滚动的区域 */}
@@ -144,6 +157,19 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
           />
         </div>
       </div>
+
+      {showPresetManager && (
+        <div
+          className="fixed inset-0 z-50 animate-fade-in"
+          style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}
+        >
+          <RpPresetManager
+            currentPresetId={session.presetId}
+            onSelectPreset={handleSelectPreset}
+            onClose={() => setShowPresetManager(false)}
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -17,6 +17,8 @@
 //   - userTitle / userSignature / userBadgeImage：本会话独立的user签名徽章
 //   - attachedWorldBookIds：挂载的世界书 id 数组，切片A还没有世界书表，先固定为 []
 //   - collapseEarlierFloors：是否手动隐藏/折叠早期楼层
+//   - allowHtml：是否允许AI输出的HTML内联CSS被渲染。跟用户确认过，这个
+//     开关放在会话设置里，不放在预设（rpPresets）上——切片B补的字段。
 
 import db from '../../db';
 
@@ -83,6 +85,9 @@ export const createRpSession = async ({ characterId, title } = {}) => {
 
       // 楼层管理
       collapseEarlierFloors: false,
+
+      // HTML内联CSS渲染开关（切片B：跟预设分开，属于会话设置）
+      allowHtml: false,
     });
     return newId;
   } catch (err) {
@@ -106,9 +111,26 @@ export const deleteRpSession = async (sessionId) => {
   }
 };
 
+/**
+ * 切换本会话绑定的预设。传 null 等于"取消绑定"——组装函数在
+ * preset 找不到时会静默退回成只有历史文本，不会报错。
+ */
+export const updateRpSessionPreset = async (sessionId, presetId) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    await db.rpSessions.update(Number(sessionId), {
+      presetId: presetId === null || presetId === undefined ? null : Number(presetId),
+      updatedAt: Date.now(),
+    });
+  } catch (err) {
+    console.error('[rpService] 切换预设失败:', err);
+  }
+};
+
 export default {
   getAllRpSessions,
   getRpSessionById,
   createRpSession,
   deleteRpSession,
+  updateRpSessionPreset,
 };
