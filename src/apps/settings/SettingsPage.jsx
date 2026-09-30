@@ -183,6 +183,10 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
 
   const [models, setModels] = useState([]);
   const [apiStatus, setApiStatus] = useState('idle');
+  // 备用 API 自己的一份模型列表/连通状态，跟主 API 的 models/apiStatus 分开，
+  // 互不影响。
+  const [modelsBackup, setModelsBackup] = useState([]);
+  const [apiStatusBackup, setApiStatusBackup] = useState('idle');
   const [storageInfo, setStorageInfo] = useState({
     supported: true,
     usage: 0,
@@ -886,6 +890,50 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
     } catch (error) {
       console.error('API connection failed:', error);
       setApiStatus('error');
+    }
+  };
+
+  // 跟 testApiConnection 逻辑完全一样，只是读写备用 API 自己的一份状态，
+  // 两边互不干扰。
+  const testApiConnectionBackup = async () => {
+    if (!apiConfigBackup.baseUrl || !apiConfigBackup.apiKey) {
+      setApiStatusBackup('error');
+      return;
+    }
+
+    setApiStatusBackup('testing');
+
+    try {
+      const cleanUrl = apiConfigBackup.baseUrl.replace(/\/+$/, '');
+      const response = await fetch(`${cleanUrl}/models`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiConfigBackup.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const resData = await response.json();
+      const list = Array.isArray(resData.data)
+        ? resData.data.map((item) => item.id)
+        : [];
+
+      setModelsBackup(list);
+      setApiStatusBackup('success');
+
+      if (list.length > 0 && !list.includes(apiConfigBackup.model)) {
+        setApiConfigBackup((previous) => ({
+          ...previous,
+          model: list[0],
+        }));
+      }
+    } catch (error) {
+      console.error('Backup API connection failed:', error);
+      setApiStatusBackup('error');
     }
   };
 
@@ -1892,21 +1940,76 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
             />
           </div>
 
-          <div>
-            <label className="mb-1 block opacity-60">备用 Model</label>
-            <input
-              type="text"
-              placeholder="gpt-4o"
-              value={apiConfigBackup.model}
-              onChange={(event) =>
-                setApiConfigBackup((previous) => ({
-                  ...previous,
-                  model: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl bg-black/5 p-3 outline-none focus:bg-black/10 dark:bg-white/10"
-            />
+                 {apiConfigBackup.model && (
+            <div>
+              <label className="mb-1 block opacity-60">Model (当前使用)</label>
+              <input
+                type="text"
+                placeholder="gpt-4o"
+                value={apiConfigBackup.model}
+                onChange={(event) =>
+                  setApiConfigBackup((previous) => ({
+                    ...previous,
+                    model: event.target.value,
+                  }))
+                }
+                className="w-full rounded-xl bg-black/5 p-3 outline-none focus:bg-black/10 dark:bg-white/10"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-4 border-t border-black/5 pt-3 dark:border-white/5">
+            <button
+              type="button"
+              onClick={testApiConnectionBackup}
+              disabled={apiStatusBackup === 'testing' || !apiConfigBackup.baseUrl || !apiConfigBackup.apiKey}
+              className="flex items-center gap-2 rounded-xl bg-black px-4 py-2.5 font-semibold text-white transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black"
+            >
+              {apiStatusBackup === 'testing' ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              <span>{apiStatusBackup === 'testing' ? '正在连接' : '测试连通性'}</span>
+            </button>
+
+            {apiStatusBackup === 'success' && (
+              <span className="flex items-center gap-1 font-semibold text-emerald-500">
+                <CheckCircle2 className="h-4 w-4" />
+                连通正常
+              </span>
+            )}
+
+            {apiStatusBackup === 'error' && (
+              <span className="flex items-center gap-1 font-semibold text-rose-500">
+                <XCircle className="h-4 w-4" />
+                连接失败
+              </span>
+            )}
           </div>
+
+          {modelsBackup.length > 0 && (
+            <div>
+              <label className="mb-1 block opacity-60">Select Model</label>
+
+              <select
+                value={apiConfigBackup.model}
+                onChange={(event) =>
+                  setApiConfigBackup((previous) => ({
+                    ...previous,
+                    model: event.target.value,
+                  }))
+                }
+                className="w-full rounded-lg bg-black/5 p-2 outline-none dark:bg-white/10"
+              >
+                {modelsBackup.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </GlassCard>
 
