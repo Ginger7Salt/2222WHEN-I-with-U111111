@@ -10,6 +10,30 @@ import { extractOrInventNpcs, generateNpcPersonaText } from './snapshotAiService
 const AUTO_NPC_TARGET_COUNT = 3;
 const autoSeedSettingKey = (chatId) => `snapshotNpcAutoSeeded_${chatId}`;
 
+// 全局设置键：NPC 是否允许「主动」发帖（后台调度器自动触发的那种，
+// 用户在动态圈里手动点「让大家发点什么」时不受这个开关影响——那是
+// 用户主动发起的一次性动作，不是「主动」）。存在 db.settings 里，
+// UI 入口在 SettingsPage.jsx 的「陪伴频率」卡片里。
+// 未设置过（老用户/首次使用）时按 true（保持开启）处理，避免这个
+// 新开关默默改变了已有用户的既有行为。
+const NPC_AUTO_POST_SETTING_KEY = 'snapshotNpcAutoPostEnabled';
+
+/**
+ * 读取「NPC 是否允许主动发帖」这个全局开关（对所有聊天窗/世界线生效）。
+ * 只影响后台调度器（snapshotGlobalScheduler.js / snapshotSchedulerService.js）
+ * 的自动巡检发帖，不影响角色自己的主动发帖，也不影响用户手动触发的
+ * 「让大家发点什么」（snapshotRandomPostService.js）。
+ */
+export const isNpcAutoPostEnabled = async () => {
+  try {
+    const setting = await db.settings.get(NPC_AUTO_POST_SETTING_KEY);
+    return setting?.value !== false;
+  } catch (err) {
+    console.error('[snapshotNpcService] 读取 NPC 主动发帖开关失败:', err);
+    return true;
+  }
+};
+
 /**
  * 获取某个 chat（世界线）下的所有 NPC，按创建时间升序排列。
  */
@@ -150,5 +174,6 @@ export default {
   addNpc,
   deleteNpc,
   ensureAutoNpcPool,
-  ensureNpcPersona
+  ensureNpcPersona,
+  isNpcAutoPostEnabled
 };

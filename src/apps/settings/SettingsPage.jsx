@@ -135,6 +135,7 @@ const [newCategoryQuoteInputs, setNewCategoryQuoteInputs] = useState({});
 
   const [autoMessage, setAutoMessage] = useState(false);
   const [frequency, setFrequency] = useState('moderate');
+  const [npcAutoPost, setNpcAutoPost] = useState(true);
   const [quietHours, setQuietHours] = useState({
     enabled: true,
     start: '23:00',
@@ -357,10 +358,13 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
           setAutoMessage(settingMap.autoMessage);
         }
 
-        if (typeof settingMap.frequency === 'string') {
+          if (typeof settingMap.frequency === 'string') {
           setFrequency(settingMap.frequency);
         }
 
+        if (typeof settingMap.snapshotNpcAutoPostEnabled === 'boolean') {
+          setNpcAutoPost(settingMap.snapshotNpcAutoPostEnabled);
+        }
         if (
           settingMap.quietHours &&
           typeof settingMap.quietHours === 'object'
@@ -775,8 +779,9 @@ const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
   key: 'hubHeaderLayout',
   value: draftHubHeaderLayout,
 },
-          { key: 'autoMessage', value: autoMessage },
+                 { key: 'autoMessage', value: autoMessage },
           { key: 'frequency', value: frequency },
+          { key: 'snapshotNpcAutoPostEnabled', value: npcAutoPost },
           { key: 'quietHours', value: quietHours },
           { key: 'apiConfig', value: apiConfig },
           {
@@ -1426,13 +1431,34 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
                       className="rounded bg-black/5 p-1 dark:bg-white/10 outline-none text-[11px]"
                     />
                   </div>
-                )}
+                              )}
               </div>
             </div>
           )}
+
+          <div className="flex items-center justify-between border-t border-black/5 pt-3.5 dark:border-white/5">
+            <div>
+              <p className="font-medium">NPC 生活动态圈主动发帖</p>
+              <p className="mt-0.5 text-[10px] opacity-50">
+                关闭后，街坊 NPC 不再自己冒出动态；角色本人的动态不受影响
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNpcAutoPost(!npcAutoPost)}
+              className={`relative h-6 w-11 rounded-full transition-colors ${
+                npcAutoPost ? 'bg-black dark:bg-white' : 'bg-black/10 dark:bg-white/20'
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform dark:bg-black ${
+                  npcAutoPost ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </div>
       </GlassCard>
-
             {/* 3. 消息通知设置 */}
       <GlassCard className="space-y-4 text-left">
         <div className="flex items-center gap-2 text-sm font-bold">

@@ -30,7 +30,7 @@ import db from '../../../db';
 import {
   generateCharacterPost, generateNpcPost, generateNewsPost, NEWS_ACCOUNT, getApiConfig
 } from './snapshotAiService';
-import { getNpcsByChatId, ensureAutoNpcPool, ensureNpcPersona } from './snapshotNpcService';
+import { getNpcsByChatId, ensureAutoNpcPool, ensureNpcPersona, isNpcAutoPostEnabled } from './snapshotNpcService';
 import { autoGenerateNpcComments } from './snapshotAutoCommentService';
 import { triggerSystemNotification } from '../../../services/aiService';
 import { pickDailyLifeTopic, describeDailyLifeTopicAsHint } from '../../../services/dailyLifeTopicPicker';
@@ -181,9 +181,9 @@ const postNpcSnapshot = async (chat, character, npc, now, budget) => {
 // NPC 偶发生活动态：该聊天窗下每一个已过冷却（4 小时）的 NPC，各自独立
 // 70% 概率判定是否发帖，但受本轮全局预算限制——预算用完就停止，
 // 跳过的NPC冷却没被消耗，下一轮还会正常参与判定。
-const tryPostForNpc = async (chat, character, now, budget) => {
+const tryPostForNpc = async (chat, character, now, budget, npcAutoPostEnabled) => {
+  if (!npcAutoPostEnabled) return [];
   if (budget.remaining <= 0) return [];
-
   const npcs = await getNpcsByChatId(chat.id);
   if (npcs.length === 0) return [];
 
@@ -257,7 +257,7 @@ const tryPostForNews = async (chat, now, budget) => {
   }
 };
 
-const processChat = async (chat, now, budget) => {
+const processChat = async (chat, now, budget, npcAutoPostEnabled) => {
   const character = chat.characterId
     ? await db.characters.get(chat.characterId)
     : null;
@@ -269,7 +269,7 @@ const processChat = async (chat, now, budget) => {
   // 角色 / NPC / 本地资讯速报 各自独立判定，互不占用彼此的发帖机会，
   // 但共同消耗同一份跨chat的全局预算（budget）。
   const charPost = await tryPostForCharacter(chat, character, now, budget);
-  const npcPosts = await tryPostForNpc(chat, character, now, budget);
+  const npcPosts = await tryPostForNpc(chat, character, now, budget, npcAutoPostEnabled);
   const newsPost = await tryPostForNews(chat, now, budget);
 
   return [charPost, ...npcPosts, newsPost].filter(Boolean);
@@ -295,13 +295,13 @@ export const checkAndTriggerGlobalSnapshotPosts = async (providedChats = null) =
     const now = Date.now();
     const posted = [];
     const budget = { remaining: MAX_POSTS_PER_ROUND };
+    const npcAutoPostEnabled = await isNpcAutoPostEnabled();
 
     for (const chat of allChats) {
       if (budget.remaining <= 0) break;
-      const results = await processChat(chat, now, budget);
+      const results = await processChat(chat, now, budget, npcAutoPostEnabled);
       posted.push(...results);
     }
-
     return posted;
   } catch (error) {
     console.error('[SnapshotGlobalScheduler] 全局巡检失败：', error);

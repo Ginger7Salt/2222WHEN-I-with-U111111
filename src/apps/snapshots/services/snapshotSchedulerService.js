@@ -20,7 +20,7 @@
 //
 import db from '../../../db';
 import { generateCharacterPost, generateNpcPost, generateNewsPost, NEWS_ACCOUNT } from './snapshotAiService';
-import { getNpcsByChatId, ensureAutoNpcPool, ensureNpcPersona } from './snapshotNpcService';
+import { getNpcsByChatId, ensureAutoNpcPool, ensureNpcPersona, isNpcAutoPostEnabled } from './snapshotNpcService';
 import { autoGenerateNpcComments } from './snapshotAutoCommentService';
 
 // 2026-09 频率调整：NPC命中概率 60% -> 70%（冷却时间不变），跟
@@ -144,7 +144,8 @@ class SnapshotScheduler {
       // 冷却 4 小时，每个已过冷却的 NPC 各自独立 70% 概率触发，
       // 但受本轮 MAX_POSTS_PER_ROUND 预算限制——预算用完就跳过剩下的，
       // 它们的冷却没被消耗，下一轮还会正常参与判定。
-      const npcs = await getNpcsByChatId(this.activeChatId);
+      const npcAutoPostEnabled = await isNpcAutoPostEnabled();
+      const npcs = npcAutoPostEnabled ? await getNpcsByChatId(this.activeChatId) : [];
       let hasNpcPosted = false;
 
       for (const npc of npcs) {
