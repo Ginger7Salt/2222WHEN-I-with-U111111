@@ -195,13 +195,17 @@ const RpApp = ({ onBackHub, onChatRoomStateChange }) => {
                   </p>
                 </div>
 
+                {/* 删除按钮：之前是 opacity-0 group-hover:opacity-100，只有鼠标
+                    悬停才会显示——这在手机上摸不到"悬停"这个状态，点一下卡片
+                    直接就进房间了，等于删除功能形同虚设。改成常驻显示一个
+                    淡一点的小图标，不需要悬停也能点到。 */}
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setDeleteTargetId(session.id);
                   }}
-                  className="opacity-0 group-hover:opacity-100 text-red-500 shrink-0"
+                  className="text-red-500 opacity-45 hover:opacity-100 active:opacity-100 shrink-0 p-1"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

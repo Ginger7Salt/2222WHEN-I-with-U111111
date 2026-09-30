@@ -168,6 +168,20 @@ export const archiveRpMessagesBefore = async (sessionId, beforeMessageId) => {
 };
 
 /**
+ * 硬删除单独一条消息（连同它所有的版本一起删掉），不影响其他消息，也不
+ * 像"编辑并截断"那样连带删掉它之后的楼层。调用方（RpRoom）负责在这之前
+ * 弹确认框，这里不问，传进来就真删。
+ */
+export const deleteRpMessage = async (messageId) => {
+  if (messageId === null || messageId === undefined) return;
+  try {
+    await db.rpMessages.delete(Number(messageId));
+  } catch (err) {
+    console.error('[rpMessageService] 删除消息失败:', err);
+  }
+};
+
+/**
  * 删除一个会话下的全部消息——rpService.deleteRpSession 级联删除时调用。
  */
 export const deleteAllRpMessagesForSession = async (sessionId) => {
@@ -186,5 +200,6 @@ export default {
   switchRpMessageVersion,
   editRpMessageAndTruncate,
   archiveRpMessagesBefore,
+  deleteRpMessage,
   deleteAllRpMessagesForSession,
 };

@@ -812,7 +812,7 @@ const [hubBackground, setHubBackground] = useState('');
     currentApp === 'hub' && !isInsideChatRoom;
 
   const shouldDisplayHubBackground =
-    (currentApp === 'hub' || currentApp === 'messages') &&
+    (currentApp === 'hub' || currentApp === 'messages' || currentApp === 'rp') &&
     !isInsideChatRoom &&
     Boolean(hubBackground);
 

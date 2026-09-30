@@ -23,7 +23,7 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Pencil, Quote, Check, X, Brain,
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Pencil, Quote, Check, X, Brain, Trash2,
 } from 'lucide-react';
 
 import { splitContentByFoldTags, DEFAULT_FOLD_TAG_NAMES, DEFAULT_THINKING_LABEL_TEXT } from './rpThinkingFold';
@@ -91,6 +91,7 @@ const RpMessageCard = ({
   onReroll,
   onEditAndTruncate,
   onQuote,
+  onDelete,
   hasFollowingMessages,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -284,6 +285,12 @@ const RpMessageCard = ({
             {onQuote ? (
               <button type="button" onClick={() => onQuote(message.content)} className="flex items-center gap-1 opacity-70 hover:opacity-100">
                 <Quote className="h-3 w-3" /> 引用
+              </button>
+            ) : null}
+
+            {onDelete ? (
+              <button type="button" onClick={onDelete} className="flex items-center gap-1 text-red-500 opacity-70 hover:opacity-100">
+                <Trash2 className="h-3 w-3" /> 删除
               </button>
             ) : null}
           </>

@@ -33,7 +33,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import {
   getRpSessionById, updateRpSessionPreset, updateRpSessionCollapse, updateRpSessionWorldBooks,
 } from './rpService';
-import { getRpMessages, switchRpMessageVersion, editRpMessageAndTruncate } from './rpMessageService';
+import { getRpMessages, switchRpMessageVersion, editRpMessageAndTruncate, deleteRpMessage } from './rpMessageService';
 import { sendRpMessage, rerollRpMessage, archiveRpMessages, subscribeRpAiEvents } from './rpAiService';
 import RpPresetManager from './RpPresetManager';
 import RpWorldBookManager from './RpWorldBookManager';
@@ -56,6 +56,7 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const [foldExpanded, setFoldExpanded] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [pendingArchiveBeforeId, setPendingArchiveBeforeId] = useState(null);
+  const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState(null);
 
   const scrollRef = useRef(null);
 
@@ -192,6 +193,17 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
     setPendingArchiveBeforeId(null);
     await archiveRpMessages(sessionId, beforeId);
     setFoldExpanded(false);
+  };
+
+  const handleRequestDeleteMessage = (messageId) => {
+    setPendingDeleteMessageId(messageId);
+  };
+
+  const confirmDeleteMessage = async () => {
+    const messageId = pendingDeleteMessageId;
+    setPendingDeleteMessageId(null);
+    await deleteRpMessage(messageId);
+    await refreshMessages();
   };
 
   // 已存档的消息在界面上彻底不存在——不是折叠，是真的不再显示。
@@ -443,6 +455,7 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
                   msg.id !== lastMessageId
                 )}
                 onQuote={handleQuote}
+                onDelete={() => handleRequestDeleteMessage(msg.id)}
               />
             ))
           )}
@@ -539,10 +552,21 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
         <ConfirmModal
           isOpen={Boolean(pendingArchiveBeforeId)}
           title="存档移出"
-          message="存档之后，这些楼层会从故事和AI的记忆里永久移除，AI以后只能靠前情提要记得它们发生过，不会再看到原文。这个操作不能撤销，确定吗？"
+          message="存档之后，这些楼层会从故事和AI的记忆里永久移除——AI以后只能靠前情提要记得它们发生过，不会再看到原文。这个操作不能撤销，确定吗？"
           confirmText="存档移出"
           onConfirm={confirmArchive}
           onCancel={() => setPendingArchiveBeforeId(null)}
+        />
+      )}
+
+      {pendingDeleteMessageId && (
+        <ConfirmModal
+          isOpen={Boolean(pendingDeleteMessageId)}
+          title="删除这条消息"
+          message="这条消息会被永久删除（包括它的所有版本），不影响其他楼层。这个操作不能撤销，确定吗？"
+          confirmText="删除"
+          onConfirm={confirmDeleteMessage}
+          onCancel={() => setPendingDeleteMessageId(null)}
         />
       )}
     </div>
