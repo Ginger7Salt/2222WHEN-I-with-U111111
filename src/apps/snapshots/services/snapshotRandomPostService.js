@@ -13,7 +13,7 @@
 // 无冷却限制：按产品决定，用户点一次就跑一次，不做频率节流。
 //
 import db from '../../../db';
-import { getNpcsByChatId } from './snapshotNpcService';
+import { getNpcsByChatId, ensureNpcPersona } from './snapshotNpcService';
 import { generateCharacterPost, generateNpcPost } from './snapshotAiService';
 
 /**
@@ -45,16 +45,28 @@ export const triggerRandomDailyPosts = async (chatId) => {
 
     // 候选池：角色（若有） + 该 chat 的所有 NPC
     const pool = [];
+    let character = null;
     if (chat.characterId) {
-      const char = await db.characters.get(Number(chat.characterId));
-      if (char) {
-        pool.push({ type: 'character', id: char.id, name: char.name, avatar: char.avatar || '' });
+      character = await db.characters.get(Number(chat.characterId));
+      if (character) {
+        pool.push({ type: 'character', id: character.id, name: character.name, avatar: character.avatar || '' });
       }
     }
 
     const npcs = await getNpcsByChatId(numericChatId);
     npcs.forEach((npc) => {
-      pool.push({ type: 'npc', id: npc.id, name: npc.name, roleTag: npc.roleTag, avatar: npc.avatar || '' });
+      // 之前这里漏拿了 personaSummary，导致哪怕这个NPC已经在别的入口
+      // （调度器/自动评论/手动召唤评论）固化过独立人设，一到"让大家发点
+      // 什么"这条手动入口又变回只有name+roleTag——这正是本轮要修的
+      // "NPC容易被夺舍/OOC"问题的一个具体触发点，见下面 ensureNpcPersona。
+      pool.push({
+        type: 'npc',
+        id: npc.id,
+        name: npc.name,
+        roleTag: npc.roleTag,
+        avatar: npc.avatar || '',
+        personaSummary: npc.personaSummary || ''
+      });
     });
 
     if (pool.length === 0) {
@@ -74,10 +86,14 @@ export const triggerRandomDailyPosts = async (chatId) => {
         if (chosen.type === 'character') {
           postData = await generateCharacterPost(chosen.id, numericChatId);
         } else {
+          // 跟调度器/自动评论/手动召唤评论那几个入口保持一致：发帖前先
+          // 确保这个NPC已经固化了独立于char的人设/说话风格，没有的话
+          // 这里会生成一次并写回数据库长期复用，避免这个入口成了漏网之鱼。
+          const npcWithPersona = await ensureNpcPersona(chosen, character);
           postData = await generateNpcPost(
-            chosen,
+            npcWithPersona,
             numericChatId,
-            chat.characterId ? (pool.find((p) => p.type === 'character')?.name || '') : '',
+            character?.name || '',
             chat.userName || 'User'
           );
         }
