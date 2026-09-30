@@ -309,10 +309,10 @@ export const buildAppGridItems = ({
           />
         </div>
 
-        <div>
+               <div>
           <AppTitle en="RP" zh="长文" mode={nameMode} />
           <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
-            装修中
+            Immersive Roleplay
           </p>
         </div>
       </GlassCard>
