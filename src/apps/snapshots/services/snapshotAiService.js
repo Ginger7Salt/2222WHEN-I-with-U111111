@@ -253,20 +253,27 @@ ${memoryContext}
 // ==========================================
 export const generateNpcPost = async (npc, chatId = null, charName = '', userName = '', topicHint = '') => {
   const memoryContext = await buildRecentPlotContext(chatId);
+  const personaText = npc.personaSummary
+    ? `你的说话风格/性格棱角: ${npc.personaSummary}`
+    : '';
 
   const systemPrompt = `你是一个常驻生活在小镇/街区里的 NPC 角色 [${npc.name}]，你的职业/身份是 [${npc.roleTag || '街区邻里'}]。
+${personaText}
 你正在社交生活圈发布一条属于你职业与日常特质的真实拍立得动态。
+
+【绝对不能混淆的身份边界】
+你不是 [${charName || '这位常客'}]，绝不能模仿、借用TA的语气、兴趣、口头禅或说话方式——你有自己独立的人格和说话习惯，跟TA是完全不同的两个人。
 
 【同城生活的邻里常客】
 - 常常出没的伙伴: ${charName || '熟悉的面孔'}
 - 另一位常客: ${userName || 'User'}
 
-${memoryContext}
+${memoryContext ? `${memoryContext}\n（以上片段仅供你感知当下季节/氛围，不要模仿里面任何人的说话方式或语气，也不要逐字引用，你要保持你自己的口吻）` : ''}
 
 【创作指导】
-1. 内容必须强烈体现你的职业标签（例如花店店主提到了修剪残枝、咖啡师提到了刚烘焙的新批次豆子、摄影师拍下的逆光街景）。
+1. 内容必须强烈体现你的职业标签和你自己的说话风格（例如花店店主提到了修剪残枝、咖啡师提到了刚烘焙的新批次豆子、摄影师拍下的逆光街景）。
 2. 可以自然、不经意地带出一丝与同城伙伴的生活交集（例如：“方才看见 ${charName || '熟悉的身影'} 匆匆走过街口”，或者提及常客的小习惯），让整个街区生活圈产生真实的偶遇感。
-3. 如果上方提供了近期剧情氛围片段，可以让内容隐约呼应当下的氛围，但不要逐字引用对话内容，也不要窥探式地转述用户的私人对话。
+3. 不要逐字引用对话内容，也不要窥探式地转述用户的私人对话。
 4. 必须输出纯 JSON 字符串，不要带 Markdown 语法：
    - "imagePrompt": 照片画面的细节描摹，80字以内；
    - "content": 随感正文，不超过100字；
@@ -311,7 +318,7 @@ export const generateSnapshotComment = async (snapshot, commenter, chatId = null
     const char = await db.characters.get(Number(commenter.id));
     commenterDesc = `角色姓名: ${char?.name}\n人设简介: ${char?.bio}\n性格特征: ${char?.extraNotes}`;
   } else {
-    commenterDesc = `NPC 姓名: ${commenter.name}\n职业身份: ${commenter.roleTag || '街区邻里'}`;
+    commenterDesc = `NPC 姓名: ${commenter.name}\n职业身份: ${commenter.roleTag || '街区邻里'}${commenter.personaSummary ? `\n说话风格/性格棱角: ${commenter.personaSummary}` : ''}`;
   }
 
   const authorEntity = {
@@ -338,7 +345,7 @@ ${relationInfo}
 
 【规则】
 1. 语言简练，20-50字以内，像真实生活圈里的留言。
-2. 符合你的人物设定或职业口吻，可以温和打趣、问候、探讨画面物件或随口附和。
+2. 符合你的人物设定或职业口吻，可以温和打趣、问候、探讨画面物件或随口附和。${commenter.type === 'npc' ? '\n2b. 你不是动态作者，也不是作者生活圈里的主角本人，不要模仿或借用他们的语气/口头禅——按照上方给出的"说话风格/性格棱角"保持你自己的说话方式。' : ''}
 3. 严格遵守上方给出的"与作者的社交关系"里对亲密/暧昧表达边界的说明。
 4. 绝对禁止使用任何 Emoji。
 5. 仅输出评论文本本身，不要附加额外引号或前缀。`;
@@ -358,7 +365,7 @@ export const generateSnapshotReply = async (snapshot, responder, replyTargetComm
     const char = await db.characters.get(Number(responder.id));
     responderDesc = `角色姓名: ${char?.name}\n人设: ${char?.bio || ''} / ${char?.extraNotes || ''}`;
   } else {
-    responderDesc = `NPC 姓名: ${responder.name}\n职业身份: ${responder.roleTag || '街区邻里'}`;
+    responderDesc = `NPC 姓名: ${responder.name}\n职业身份: ${responder.roleTag || '街区邻里'}${responder.personaSummary ? `\n说话风格/性格棱角: ${responder.personaSummary}` : ''}`;
   }
 
   const authorEntity = {
@@ -389,7 +396,7 @@ ${relationInfo}
 
 【规则】
 1. 像日常交谈一样自然接话，20-60字以内。
-2. 保持你的性格或职业身份口吻一致。
+2. 保持你的性格或职业身份口吻一致。${responder.type === 'npc' ? '\n2b. 你不是评论作者、也不是动态作者本人，不要模仿或借用他们的语气/口头禅——按照上方给出的"说话风格/性格棱角"保持你自己的说话方式。' : ''}
 3. 严格遵守上方给出的"你与动态作者的关系"里对亲密/暧昧表达边界的说明。
 4. 绝对禁止使用任何 Emoji。
 5. 仅输出回复正文，不要附加额外修饰。`;
@@ -410,18 +417,62 @@ ${relationInfo}
  * 只在"这个chat从来没有任何NPC"时被调用一次（调用方 snapshotNpcService
  * 负责判断和去重，这里只负责生成）。
  */
-export const extractOrInventNpcs = async (character, targetCount = 3) => {
+// 把 chat.userName / chat.userPersona 里可能出现的"user 本人在这个世界线里
+// 叫什么"的候选别名，拆成一份用于 prompt 排除说明 + 结果过滤的列表。
+// userPersona 通常是一段较长的人设描述而不是单纯一个称呼，所以除了整段原文
+// 之外，还额外把它的第一行/第一句摘出来（很多用户写法是"名字：xxx，性格：xxx"
+// 或者第一句就是称呼/身份自述），提高"名字碰巧就是这几个字"时的过滤命中率。
+const buildUserAliasList = (userAliases) => {
+  const { userName = '', userPersona = '' } = userAliases || {};
+  const aliases = new Set();
+
+  const addIfNonEmpty = (val) => {
+    const trimmed = String(val || '').trim();
+    if (trimmed) aliases.add(trimmed);
+  };
+
+  addIfNonEmpty(userName);
+  addIfNonEmpty(userPersona);
+
+  if (userPersona) {
+    const firstLine = String(userPersona).split(/[\n。，,.]/)[0];
+    addIfNonEmpty(firstLine);
+  }
+
+  return Array.from(aliases);
+};
+
+/**
+ * 给某个chat准备 targetCount 个NPC——优先把角色人设文本里已经提到的、
+ * 有名字的配角原样收录，人设里不够数量再由AI自由发挥补充，
+ * 补充时贴合角色人设暗示的生活圈氛围（不是完全随机瞎编）。
+ * 只在"这个chat从来没有任何NPC"时被调用一次（调用方 snapshotNpcService
+ * 负责判断和去重，这里只负责生成）。
+ *
+ * userAliases: { userName, userPersona } —— 来自 chat 表，用来告诉AI
+ * "user在这个世界线里可能被称呼成什么"，避免角色人设文本里提到的、
+ * 实际上是指user本人的称呼（而非字面的"User"两个字）被误当成一个
+ * 独立的配角NPC提取出来。除了在prompt里明确列出这些别名要求排除，
+ * 结果里也会再做一次名字匹配过滤兜底。
+ */
+export const extractOrInventNpcs = async (character, targetCount = 3, userAliases = null) => {
+  const aliasList = buildUserAliasList(userAliases);
+  const aliasExclusionText = aliasList.length > 0
+    ? `\n【重要：以下称呼/描述实际指的是 User 本人，绝不能把它们当成配角NPC收录或补充】\n${aliasList.map((a) => `- ${a}`).join('\n')}`
+    : '';
+
   const systemPrompt = `你需要为角色 [${character?.name || '这位角色'}] 所在的生活圈准备 ${targetCount} 个配角NPC，用于其社交动态圈（拍立得生活动态/评论区）里日常出没。
 
 【角色人设参考】
 姓名: ${character?.name || '未知'}
 简介: ${character?.bio || '无'}
 性格/习惯/背景: ${character?.extraNotes || '无'}
+${aliasExclusionText}
 
 【生成规则，按优先级】
-1. 优先从上面的人设文本里找出已经被提到的、有名字的配角/朋友/同事/家人等（不包括角色本人和User），把他们直接收录进来。
+1. 优先从上面的人设文本里找出已经被提到的、有名字的配角/朋友/同事/家人等（不包括角色本人、User，以及上方明确列出的"实际指user本人"的称呼），把他们直接收录进来。
 2. 如果人设里没有提到足够数量的配角，再根据人设所暗示的生活圈氛围和世界观，自由发挥、合理地补充新的NPC，使总数凑够 ${targetCount} 个。每个新补充的NPC要有具体的身份/职业标签，贴近角色的生活场景（同事、邻居、常去的店家等），不要凭空脱离人设的调性。
-3. 每个NPC的名字不要重复，也不要与角色本人同名。
+3. 每个NPC的名字不要重复，也不要与角色本人或User同名/同称呼。
 
 【输出格式】
 必须输出合法的纯 JSON 数组字符串，不要用 Markdown 语法包装，每个元素包含:
@@ -445,13 +496,62 @@ export const extractOrInventNpcs = async (character, targetCount = 3) => {
     throw new Error('NPC生成结果为空');
   }
 
+  // 结果过滤兜底：万一AI没听话，仍然产出了跟 user 别名重合的"NPC"，
+  // 在写入数据库之前就把它筛掉，而不是依赖prompt单独生效。
+  const normalizedAliases = aliasList.map((a) => a.trim().toLowerCase());
+  const isUserAlias = (name) => {
+    const normalized = String(name || '').trim().toLowerCase();
+    if (!normalized) return false;
+    return normalizedAliases.some((alias) => alias && (alias === normalized || alias.includes(normalized) || normalized.includes(alias)));
+  };
+
   return parsed
     .filter((item) => item && item.name)
+    .filter((item) => !isUserAlias(item.name))
     .slice(0, targetCount)
     .map((item) => ({
       name: removeEmoji(String(item.name)).trim(),
       roleTag: removeEmoji(String(item.roleTag || '街区邻里')).trim()
     }));
+};
+
+// ==========================================
+// 5b. NPC 人设固化: 第一次发帖/评论前生成一段简短、独立的人设/说话风格
+// ==========================================
+/**
+ * 只生成文本，不做任何 DB 读写（DB 缓存由 snapshotNpcService.ensureNpcPersona
+ * 负责，这里跟 extractOrInventNpcs 一样保持"纯生成"职责，避免循环引用）。
+ *
+ * 目的：解决NPC发帖/评论容易被主角人设"夺舍"、写得像char的问题——
+ * 以前NPC只有 name + roleTag，人设太单薄，AI在缺乏具体人格支撑时，
+ * 容易被prompt里"近期剧情氛围片段"（char/user的真实对话语气）带偏。
+ * 这里生成一段独立于char的、有具体说话习惯/口头禅/性格棱角的简短人设，
+ * 生成一次后永久缓存在 npc.personaSummary 上，之后每次发帖/评论/回复
+ * 都复用同一份，保证同一个NPC长期人设一致。
+ */
+export const generateNpcPersonaText = async (npc, character) => {
+  const systemPrompt = `请为一个虚构的配角NPC设计一段简短的人设/说话风格描述，供后续反复扮演使用。
+
+【NPC基本信息】
+姓名: ${npc?.name || '未知'}
+身份/职业标签: ${npc?.roleTag || '街区邻里'}
+
+【这个NPC生活圈里的主角，仅供参考，你设计的人设必须与TA明显不同】
+主角姓名: ${character?.name || '未知'}
+主角简介: ${character?.bio || '无'}
+
+【要求】
+1. 描述这个NPC具体的说话习惯（例如：喜欢用短句、爱用某种口头禅、语气直接或含蓄、幽默感强或一本正经等），以及1-2个具体的性格棱角或小癖好。
+2. 必须明显区别于上面给出的主角人设——不要让这个NPC的语气、关注点、用词风格跟主角相似或重叠。
+3. 不超过80字，直接给出描述正文本身，不要加任何前缀、标题或引号。
+4. 绝对禁止使用任何 Emoji。`;
+
+  const result = await callAi([
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: '请生成这段人设/说话风格描述。' }
+  ], 0.8, 200);
+
+  return removeEmoji(result).trim() || `说话直接、带点${npc?.roleTag || '街坊'}特有的实在劲儿，不多废话。`;
 };
 
 // ==========================================
@@ -516,6 +616,7 @@ export default {
   generateSnapshotComment,
   generateSnapshotReply,
   extractOrInventNpcs,
+  generateNpcPersonaText,
   generateNewsPost,
   NEWS_ACCOUNT_NAME,
   NEWS_ACCOUNT
