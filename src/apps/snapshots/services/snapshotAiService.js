@@ -400,6 +400,112 @@ ${relationInfo}
   ], 0.75, 150);
 };
 
+// ==========================================
+// 5. NPC 自动补齐: 从角色人设里找已提到的配角，不够再自由发挥补足
+// ==========================================
+/**
+ * 给某个chat准备 targetCount 个NPC——优先把角色人设文本里已经提到的、
+ * 有名字的配角原样收录，人设里不够数量再由AI自由发挥补充，
+ * 补充时贴合角色人设暗示的生活圈氛围（不是完全随机瞎编）。
+ * 只在"这个chat从来没有任何NPC"时被调用一次（调用方 snapshotNpcService
+ * 负责判断和去重，这里只负责生成）。
+ */
+export const extractOrInventNpcs = async (character, targetCount = 3) => {
+  const systemPrompt = `你需要为角色 [${character?.name || '这位角色'}] 所在的生活圈准备 ${targetCount} 个配角NPC，用于其社交动态圈（拍立得生活动态/评论区）里日常出没。
+
+【角色人设参考】
+姓名: ${character?.name || '未知'}
+简介: ${character?.bio || '无'}
+性格/习惯/背景: ${character?.extraNotes || '无'}
+
+【生成规则，按优先级】
+1. 优先从上面的人设文本里找出已经被提到的、有名字的配角/朋友/同事/家人等（不包括角色本人和User），把他们直接收录进来。
+2. 如果人设里没有提到足够数量的配角，再根据人设所暗示的生活圈氛围和世界观，自由发挥、合理地补充新的NPC，使总数凑够 ${targetCount} 个。每个新补充的NPC要有具体的身份/职业标签，贴近角色的生活场景（同事、邻居、常去的店家等），不要凭空脱离人设的调性。
+3. 每个NPC的名字不要重复，也不要与角色本人同名。
+
+【输出格式】
+必须输出合法的纯 JSON 数组字符串，不要用 Markdown 语法包装，每个元素包含:
+- "name": NPC 姓名
+- "roleTag": 身份/职业标签（例如：楼下咖啡师、健身房搭子、合租室友）
+
+严格输出恰好 ${targetCount} 个元素，不要输出任何 JSON 以外的文字。`;
+
+  const result = await callAi([
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: `请生成这 ${targetCount} 位NPC。` }
+  ], 0.8, 500);
+
+  const jsonMatch = result.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) {
+    throw new Error('NPC生成结果解析失败：未找到JSON数组');
+  }
+
+  const parsed = JSON.parse(jsonMatch[0]);
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error('NPC生成结果为空');
+  }
+
+  return parsed
+    .filter((item) => item && item.name)
+    .slice(0, targetCount)
+    .map((item) => ({
+      name: removeEmoji(String(item.name)).trim(),
+      roleTag: removeEmoji(String(item.roleTag || '街区邻里')).trim()
+    }));
+};
+
+// ==========================================
+// 6. 动态生成: 虚构本地媒体账号发布生活资讯速报
+// ==========================================
+export const NEWS_ACCOUNT_NAME = '本地生活速报';
+export const NEWS_ACCOUNT = { name: NEWS_ACCOUNT_NAME, avatar: '' };
+
+/**
+ * 生成一条"本地生活速报"——一个虚构的本地媒体/公众号账号发布的资讯类
+ * 动态，跟角色/NPC的个人生活随笔区分开：客观、公共信息口吻，不是
+ * 第一人称抒情。用来给生活圈添点"这是个活的小世界"的氛围感。
+ */
+export const generateNewsPost = async (chatId = null) => {
+  const memoryContext = await buildRecentPlotContext(chatId);
+
+  const systemPrompt = `你正在运营一个虚构的本地生活媒体账号 [${NEWS_ACCOUNT_NAME}]，在同城生活圈发布一条简短的本地资讯/生活速报（不是私人动态，是像本地公众号/生活号那样的公共信息发布）。
+
+${memoryContext}
+
+【创作指导】
+1. 内容围绕虚构的本地生活资讯：可以是社区活动预告、天气生活提示、街区新店开业、周边趣闻等，保持轻松、贴近生活、非负面重大事件。
+2. 语气客观、简洁，像公众号资讯的口吻，不是个人化的随笔——不用第一人称抒情。
+3. 如果上方提供了近期剧情氛围片段，可以让内容隐约呼应当下的季节感或氛围，但不要提及任何私人对话细节。
+4. 必须输出纯 JSON 字符串，不要带 Markdown 语法：
+   - "imagePrompt": 配图的画面描摹（资讯类的客观场景，如街景、活动海报感），80字以内；
+   - "content": 资讯正文，不超过100字；
+   - "location": 资讯相关地点（如：中心广场、社区公告栏）。
+5. 绝对禁止使用任何 Emoji。`;
+
+  const result = await callAi([
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: '请发布一条本地生活速报。' }
+  ]);
+
+  const jsonMatch = result.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        imagePrompt: removeEmoji(parsed.imagePrompt || ''),
+        content: removeEmoji(parsed.content || ''),
+        location: removeEmoji(parsed.location || '同城速报')
+      };
+    } catch {}
+  }
+
+  return {
+    imagePrompt: '[资讯速览: 社区公告栏的最新一角]',
+    content: result.slice(0, 100),
+    location: '同城速报'
+  };
+};
+
 export default {
   removeEmoji,
   getApiConfig,
@@ -408,5 +514,9 @@ export default {
   generateCharacterPost,
   generateNpcPost,
   generateSnapshotComment,
-  generateSnapshotReply
+  generateSnapshotReply,
+  extractOrInventNpcs,
+  generateNewsPost,
+  NEWS_ACCOUNT_NAME,
+  NEWS_ACCOUNT
 };

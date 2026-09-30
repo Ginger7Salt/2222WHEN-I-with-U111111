@@ -312,7 +312,9 @@ export const SnapshotSettingsModal = ({ isOpen, onClose, currentChatId }) => {
             <div className="space-y-4 pt-1">
               <p className="text-[11px] opacity-60">
                 这里添加的 NPC 只属于当前世界线（消息框），不会出现在其他世界线里。
-                可以添加常驻的小 NPC（如街角咖啡师、流动摄影师），也可在无预设时由 AI 自由发挥出场。
+                可以添加常驻的小 NPC（如街角咖啡师、流动摄影师）。如果一直没有手动添加过，
+                后台会自动补齐几个（标着"自动生成"），优先从角色人设里找已经提到的配角，
+                不够再由 AI 自由发挥凑数——只会自动补一次，之后可以随意编辑或删除。
               </p>
 
               <div className="space-y-2">
@@ -358,6 +360,14 @@ export const SnapshotSettingsModal = ({ isOpen, onClose, currentChatId }) => {
                         <div>
                           <span className="font-bold">{npc.name}</span>
                           <span className="ml-2 text-[10px] opacity-60">({npc.roleTag})</span>
+                          {npc.source === 'auto' && (
+                            <span
+                              className="ml-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+                              style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)', opacity: 0.75 }}
+                            >
+                              自动生成
+                            </span>
+                          )}
                         </div>
                         <button
                           onClick={() => handleDeleteNpc(npc.id)}

@@ -19,15 +19,21 @@
 // 各自独立 roll 一次 60% 概率——同一轮巡检里，运气好可以有多个 NPC 同时发新动态，
 // 更接近真实生活圈的感觉。
 import db from '../../../db';
-import { generateCharacterPost, generateNpcPost, getApiConfig } from './snapshotAiService';
-import { getNpcsByChatId } from './snapshotNpcService';
+import {
+  generateCharacterPost, generateNpcPost, generateNewsPost, NEWS_ACCOUNT, getApiConfig
+} from './snapshotAiService';
+import { getNpcsByChatId, ensureAutoNpcPool } from './snapshotNpcService';
+import { autoGenerateNpcComments } from './snapshotAutoCommentService';
 import { triggerSystemNotification } from '../../../services/aiService';
 import { pickDailyLifeTopic, describeDailyLifeTopicAsHint } from '../../../services/dailyLifeTopicPicker';
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const CHAR_POST_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const NPC_POST_COOLDOWN_MS = 4 * 60 * 60 * 1000;
-const NPC_TRIGGER_PROBABILITY = 0.6;
+// 2026-09 频率调整：60% -> 70%，冷却时间不变，用户反馈NPC发帖还是太少。
+const NPC_TRIGGER_PROBABILITY = 0.7;
+const NEWS_POST_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const NEWS_TRIGGER_PROBABILITY = 0.5;
 
 let schedulerTimer = null;
 let isRunningCheck = false;
@@ -55,7 +61,7 @@ const tryPostForCharacter = async (chat, character, now) => {
     const topicHint = describeDailyLifeTopicAsHint(await pickDailyLifeTopic(chat.id));
     const postData = await generateCharacterPost(character.id, chat.id, topicHint);
 
-    const snapshotId = await db.snapshots.add({
+    const record = {
       chatId: chat.id,
       authorType: 'character',
       characterId: character.id,
@@ -69,7 +75,9 @@ const tryPostForCharacter = async (chat, character, now) => {
       isLiked: false,
       timestamp: now,
       createdAt: now
-    });
+    };
+    const snapshotId = await db.snapshots.add(record);
+    const fullRecord = { id: snapshotId, ...record };
 
     void triggerSystemNotification(
       `${character.name} 发布了一条新动态`,
@@ -77,7 +85,10 @@ const tryPostForCharacter = async (chat, character, now) => {
       character.avatar
     );
 
-    return snapshotId;
+    // 只有后台调度器自动发的角色动态才自动配NPC评论——这里正是这种场景。
+    await autoGenerateNpcComments(chat.id, fullRecord, { type: 'character', id: character.id });
+
+    return fullRecord;
   } catch (error) {
     console.error(
       `[SnapshotGlobalScheduler] 聊天窗 ${chat.id} 角色动态生成失败：`,
@@ -109,7 +120,7 @@ const postNpcSnapshot = async (chat, character, npc, now) => {
       chat.userName || '常客'
     );
 
-    const snapshotId = await db.snapshots.add({
+    const record = {
       chatId: chat.id,
       authorType: 'npc',
       npcId: npc.id,
@@ -123,7 +134,9 @@ const postNpcSnapshot = async (chat, character, npc, now) => {
       isLiked: false,
       timestamp: now,
       createdAt: now
-    });
+    };
+    const snapshotId = await db.snapshots.add(record);
+    const fullRecord = { id: snapshotId, ...record };
 
     void triggerSystemNotification(
       `${npc.name} 发布了一条新动态`,
@@ -131,7 +144,10 @@ const postNpcSnapshot = async (chat, character, npc, now) => {
       ''
     );
 
-    return snapshotId;
+    // NPC自己发的帖子也一起配自动评论（跟用户确认过的范围）。
+    await autoGenerateNpcComments(chat.id, fullRecord, { type: 'npc', id: npc.id });
+
+    return fullRecord;
   } catch (error) {
     console.error(
       `[SnapshotGlobalScheduler] 聊天窗 ${chat.id} NPC(${npc.name}) 动态生成失败：`,
@@ -142,12 +158,12 @@ const postNpcSnapshot = async (chat, character, npc, now) => {
 };
 
 // NPC 偶发生活动态：该聊天窗下每一个已过冷却（4 小时）的 NPC，各自独立
-// 60% 概率判定是否发帖——同一轮巡检里可以有多个 NPC 同时发。
+// 70% 概率判定是否发帖——同一轮巡检里可以有多个 NPC 同时发。
 const tryPostForNpc = async (chat, character, now) => {
   const npcs = await getNpcsByChatId(chat.id);
   if (npcs.length === 0) return [];
 
-  const postedIds = [];
+  const posted = [];
 
   for (const npc of npcs) {
     const offCooldown = await isNpcOffCooldown(chat, npc, now);
@@ -155,11 +171,61 @@ const tryPostForNpc = async (chat, character, now) => {
 
     if (Math.random() >= NPC_TRIGGER_PROBABILITY) continue;
 
-    const snapshotId = await postNpcSnapshot(chat, character, npc, now);
-    if (snapshotId) postedIds.push(snapshotId);
+    const record = await postNpcSnapshot(chat, character, npc, now);
+    if (record) posted.push(record);
   }
 
-  return postedIds;
+  return posted;
+};
+
+// 本地生活速报（虚构媒体账号）：跟角色/NPC各自独立判定，每个chat自己的
+// 冷却（6小时）+ 50%概率，不占用角色/NPC的发帖机会。
+const isNewsOffCooldown = async (chat, now) => {
+  const lastNewsPost = await db.snapshots
+    .where('chatId')
+    .equals(chat.id)
+    .and((s) => s.authorType === 'news')
+    .last();
+
+  return !lastNewsPost || now - lastNewsPost.timestamp > NEWS_POST_COOLDOWN_MS;
+};
+
+const tryPostForNews = async (chat, now) => {
+  const offCooldown = await isNewsOffCooldown(chat, now);
+  if (!offCooldown) return null;
+  if (Math.random() >= NEWS_TRIGGER_PROBABILITY) return null;
+
+  try {
+    const postData = await generateNewsPost(chat.id);
+    const record = {
+      chatId: chat.id,
+      authorType: 'news',
+      characterId: null,
+      npcId: null,
+      authorName: NEWS_ACCOUNT.name,
+      authorAvatar: NEWS_ACCOUNT.avatar,
+      mediaUrl: '',
+      imagePrompt: postData.imagePrompt,
+      content: postData.content,
+      location: postData.location,
+      likes: 0,
+      isLiked: false,
+      timestamp: now,
+      createdAt: now
+    };
+    const snapshotId = await db.snapshots.add(record);
+
+    void triggerSystemNotification(
+      `${NEWS_ACCOUNT.name} 发布了一条新资讯`,
+      getNotificationPreview(postData.content),
+      ''
+    );
+
+    return { id: snapshotId, ...record };
+  } catch (error) {
+    console.error(`[SnapshotGlobalScheduler] 聊天窗 ${chat.id} 新闻速报生成失败：`, error);
+    return null;
+  }
 };
 
 const processChat = async (chat, now) => {
@@ -167,11 +233,16 @@ const processChat = async (chat, now) => {
     ? await db.characters.get(chat.characterId)
     : null;
 
-  // 角色和 NPC 各自独立判定，互不占用彼此的发帖机会。
-  const charPostId = await tryPostForCharacter(chat, character, now);
-  const npcPostIds = await tryPostForNpc(chat, character, now);
+  // 这个chat要是从来没有NPC（用户没手动加，也没自动补过），先补一次
+  // （只补这一次，见 snapshotNpcService.ensureAutoNpcPool 的注释）。
+  await ensureAutoNpcPool(chat.id, character);
 
-  return [charPostId, ...npcPostIds].filter(Boolean);
+  // 角色 / NPC / 本地资讯速报 各自独立判定，互不占用彼此的发帖机会。
+  const charPost = await tryPostForCharacter(chat, character, now);
+  const npcPosts = await tryPostForNpc(chat, character, now);
+  const newsPost = await tryPostForNews(chat, now);
+
+  return [charPost, ...npcPosts, newsPost].filter(Boolean);
 };
 
 export const checkAndTriggerGlobalSnapshotPosts = async (providedChats = null) => {

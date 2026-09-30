@@ -269,7 +269,9 @@ export const SnapshotCard = ({
     ? '伴侣'
     : localSnapshot.authorType === 'npc'
       ? '邻里'
-      : '我';
+      : localSnapshot.authorType === 'news'
+        ? '资讯'
+        : '我';
 
   const canEdit = localSnapshot.authorType === 'user';
 
@@ -297,6 +299,9 @@ export const SnapshotCard = ({
               )}
               {localSnapshot.authorType === 'npc' && (
                 <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-600 font-medium">邻里</span>
+              )}
+              {localSnapshot.authorType === 'news' && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-600 font-medium">资讯</span>
               )}
             </div>
             <div className="flex items-center gap-2 text-[10px] text-neutral-400 mt-0.5">

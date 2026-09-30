@@ -14,8 +14,15 @@
 // 已有的"调度器各自独立成文件"惯例，不合并。
 //
 import db from '../../../db';
-import { generateCharacterPost, generateNpcPost } from './snapshotAiService';
-import { getNpcsByChatId } from './snapshotNpcService';
+import { generateCharacterPost, generateNpcPost, generateNewsPost, NEWS_ACCOUNT } from './snapshotAiService';
+import { getNpcsByChatId, ensureAutoNpcPool } from './snapshotNpcService';
+import { autoGenerateNpcComments } from './snapshotAutoCommentService';
+
+// 2026-09 频率调整：NPC命中概率 60% -> 70%（冷却时间不变），跟
+// snapshotGlobalScheduler.js 保持一致；同时补上新闻速报的冷却/概率常量。
+const NPC_TRIGGER_PROBABILITY = 0.7;
+const NEWS_POST_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const NEWS_TRIGGER_PROBABILITY = 0.5;
 
 class SnapshotScheduler {
   constructor() {
@@ -77,6 +84,10 @@ class SnapshotScheduler {
       const char = chat.characterId ? await db.characters.get(chat.characterId) : null;
       const now = Date.now();
 
+      // 0. 这个chat要是从来没有NPC（用户没手动加，也没自动补过），先补一次
+      // （只补这一次，见 snapshotNpcService.ensureAutoNpcPool 的注释）。
+      await ensureAutoNpcPool(this.activeChatId, char);
+
       // 1. 检查 Char 是否该主动发生活动态 (角色开启了主动消息，冷却 4 小时)
       if (char && char.isAutoMessageActive) {
         const lastCharPost = await db.snapshots
@@ -87,7 +98,7 @@ class SnapshotScheduler {
 
         if (!lastCharPost || now - lastCharPost.timestamp > 4 * 60 * 60 * 1000) {
           const postData = await generateCharacterPost(char.id, this.activeChatId);
-          await db.snapshots.add({
+          const record = {
             chatId: this.activeChatId,
             authorType: 'character',
             characterId: char.id,
@@ -101,14 +112,19 @@ class SnapshotScheduler {
             isLiked: false,
             timestamp: now,
             createdAt: now
-          });
+          };
+          const snapshotId = await db.snapshots.add(record);
+
+          // 只有后台调度器自动发的角色动态才自动配NPC评论。
+          await autoGenerateNpcComments(this.activeChatId, { id: snapshotId, ...record }, { type: 'character', id: char.id });
+
           this.notify();
           return; // 本次轮询已发，结束本次检查
         }
       }
 
       // 2. 检查 NPC 是否偶发生活动态
-      // 冷却 4 小时，每个已过冷却的 NPC 各自独立 60% 概率触发，
+      // 冷却 4 小时，每个已过冷却的 NPC 各自独立 70% 概率触发，
       // 同一轮巡检可以有多个 NPC 同时发帖。
       const npcs = await getNpcsByChatId(this.activeChatId);
       let hasNpcPosted = false;
@@ -123,7 +139,7 @@ class SnapshotScheduler {
         const offCooldown = !lastNpcPost || now - lastNpcPost.timestamp > 4 * 60 * 60 * 1000;
         if (!offCooldown) continue;
 
-        if (Math.random() >= 0.6) continue;
+        if (Math.random() >= NPC_TRIGGER_PROBABILITY) continue;
 
         try {
           const postData = await generateNpcPost(
@@ -133,7 +149,7 @@ class SnapshotScheduler {
             chat.userName || '常客'
           );
 
-          await db.snapshots.add({
+          const record = {
             chatId: this.activeChatId,
             authorType: 'npc',
             npcId: npc.id,
@@ -147,14 +163,53 @@ class SnapshotScheduler {
             isLiked: false,
             timestamp: now,
             createdAt: now
-          });
+          };
+          const snapshotId = await db.snapshots.add(record);
+
+          // NPC自己发的帖子也一起配自动评论（跟用户确认过的范围）。
+          await autoGenerateNpcComments(this.activeChatId, { id: snapshotId, ...record }, { type: 'npc', id: npc.id });
+
           hasNpcPosted = true;
         } catch (err) {
           console.error(`[SnapshotScheduler] NPC(${npc.name}) 动态生成失败:`, err);
         }
       }
 
-      if (hasNpcPosted) {
+      // 3. 本地生活速报：独立冷却（6小时）+ 50%概率，不占用角色/NPC的发帖机会。
+      let hasNewsPosted = false;
+      const lastNewsPost = await db.snapshots
+        .where('chatId')
+        .equals(this.activeChatId)
+        .and(s => s.authorType === 'news')
+        .last();
+      const newsOffCooldown = !lastNewsPost || now - lastNewsPost.timestamp > NEWS_POST_COOLDOWN_MS;
+
+      if (newsOffCooldown && Math.random() < NEWS_TRIGGER_PROBABILITY) {
+        try {
+          const postData = await generateNewsPost(this.activeChatId);
+          await db.snapshots.add({
+            chatId: this.activeChatId,
+            authorType: 'news',
+            characterId: null,
+            npcId: null,
+            authorName: NEWS_ACCOUNT.name,
+            authorAvatar: NEWS_ACCOUNT.avatar,
+            mediaUrl: '',
+            imagePrompt: postData.imagePrompt,
+            content: postData.content,
+            location: postData.location,
+            likes: 0,
+            isLiked: false,
+            timestamp: now,
+            createdAt: now
+          });
+          hasNewsPosted = true;
+        } catch (err) {
+          console.error('[SnapshotScheduler] 新闻速报生成失败:', err);
+        }
+      }
+
+      if (hasNpcPosted || hasNewsPosted) {
         this.notify();
       }
     } catch (err) {
