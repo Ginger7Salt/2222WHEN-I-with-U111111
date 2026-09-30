@@ -117,25 +117,28 @@ function PresetEditor({ preset, onClose, onSaved }) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* 跟外层书架/电台页同一路处理：不做满宽的一条横杠，关闭/保存
-          浮在两角，标题单独居中一行。 */}
-      <div className="relative shrink-0 px-5 pb-4 pt-5">
-        <button type="button" onClick={onClose} className="absolute left-4 top-5 opacity-60 hover:opacity-100">
+      {/* 跟外层书架/电台页同一路处理：不做满宽的一条横杠、也不做背景色块。
+          用三栏flex（不是position:absolute）让关闭/保存分落两侧、标题居中——
+          RpRoom外壳有一个"forwards"填充的transform入场动画，会让absolute
+          定位的子元素在部分浏览器（尤其iOS Safari）上出现"看着在原位、
+          实际点不中"的已知渲染错位问题，所以这里的按钮全部改回普通flow布局。 */}
+      <div className="flex shrink-0 items-center gap-2 px-4 pb-4 pt-5">
+        <button type="button" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center opacity-60 hover:opacity-100">
           <X className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          className="absolute right-4 top-4 rounded-full px-3.5 py-1.5 text-xs font-semibold"
-          style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
-        >
-          保存
         </button>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mx-auto block w-[calc(100%-96px)] bg-transparent text-center text-[15px] font-bold outline-none"
+          className="min-w-0 flex-1 bg-transparent text-center text-[15px] font-bold outline-none"
         />
+        <button
+          type="button"
+          onClick={handleSave}
+          className="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold"
+          style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+        >
+          保存
+        </button>
       </div>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-5 pt-1">
@@ -474,23 +477,24 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="relative shrink-0 px-5 pb-3 pt-5">
-        <button type="button" onClick={onClose} className="absolute left-4 top-5 opacity-60 hover:opacity-100">
+      {/* 三栏flex，不用position:absolute（原因见PresetEditor头部的注释）。 */}
+      <div className="flex shrink-0 items-center gap-2 px-4 pb-3 pt-5">
+        <button type="button" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center opacity-60 hover:opacity-100">
           <X className="h-4 w-4" />
         </button>
+        <div className="min-w-0 flex-1 text-center">
+          <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-40">Prompt Presets</p>
+          <h3 className="mt-1 text-lg font-bold">调台 · 预设</h3>
+        </div>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="absolute right-4 top-5 opacity-60 hover:opacity-100"
+          className="flex h-8 w-8 shrink-0 items-center justify-center opacity-60 hover:opacity-100"
           title="导入预设"
         >
           <Upload className="h-4 w-4" />
         </button>
         <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
-        <div className="text-center">
-          <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-40">Prompt Presets</p>
-          <h3 className="mt-1 text-lg font-bold">调台 · 预设</h3>
-        </div>
       </div>
 
       {presets.length === 0 ? (

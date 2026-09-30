@@ -9,9 +9,6 @@ import NotificationToast from './components/NotificationToast';
 import KeepAliveIndicator from './components/KeepAliveIndicator';
 import HouseManualModal from './components/manual/HouseManualModal';
 
-import HourglassApp from './apps/hourglass/HourglassApp';
-import MailArchiveApp from './apps/mailArchive/MailArchiveApp';
-
 import HubHeader from './apps/hub/HubHeader';
 import QuickBoard from './apps/hub/QuickBoard';
 
@@ -19,33 +16,11 @@ import AppGrid from './apps/hub/AppGrid';
 import StorageWarningBadge from './apps/hub/StorageWarningBadge';
 import DesktopPetWidget from './apps/pet/DesktopPetWidget';
 
-import ArchiveApp from './apps/archive/ArchiveApp';
-import CallHistoryApp from './apps/callHistory/CallHistoryApp';
-
-import SettingsPage from './apps/settings/SettingsPage';
 import MessagesApp from './apps/messages/MessagesApp';
-import TodoApp from './apps/todos/TodoApp';
-import DiaryApp from './apps/diaries/DiaryApp';
-import TravelApp from './apps/travels/TravelApp';
-import SnapshotsApp from './apps/snapshots/SnapshotsApp';
-import PebblingApp from './apps/pebbling/PebblingApp';
-import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
 
-import BubbleApp from './apps/bubble/BubbleApp';
-import RpApp from './apps/rp/RpApp';
-
-import HabitatApp from './apps/habitat/HabitatApp';
-import EphemeraApp from './apps/ephemera/EphemeraApp';
-import AskBoxApp from './apps/askbox/AskBoxApp';
-import ManualApp from './apps/manual/ManualApp';
 import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
 import AudioKeepAlive from './apps/messages/components/AudioKeepAlive';
 import AppUpdatePrompt from './apps/app-update/AppUpdatePrompt';
-import MemoryApp from './apps/memory/MemoryApp';
-import NewspaperApp from './apps/newspaper/NewspaperApp';
-import MarginNotesApp from './apps/margin-notes/MarginNotesApp';
-import AlmanacApp from './apps/almanac/AlmanacApp';
-import SharedWorldApp from './apps/shared-world/SharedWorldApp';
 
 import { startOfflineSessionScheduler, stopOfflineSessionScheduler } from './apps/offline/offlineSessionScheduler';
 import { startOfflineCountdownLockscreenScheduler, stopOfflineCountdownLockscreenScheduler } from './apps/offline/offlineCountdownLockscreenScheduler';
@@ -72,8 +47,6 @@ import soundService from './services/soundService';
 import {
   consumeMcpOAuthCallback,
 } from './services/mcp/mcpOAuthService';
-
-import RhythmApp from './apps/rhythm/RhythmApp';
 
 import db from './db';
 
@@ -104,8 +77,6 @@ import {
   stopWorkflowScheduler,
 } from './services/workflow/workflowScheduler';
 
-import WorkflowApp from './apps/workflows/WorkflowApp';
-
 import {
   checkAlmanacGreetings,
 } from './apps/almanac/services/almanacGreetingService';
@@ -123,15 +94,47 @@ import { useActiveCall } from './hooks/useActiveCall';
 import './apps/daily-offering/daily-offering.css';
 import './apps/manual/manual.css';
 
-// 2026-09 试点：懒加载改造的第一个试验品。跟其余还没改的 34 个模块相比，
-// 唯一的区别就是这一行——从"打包时直接把代码塞进主包"变成"点开羁绊
-// 大群那一刻才单独下载这个模块的代码"。EnsembleApp.jsx 自己和它底下
-// 所有的子组件、service 文件完全不用动，Vite 的 import() 是构建期自动
-// 识别、自动切分的，不需要目标文件本身配合任何写法。
+// 2026-09 试点：懒加载改造的第一个试验品，只改这一行——从"打包时直接把
+// 代码塞进主包"变成"点开羁绊大群那一刻才单独下载这个模块的代码"。
+// EnsembleApp.jsx 自己和它底下所有的子组件、service 文件完全不用动，
+// Vite 的 import() 是构建期自动识别、自动切分的，不需要目标文件本身
+// 配合任何写法。
 const EnsembleApp = React.lazy(() => import('./apps/ensemble/EnsembleApp'));
+
+// 2026-09 正式铺开：试点确认没问题后，除 MessagesApp（常驻、必须首屏可用，
+// 不懒加载）以外的其余子应用页面全部按同样的模式转成 React.lazy。
+// hub 首屏本身（HubHeader/QuickBoard/AppGrid/DailyOfferingHubGate）以及
+// 常驻悬浮组件（AudioKeepAlive/AppUpdatePrompt/CallOverlayHost/
+// DesktopPetWidget/StorageWarningBadge 等）不属于"点开才用到"的子应用页面，
+// 保持原样立即加载，避免首屏出现额外的加载态闪烁。
+const HourglassApp = React.lazy(() => import('./apps/hourglass/HourglassApp'));
+const MailArchiveApp = React.lazy(() => import('./apps/mailArchive/MailArchiveApp'));
+const ArchiveApp = React.lazy(() => import('./apps/archive/ArchiveApp'));
+const CallHistoryApp = React.lazy(() => import('./apps/callHistory/CallHistoryApp'));
+const SettingsPage = React.lazy(() => import('./apps/settings/SettingsPage'));
+const TodoApp = React.lazy(() => import('./apps/todos/TodoApp'));
+const DiaryApp = React.lazy(() => import('./apps/diaries/DiaryApp'));
+const TravelApp = React.lazy(() => import('./apps/travels/TravelApp'));
+const SnapshotsApp = React.lazy(() => import('./apps/snapshots/SnapshotsApp'));
+const PebblingApp = React.lazy(() => import('./apps/pebbling/PebblingApp'));
+const ImaginariumApp = React.lazy(() => import('./apps/imaginarium/ImaginariumApp'));
+const BubbleApp = React.lazy(() => import('./apps/bubble/BubbleApp'));
+const RpApp = React.lazy(() => import('./apps/rp/RpApp'));
+const HabitatApp = React.lazy(() => import('./apps/habitat/HabitatApp'));
+const EphemeraApp = React.lazy(() => import('./apps/ephemera/EphemeraApp'));
+const AskBoxApp = React.lazy(() => import('./apps/askbox/AskBoxApp'));
+const ManualApp = React.lazy(() => import('./apps/manual/ManualApp'));
+const MemoryApp = React.lazy(() => import('./apps/memory/MemoryApp'));
+const NewspaperApp = React.lazy(() => import('./apps/newspaper/NewspaperApp'));
+const MarginNotesApp = React.lazy(() => import('./apps/margin-notes/MarginNotesApp'));
+const AlmanacApp = React.lazy(() => import('./apps/almanac/AlmanacApp'));
+const SharedWorldApp = React.lazy(() => import('./apps/shared-world/SharedWorldApp'));
+const RhythmApp = React.lazy(() => import('./apps/rhythm/RhythmApp'));
+const WorkflowApp = React.lazy(() => import('./apps/workflows/WorkflowApp'));
 
 // 只是"这个模块的代码正在下载"那零点几秒到一两秒（视网络而定）的占位，
 // 不是常规的应用内 loading 状态，所以故意做得很轻，没有另起 CSS 文件。
+// 铺开的其余子应用统一复用这一个占位组件，不再逐个定制文案。
 const EnsembleLoadingFallback = () => (
   <div
     style={{
@@ -146,6 +149,25 @@ const EnsembleLoadingFallback = () => (
     }}
   >
     正在打开羁绊大群…
+  </div>
+);
+
+// 通用占位：铺开阶段新懒加载的子应用没有 Ensemble 那样专门定制文案的必要，
+// 统一用这一个即可，文案不针对具体应用名。
+const AppLoadingFallback = () => (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--text-sub)',
+      fontSize: '13px',
+      backgroundColor: 'var(--bg-main)',
+    }}
+  >
+    正在加载…
   </div>
 );
 
@@ -985,24 +1007,28 @@ const [hubBackground, setHubBackground] = useState('');
 
         {currentApp === 'settings' && (
           <ErrorBoundary>
-           <SettingsPage
-  onBack={() => openApp('hub')}
-  onOpenManual={handleOpenManual}
-  currentTheme={activeTheme}
-  onChangeTheme={setActiveTheme}
-  showTitle={showTitle}
-  onToggleTitle={setShowTitle}
-  currentHubBackground={hubBackground}
-  onChangeHubBackground={setHubBackground}
-/>
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <SettingsPage
+                onBack={() => openApp('hub')}
+                onOpenManual={handleOpenManual}
+                currentTheme={activeTheme}
+                onChangeTheme={setActiveTheme}
+                showTitle={showTitle}
+                onToggleTitle={setShowTitle}
+                currentHubBackground={hubBackground}
+                onChangeHubBackground={setHubBackground}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'manual' && (
           <ErrorBoundary>
-            <ManualApp
-              onBack={() => openApp('settings')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <ManualApp
+                onBack={() => openApp('settings')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
@@ -1019,58 +1045,72 @@ const [hubBackground, setHubBackground] = useState('');
 
         {['todos', 'planner'].includes(currentApp) && (
           <ErrorBoundary>
-            <TodoApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <TodoApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'diaries' && (
           <ErrorBoundary>
-            <DiaryApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <DiaryApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {['travels', 'travel'].includes(currentApp) && (
           <ErrorBoundary>
-            <TravelApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <TravelApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'margin-notes' && (
-          <MarginNotesApp
-            onBackHub={() => openApp('hub')}
-          />
+          <React.Suspense fallback={<AppLoadingFallback />}>
+            <MarginNotesApp
+              onBackHub={() => openApp('hub')}
+            />
+          </React.Suspense>
         )}
 
         {currentApp === 'snapshots' && (
           <ErrorBoundary>
-            <SnapshotsApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <SnapshotsApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'pebbling' && (
           <ErrorBoundary>
-            <PebblingApp
-              onBack={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <PebblingApp
+                onBack={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'imaginarium' && (
           <ErrorBoundary>
-            <ImaginariumApp
-              onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={
-                setIsInsideChatRoom
-              }
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <ImaginariumApp
+                onBackHub={() => openApp('hub')}
+                onChatRoomStateChange={
+                  setIsInsideChatRoom
+                }
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
@@ -1089,129 +1129,160 @@ const [hubBackground, setHubBackground] = useState('');
 
               {currentApp === 'bubble' && (
           <ErrorBoundary>
-            <BubbleApp
-              onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={
-                setIsInsideChatRoom
-              }
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <BubbleApp
+                onBackHub={() => openApp('hub')}
+                onChatRoomStateChange={
+                  setIsInsideChatRoom
+                }
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'rp' && (
           <ErrorBoundary>
-            <RpApp
-              onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={
-                setIsInsideChatRoom
-              }
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <RpApp
+                onBackHub={() => openApp('hub')}
+                onChatRoomStateChange={
+                  setIsInsideChatRoom
+                }
+                hubBackground={hubBackground}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'habitat' && (
           <ErrorBoundary>
-            <HabitatApp
-              onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={
-                setIsInsideChatRoom
-              }
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <HabitatApp
+                onBackHub={() => openApp('hub')}
+                onChatRoomStateChange={
+                  setIsInsideChatRoom
+                }
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'newspaper' && (
-          <NewspaperApp
-            onClose={() => setCurrentApp('hub')}
-          />
+          <React.Suspense fallback={<AppLoadingFallback />}>
+            <NewspaperApp
+              onClose={() => setCurrentApp('hub')}
+            />
+          </React.Suspense>
         )}
 
         {currentApp === 'ephemera' && (
           <ErrorBoundary>
-            <EphemeraApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <EphemeraApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'askbox' && (
           <ErrorBoundary>
-            <AskBoxApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <AskBoxApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'rhythm' && (
           <ErrorBoundary>
-                       <RhythmApp
-              onBackHub={() => openApp('hub')}
-              currentCharacterId={activeCharacterId}
-              currentChatId={activeChatId}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+                         <RhythmApp
+                onBackHub={() => openApp('hub')}
+                currentCharacterId={activeCharacterId}
+                currentChatId={activeChatId}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'almanac' && (
           <ErrorBoundary>
-            <AlmanacApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <AlmanacApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'hourglass' && (
   <ErrorBoundary>
-    <HourglassApp
-      onBackHub={() => openApp('hub')}
-    />
+    <React.Suspense fallback={<AppLoadingFallback />}>
+      <HourglassApp
+        onBackHub={() => openApp('hub')}
+      />
+    </React.Suspense>
   </ErrorBoundary>
 )}
 
         {currentApp === 'mailArchive' && (
           <ErrorBoundary>
-            <MailArchiveApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <MailArchiveApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'shared-world' && (
           <ErrorBoundary>
-            <SharedWorldApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <SharedWorldApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
                 {currentApp === 'memory' && (
-          <MemoryApp
-            onBackHub={() => openApp('hub')}
-          />
+          <React.Suspense fallback={<AppLoadingFallback />}>
+            <MemoryApp
+              onBackHub={() => openApp('hub')}
+            />
+          </React.Suspense>
         )}
 
                 {currentApp === 'archive' && (
           <ErrorBoundary>
-            <ArchiveApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <ArchiveApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'callHistory' && (
           <ErrorBoundary>
-            <CallHistoryApp
-              onBackHub={() => openApp('hub')}
-              hubBackground={hubBackground}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <CallHistoryApp
+                onBackHub={() => openApp('hub')}
+                hubBackground={hubBackground}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
         {currentApp === 'workflows' && (
           <ErrorBoundary>
-            <WorkflowApp
-              onBackHub={() => openApp('hub')}
-            />
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <WorkflowApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         )}
 
