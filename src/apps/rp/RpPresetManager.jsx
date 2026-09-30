@@ -15,8 +15,9 @@
 // 一次性写回数据库。
 
 import React, { useEffect, useRef, useState } from 'react';
+import { Reorder, useDragControls } from 'motion/react';
 import {
-  X, Plus, Trash2, ChevronDown, ChevronUp, Download, Upload, Check, ArrowLeftRight, Info,
+  X, Plus, Trash2, Download, Upload, Check, ArrowLeftRight, Info, GripVertical,
 } from 'lucide-react';
 
 import ConfirmModal from '../../components/ConfirmModal';
@@ -50,22 +51,186 @@ const emptyRegexScript = () => ({
   applyToPrompt: false,
 });
 
+// 单条Prompt卡片，拆成独立组件是因为拖动手柄要用 useDragControls——每张
+// 卡片自己的拖拽状态，不能在 map 回调里直接调用这个 hook。
+// dragListener={false} + dragControls={controls}：整张卡片默认不响应拖拽
+// 手势（不然点复选框/展开/删除都会被当成拖拽启动），只有按住左边这个
+// GripVertical 手柄才真正开始拖，松手后 Reorder.Group 的 layout 动画会让
+// 其它卡片自动让位（磁吸效果）。
+const PromptCard = ({ p, isExpanded, onToggleExpand, onUpdateField, onRemove }) => {
+  const controls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={p}
+      dragListener={false}
+      dragControls={controls}
+      className="overflow-hidden rounded-2xl"
+      style={{
+        backgroundColor: 'var(--card-bg)',
+        boxShadow: 'var(--card-shadow)',
+        border: '1px solid color-mix(in srgb, var(--card-border) 70%, transparent)',
+      }}
+    >
+      <div className="flex items-center gap-3 p-3.5">
+        <button
+          type="button"
+          onPointerDown={(e) => controls.start(e)}
+          className="shrink-0 touch-none cursor-grab p-1 opacity-40 hover:opacity-80 active:cursor-grabbing"
+          title="按住拖动调整顺序"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <input
+          type="checkbox"
+          checked={p.enabled}
+          onChange={(e) => onUpdateField(p.identifier, 'enabled', e.target.checked)}
+          className="h-4 w-4 accent-current shrink-0"
+        />
+        <span
+          className="flex-1 truncate text-[13px] font-semibold cursor-pointer"
+          onClick={onToggleExpand}
+        >
+          {p.name} {p.isMarker && <em className="opacity-50">(占位符)</em>}
+        </span>
+        <button type="button" onClick={() => onRemove(p.identifier)} className="shrink-0 p-1 text-red-500 opacity-60 hover:opacity-100">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      {isExpanded && (
+        <div className="space-y-2.5 p-3.5 pt-0.5">
+          <input
+            value={p.name}
+            onChange={(e) => onUpdateField(p.identifier, 'name', e.target.value)}
+            placeholder="这一条的名字"
+            className="w-full rounded-lg px-2.5 py-2 text-xs outline-none"
+            style={{ backgroundColor: 'var(--bg-surface)' }}
+          />
+          {!p.isMarker && (
+            <textarea
+              value={p.content}
+              onChange={(e) => onUpdateField(p.identifier, 'content', e.target.value)}
+              placeholder="内容，支持 {{char}} {{user}} {{time}} {{charBio}} {{userPersona}}"
+              rows={4}
+              className="w-full rounded-lg px-2.5 py-2.5 text-xs outline-none"
+              style={{ backgroundColor: 'var(--bg-surface)' }}
+            />
+          )}
+        </div>
+      )}
+    </Reorder.Item>
+  );
+};
+
+// 单条正则脚本卡片，同样拆出来是为了各自独立的拖拽手柄状态。
+const RegexCard = ({ r, isExpanded, onToggleExpand, onUpdateField, onRemove }) => {
+  const controls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={r}
+      dragListener={false}
+      dragControls={controls}
+      className="overflow-hidden rounded-2xl"
+      style={{
+        backgroundColor: 'var(--card-bg)',
+        boxShadow: 'var(--card-shadow)',
+        border: '1px solid color-mix(in srgb, var(--card-border) 70%, transparent)',
+      }}
+    >
+      <div className="flex items-center gap-3 p-3.5">
+        <button
+          type="button"
+          onPointerDown={(e) => controls.start(e)}
+          className="shrink-0 touch-none cursor-grab p-1 opacity-40 hover:opacity-80 active:cursor-grabbing"
+          title="按住拖动调整顺序"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <input
+          type="checkbox"
+          checked={r.enabled}
+          onChange={(e) => onUpdateField(r.id, 'enabled', e.target.checked)}
+          className="h-4 w-4 accent-current shrink-0"
+        />
+        <span
+          className="flex-1 truncate text-[13px] font-semibold cursor-pointer"
+          onClick={onToggleExpand}
+        >
+          {r.name}
+        </span>
+        <button type="button" onClick={() => onRemove(r.id)} className="shrink-0 p-1 text-red-500 opacity-60 hover:opacity-100">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      {isExpanded && (
+        <div className="space-y-2.5 p-3.5 pt-0.5 text-xs">
+          <input
+            value={r.name}
+            onChange={(e) => onUpdateField(r.id, 'name', e.target.value)}
+            placeholder="规则名字"
+            className="w-full rounded-lg px-2.5 py-2 outline-none"
+            style={{ backgroundColor: 'var(--bg-surface)' }}
+          />
+          <input
+            value={r.findRegex}
+            onChange={(e) => onUpdateField(r.id, 'findRegex', e.target.value)}
+            placeholder="查找（正则表达式）"
+            className="w-full rounded-lg px-2.5 py-2 font-mono outline-none"
+            style={{ backgroundColor: 'var(--bg-surface)' }}
+          />
+          <input
+            value={r.replaceString}
+            onChange={(e) => onUpdateField(r.id, 'replaceString', e.target.value)}
+            placeholder="替换为"
+            className="w-full rounded-lg px-2.5 py-2 font-mono outline-none"
+            style={{ backgroundColor: 'var(--bg-surface)' }}
+          />
+          <div className="flex items-center gap-2">
+            <span className="opacity-60">作用对象:</span>
+            <select
+              value={r.affects}
+              onChange={(e) => onUpdateField(r.id, 'affects', e.target.value)}
+              className="rounded-lg px-1.5 py-1 outline-none"
+              style={{ backgroundColor: 'var(--bg-surface)' }}
+            >
+              <option value="ai_output">AI回复</option>
+              <option value="user_input">User输入</option>
+              <option value="both">两者都</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={r.applyToDisplay}
+              onChange={(e) => onUpdateField(r.id, 'applyToDisplay', e.target.checked)}
+              className="h-3 w-3 accent-current"
+            />
+            影响界面显示
+          </label>
+          <label className="flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={r.applyToPrompt}
+              onChange={(e) => onUpdateField(r.id, 'applyToPrompt', e.target.checked)}
+              className="h-3 w-3 accent-current"
+            />
+            也写入历史（影响AI下一轮看到的内容）
+          </label>
+        </div>
+      )}
+    </Reorder.Item>
+  );
+};
+
 function PresetEditor({ preset, onClose, onSaved }) {
   const [name, setName] = useState(preset.name);
   const [prompts, setPrompts] = useState(preset.prompts || []);
   const [regexScripts, setRegexScripts] = useState(preset.regexScripts || []);
   const [expandedId, setExpandedId] = useState(null);
   const [expandedRegexId, setExpandedRegexId] = useState(null);
-
-  const movePrompt = (index, dir) => {
-    setPrompts((prev) => {
-      const next = [...prev];
-      const target = index + dir;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  };
 
   const updatePromptField = (identifier, field, value) => {
     setPrompts((prev) => prev.map((p) => (p.identifier === identifier ? { ...p, [field]: value } : p)));
@@ -157,66 +322,18 @@ function PresetEditor({ preset, onClose, onSaved }) {
             </div>
           </div>
 
-          {prompts.map((p, index) => {
-            const isExpanded = expandedId === p.identifier;
-            return (
-              <div
+          <Reorder.Group axis="y" values={prompts} onReorder={setPrompts} className="space-y-3">
+            {prompts.map((p) => (
+              <PromptCard
                 key={p.identifier}
-                className="overflow-hidden rounded-2xl"
-                style={{
-                  backgroundColor: 'var(--card-bg)',
-                  boxShadow: 'var(--card-shadow)',
-                  border: '1px solid color-mix(in srgb, var(--card-border) 70%, transparent)',
-                }}
-              >
-                <div className="flex items-center gap-2.5 p-3">
-                  <input
-                    type="checkbox"
-                    checked={p.enabled}
-                    onChange={(e) => updatePromptField(p.identifier, 'enabled', e.target.checked)}
-                    className="h-3.5 w-3.5 accent-current shrink-0"
-                  />
-                  <span
-                    className="flex-1 truncate text-xs font-semibold cursor-pointer"
-                    onClick={() => setExpandedId(isExpanded ? null : p.identifier)}
-                  >
-                    {p.name} {p.isMarker && <em className="opacity-50">(占位符)</em>}
-                  </span>
-                  <button type="button" onClick={() => movePrompt(index, -1)} disabled={index === 0} className="opacity-50 hover:opacity-100 disabled:opacity-20">
-                    <ChevronUp className="h-3.5 w-3.5" />
-                  </button>
-                  <button type="button" onClick={() => movePrompt(index, 1)} disabled={index === prompts.length - 1} className="opacity-50 hover:opacity-100 disabled:opacity-20">
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </button>
-                  <button type="button" onClick={() => removePrompt(p.identifier)} className="text-red-500 opacity-60 hover:opacity-100">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                {isExpanded && (
-                  <div className="space-y-2 p-3 pt-0.5">
-                    <input
-                      value={p.name}
-                      onChange={(e) => updatePromptField(p.identifier, 'name', e.target.value)}
-                      placeholder="这一条的名字"
-                      className="w-full rounded-lg px-2.5 py-1.5 text-xs outline-none"
-                      style={{ backgroundColor: 'var(--bg-surface)' }}
-                    />
-                    {!p.isMarker && (
-                      <textarea
-                        value={p.content}
-                        onChange={(e) => updatePromptField(p.identifier, 'content', e.target.value)}
-                        placeholder="内容，支持 {{char}} {{user}} {{time}} {{charBio}} {{userPersona}}"
-                        rows={4}
-                        className="w-full rounded-lg px-2.5 py-2 text-xs outline-none"
-                        style={{ backgroundColor: 'var(--bg-surface)' }}
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                p={p}
+                isExpanded={expandedId === p.identifier}
+                onToggleExpand={() => setExpandedId(expandedId === p.identifier ? null : p.identifier)}
+                onUpdateField={updatePromptField}
+                onRemove={removePrompt}
+              />
+            ))}
+          </Reorder.Group>
         </div>
 
         {/* Regex 脚本列表 */}
@@ -228,95 +345,18 @@ function PresetEditor({ preset, onClose, onSaved }) {
             </button>
           </div>
 
-          {regexScripts.map((r) => {
-            const isExpanded = expandedRegexId === r.id;
-            return (
-              <div
+          <Reorder.Group axis="y" values={regexScripts} onReorder={setRegexScripts} className="space-y-3">
+            {regexScripts.map((r) => (
+              <RegexCard
                 key={r.id}
-                className="overflow-hidden rounded-2xl"
-                style={{
-                  backgroundColor: 'var(--card-bg)',
-                  boxShadow: 'var(--card-shadow)',
-                  border: '1px solid color-mix(in srgb, var(--card-border) 70%, transparent)',
-                }}
-              >
-                <div className="flex items-center gap-2.5 p-3">
-                  <input
-                    type="checkbox"
-                    checked={r.enabled}
-                    onChange={(e) => updateRegexField(r.id, 'enabled', e.target.checked)}
-                    className="h-3.5 w-3.5 accent-current shrink-0"
-                  />
-                  <span
-                    className="flex-1 truncate text-xs font-semibold cursor-pointer"
-                    onClick={() => setExpandedRegexId(isExpanded ? null : r.id)}
-                  >
-                    {r.name}
-                  </span>
-                  <button type="button" onClick={() => removeRegex(r.id)} className="text-red-500 opacity-60 hover:opacity-100">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                {isExpanded && (
-                  <div className="space-y-2 p-3 pt-0.5 text-xs">
-                    <input
-                      value={r.name}
-                      onChange={(e) => updateRegexField(r.id, 'name', e.target.value)}
-                      placeholder="规则名字"
-                      className="w-full rounded-lg px-2.5 py-1.5 outline-none"
-                      style={{ backgroundColor: 'var(--bg-surface)' }}
-                    />
-                    <input
-                      value={r.findRegex}
-                      onChange={(e) => updateRegexField(r.id, 'findRegex', e.target.value)}
-                      placeholder="查找（正则表达式）"
-                      className="w-full rounded-lg px-2.5 py-1.5 font-mono outline-none"
-                      style={{ backgroundColor: 'var(--bg-surface)' }}
-                    />
-                    <input
-                      value={r.replaceString}
-                      onChange={(e) => updateRegexField(r.id, 'replaceString', e.target.value)}
-                      placeholder="替换为"
-                      className="w-full rounded-lg px-2.5 py-1.5 font-mono outline-none"
-                      style={{ backgroundColor: 'var(--bg-surface)' }}
-                    />
-                    <div className="flex items-center gap-2">
-                      <span className="opacity-60">作用对象:</span>
-                      <select
-                        value={r.affects}
-                        onChange={(e) => updateRegexField(r.id, 'affects', e.target.value)}
-                        className="rounded-lg px-1.5 py-1 outline-none"
-                        style={{ backgroundColor: 'var(--bg-surface)' }}
-                      >
-                        <option value="ai_output">AI回复</option>
-                        <option value="user_input">User输入</option>
-                        <option value="both">两者都</option>
-                      </select>
-                    </div>
-                    <label className="flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        checked={r.applyToDisplay}
-                        onChange={(e) => updateRegexField(r.id, 'applyToDisplay', e.target.checked)}
-                        className="h-3 w-3 accent-current"
-                      />
-                      影响界面显示
-                    </label>
-                    <label className="flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        checked={r.applyToPrompt}
-                        onChange={(e) => updateRegexField(r.id, 'applyToPrompt', e.target.checked)}
-                        className="h-3 w-3 accent-current"
-                      />
-                      也写入历史（影响AI下一轮看到的内容）
-                    </label>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                r={r}
+                isExpanded={expandedRegexId === r.id}
+                onToggleExpand={() => setExpandedRegexId(expandedRegexId === r.id ? null : r.id)}
+                onUpdateField={updateRegexField}
+                onRemove={removeRegex}
+              />
+            ))}
+          </Reorder.Group>
         </div>
       </div>
     </div>

@@ -34,7 +34,7 @@ import {
   getRpSessionById, updateRpSessionPreset, updateRpSessionCollapse, updateRpSessionWorldBooks,
 } from './rpService';
 import { getRpMessages, switchRpMessageVersion, editRpMessageAndTruncate, deleteRpMessage } from './rpMessageService';
-import { sendRpMessage, rerollRpMessage, archiveRpMessages, subscribeRpAiEvents } from './rpAiService';
+import { sendRpMessage, continueRpMessage, rerollRpMessage, archiveRpMessages, subscribeRpAiEvents } from './rpAiService';
 import RpPresetManager from './RpPresetManager';
 import RpWorldBookManager from './RpWorldBookManager';
 import RpRoomSettingsModal from './RpRoomSettingsModal';
@@ -59,6 +59,7 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState(null);
 
   const scrollRef = useRef(null);
+  const composerTextareaRef = useRef(null);
 
   useEffect(() => {
     onChatRoomStateChange?.(true);
@@ -91,6 +92,17 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, isTyping]);
+
+  // 输入框跟着内容自动长高（不再是回车发送那种"单行溢出内部滚动"），
+  // 封顶到跟原来 max-h-32 一样的 128px，超出之后框内自己滚动，不再继续
+  // 往下顶。回车键现在就是普通换行（textarea 原生行为，不用再拦截），
+  // 发送只能靠点发送按钮，所以这里不需要额外的 onKeyDown 处理。
+  useEffect(() => {
+    const el = composerTextareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+  }, [inputText]);
 
   const refreshMessages = async () => {
     const rows = await getRpMessages(sessionId);
@@ -137,9 +149,27 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
     setFoldExpanded(false);
   };
 
+  // 发送按钮在输入框为空时也可以点（跟用户确认过的行为）：这时候不是
+  // "发一条空消息"，而是"继续"——如果最后一条是user消息，就是让AI接着那条
+  // 消息生成回复；如果最后一条已经是AI的回复，就是让AI在没有新用户输入的
+  // 情况下自己继续推进剧情。这两种情况在 rpAiService 那边其实是同一个
+  // 操作（continueRpMessage：不新增用户消息，直接照现有全部历史生成下一条
+  // 角色回复），所以这里不用分情况处理。完全没有消息（新会话、还没开局）
+  // 时不触发任何请求。
   const handleSend = async () => {
+    if (isSending) return;
     const text = inputText.trim();
-    if (!text || isSending) return;
+
+    if (!text) {
+      if (activeMessages.length === 0) return;
+      setIsSending(true);
+      try {
+        await continueRpMessage(sessionId);
+      } finally {
+        setIsSending(false);
+      }
+      return;
+    }
 
     setIsSending(true);
     setInputText('');
@@ -147,13 +177,6 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
       await sendRpMessage(sessionId, text);
     } finally {
       setIsSending(false);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
     }
   };
 
@@ -177,11 +200,6 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const applyEdit = async (messageId, newContent) => {
     await editRpMessageAndTruncate(sessionId, messageId, newContent);
     await refreshMessages();
-  };
-
-  const handleQuote = (text) => {
-    const quoted = String(text || '').split('\n')[0].slice(0, 40);
-    setInputText((prev) => (prev ? `${prev}\n> ${quoted}\n` : `> ${quoted}\n`));
   };
 
   const handleArchiveOut = (beforeMessageId) => {
@@ -454,7 +472,6 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
                   newContent,
                   msg.id !== lastMessageId
                 )}
-                onQuote={handleQuote}
                 onDelete={() => handleRequestDeleteMessage(msg.id)}
               />
             ))
@@ -474,21 +491,22 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
       {/* 浮动底栏：跟顶栏一样是透明浮动的圆角输入条，不是贴边的实心一整条 */}
       <div className="z-20 shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-2">
         <div
-          className="flex items-end gap-2 rounded-[26px] px-4 py-2.5 shadow-lg backdrop-blur-md"
+          className="flex items-center gap-2 rounded-[26px] px-4 py-2.5 shadow-lg backdrop-blur-md"
           style={{ backgroundColor: 'color-mix(in srgb, var(--card-bg) 88%, transparent)' }}
         >
           <textarea
+            ref={composerTextareaRef}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
             placeholder="写下这一段..."
             rows={1}
-            className="max-h-32 w-full resize-none bg-transparent py-1 text-xs outline-none"
+            className="max-h-32 w-full resize-none overflow-y-auto bg-transparent py-1 text-xs leading-relaxed outline-none"
           />
           <button
             type="button"
             onClick={handleSend}
-            disabled={!inputText.trim() || isSending}
+            disabled={isSending || (!inputText.trim() && activeMessages.length === 0)}
+            title={inputText.trim() ? '发送' : '继续（不新增你的发言，直接生成下一条回复）'}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full disabled:opacity-30"
             style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
           >

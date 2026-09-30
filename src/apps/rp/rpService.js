@@ -39,6 +39,19 @@
 //     thinkingLabelText 是折叠框收起时显示的那行字，同样是用户自己写的，
 //     不是写死的"思考了一会"。这两个字段只影响渲染，message.content 在
 //     数据库里永远保留AI原样输出的带标签全文。
+//
+// 2026-09 新增：
+//   - userAvatar：本会话独立的user头像（之前这个字段一直存在、
+//     RpMessageCard.jsx 也一直在读，但设置面板从来没给它做编辑入口——
+//     现在补上，UI写法照抄 userBadgeImage 那一套 ImagePickerRow）。
+//   - cardPresetId / cardCornerRadius：消息卡片的样式（字体/行距/圆角），
+//     见 rpCardStylePresets.js。跟用户确认过的方案是"预设为主+可微调"：
+//     cardPresetId 选中某一套预设（决定 fontFamily/lineHeight/圆角默认值），
+//     cardCornerRadius 是圆角的手动微调覆盖值（null 就是跟着预设走）。
+//     字号复用已经存在的 fontSize 字段（之前有读取但没有编辑入口，这次
+//     一起把设置面板的输入框补上）。
+
+
 
 import db from '../../db';
 import { deleteAllRpMessagesForSession } from './rpMessageService';
@@ -100,6 +113,12 @@ export const createRpSession = async ({ characterId, title } = {}) => {
       userTitle: '',
       userSignature: '',
       userBadgeImage: '',
+
+      // 消息卡片样式（设置面板）：默认用"衬线古典"这套预设，圆角不覆盖
+      // （跟着预设走），字号留空等于回退 RpMessageCard.jsx 里的 14.5px 默认值。
+      cardPresetId: 'classic-serif',
+      cardCornerRadius: null,
+      fontSize: null,
 
       // 世界书系统留到那个切片再建表，这里先占位空数组
       attachedWorldBookIds: [],
@@ -253,11 +272,12 @@ export const deleteRpSessionSummaryEntry = async (sessionId, entryId) => {
 /**
  * 设置面板里编辑本会话独立的user人设/签名徽章（同一批字段一次性提交）。
  */
-export const updateRpSessionUserProfile = async (sessionId, { userName, userPersona, userTitle, userSignature, userBadgeImage } = {}) => {
+export const updateRpSessionUserProfile = async (sessionId, { userName, userAvatar, userPersona, userTitle, userSignature, userBadgeImage } = {}) => {
   if (sessionId === null || sessionId === undefined) return;
   try {
     const patch = {};
     if (userName !== undefined) patch.userName = String(userName || '').trim();
+    if (userAvatar !== undefined) patch.userAvatar = userAvatar || '';
     if (userPersona !== undefined) patch.userPersona = String(userPersona || '').trim();
     if (userTitle !== undefined) patch.userTitle = String(userTitle || '').trim();
     if (userSignature !== undefined) patch.userSignature = String(userSignature || '').trim();
@@ -265,6 +285,23 @@ export const updateRpSessionUserProfile = async (sessionId, { userName, userPers
     await db.rpSessions.update(Number(sessionId), patch);
   } catch (err) {
     console.error('[rpService] 编辑user人设失败:', err);
+  }
+};
+
+/**
+ * 设置面板里编辑消息卡片样式：选中的预设 + 圆角手动覆盖值 + 字号。
+ * cardCornerRadius 传 null 等于"跟着预设走，不手动覆盖"。
+ */
+export const updateRpSessionCardStyle = async (sessionId, { cardPresetId, cardCornerRadius, fontSize } = {}) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    const patch = {};
+    if (cardPresetId !== undefined) patch.cardPresetId = cardPresetId || 'classic-serif';
+    if (cardCornerRadius !== undefined) patch.cardCornerRadius = cardCornerRadius === null ? null : Number(cardCornerRadius);
+    if (fontSize !== undefined) patch.fontSize = fontSize === null ? null : Number(fontSize);
+    await db.rpSessions.update(Number(sessionId), patch);
+  } catch (err) {
+    console.error('[rpService] 编辑消息卡片样式失败:', err);
   }
 };
 
@@ -342,6 +379,7 @@ export default {
   deleteRpSessionSummaryEntry,
   updateRpSessionWorldBooks,
   updateRpSessionUserProfile,
+  updateRpSessionCardStyle,
   updateRpSessionBackground,
   updateRpSessionAvatarBackdrop,
   updateRpSessionThinkingFold,

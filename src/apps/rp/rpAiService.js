@@ -250,6 +250,38 @@ export const sendRpMessage = async (sessionId, text) => {
 };
 
 /**
+ * 输入框为空时点发送按钮触发的"继续"（跟用户确认过的行为，UI侧在
+ * RpRoom.jsx 里判断"输入框为空但会话里至少有一条消息"才会调用这个）：
+ * 不新增任何用户消息，直接照当前完整的历史生成下一条角色回复——如果
+ * 最后一条本来就是用户消息，效果就是"接着那条继续生成"；如果最后一条
+ * 已经是角色的回复，效果就是"角色自己继续推进剧情"。这两种情况在这里
+ * 是同一个操作，不需要分支处理。会正常触发自动总结检查，跟 sendRpMessage
+ * 走的是同一套收尾逻辑。
+ */
+export const continueRpMessage = async (sessionId) => {
+  const session = await getRpSessionById(sessionId);
+  if (!session) return;
+
+  const character = await db.characters.get(session.characterId);
+  if (!character) return;
+
+  const allMessages = (await getRpMessages(session.id)).filter((m) => !m.archived);
+  if (allMessages.length === 0) return;
+
+  const replied = await generateAndWriteReply({
+    session,
+    character,
+    historyForContext: allMessages,
+    isReroll: false,
+  });
+
+  if (replied) {
+    const messagesAfterReply = (await getRpMessages(session.id)).filter((m) => !m.archived);
+    await maybeGenerateSummary(session, character, messagesAfterReply);
+  }
+};
+
+/**
  * 重新生成某一条角色消息（必须是这个会话当前最后一条消息——UI 侧只在
  * 最后一条角色消息上显示"重新生成"按钮，这里不重复做这层校验，交给UI
  * 保证调用前提）。重新生成不产生新的"轮"，不会触发自动总结检查。
@@ -288,6 +320,7 @@ export const archiveRpMessages = async (sessionId, beforeMessageId) => {
 export default {
   subscribeRpAiEvents,
   sendRpMessage,
+  continueRpMessage,
   rerollRpMessage,
   archiveRpMessages,
 };

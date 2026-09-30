@@ -23,10 +23,11 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Pencil, Quote, Check, X, Brain, Trash2,
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Pencil, Check, X, Snowflake, Trash2,
 } from 'lucide-react';
 
 import { splitContentByFoldTags, DEFAULT_FOLD_TAG_NAMES, DEFAULT_THINKING_LABEL_TEXT } from './rpThinkingFold';
+import { getRpCardStylePreset } from './rpCardStylePresets';
 
 const renderParagraphs = (text) => {
   const paragraphs = String(text || '').split(/\n+/).filter((p) => p.trim());
@@ -63,7 +64,7 @@ const ThinkingFoldBlock = ({ label, content }) => {
         className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[11px] opacity-70 hover:opacity-100"
       >
         <span className="flex min-w-0 items-center gap-1.5">
-          <Brain className="h-3 w-3 shrink-0" />
+          <Snowflake className="h-3 w-3 shrink-0" />
           <span className="truncate">{label}</span>
         </span>
         {expanded ? <ChevronUp className="h-3 w-3 shrink-0" /> : <ChevronDown className="h-3 w-3 shrink-0" />}
@@ -85,12 +86,10 @@ const RpMessageCard = ({
   message,
   character,
   session,
-  customFontFamily,
   canReroll,
   onSwitchVersion,
   onReroll,
   onEditAndTruncate,
-  onQuote,
   onDelete,
   hasFollowingMessages,
 }) => {
@@ -104,10 +103,15 @@ const RpMessageCard = ({
   const signatureText = isCharacter ? character?.rpSignature : session?.userSignature;
   const signatureBadge = isCharacter ? character?.rpBadgeImage : session?.userBadgeImage;
 
-  // 外观设置：字体走 useRpCustomFont 解析出来的 customFontFamily（没设置/没
-  // 加载成功时为 null，退回原来的衬线字体），字号/颜色直接读会话上的
-  // fontSize/charTextColor/userTextColor（角色和user各自一套颜色）。
-  const resolvedFontFamily = customFontFamily || 'Georgia, "Noto Serif SC", "Songti SC", serif';
+  // 外观设置：字体/行距/圆角这三项一起跟着 session.cardPresetId 选中的那套
+  // 预设走（见 rpCardStylePresets.js，"预设为主+可微调"里"预设"的部分）；
+  // 圆角支持单独覆盖（session.cardCornerRadius，留空就是跟着预设走），
+  // 字号也是手动微调项，颜色照旧直接读会话上的 fontSize/charTextColor/
+  // userTextColor（角色和user各自一套颜色）。
+  const cardPreset = getRpCardStylePreset(session?.cardPresetId);
+  const resolvedFontFamily = cardPreset.fontFamily;
+  const resolvedLineHeight = cardPreset.lineHeight;
+  const resolvedCornerRadius = session?.cardCornerRadius ?? cardPreset.cornerRadius;
   const resolvedFontSize = session?.fontSize ? `${session.fontSize}px` : '14.5px';
   const resolvedTextColor = (isCharacter ? session?.charTextColor : session?.userTextColor) || 'var(--text-main)';
 
@@ -201,9 +205,10 @@ const RpMessageCard = ({
       </div>
 
       <div
-        className="mt-3.5 w-full rounded-[20px] border px-5 py-4.5 shadow-md"
+        className="mt-3.5 w-full border px-5 pt-4.5 pb-6 shadow-md"
         style={{
           borderColor: 'var(--card-border)',
+          borderRadius: `${resolvedCornerRadius}px`,
           backdropFilter: 'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
           background: isCharacter
@@ -211,7 +216,7 @@ const RpMessageCard = ({
             : 'linear-gradient(160deg, color-mix(in srgb, var(--accent-color) 20%, var(--card-bg)) 0%, color-mix(in srgb, var(--card-bg) 88%, transparent) 100%)',
           fontFamily: resolvedFontFamily,
           fontSize: resolvedFontSize,
-          lineHeight: 1.9,
+          lineHeight: resolvedLineHeight,
           color: resolvedTextColor,
         }}
       >
@@ -221,8 +226,8 @@ const RpMessageCard = ({
             onChange={(e) => setDraft(e.target.value)}
             rows={5}
             autoFocus
-            className="w-full resize-none bg-transparent text-[14.5px] leading-relaxed outline-none"
-            style={{ fontFamily: 'inherit' }}
+            className="w-full resize-none bg-transparent outline-none"
+            style={{ fontFamily: 'inherit', fontSize: resolvedFontSize, lineHeight: resolvedLineHeight }}
           />
         ) : (
           contentSegments.map((seg, idx) => (
@@ -281,12 +286,6 @@ const RpMessageCard = ({
             <button type="button" onClick={startEdit} className="flex items-center gap-1 opacity-70 hover:opacity-100">
               <Pencil className="h-3 w-3" /> 编辑
             </button>
-
-            {onQuote ? (
-              <button type="button" onClick={() => onQuote(message.content)} className="flex items-center gap-1 opacity-70 hover:opacity-100">
-                <Quote className="h-3 w-3" /> 引用
-              </button>
-            ) : null}
 
             {onDelete ? (
               <button type="button" onClick={onDelete} className="flex items-center gap-1 text-red-500 opacity-70 hover:opacity-100">

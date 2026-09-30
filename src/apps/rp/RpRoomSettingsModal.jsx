@@ -7,7 +7,7 @@
 // BubbleRoomSettingsModal.jsx 的结构和图片上传/压缩写法新建的，不是恢复
 // 什么旧代码。
 //
-// 分成六块：
+// 分成七块：
 // 1. 整间聊天室背景图（bgImage/bgOpacity/isBgDimmed）——跟泡泡模式的
 //    BubbleRoomSettingsModal 同一套字段名、同一套"淡化叠加/显示原图"逻辑。
 // 2. 头像背后的背景图（avatarBackdropEnabled/avatarBackdropImage）——注意
@@ -15,18 +15,23 @@
 //    单独的一小块装饰图，关掉就是透明，不会用①的图顶替。也跟
 //    RpMessageCard.jsx 里 message.sceneImage（每条消息自己的场景图）是第
 //    三件事，互不影响。
-// 3. 本会话的user人设（userName/userPersona/userTitle/userSignature/
-//    userBadgeImage）——这些字段只属于这一局会话，不会影响用户在别的RP
-//    会话或者别的app里的人设。
-// 4. 角色的签名/徽章（character.rpTitle/rpSignature/rpBadgeImage）——这些
+// 3. 本会话的user人设（userName/userAvatar/userPersona/userTitle/
+//    userSignature/userBadgeImage）——这些字段只属于这一局会话，不会影响
+//    用户在别的RP会话或者别的app里的人设。userAvatar 这个字段之前就存在、
+//    RpMessageCard.jsx 也一直在读，只是设置面板一直没给编辑入口，这次补上
+//    （写法照抄 userBadgeImage 那一套 ImagePickerRow，圆形头像）。
+// 4. 消息卡片样式（cardPresetId/cardCornerRadius/fontSize）——跟用户确认
+//    过的方案"预设为主+可微调"：先选一套预设（决定字体/行距/圆角这三项一
+//    起换），字号和圆角可以在预设基础上手动微调，见 rpCardStylePresets.js。
+// 5. 角色的签名/徽章（character.rpTitle/rpSignature/rpBadgeImage）——这些
 //    字段是挂在角色卡本身上的，不是挂在会话上，所以改了之后这个角色在
 //    "所有"用到TA的RP会话里都会看到新的签名/徽章，这一点在UI里明确提示
 //    用户，不能让人以为只改了当前这一局。
-// 5. 前情提要：session.summaryEntries 是一个数组，每次自动总结是独立的
+// 6. 前情提要：session.summaryEntries 是一个数组，每次自动总结是独立的
 //    一条（不是滚动覆盖成一份大文本——跟用户确认过，总结内容不能挤在
 //    一起），这里把每条都单独列出来，各自可以编辑正文、也可以单独删除
 //    （删除要走 ConfirmModal 二次确认，跟预设/世界书删除的规则一致）。
-// 6. 思维链折叠（foldTagNames/thinkingLabelText）——要折叠哪些标签、收起
+// 7. 思维链折叠（foldTagNames/thinkingLabelText）——要折叠哪些标签、收起
 //    时显示什么字，都是用户自己填，不写死。
 //
 // 图片上传统一复用 snapshots 那边已经在用的 compressImageFile（限制最大
@@ -35,7 +40,7 @@
 
 import React, { useRef, useState } from 'react';
 import {
-  X, Upload, Trash2, Eye, EyeOff, Image as ImageIcon, User, Tag, ScrollText, Brain,
+  X, Upload, Trash2, Eye, EyeOff, Image as ImageIcon, User, Tag, ScrollText, Snowflake, Type,
 } from 'lucide-react';
 
 import db from '../../db';
@@ -45,11 +50,13 @@ import {
   updateRpSessionBackground,
   updateRpSessionAvatarBackdrop,
   updateRpSessionUserProfile,
+  updateRpSessionCardStyle,
   updateRpSessionSummaryEntryText,
   deleteRpSessionSummaryEntry,
   updateRpSessionThinkingFold,
 } from './rpService';
 import { parseFoldTagNamesInput, DEFAULT_THINKING_LABEL_TEXT } from './rpThinkingFold';
+import { RP_CARD_STYLE_PRESETS, DEFAULT_CARD_PRESET_ID } from './rpCardStylePresets';
 
 const SectionCard = ({ icon: Icon, title, tag, description, children }) => (
   <div
@@ -198,6 +205,13 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
   const [userTitle, setUserTitle] = useState(session?.userTitle || '');
   const [userSignature, setUserSignature] = useState(session?.userSignature || '');
 
+  const [cardPresetId, setCardPresetId] = useState(session?.cardPresetId || DEFAULT_CARD_PRESET_ID);
+  const [cardFontSize, setCardFontSize] = useState(session?.fontSize || 14.5);
+  const activeCardPreset = RP_CARD_STYLE_PRESETS.find((p) => p.id === cardPresetId) || RP_CARD_STYLE_PRESETS[0];
+  const [cardCornerRadiusOverride, setCardCornerRadiusOverride] = useState(
+    session?.cardCornerRadius ?? null
+  );
+
   const [rpTitle, setRpTitle] = useState(character?.rpTitle || '');
   const [rpSignature, setRpSignature] = useState(character?.rpSignature || '');
 
@@ -253,6 +267,45 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
   const handleUserBadgeImage = async (dataUrl) => {
     await updateRpSessionUserProfile(session.id, { userBadgeImage: dataUrl });
     void commitSession({ userBadgeImage: dataUrl });
+  };
+
+  const handleUserAvatar = async (dataUrl) => {
+    await updateRpSessionUserProfile(session.id, { userAvatar: dataUrl });
+    void commitSession({ userAvatar: dataUrl });
+  };
+
+  const handleSelectCardPreset = (presetId) => {
+    setCardPresetId(presetId);
+    void (async () => {
+      await updateRpSessionCardStyle(session.id, { cardPresetId: presetId });
+      void commitSession({ cardPresetId: presetId });
+    })();
+  };
+
+  const handleCardFontSizeChange = (e) => {
+    const next = Number(e.target.value);
+    setCardFontSize(next);
+    void (async () => {
+      await updateRpSessionCardStyle(session.id, { fontSize: next });
+      void commitSession({ fontSize: next });
+    })();
+  };
+
+  const handleCardCornerRadiusChange = (e) => {
+    const next = Number(e.target.value);
+    setCardCornerRadiusOverride(next);
+    void (async () => {
+      await updateRpSessionCardStyle(session.id, { cardCornerRadius: next });
+      void commitSession({ cardCornerRadius: next });
+    })();
+  };
+
+  const handleResetCardCornerRadius = () => {
+    setCardCornerRadiusOverride(null);
+    void (async () => {
+      await updateRpSessionCardStyle(session.id, { cardCornerRadius: null });
+      void commitSession({ cardCornerRadius: null });
+    })();
   };
 
   const handleCommitUserProfile = () => {
@@ -434,6 +487,14 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
             />
           </div>
 
+          <ImagePickerRow
+            label="你的头像"
+            imageUrl={session?.userAvatar || ''}
+            onPick={(dataUrl) => void handleUserAvatar(dataUrl)}
+            onClear={() => void handleUserAvatar('')}
+            shape="circle"
+          />
+
           <div>
             <label className="block text-[10px] opacity-60 mb-1">你在本局的人设</label>
             <textarea
@@ -482,7 +543,79 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
           />
         </SectionCard>
 
-        {/* 4. 角色的签名/徽章（角色级别，不是会话级别） */}
+        {/* 4. 消息卡片样式：预设为主，字号/圆角可以手动微调 */}
+        <SectionCard
+          icon={Type}
+          title="消息卡片样式"
+          tag="CARD STYLE"
+          description="先选一套预设（字体/行距/圆角一起换一套质感），字号和圆角还可以在预设基础上单独微调。"
+        >
+          <div className="flex flex-wrap gap-1.5">
+            {RP_CARD_STYLE_PRESETS.map((preset) => {
+              const isActive = cardPresetId === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleSelectCardPreset(preset.id)}
+                  className="px-2.5 py-1 rounded-full border text-[10.5px] font-medium"
+                  style={{
+                    background: isActive ? 'var(--accent-color)' : 'var(--bg-main)',
+                    borderColor: isActive ? 'var(--accent-color)' : 'var(--divider)',
+                    color: isActive ? 'var(--accent-foreground)' : 'var(--text-main)',
+                  }}
+                  title={preset.description}
+                >
+                  {preset.name}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] opacity-45 leading-relaxed">{activeCardPreset.description}</p>
+
+          <div className="pt-1 space-y-1">
+            <div className="flex items-center justify-between text-[10px] opacity-60">
+              <span>字号</span>
+              <span>{cardFontSize}px</span>
+            </div>
+            <input
+              type="range"
+              min="12"
+              max="20"
+              step="0.5"
+              value={cardFontSize}
+              onChange={handleCardFontSizeChange}
+              className="w-full"
+              style={{ accentColor: 'var(--accent-color)' }}
+            />
+          </div>
+
+          <div className="pt-1 space-y-1">
+            <div className="flex items-center justify-between text-[10px] opacity-60">
+              <span>圆角（方角 ←→ 圆角）</span>
+              <div className="flex items-center gap-1.5">
+                <span>{cardCornerRadiusOverride ?? activeCardPreset.cornerRadius}px</span>
+                {cardCornerRadiusOverride !== null && (
+                  <button type="button" onClick={handleResetCardCornerRadius} className="underline opacity-70 hover:opacity-100">
+                    跟随预设
+                  </button>
+                )}
+              </div>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="32"
+              step="1"
+              value={cardCornerRadiusOverride ?? activeCardPreset.cornerRadius}
+              onChange={handleCardCornerRadiusChange}
+              className="w-full"
+              style={{ accentColor: 'var(--accent-color)' }}
+            />
+          </div>
+        </SectionCard>
+
+        {/* 5. 角色的签名/徽章（角色级别，不是会话级别） */}
         {character?.id && (
           <SectionCard
             icon={Tag}
@@ -526,7 +659,7 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
           </SectionCard>
         )}
 
-        {/* 5. 前情提要：每次总结是独立条目，各自可编辑/删除 */}
+        {/* 6. 前情提要：每次总结是独立条目，各自可编辑/删除 */}
         <SectionCard
           icon={ScrollText}
           title="前情提要"
@@ -550,9 +683,9 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
           )}
         </SectionCard>
 
-        {/* 6. 思维链折叠 */}
+        {/* 7. 思维链折叠 */}
         <SectionCard
-          icon={Brain}
+          icon={Snowflake}
           title="思维链折叠"
           tag="THINKING FOLD"
           description="被这里填写的标签包住的内容（比如 <thinking>...</thinking>）会被折叠成一个可展开的小条，不会直接铺在正文里。留空则不折叠任何内容。"
