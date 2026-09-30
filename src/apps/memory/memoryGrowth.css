@@ -62,7 +62,7 @@
     Georgia,
     serif;
   font-size: clamp(1.05rem, 2vw, 1.45rem);
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -197,7 +197,7 @@
     Georgia,
     serif;
   font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -314,7 +314,10 @@
     Georgia,
     serif;
   font-size: 0.98rem;
-  font-weight: 500;
+  /* 这是卡片正文内容，不是标题，保持常规字重(400)——
+     之前的500在没有真中黑字重的衬线字体上会被就近
+     匹配成700，看起来跟加粗没区别，这正是被反馈"变粗了"的那处。 */
+  font-weight: 400;
   line-height: 1.65;
 }
 

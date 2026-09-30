@@ -8,6 +8,7 @@ import {
   getLotteryResult,
   getIntimacyQuestion,
   getRandomTruthOrDarePrompt,
+  getInteractionSummary,
 } from './interactionRules';
 import { generateInteractionReaction, generateTruthOrDareAnswer } from './interactionAiService';
 
@@ -166,7 +167,13 @@ export const resolveInteractionMessage = async ({
       resolvedAt,
     };
 
+    // 抽到/掷出的具体内容（问题原文、情景原文等）只落在 metadata.result 里，
+    // AI 的常规聊天历史和记忆系统都只读 message.content，之前这里从创建时的
+    // 占位文案（"抽了一张亲密问答卡"之类）就再没更新过，导致 AI 后续完全不
+    // 知道具体抽到了什么。这里把 content 同步改写成含具体内容的描述，
+    // getInteractionSummary 生成的文案本身就是给 AI 读的，直接复用。
     await db.messages.update(messageId, {
+      content: getInteractionSummary(resolvedMetadata),
       metadata: resolvedMetadata,
     });
 
@@ -210,13 +217,22 @@ export const createTruthOrDareMessage = async ({ chatId, characterId }) => {
 
   const { mode, prompt } = getRandomTruthOrDarePrompt();
   const timestamp = new Date().toISOString();
+  const modeText = mode === 'dare' ? '大冒险' : '真心话';
+  // 出题人是谁决定了这句描述的方向：asker==='user' 时是用户抛题给角色
+  // （对应 generateTruthOrDareAnswer 会去认真回答/执行）；asker==='character'
+  // 时反过来是角色抛题给用户，接下来该用户自己手动打字回应。content 需要
+  // 如实写清楚方向，不能不管是谁出题都写成同一句话，否则AI以后看历史会
+  // 搞反谁问的谁——同时把题目原文写进去，这样AI以后才知道具体问的是什么。
+  const content = asker === 'user'
+    ? `用户向你发起了一局「${modeText}」，题目是：${prompt}`
+    : `你向用户发起了一局「${modeText}」，题目是：${prompt}`;
 
   const messageId = await db.messages.add({
     chatId,
     characterId,
     sender: 'user',
     type: 'interaction',
-    content: '发起了一局真心话大冒险',
+    content,
     metadata: {
       interactionType: INTERACTION_TYPES.TRUTH_OR_DARE,
       status: 'resolved',

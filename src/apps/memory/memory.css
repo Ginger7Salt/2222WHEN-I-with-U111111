@@ -202,7 +202,11 @@
     Georgia,
     "Times New Roman",
     serif;
-  font-weight: 500;
+  /* 章节/弹窗小标题保留加粗层级，用可靠的700，
+     不再用500——不少系统衬线字体(如Songti SC)没有真正的
+     中黑(500)字重，请求500会被就近匹配到700，效果等同加粗，
+     但不如显式写700来得稳定可控。 */
+  font-weight: 700;
 }
 
 .memory-intro h1 {
@@ -210,6 +214,9 @@
   font-size: clamp(2.8rem, 8vw, 5.8rem);
   letter-spacing: -0.08em;
   line-height: 0.98;
+  /* 主标题走杂志感的细体大字，跟上面章节小标题的加粗层级分开，
+     单独覆盖为400，避免被误判成"变粗了"。 */
+  font-weight: 400;
 }
 
 .memory-intro-text {
@@ -300,7 +307,7 @@
     Georgia,
     serif;
   font-size: clamp(1.05rem, 2vw, 1.45rem);
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -680,7 +687,7 @@
     Georgia,
     serif;
   font-size: clamp(1.05rem, 2.5vw, 1.35rem);
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1.45;
 }
 
@@ -901,7 +908,7 @@
     Georgia,
     serif;
   font-size: 0.98rem;
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1.5;
 }
 
@@ -1264,7 +1271,7 @@
     Georgia,
     serif;
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .memory-revision-list {
@@ -1299,7 +1306,7 @@
     Georgia,
     serif;
   font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .memory-revision-item p {
@@ -1378,7 +1385,7 @@
 
 .memory-choice-item strong {
   font-size: 0.72rem;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .memory-choice-item small {
@@ -1443,7 +1450,7 @@
     Georgia,
     serif;
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .memory-export-preview small {
@@ -1501,7 +1508,7 @@
     Georgia,
     serif;
   font-size: 0.92rem;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .memory-file-picker small {
