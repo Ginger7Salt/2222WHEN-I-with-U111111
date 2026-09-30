@@ -160,6 +160,10 @@ function WorldBookEditor({ book, onClose, onSaved }) {
   );
 }
 
+// 书封渐变——跟电台卡片同一套三色循环，书架跟电台是同一批视觉重做，
+// 用同一个取色节奏。
+const SHELF_GRADIENT_VARS = ['--bg-blob-1', '--bg-blob-2', '--bg-blob-3'];
+
 const RpWorldBookManager = ({ attachedWorldBookIds = [], onToggleAttach, onClose }) => {
   const [books, setBooks] = useState([]);
   const [editingBook, setEditingBook] = useState(null);
@@ -180,8 +184,7 @@ const RpWorldBookManager = ({ attachedWorldBookIds = [], onToggleAttach, onClose
     if (created) setEditingBook(created);
   };
 
-  const handleDelete = async (e, bookId) => {
-    e.stopPropagation();
+  const handleDelete = async (bookId) => {
     await deleteRpWorldBook(bookId);
     loadBooks();
   };
@@ -205,64 +208,114 @@ const RpWorldBookManager = ({ attachedWorldBookIds = [], onToggleAttach, onClose
         <button type="button" onClick={onClose} className="opacity-70 hover:opacity-100">
           <X className="h-4 w-4" />
         </button>
-        <h3 className="text-xs font-bold">世界书（勾选挂载到本局）</h3>
-        <div className="w-4" />
+        <div className="text-center">
+          <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-50">World Books</p>
+          <h3 className="text-xs font-bold">书架</h3>
+        </div>
+        <button type="button" onClick={handleCreate} className="opacity-70 hover:opacity-100" title="新建世界书">
+          <Plus className="h-4 w-4" />
+        </button>
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-        <button
-          type="button"
-          onClick={handleCreate}
-          className="flex w-full items-center justify-center gap-1 rounded-xl border py-2 text-xs font-semibold"
-          style={{ borderColor: 'var(--card-border)' }}
-        >
-          <Plus className="h-3.5 w-3.5" /> 新建世界书
-        </button>
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        <p className="mb-3 text-center text-[10.5px] opacity-45">点封面挂载 / 取消挂载到本局</p>
 
         {books.length === 0 ? (
-          <p className="py-10 text-center text-xs opacity-50">还没有世界书，先新建一个</p>
+          <div className="flex flex-col items-center justify-center gap-3 py-16">
+            <p className="text-xs opacity-50">还没有世界书，先新建一个</p>
+            <button
+              type="button"
+              onClick={handleCreate}
+              className="flex items-center gap-1 rounded-full px-4 py-2 text-xs font-semibold"
+              style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+            >
+              <Plus className="h-3.5 w-3.5" /> 新建世界书
+            </button>
+          </div>
         ) : (
-          books.map((book) => {
-            const isAttached = attachedWorldBookIds.includes(book.id);
-            return (
-              <div
-                key={book.id}
-                onClick={() => onToggleAttach(book.id)}
-                className="flex cursor-pointer items-center gap-2 rounded-xl border p-3"
-                style={{
-                  borderColor: isAttached ? 'var(--accent-color)' : 'var(--card-border)',
-                  backgroundColor: 'var(--card-bg)',
-                }}
-              >
-                <div
-                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
-                  style={{
-                    backgroundColor: isAttached ? 'var(--accent-color)' : 'var(--control-soft-bg)',
-                  }}
-                >
-                  {isAttached && <Check className="h-2.5 w-2.5" style={{ color: 'var(--accent-foreground)' }} />}
+          <div className="grid grid-cols-2 gap-4">
+            {books.map((book, idx) => {
+              const isAttached = attachedWorldBookIds.includes(book.id);
+              const gradientVar = SHELF_GRADIENT_VARS[idx % SHELF_GRADIENT_VARS.length];
+              return (
+                <div key={book.id} className="flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => onToggleAttach(book.id)}
+                    className="relative overflow-hidden rounded-lg text-left"
+                    style={{
+                      aspectRatio: '3 / 4',
+                      boxShadow: isAttached
+                        ? '0 10px 22px rgba(0,0,0,.18), 0 0 0 2px var(--accent-color)'
+                        : '0 10px 22px rgba(0,0,0,.16)',
+                    }}
+                  >
+                    {/* 封面上半部：渐变色块 + 书名首字，e-book 封面的极简画风 */}
+                    <div
+                      className="absolute inset-x-0 top-0 flex items-center justify-center"
+                      style={{
+                        height: '64%',
+                        background: `linear-gradient(150deg, color-mix(in srgb, var(${gradientVar}) 88%, var(--card-bg)), var(--card-bg))`,
+                      }}
+                    >
+                      <span
+                        className="text-4xl font-bold"
+                        style={{ color: 'rgba(255,255,255,.92)', textShadow: '0 2px 10px rgba(0,0,0,.15)' }}
+                      >
+                        {book.name?.[0] || '书'}
+                      </span>
+                    </div>
+
+                    {/* 封面下半部：标题铭牌 */}
+                    <div
+                      className="absolute inset-x-0 bottom-0 flex flex-col justify-center px-2.5 py-2"
+                      style={{ top: '64%', backgroundColor: 'var(--card-bg)' }}
+                    >
+                      <p className="line-clamp-2 text-[12.5px] font-bold leading-tight">{book.name}</p>
+                      <p className="mt-0.5 text-[9px] font-semibold opacity-50">{(book.entries || []).length} 条目</p>
+                    </div>
+
+                    {/* 折角：挂载状态用主题色，未挂载用灰色 */}
+                    <div
+                      className="absolute right-0 top-0"
+                      style={{
+                        width: 0,
+                        height: 0,
+                        borderStyle: 'solid',
+                        borderWidth: '0 20px 20px 0',
+                        borderColor: isAttached
+                          ? `transparent var(--accent-color) transparent transparent`
+                          : `transparent color-mix(in srgb, var(--text-muted) 35%, transparent) transparent transparent`,
+                      }}
+                    />
+                    {isAttached ? (
+                      <Check
+                        className="absolute right-0.5 top-0.5 h-2.5 w-2.5"
+                        style={{ color: 'var(--accent-foreground)' }}
+                      />
+                    ) : null}
+                  </button>
+
+                  <div className="mt-1.5 flex items-center justify-center gap-3 text-[10.5px]">
+                    <button
+                      type="button"
+                      onClick={() => setEditingBook(book)}
+                      className="opacity-60 hover:opacity-100"
+                    >
+                      编辑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(book.id)}
+                      className="text-red-500 opacity-60 hover:opacity-100"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-semibold">{book.name}</span>
-                  <span className="block text-[10px] opacity-50">{(book.entries || []).length} 条目</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setEditingBook(book); }}
-                  className="text-[11px] opacity-60 hover:opacity-100"
-                >
-                  编辑
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleDelete(e, book.id)}
-                  className="text-red-500 opacity-60 hover:opacity-100"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

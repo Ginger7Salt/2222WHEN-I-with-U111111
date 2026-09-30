@@ -14,9 +14,9 @@
 // 编辑器内部维护自己的 prompts/regexScripts 本地状态，点"保存"才
 // 一次性写回数据库。
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  X, Plus, Trash2, ChevronDown, ChevronUp, Download, Upload, Check,
+  X, Plus, Trash2, ChevronDown, ChevronUp, Download, Upload, Check, ArrowLeftRight,
 } from 'lucide-react';
 
 import {
@@ -310,14 +310,50 @@ function PresetEditor({ preset, onClose, onSaved }) {
   );
 }
 
+// 电台卡片的封面渐变——循环取三种主题色块，跟 RpApp 学生卡头部同一路
+// 复用主题变量的思路，不是写死的固定颜色。
+const STATION_GRADIENT_VARS = ['--bg-blob-2', '--bg-blob-1', '--bg-blob-3'];
+
+const presetMeta = (preset) => {
+  const promptCount = Array.isArray(preset.prompts) ? preset.prompts.length : 0;
+  const regexCount = Array.isArray(preset.regexScripts) ? preset.regexScripts.length : 0;
+  return regexCount > 0
+    ? `${promptCount} 条提示词 · ${regexCount} 条正则`
+    : `${promptCount} 条提示词`;
+};
+
 const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
   const [presets, setPresets] = useState([]);
   const [editingPreset, setEditingPreset] = useState(null);
-  const fileInputRef = React.useRef(null);
+  const [focusIndex, setFocusIndex] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [dragPct, setDragPct] = useState(null);
+  const fileInputRef = useRef(null);
+  const railRef = useRef(null);
+  const trackRef = useRef(null);
 
   useEffect(() => {
     loadPresets();
   }, []);
+
+  // 会话当前用的预设变了（或者预设列表变了），把电台指针跟着对上去；
+  // 找不到就停在第一个台。
+  useEffect(() => {
+    if (presets.length === 0) return;
+    const idx = presets.findIndex((p) => p.id === currentPresetId);
+    setFocusIndex(idx >= 0 ? idx : 0);
+  }, [presets, currentPresetId]);
+
+  useEffect(() => {
+    const rail = railRef.current;
+    const card = rail?.children?.[focusIndex];
+    if (rail && card) {
+      rail.scrollTo({
+        left: card.offsetLeft - (rail.clientWidth - card.clientWidth) / 2,
+        behavior: 'smooth',
+      });
+    }
+  }, [focusIndex, presets.length]);
 
   const loadPresets = async () => {
     setPresets(await getAllRpPresets());
@@ -331,8 +367,7 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
     if (created) setEditingPreset(created);
   };
 
-  const handleDelete = async (e, presetId) => {
-    e.stopPropagation();
+  const handleDelete = async (presetId) => {
     await deleteRpPreset(presetId);
     loadPresets();
   };
@@ -345,6 +380,72 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
     await loadPresets();
     e.target.value = '';
   };
+
+  // 调台指针停在某个台：既更新界面焦点，也当场选用这个预设——跟原来
+  // "点这一行=选中这个预设"是同一个语义，只是触发方式从点行换成了
+  // 拖旋钮/点电台卡片。
+  const focusStation = (idx) => {
+    if (idx < 0 || idx >= presets.length) return;
+    setFocusIndex(idx);
+    onSelectPreset(presets[idx].id);
+  };
+
+  const stopCount = presets.length;
+  const stops = stopCount > 1
+    ? presets.map((_, i) => (i / (stopCount - 1)) * 100)
+    : [50];
+
+  const pctFromClientX = (clientX) => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect || !rect.width) return 0;
+    return Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
+  };
+
+  const nearestIndex = (pct) => {
+    let best = 0;
+    let bestDist = Infinity;
+    stops.forEach((s, i) => {
+      const d = Math.abs(s - pct);
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    return best;
+  };
+
+  const handleKnobPointerDown = (e) => {
+    e.preventDefault();
+    setDragging(true);
+    setDragPct(stops[focusIndex] ?? 50);
+  };
+
+  // 拖动只在真的按住旋钮时挂 window 级别的移动/松手监听——磁吸效果只
+  // 属于这一个"能拖动"的旋钮，跟其它纯点击按钮无关。
+  useEffect(() => {
+    if (!dragging) return undefined;
+
+    const handleMove = (e) => {
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      setDragPct(pctFromClientX(clientX));
+    };
+    const handleUp = (e) => {
+      const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      const idx = nearestIndex(pctFromClientX(clientX));
+      setDragging(false);
+      setDragPct(null);
+      focusStation(idx);
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchmove', handleMove, { passive: true });
+    window.addEventListener('touchend', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragging]);
 
   if (editingPreset) {
     return (
@@ -359,73 +460,223 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
     );
   }
 
+  const knobLeft = dragging && dragPct !== null ? dragPct : (stops[focusIndex] ?? 50);
+  const focusedPreset = presets[focusIndex] || null;
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--divider)' }}>
         <button type="button" onClick={onClose} className="opacity-70 hover:opacity-100">
           <X className="h-4 w-4" />
         </button>
-        <h3 className="text-xs font-bold">选择预设</h3>
-        <div className="w-4" />
+        <div className="text-center">
+          <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-50">Prompt Presets</p>
+          <h3 className="text-xs font-bold">调台 · 预设</h3>
+        </div>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="opacity-70 hover:opacity-100"
+          title="导入预设"
+        >
+          <Upload className="h-4 w-4" />
+        </button>
+        <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-        <div className="flex gap-2 pb-1">
+      {presets.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6">
+          <p className="text-xs opacity-50">还没有预设，先新建一个</p>
           <button
             type="button"
             onClick={handleCreate}
-            className="flex flex-1 items-center justify-center gap-1 rounded-xl border py-2 text-xs font-semibold"
-            style={{ borderColor: 'var(--card-border)' }}
+            className="flex items-center gap-1 rounded-full px-4 py-2 text-xs font-semibold"
+            style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
           >
             <Plus className="h-3.5 w-3.5" /> 新建预设
           </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center justify-center gap-1 rounded-xl border px-3 text-xs font-semibold"
-            style={{ borderColor: 'var(--card-border)' }}
-          >
-            <Upload className="h-3.5 w-3.5" /> 导入
-          </button>
-          <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
         </div>
+      ) : (
+        <>
+          {/* 电台卡片横向滑轨 */}
+          <div
+            ref={railRef}
+            className="flex gap-4 overflow-x-auto px-8 pb-2 pt-4"
+            style={{ scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}
+          >
+            {presets.map((preset, idx) => {
+              const gradientVar = STATION_GRADIENT_VARS[idx % STATION_GRADIENT_VARS.length];
+              const isFocus = idx === focusIndex;
+              const isCurrent = preset.id === currentPresetId;
+              return (
+                <button
+                  type="button"
+                  key={preset.id}
+                  onClick={() => focusStation(idx)}
+                  className="shrink-0 text-left transition-all duration-200"
+                  style={{
+                    width: '148px',
+                    scrollSnapAlign: 'center',
+                    opacity: isFocus ? 1 : 0.42,
+                    transform: isFocus ? 'scale(1)' : 'scale(0.88)',
+                  }}
+                >
+                  <div
+                    className="relative flex items-center justify-center overflow-hidden rounded-[20px]"
+                    style={{
+                      width: '148px',
+                      height: '148px',
+                      boxShadow: 'var(--card-shadow)',
+                      background: `linear-gradient(150deg, color-mix(in srgb, var(${gradientVar}) 92%, var(--card-bg)), var(--card-bg))`,
+                    }}
+                  >
+                    <span className="text-4xl font-bold" style={{ color: 'var(--text-main)', opacity: 0.85 }}>
+                      {preset.name?.[0] || '?'}
+                    </span>
+                    {isCurrent ? (
+                      <span
+                        className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-[8.5px] font-bold text-white"
+                        style={{ backgroundColor: 'rgba(0,0,0,.35)' }}
+                      >
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                        使用中
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-2.5 truncate text-center text-[13px] font-bold">{preset.name}</p>
+                  <p className="text-center text-[10px] opacity-50">{presetMeta(preset)}</p>
+                </button>
+              );
+            })}
+          </div>
 
-        {presets.length === 0 ? (
-          <p className="py-10 text-center text-xs opacity-50">还没有预设，先新建一个</p>
-        ) : (
-          presets.map((preset) => {
-            const isCurrent = currentPresetId === preset.id;
-            return (
+          {/* 调频旋钮 */}
+          <div className="px-8 pb-1 pt-3.5">
+            <div
+              ref={trackRef}
+              className="relative rounded-full"
+              style={{ height: '34px', backgroundColor: 'var(--control-soft-bg)' }}
+            >
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-4">
+                <span className="h-2.5 w-0.5 rounded-full" style={{ backgroundColor: 'var(--divider)' }} />
+                <span className="h-2.5 w-0.5 rounded-full" style={{ backgroundColor: 'var(--divider)' }} />
+                <span className="h-2.5 w-0.5 rounded-full" style={{ backgroundColor: 'var(--divider)' }} />
+              </div>
               <div
-                key={preset.id}
-                onClick={() => onSelectPreset(preset.id)}
-                className="flex cursor-pointer items-center gap-2 rounded-xl border p-3"
+                onMouseDown={handleKnobPointerDown}
+                onTouchStart={handleKnobPointerDown}
+                className="absolute top-1/2 flex items-center justify-center rounded-full"
                 style={{
-                  borderColor: isCurrent ? 'var(--accent-color)' : 'var(--card-border)',
-                  backgroundColor: 'var(--card-bg)',
+                  left: `${knobLeft}%`,
+                  width: '34px',
+                  height: '34px',
+                  transform: 'translate(-50%, -50%)',
+                  backgroundColor: 'var(--accent-color)',
+                  color: 'var(--accent-foreground)',
+                  boxShadow: '0 6px 16px rgba(0,0,0,.25)',
+                  cursor: dragging ? 'grabbing' : 'grab',
+                  touchAction: 'none',
+                  transition: dragging ? 'none' : 'left .28s cubic-bezier(.2,.9,.3,1.2)',
                 }}
               >
-                {isCurrent && <Check className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--accent-color)' }} />}
-                <span className="flex-1 truncate text-xs font-semibold">{preset.name}</span>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setEditingPreset(preset); }}
-                  className="text-[11px] opacity-60 hover:opacity-100"
-                >
-                  编辑
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleDelete(e, preset.id)}
-                  className="text-red-500 opacity-60 hover:opacity-100"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <ArrowLeftRight className="h-3.5 w-3.5" />
               </div>
-            );
-          })
-        )}
-      </div>
+            </div>
+            <p className="mt-2 text-center text-[10px] opacity-50">拖动旋钮切台 · 松手自动吸附</p>
+          </div>
+
+          {/* 当前台详情 */}
+          {focusedPreset ? (
+            <div
+              className="flex-1 overflow-y-auto px-5 pb-4 pt-2.5"
+              style={{ borderTop: '1px solid var(--divider)', marginTop: '10px' }}
+            >
+              <div className="flex items-center justify-between py-2">
+                <span className="text-xs font-bold">{focusedPreset.name}</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditingPreset(focusedPreset)}
+                    className="text-[11px] opacity-60 hover:opacity-100"
+                  >
+                    编辑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(focusedPreset.id)}
+                    className="text-red-500 opacity-60 hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {Array.isArray(focusedPreset.prompts) && focusedPreset.prompts.length > 0 ? (
+                <>
+                  <p className="mb-1.5 mt-2 text-[9.5px] font-bold uppercase tracking-[0.08em] opacity-50">提示词</p>
+                  {focusedPreset.prompts.map((p) => (
+                    <div
+                      key={p.identifier}
+                      className="flex items-center gap-2 py-1.5 text-xs"
+                      style={{ borderBottom: '1px solid var(--divider)' }}
+                    >
+                      <span
+                        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded"
+                        style={{
+                          border: '1.4px solid var(--text-muted)',
+                          borderColor: p.enabled ? 'var(--accent-color)' : 'var(--text-muted)',
+                          backgroundColor: p.enabled ? 'var(--accent-color)' : 'transparent',
+                          color: 'var(--accent-foreground)',
+                        }}
+                      >
+                        {p.enabled ? <Check className="h-2.5 w-2.5" /> : null}
+                      </span>
+                      <span className={p.enabled ? '' : 'opacity-40'}>{p.name}</span>
+                    </div>
+                  ))}
+                </>
+              ) : null}
+
+              {Array.isArray(focusedPreset.regexScripts) && focusedPreset.regexScripts.length > 0 ? (
+                <>
+                  <p className="mb-1.5 mt-3 text-[9.5px] font-bold uppercase tracking-[0.08em] opacity-50">正则脚本</p>
+                  {focusedPreset.regexScripts.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center gap-2 py-1.5 text-xs"
+                      style={{ borderBottom: '1px solid var(--divider)' }}
+                    >
+                      <span
+                        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded"
+                        style={{
+                          border: '1.4px solid var(--text-muted)',
+                          borderColor: r.enabled ? 'var(--accent-color)' : 'var(--text-muted)',
+                          backgroundColor: r.enabled ? 'var(--accent-color)' : 'transparent',
+                          color: 'var(--accent-foreground)',
+                        }}
+                      >
+                        {r.enabled ? <Check className="h-2.5 w-2.5" /> : null}
+                      </span>
+                      <span className={r.enabled ? '' : 'opacity-40'}>{r.name}</span>
+                    </div>
+                  ))}
+                </>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="px-5 pb-4 pt-2">
+            <button
+              type="button"
+              onClick={handleCreate}
+              className="w-full rounded-full py-3 text-xs font-bold"
+              style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+            >
+              + 新建预设
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -41,6 +41,7 @@ const RpMessageCard = ({
   message,
   character,
   session,
+  customFontFamily,
   canReroll,
   onSwitchVersion,
   onReroll,
@@ -57,6 +58,13 @@ const RpMessageCard = ({
   const name = isCharacter ? (character?.name || 'TA') : (session?.userName || '你');
   const signatureText = isCharacter ? character?.rpSignature : session?.userSignature;
   const signatureBadge = isCharacter ? character?.rpBadgeImage : session?.userBadgeImage;
+
+  // 外观设置：字体走 useRpCustomFont 解析出来的 customFontFamily（没设置/没
+  // 加载成功时为 null，退回原来的衬线字体），字号/颜色直接读会话上的
+  // fontSize/charTextColor/userTextColor（角色和user各自一套颜色）。
+  const resolvedFontFamily = customFontFamily || 'Georgia, "Noto Serif SC", "Songti SC", serif';
+  const resolvedFontSize = session?.fontSize ? `${session.fontSize}px` : '14.5px';
+  const resolvedTextColor = (isCharacter ? session?.charTextColor : session?.userTextColor) || 'var(--text-main)';
 
   const hasVersions = Array.isArray(message.versions) && message.versions.length > 1;
   const hasScene = Boolean(message.sceneImage);
@@ -136,10 +144,10 @@ const RpMessageCard = ({
           background: isCharacter
             ? 'linear-gradient(160deg, color-mix(in srgb, var(--bg-blob-1) 38%, var(--card-bg)) 0%, color-mix(in srgb, var(--card-bg) 88%, transparent) 100%)'
             : 'linear-gradient(160deg, color-mix(in srgb, var(--accent-color) 20%, var(--card-bg)) 0%, color-mix(in srgb, var(--card-bg) 88%, transparent) 100%)',
-          fontFamily: 'Georgia, "Noto Serif SC", "Songti SC", serif',
-          fontSize: '14.5px',
+          fontFamily: resolvedFontFamily,
+          fontSize: resolvedFontSize,
           lineHeight: 1.9,
-          color: 'var(--text-main)',
+          color: resolvedTextColor,
         }}
       >
         {isEditing ? (
