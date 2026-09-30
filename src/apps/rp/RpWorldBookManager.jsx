@@ -69,28 +69,29 @@ function WorldBookEditor({ book, onClose, onSaved }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--divider)' }}>
-        <button type="button" onClick={onClose} className="opacity-70 hover:opacity-100">
+      {/* 头部不做满宽的一条横杠——关闭/保存浮在两角，标题居中单独一行，
+          跟外层书架页的头部是同一路"不做toolbar"的处理。 */}
+      <div className="relative shrink-0 px-5 pb-4 pt-5">
+        <button type="button" onClick={onClose} className="absolute left-4 top-5 opacity-60 hover:opacity-100">
           <X className="h-4 w-4" />
         </button>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="mx-2 flex-1 rounded-lg border bg-transparent px-2 py-1 text-center text-xs font-semibold outline-none"
-          style={{ borderColor: 'var(--card-border)' }}
-        />
         <button
           type="button"
           onClick={handleSave}
-          className="rounded-full px-3 py-1 text-xs font-semibold"
+          className="absolute right-4 top-4 rounded-full px-3.5 py-1.5 text-xs font-semibold"
           style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
         >
           保存
         </button>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="mx-auto block w-[calc(100%-96px)] bg-transparent text-center text-[15px] font-bold outline-none"
+        />
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-        <div className="flex items-center justify-between">
+      <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-5 pt-1">
+        <div className="flex items-center justify-between px-0.5">
           <h4 className="text-xs font-bold opacity-70">条目</h4>
           <button type="button" onClick={addEntry} className="flex items-center gap-1 text-[11px] opacity-70 hover:opacity-100">
             <Plus className="h-3 w-3" /> 添加
@@ -105,10 +106,14 @@ function WorldBookEditor({ book, onClose, onSaved }) {
             return (
               <div
                 key={entry.id}
-                className="overflow-hidden rounded-xl border"
-                style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--card-bg)' }}
+                className="overflow-hidden rounded-2xl"
+                style={{
+                  backgroundColor: 'var(--card-bg)',
+                  boxShadow: 'var(--card-shadow)',
+                  border: '1px solid color-mix(in srgb, var(--card-border) 70%, transparent)',
+                }}
               >
-                <div className="flex items-center gap-2 p-2.5">
+                <div className="flex items-center gap-2.5 p-3">
                   <input
                     type="checkbox"
                     checked={entry.enabled !== false}
@@ -133,21 +138,21 @@ function WorldBookEditor({ book, onClose, onSaved }) {
                 </div>
 
                 {isExpanded && (
-                  <div className="space-y-2 border-t p-2.5" style={{ borderColor: 'var(--divider)' }}>
+                  <div className="space-y-2 p-3 pt-0.5">
                     <input
                       value={(entry.keywords || []).join('，')}
                       onChange={(e) => updateEntryKeywords(entry.id, e.target.value)}
                       placeholder="触发关键词，用逗号分隔，比如：深渊、猎人协会"
-                      className="w-full rounded-lg border px-2 py-1 text-xs outline-none"
-                      style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
+                      className="w-full rounded-lg px-2.5 py-1.5 text-xs outline-none"
+                      style={{ backgroundColor: 'var(--bg-surface)' }}
                     />
                     <textarea
                       value={entry.content}
                       onChange={(e) => updateEntryField(entry.id, 'content', e.target.value)}
                       placeholder="命中关键词后要注入给AI的背景设定内容"
                       rows={4}
-                      className="w-full rounded-lg border px-2 py-1.5 text-xs outline-none"
-                      style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
+                      className="w-full rounded-lg px-2.5 py-2 text-xs outline-none"
+                      style={{ backgroundColor: 'var(--bg-surface)' }}
                     />
                   </div>
                 )}
@@ -204,21 +209,21 @@ const RpWorldBookManager = ({ attachedWorldBookIds = [], onToggleAttach, onClose
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--divider)' }}>
-        <button type="button" onClick={onClose} className="opacity-70 hover:opacity-100">
+      <div className="relative shrink-0 px-5 pb-3 pt-5">
+        <button type="button" onClick={onClose} className="absolute left-4 top-5 opacity-60 hover:opacity-100">
           <X className="h-4 w-4" />
         </button>
-        <div className="text-center">
-          <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-50">World Books</p>
-          <h3 className="text-xs font-bold">书架</h3>
-        </div>
-        <button type="button" onClick={handleCreate} className="opacity-70 hover:opacity-100" title="新建世界书">
+        <button type="button" onClick={handleCreate} className="absolute right-4 top-5 opacity-60 hover:opacity-100" title="新建世界书">
           <Plus className="h-4 w-4" />
         </button>
+        <div className="text-center">
+          <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-40">World Books</p>
+          <h3 className="mt-1 text-lg font-bold">书架</h3>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4">
-        <p className="mb-3 text-center text-[10.5px] opacity-45">点封面挂载 / 取消挂载到本局</p>
+      <div className="flex-1 overflow-y-auto px-5 pb-4 pt-1">
+        <p className="mb-4 text-center text-[10.5px] opacity-45">点封面挂载 / 取消挂载到本局</p>
 
         {books.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16">

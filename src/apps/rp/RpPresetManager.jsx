@@ -117,30 +117,31 @@ function PresetEditor({ preset, onClose, onSaved }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--divider)' }}>
-        <button type="button" onClick={onClose} className="opacity-70 hover:opacity-100">
+      {/* 跟外层书架/电台页同一路处理：不做满宽的一条横杠，关闭/保存
+          浮在两角，标题单独居中一行。 */}
+      <div className="relative shrink-0 px-5 pb-4 pt-5">
+        <button type="button" onClick={onClose} className="absolute left-4 top-5 opacity-60 hover:opacity-100">
           <X className="h-4 w-4" />
         </button>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="mx-2 flex-1 rounded-lg border bg-transparent px-2 py-1 text-center text-xs font-semibold outline-none"
-          style={{ borderColor: 'var(--card-border)' }}
-        />
         <button
           type="button"
           onClick={handleSave}
-          className="rounded-full px-3 py-1 text-xs font-semibold"
+          className="absolute right-4 top-4 rounded-full px-3.5 py-1.5 text-xs font-semibold"
           style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
         >
           保存
         </button>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="mx-auto block w-[calc(100%-96px)] bg-transparent text-center text-[15px] font-bold outline-none"
+        />
       </div>
 
-      <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
+      <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-5 pt-1">
         {/* Prompts 列表 */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-0.5">
             <h4 className="text-xs font-bold opacity-70">Prompts</h4>
             <div className="flex items-center gap-2">
               <button type="button" onClick={handleExport} className="opacity-60 hover:opacity-100" title="导出JSON">
@@ -157,10 +158,14 @@ function PresetEditor({ preset, onClose, onSaved }) {
             return (
               <div
                 key={p.identifier}
-                className="overflow-hidden rounded-xl border"
-                style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--card-bg)' }}
+                className="overflow-hidden rounded-2xl"
+                style={{
+                  backgroundColor: 'var(--card-bg)',
+                  boxShadow: 'var(--card-shadow)',
+                  border: '1px solid color-mix(in srgb, var(--card-border) 70%, transparent)',
+                }}
               >
-                <div className="flex items-center gap-2 p-2.5">
+                <div className="flex items-center gap-2.5 p-3">
                   <input
                     type="checkbox"
                     checked={p.enabled}
@@ -185,13 +190,13 @@ function PresetEditor({ preset, onClose, onSaved }) {
                 </div>
 
                 {isExpanded && (
-                  <div className="space-y-2 border-t p-2.5" style={{ borderColor: 'var(--divider)' }}>
+                  <div className="space-y-2 p-3 pt-0.5">
                     <input
                       value={p.name}
                       onChange={(e) => updatePromptField(p.identifier, 'name', e.target.value)}
                       placeholder="这一条的名字"
-                      className="w-full rounded-lg border px-2 py-1 text-xs outline-none"
-                      style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
+                      className="w-full rounded-lg px-2.5 py-1.5 text-xs outline-none"
+                      style={{ backgroundColor: 'var(--bg-surface)' }}
                     />
                     {!p.isMarker && (
                       <textarea
@@ -199,8 +204,8 @@ function PresetEditor({ preset, onClose, onSaved }) {
                         onChange={(e) => updatePromptField(p.identifier, 'content', e.target.value)}
                         placeholder="内容，支持 {{char}} {{user}} {{time}} {{charBio}} {{userPersona}}"
                         rows={4}
-                        className="w-full rounded-lg border px-2 py-1.5 text-xs outline-none"
-                        style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
+                        className="w-full rounded-lg px-2.5 py-2 text-xs outline-none"
+                        style={{ backgroundColor: 'var(--bg-surface)' }}
                       />
                     )}
                   </div>
@@ -211,8 +216,8 @@ function PresetEditor({ preset, onClose, onSaved }) {
         </div>
 
         {/* Regex 脚本列表 */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-0.5">
             <h4 className="text-xs font-bold opacity-70">正则脚本</h4>
             <button type="button" onClick={addRegex} className="flex items-center gap-1 text-[11px] opacity-70 hover:opacity-100">
               <Plus className="h-3 w-3" /> 添加
@@ -224,10 +229,14 @@ function PresetEditor({ preset, onClose, onSaved }) {
             return (
               <div
                 key={r.id}
-                className="overflow-hidden rounded-xl border"
-                style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--card-bg)' }}
+                className="overflow-hidden rounded-2xl"
+                style={{
+                  backgroundColor: 'var(--card-bg)',
+                  boxShadow: 'var(--card-shadow)',
+                  border: '1px solid color-mix(in srgb, var(--card-border) 70%, transparent)',
+                }}
               >
-                <div className="flex items-center gap-2 p-2.5">
+                <div className="flex items-center gap-2.5 p-3">
                   <input
                     type="checkbox"
                     checked={r.enabled}
@@ -246,35 +255,35 @@ function PresetEditor({ preset, onClose, onSaved }) {
                 </div>
 
                 {isExpanded && (
-                  <div className="space-y-2 border-t p-2.5 text-xs" style={{ borderColor: 'var(--divider)' }}>
+                  <div className="space-y-2 p-3 pt-0.5 text-xs">
                     <input
                       value={r.name}
                       onChange={(e) => updateRegexField(r.id, 'name', e.target.value)}
                       placeholder="规则名字"
-                      className="w-full rounded-lg border px-2 py-1 outline-none"
-                      style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
+                      className="w-full rounded-lg px-2.5 py-1.5 outline-none"
+                      style={{ backgroundColor: 'var(--bg-surface)' }}
                     />
                     <input
                       value={r.findRegex}
                       onChange={(e) => updateRegexField(r.id, 'findRegex', e.target.value)}
                       placeholder="查找（正则表达式）"
-                      className="w-full rounded-lg border px-2 py-1 font-mono outline-none"
-                      style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
+                      className="w-full rounded-lg px-2.5 py-1.5 font-mono outline-none"
+                      style={{ backgroundColor: 'var(--bg-surface)' }}
                     />
                     <input
                       value={r.replaceString}
                       onChange={(e) => updateRegexField(r.id, 'replaceString', e.target.value)}
                       placeholder="替换为"
-                      className="w-full rounded-lg border px-2 py-1 font-mono outline-none"
-                      style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
+                      className="w-full rounded-lg px-2.5 py-1.5 font-mono outline-none"
+                      style={{ backgroundColor: 'var(--bg-surface)' }}
                     />
                     <div className="flex items-center gap-2">
                       <span className="opacity-60">作用对象:</span>
                       <select
                         value={r.affects}
                         onChange={(e) => updateRegexField(r.id, 'affects', e.target.value)}
-                        className="rounded-lg border px-1.5 py-1 outline-none"
-                        style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
+                        className="rounded-lg px-1.5 py-1 outline-none"
+                        style={{ backgroundColor: 'var(--bg-surface)' }}
                       >
                         <option value="ai_output">AI回复</option>
                         <option value="user_input">User输入</option>
@@ -465,23 +474,23 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--divider)' }}>
-        <button type="button" onClick={onClose} className="opacity-70 hover:opacity-100">
+      <div className="relative shrink-0 px-5 pb-3 pt-5">
+        <button type="button" onClick={onClose} className="absolute left-4 top-5 opacity-60 hover:opacity-100">
           <X className="h-4 w-4" />
         </button>
-        <div className="text-center">
-          <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-50">Prompt Presets</p>
-          <h3 className="text-xs font-bold">调台 · 预设</h3>
-        </div>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="opacity-70 hover:opacity-100"
+          className="absolute right-4 top-5 opacity-60 hover:opacity-100"
           title="导入预设"
         >
           <Upload className="h-4 w-4" />
         </button>
         <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
+        <div className="text-center">
+          <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-40">Prompt Presets</p>
+          <h3 className="mt-1 text-lg font-bold">调台 · 预设</h3>
+        </div>
       </div>
 
       {presets.length === 0 ? (
@@ -613,53 +622,57 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
 
               {Array.isArray(focusedPreset.prompts) && focusedPreset.prompts.length > 0 ? (
                 <>
-                  <p className="mb-1.5 mt-2 text-[9.5px] font-bold uppercase tracking-[0.08em] opacity-50">提示词</p>
-                  {focusedPreset.prompts.map((p) => (
-                    <div
-                      key={p.identifier}
-                      className="flex items-center gap-2 py-1.5 text-xs"
-                      style={{ borderBottom: '1px solid var(--divider)' }}
-                    >
-                      <span
-                        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded"
-                        style={{
-                          border: '1.4px solid var(--text-muted)',
-                          borderColor: p.enabled ? 'var(--accent-color)' : 'var(--text-muted)',
-                          backgroundColor: p.enabled ? 'var(--accent-color)' : 'transparent',
-                          color: 'var(--accent-foreground)',
-                        }}
+                  <p className="mb-2 mt-3 text-[9.5px] font-bold uppercase tracking-[0.08em] opacity-45">提示词</p>
+                  <div className="space-y-1.5">
+                    {focusedPreset.prompts.map((p) => (
+                      <div
+                        key={p.identifier}
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs"
+                        style={{ backgroundColor: 'var(--control-soft-bg)' }}
                       >
-                        {p.enabled ? <Check className="h-2.5 w-2.5" /> : null}
-                      </span>
-                      <span className={p.enabled ? '' : 'opacity-40'}>{p.name}</span>
-                    </div>
-                  ))}
+                        <span
+                          className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded"
+                          style={{
+                            border: '1.4px solid var(--text-muted)',
+                            borderColor: p.enabled ? 'var(--accent-color)' : 'var(--text-muted)',
+                            backgroundColor: p.enabled ? 'var(--accent-color)' : 'transparent',
+                            color: 'var(--accent-foreground)',
+                          }}
+                        >
+                          {p.enabled ? <Check className="h-2.5 w-2.5" /> : null}
+                        </span>
+                        <span className={p.enabled ? '' : 'opacity-40'}>{p.name}</span>
+                      </div>
+                    ))}
+                  </div>
                 </>
               ) : null}
 
               {Array.isArray(focusedPreset.regexScripts) && focusedPreset.regexScripts.length > 0 ? (
                 <>
-                  <p className="mb-1.5 mt-3 text-[9.5px] font-bold uppercase tracking-[0.08em] opacity-50">正则脚本</p>
-                  {focusedPreset.regexScripts.map((r) => (
-                    <div
-                      key={r.id}
-                      className="flex items-center gap-2 py-1.5 text-xs"
-                      style={{ borderBottom: '1px solid var(--divider)' }}
-                    >
-                      <span
-                        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded"
-                        style={{
-                          border: '1.4px solid var(--text-muted)',
-                          borderColor: r.enabled ? 'var(--accent-color)' : 'var(--text-muted)',
-                          backgroundColor: r.enabled ? 'var(--accent-color)' : 'transparent',
-                          color: 'var(--accent-foreground)',
-                        }}
+                  <p className="mb-2 mt-4 text-[9.5px] font-bold uppercase tracking-[0.08em] opacity-45">正则脚本</p>
+                  <div className="space-y-1.5">
+                    {focusedPreset.regexScripts.map((r) => (
+                      <div
+                        key={r.id}
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs"
+                        style={{ backgroundColor: 'var(--control-soft-bg)' }}
                       >
-                        {r.enabled ? <Check className="h-2.5 w-2.5" /> : null}
-                      </span>
-                      <span className={r.enabled ? '' : 'opacity-40'}>{r.name}</span>
-                    </div>
-                  ))}
+                        <span
+                          className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded"
+                          style={{
+                            border: '1.4px solid var(--text-muted)',
+                            borderColor: r.enabled ? 'var(--accent-color)' : 'var(--text-muted)',
+                            backgroundColor: r.enabled ? 'var(--accent-color)' : 'transparent',
+                            color: 'var(--accent-foreground)',
+                          }}
+                        >
+                          {r.enabled ? <Check className="h-2.5 w-2.5" /> : null}
+                        </span>
+                        <span className={r.enabled ? '' : 'opacity-40'}>{r.name}</span>
+                      </div>
+                    ))}
+                  </div>
                 </>
               ) : null}
             </div>
