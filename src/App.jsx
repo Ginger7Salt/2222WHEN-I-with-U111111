@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { liveQuery } from 'dexie';
 import { Settings as SettingsIcon } from 'lucide-react';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import Preloader from './components/Preloader';
@@ -99,7 +100,6 @@ import './apps/manual/manual.css';
 // EnsembleApp.jsx 自己和它底下所有的子组件、service 文件完全不用动，
 // Vite 的 import() 是构建期自动识别、自动切分的，不需要目标文件本身
 // 配合任何写法。
-const EnsembleApp = React.lazy(() => import('./apps/ensemble/EnsembleApp'));
 
 // 2026-09 正式铺开：试点确认没问题后，除 MessagesApp（常驻、必须首屏可用，
 // 不懒加载）以外的其余子应用页面全部按同样的模式转成 React.lazy。
@@ -107,30 +107,31 @@ const EnsembleApp = React.lazy(() => import('./apps/ensemble/EnsembleApp'));
 // 常驻悬浮组件（AudioKeepAlive/AppUpdatePrompt/CallOverlayHost/
 // DesktopPetWidget/StorageWarningBadge 等）不属于"点开才用到"的子应用页面，
 // 保持原样立即加载，避免首屏出现额外的加载态闪烁。
-const HourglassApp = React.lazy(() => import('./apps/hourglass/HourglassApp'));
-const MailArchiveApp = React.lazy(() => import('./apps/mailArchive/MailArchiveApp'));
-const ArchiveApp = React.lazy(() => import('./apps/archive/ArchiveApp'));
-const CallHistoryApp = React.lazy(() => import('./apps/callHistory/CallHistoryApp'));
-const SettingsPage = React.lazy(() => import('./apps/settings/SettingsPage'));
-const TodoApp = React.lazy(() => import('./apps/todos/TodoApp'));
-const DiaryApp = React.lazy(() => import('./apps/diaries/DiaryApp'));
-const TravelApp = React.lazy(() => import('./apps/travels/TravelApp'));
-const SnapshotsApp = React.lazy(() => import('./apps/snapshots/SnapshotsApp'));
-const PebblingApp = React.lazy(() => import('./apps/pebbling/PebblingApp'));
-const ImaginariumApp = React.lazy(() => import('./apps/imaginarium/ImaginariumApp'));
-const BubbleApp = React.lazy(() => import('./apps/bubble/BubbleApp'));
-const RpApp = React.lazy(() => import('./apps/rp/RpApp'));
-const HabitatApp = React.lazy(() => import('./apps/habitat/HabitatApp'));
-const EphemeraApp = React.lazy(() => import('./apps/ephemera/EphemeraApp'));
-const AskBoxApp = React.lazy(() => import('./apps/askbox/AskBoxApp'));
-const ManualApp = React.lazy(() => import('./apps/manual/ManualApp'));
-const MemoryApp = React.lazy(() => import('./apps/memory/MemoryApp'));
-const NewspaperApp = React.lazy(() => import('./apps/newspaper/NewspaperApp'));
-const MarginNotesApp = React.lazy(() => import('./apps/margin-notes/MarginNotesApp'));
-const AlmanacApp = React.lazy(() => import('./apps/almanac/AlmanacApp'));
-const SharedWorldApp = React.lazy(() => import('./apps/shared-world/SharedWorldApp'));
-const RhythmApp = React.lazy(() => import('./apps/rhythm/RhythmApp'));
-const WorkflowApp = React.lazy(() => import('./apps/workflows/WorkflowApp'));
+const EnsembleApp = lazyWithRetry(() => import('./apps/ensemble/EnsembleApp'), 'EnsembleApp');
+const HourglassApp = lazyWithRetry(() => import('./apps/hourglass/HourglassApp'), 'HourglassApp');
+const MailArchiveApp = lazyWithRetry(() => import('./apps/mailArchive/MailArchiveApp'), 'MailArchiveApp');
+const ArchiveApp = lazyWithRetry(() => import('./apps/archive/ArchiveApp'), 'ArchiveApp');
+const CallHistoryApp = lazyWithRetry(() => import('./apps/callHistory/CallHistoryApp'), 'CallHistoryApp');
+const SettingsPage = lazyWithRetry(() => import('./apps/settings/SettingsPage'), 'SettingsPage');
+const TodoApp = lazyWithRetry(() => import('./apps/todos/TodoApp'), 'TodoApp');
+const DiaryApp = lazyWithRetry(() => import('./apps/diaries/DiaryApp'), 'DiaryApp');
+const TravelApp = lazyWithRetry(() => import('./apps/travels/TravelApp'), 'TravelApp');
+const SnapshotsApp = lazyWithRetry(() => import('./apps/snapshots/SnapshotsApp'), 'SnapshotsApp');
+const PebblingApp = lazyWithRetry(() => import('./apps/pebbling/PebblingApp'), 'PebblingApp');
+const ImaginariumApp = lazyWithRetry(() => import('./apps/imaginarium/ImaginariumApp'), 'ImaginariumApp');
+const BubbleApp = lazyWithRetry(() => import('./apps/bubble/BubbleApp'), 'BubbleApp');
+const RpApp = lazyWithRetry(() => import('./apps/rp/RpApp'), 'RpApp');
+const HabitatApp = lazyWithRetry(() => import('./apps/habitat/HabitatApp'), 'HabitatApp');
+const EphemeraApp = lazyWithRetry(() => import('./apps/ephemera/EphemeraApp'), 'EphemeraApp');
+const AskBoxApp = lazyWithRetry(() => import('./apps/askbox/AskBoxApp'), 'AskBoxApp');
+const ManualApp = lazyWithRetry(() => import('./apps/manual/ManualApp'), 'ManualApp');
+const MemoryApp = lazyWithRetry(() => import('./apps/memory/MemoryApp'), 'MemoryApp');
+const NewspaperApp = lazyWithRetry(() => import('./apps/newspaper/NewspaperApp'), 'NewspaperApp');
+const MarginNotesApp = lazyWithRetry(() => import('./apps/margin-notes/MarginNotesApp'), 'MarginNotesApp');
+const AlmanacApp = lazyWithRetry(() => import('./apps/almanac/AlmanacApp'), 'AlmanacApp');
+const SharedWorldApp = lazyWithRetry(() => import('./apps/shared-world/SharedWorldApp'), 'SharedWorldApp');
+const RhythmApp = lazyWithRetry(() => import('./apps/rhythm/RhythmApp'), 'RhythmApp');
+const WorkflowApp = lazyWithRetry(() => import('./apps/workflows/WorkflowApp'), 'WorkflowApp');
 
 // 只是"这个模块的代码正在下载"那零点几秒到一两秒（视网络而定）的占位，
 // 不是常规的应用内 loading 状态，所以故意做得很轻，没有另起 CSS 文件。
