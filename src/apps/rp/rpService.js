@@ -24,6 +24,16 @@
 //   - summaryCoveredThroughMessageId：目前的 summaryText 已经覆盖到了
 //     哪条消息（按 rpMessages 自增id），用来算"这次总结完之后又新发生了
 //     多少条消息，够不够再触发一次"，不需要另外记一个计数器。
+//   - summaryHistory：设置面板补的字段。summaryText 每次被覆盖（无论是自动
+//     总结触发，还是用户在设置面板里手动编辑）之前，旧的那份文本都会先被
+//     推进这个数组存档，最多保留最近20份，方便用户"查看过去总结的内容"。
+//   - bgImage / bgOpacity / isBgDimmed：整个聊天室的背景图（设置面板补的
+//     字段），跟 bubbleRooms 那套同名字段是同一个思路：isBgDimmed=true 时
+//     背景图按 bgOpacity 淡化叠加在聊天室底色上，false 时显示原图。
+//   - avatarBackdropEnabled / avatarBackdropImage：角色/user头像背后单独的
+//     背景图开关（不同于上面整个聊天室的背景图，也不同于 RpMessageCard.jsx
+//     里 message.sceneImage 那个每条消息各自的场景图）。关闭时头像背后是
+//     透明的；开启且上传了图才显示。
 
 import db from '../../db';
 import { deleteAllRpMessagesForSession } from './rpMessageService';
@@ -98,6 +108,16 @@ export const createRpSession = async ({ characterId, title } = {}) => {
       // 前情提要（切片D）
       summaryText: '',
       summaryCoveredThroughMessageId: null,
+      summaryHistory: [],
+
+      // 整个聊天室的背景图（设置面板）
+      bgImage: '',
+      bgOpacity: 0.3,
+      isBgDimmed: true,
+
+      // 头像背后的背景图开关（设置面板，跟整间聊天室的背景图分开）
+      avatarBackdropEnabled: false,
+      avatarBackdropImage: '',
     });
     return newId;
   } catch (err) {
@@ -152,18 +172,107 @@ export const updateRpSessionCollapse = async (sessionId, collapseEarlierFloors) 
   }
 };
 
+const MAX_SUMMARY_HISTORY = 20;
+
 /**
- * 写入一次新的前情提要（rpAiService 的自动总结流程调用）。
+ * 把当前的 summaryText 存档进 summaryHistory（如果非空），最多保留最近
+ * MAX_SUMMARY_HISTORY 份。updateRpSessionSummary / updateRpSessionSummaryManual
+ * 共用这一段存档逻辑，覆盖 summaryText 之前都先调用它。
+ */
+const archiveCurrentSummary = async (session) => {
+  if (!session?.summaryText) return Array.isArray(session?.summaryHistory) ? session.summaryHistory : [];
+  const existing = Array.isArray(session.summaryHistory) ? session.summaryHistory : [];
+  const next = [...existing, { text: session.summaryText, archivedAt: Date.now() }];
+  return next.slice(-MAX_SUMMARY_HISTORY);
+};
+
+/**
+ * 写入一次新的前情提要（rpAiService 的自动总结流程调用）。旧的一份会先
+ * 存进 summaryHistory 再被覆盖。
  */
 export const updateRpSessionSummary = async (sessionId, { summaryText, summaryCoveredThroughMessageId }) => {
   if (sessionId === null || sessionId === undefined) return;
   try {
-    await db.rpSessions.update(Number(sessionId), {
+    const numericId = Number(sessionId);
+    const session = await db.rpSessions.get(numericId);
+    const summaryHistory = await archiveCurrentSummary(session);
+    await db.rpSessions.update(numericId, {
       summaryText: String(summaryText || ''),
       summaryCoveredThroughMessageId,
+      summaryHistory,
     });
   } catch (err) {
     console.error('[rpService] 写入前情提要失败:', err);
+  }
+};
+
+/**
+ * 设置面板里用户手动编辑前情提要。跟自动总结共用同一份存档逻辑，但不动
+ * summaryCoveredThroughMessageId——手动改文本不代表AI重新总结过消息，
+ * 计数基准应该保持不变。
+ */
+export const updateRpSessionSummaryManual = async (sessionId, summaryText) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    const numericId = Number(sessionId);
+    const session = await db.rpSessions.get(numericId);
+    const summaryHistory = await archiveCurrentSummary(session);
+    await db.rpSessions.update(numericId, {
+      summaryText: String(summaryText || ''),
+      summaryHistory,
+    });
+  } catch (err) {
+    console.error('[rpService] 手动编辑前情提要失败:', err);
+  }
+};
+
+/**
+ * 设置面板里编辑本会话独立的user人设/签名徽章（同一批字段一次性提交）。
+ */
+export const updateRpSessionUserProfile = async (sessionId, { userName, userPersona, userTitle, userSignature, userBadgeImage } = {}) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    const patch = {};
+    if (userName !== undefined) patch.userName = String(userName || '').trim();
+    if (userPersona !== undefined) patch.userPersona = String(userPersona || '').trim();
+    if (userTitle !== undefined) patch.userTitle = String(userTitle || '').trim();
+    if (userSignature !== undefined) patch.userSignature = String(userSignature || '').trim();
+    if (userBadgeImage !== undefined) patch.userBadgeImage = userBadgeImage || '';
+    await db.rpSessions.update(Number(sessionId), patch);
+  } catch (err) {
+    console.error('[rpService] 编辑user人设失败:', err);
+  }
+};
+
+/**
+ * 设置面板里编辑整个聊天室的背景图（bgImage 为空字符串等于清除背景图）。
+ */
+export const updateRpSessionBackground = async (sessionId, { bgImage, bgOpacity, isBgDimmed } = {}) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    const patch = {};
+    if (bgImage !== undefined) patch.bgImage = bgImage || '';
+    if (bgOpacity !== undefined) patch.bgOpacity = Number(bgOpacity);
+    if (isBgDimmed !== undefined) patch.isBgDimmed = Boolean(isBgDimmed);
+    await db.rpSessions.update(Number(sessionId), patch);
+  } catch (err) {
+    console.error('[rpService] 编辑聊天室背景图失败:', err);
+  }
+};
+
+/**
+ * 设置面板里编辑头像背后的背景图开关（跟上面整个聊天室的背景图是两件事，
+ * 关闭时头像背后透明）。
+ */
+export const updateRpSessionAvatarBackdrop = async (sessionId, { avatarBackdropEnabled, avatarBackdropImage } = {}) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    const patch = {};
+    if (avatarBackdropEnabled !== undefined) patch.avatarBackdropEnabled = Boolean(avatarBackdropEnabled);
+    if (avatarBackdropImage !== undefined) patch.avatarBackdropImage = avatarBackdropImage || '';
+    await db.rpSessions.update(Number(sessionId), patch);
+  } catch (err) {
+    console.error('[rpService] 编辑头像背景图失败:', err);
   }
 };
 
@@ -190,5 +299,9 @@ export default {
   updateRpSessionPreset,
   updateRpSessionCollapse,
   updateRpSessionSummary,
+  updateRpSessionSummaryManual,
   updateRpSessionWorldBooks,
+  updateRpSessionUserProfile,
+  updateRpSessionBackground,
+  updateRpSessionAvatarBackdrop,
 };

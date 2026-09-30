@@ -24,7 +24,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft, ScrollText, BookOpen, Library, SendHorizontal, ChevronDown, ChevronUp, Archive,
+  ArrowLeft, ScrollText, BookOpen, Library, SendHorizontal, ChevronDown, ChevronUp, Archive, Settings,
 } from 'lucide-react';
 
 import db from '../../db';
@@ -36,6 +36,7 @@ import { getRpMessages, switchRpMessageVersion, editRpMessageAndTruncate } from 
 import { sendRpMessage, rerollRpMessage, archiveRpMessages, subscribeRpAiEvents } from './rpAiService';
 import RpPresetManager from './RpPresetManager';
 import RpWorldBookManager from './RpWorldBookManager';
+import RpRoomSettingsModal from './RpRoomSettingsModal';
 import RpMessageCard from './RpMessageCard';
 import { TypingIndicator } from '../messages/components/TypingIndicator';
 
@@ -46,6 +47,7 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const [loading, setLoading] = useState(true);
   const [showPresetManager, setShowPresetManager] = useState(false);
   const [showWorldBookManager, setShowWorldBookManager] = useState(false);
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -261,6 +263,32 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
         }}
       />
 
+      {/* 会话设置里设置的整间聊天室背景图（跟上面的氛围渐变叠加，不是互斥）——
+          写法照抄泡泡模式 BubbleRoom.jsx 的 bgImage/isBgDimmed/bgOpacity 那一套。 */}
+      {session?.bgImage && (
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${session.bgImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+            }}
+          />
+
+          {(session?.isBgDimmed ?? true) && (
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundColor: 'var(--bg-main)',
+                opacity: session?.bgOpacity ?? 0.3,
+              }}
+            />
+          )}
+        </div>
+      )}
+
       {/* 浮动顶栏：透明，不是贴边实心长条，只有返回箭头 + 角色小药丸 */}
       <header className="z-20 flex shrink-0 items-center justify-between px-4 pt-4 pb-2">
         <button
@@ -308,6 +336,14 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
             title="预设"
           >
             <BookOpen className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowSettingsPanel(true)}
+            className="flex h-6 w-6 items-center justify-center rounded-full"
+            title="会话设置"
+          >
+            <Settings className="h-4 w-4" />
           </button>
         </div>
       </header>
@@ -465,6 +501,16 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
             onClose={() => setShowWorldBookManager(false)}
           />
         </div>
+      )}
+
+      {showSettingsPanel && (
+        <RpRoomSettingsModal
+          session={session}
+          character={character}
+          onClose={() => setShowSettingsPanel(false)}
+          onSessionUpdated={(patch) => setSession((prev) => (prev ? { ...prev, ...patch } : prev))}
+          onCharacterUpdated={(patch) => setCharacter((prev) => (prev ? { ...prev, ...patch } : prev))}
+        />
       )}
 
       {pendingEdit && (

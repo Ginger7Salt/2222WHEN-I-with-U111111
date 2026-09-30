@@ -12,9 +12,14 @@
 // 再单独加），这里先统一按纯文本+星号斜体处理，不做HTML解析。
 //
 // 签名/头衔（character.rpTitle/rpSignature/rpBadgeImage、
-// session.userTitle/userSignature/userBadgeImage）目前还没有任何编辑入口
-// （角色卡编辑器和会话设置面板都还没做这块UI），所以这里读到空值时直接
-// 不渲染那一条签名胶囊，不留占位空壳。
+// session.userTitle/userSignature/userBadgeImage）现在可以在会话设置面板
+// （RpRoomSettingsModal，齿轮按钮）里编辑了；这里读到空值时依旧直接不渲染
+// 那一条签名胶囊，不留占位空壳。
+//
+// 头像背后的背景图（session.avatarBackdropEnabled/avatarBackdropImage，也是
+// 设置面板里加的）：关闭时透明，不渲染任何东西；跟上面 hasScene/
+// message.sceneImage（每条消息各自的场景图，铺在整张卡片上方）是完全不同
+// 的两个东西，不要混。
 
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, RotateCcw, Pencil, Quote, Check, X } from 'lucide-react';
@@ -99,21 +104,31 @@ const RpMessageCard = ({
       ) : null}
 
       <div className="relative z-[2] flex flex-col items-center gap-1.5">
-        {avatar ? (
-          <img
-            src={avatar}
-            alt={name}
-            className="h-[72px] w-[72px] rounded-full object-cover shadow-lg"
-            style={{ border: '3px solid var(--card-bg)' }}
-          />
-        ) : (
-          <div
-            className="flex h-[72px] w-[72px] items-center justify-center rounded-full text-lg font-bold shadow-lg"
-            style={{ backgroundColor: 'var(--control-soft-bg)', border: '3px solid var(--card-bg)' }}
-          >
-            {name?.[0] || '?'}
-          </div>
-        )}
+        <div className="relative flex h-[72px] w-[72px] items-center justify-center">
+          {session?.avatarBackdropEnabled && session?.avatarBackdropImage ? (
+            <img
+              src={session.avatarBackdropImage}
+              alt=""
+              className="absolute inset-[-10px] -z-[1] h-[92px] w-[92px] rounded-full object-cover opacity-80"
+            />
+          ) : null}
+
+          {avatar ? (
+            <img
+              src={avatar}
+              alt={name}
+              className="relative h-[72px] w-[72px] rounded-full object-cover shadow-lg"
+              style={{ border: '3px solid var(--card-bg)' }}
+            />
+          ) : (
+            <div
+              className="relative flex h-[72px] w-[72px] items-center justify-center rounded-full text-lg font-bold shadow-lg"
+              style={{ backgroundColor: 'var(--control-soft-bg)', border: '3px solid var(--card-bg)' }}
+            >
+              {name?.[0] || '?'}
+            </div>
+          )}
+        </div>
 
         <span
           className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold shadow-sm"
