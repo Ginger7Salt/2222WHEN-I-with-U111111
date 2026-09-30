@@ -205,7 +205,7 @@ const RpMessageCard = ({
       </div>
 
       <div
-        className="mt-3.5 w-full border px-5 pt-4.5 pb-6 shadow-md"
+        className="mt-3.5 w-full border px-6 pt-5 pb-7 shadow-md"
         style={{
           borderColor: 'var(--card-border)',
           borderRadius: `${resolvedCornerRadius}px`,

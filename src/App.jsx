@@ -100,6 +100,7 @@ import './apps/manual/manual.css';
 // EnsembleApp.jsx 自己和它底下所有的子组件、service 文件完全不用动，
 // Vite 的 import() 是构建期自动识别、自动切分的，不需要目标文件本身
 // 配合任何写法。
+const EnsembleApp = lazyWithRetry(() => import('./apps/ensemble/EnsembleApp'), 'EnsembleApp');
 
 // 2026-09 正式铺开：试点确认没问题后，除 MessagesApp（常驻、必须首屏可用，
 // 不懒加载）以外的其余子应用页面全部按同样的模式转成 React.lazy。
@@ -107,7 +108,6 @@ import './apps/manual/manual.css';
 // 常驻悬浮组件（AudioKeepAlive/AppUpdatePrompt/CallOverlayHost/
 // DesktopPetWidget/StorageWarningBadge 等）不属于"点开才用到"的子应用页面，
 // 保持原样立即加载，避免首屏出现额外的加载态闪烁。
-const EnsembleApp = lazyWithRetry(() => import('./apps/ensemble/EnsembleApp'), 'EnsembleApp');
 const HourglassApp = lazyWithRetry(() => import('./apps/hourglass/HourglassApp'), 'HourglassApp');
 const MailArchiveApp = lazyWithRetry(() => import('./apps/mailArchive/MailArchiveApp'), 'MailArchiveApp');
 const ArchiveApp = lazyWithRetry(() => import('./apps/archive/ArchiveApp'), 'ArchiveApp');
@@ -572,6 +572,7 @@ const [hubBackground, setHubBackground] = useState('');
     const subscription = liveQuery(async () => {
       const [
         activeChats,
+        activeRpSessions,
         savedAudioConfig,
         pendingCount,
       ] = await Promise.all([
@@ -579,7 +580,13 @@ const [hubBackground, setHubBackground] = useState('');
           .filter((chat) => chat.keepAlive === true)
           .toArray(),
 
-          
+        // RP会话的保活开关存在 rpSessions 表上（跟主聊天分开的表，见
+        // src/apps/rp/rpService.js 顶部注释），跟主聊天共用下面同一套
+        // AudioKeepAlive/KeepAliveIndicator，不用为RP另起一套机制。
+        db.rpSessions
+          .filter((session) => session.keepAlive === true)
+          .toArray(),
+
         db.settings.get('keep_alive_audio_config'),
 
         // 离线后自动回复（away_return）不计入：它不需要后台音频保活，
@@ -592,7 +599,10 @@ const [hubBackground, setHubBackground] = useState('');
       ]);
 
       return {
-        activeChats,
+        // 两张表各自查完之后在这里合并成一个数组——下游的 AudioKeepAlive/
+        // KeepAliveIndicator 不关心一条记录到底来自 db.chats 还是
+        // db.rpSessions，只要有 .id/.title 就行（两边字段名本来就一致）。
+        activeChats: [...activeChats, ...activeRpSessions],
         audioConfig:
           savedAudioConfig?.value ||
           DEFAULT_AUDIO_CONFIG,

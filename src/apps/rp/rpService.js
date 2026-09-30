@@ -44,6 +44,13 @@
 //   - userAvatar：本会话独立的user头像（之前这个字段一直存在、
 //     RpMessageCard.jsx 也一直在读，但设置面板从来没给它做编辑入口——
 //     现在补上，UI写法照抄 userBadgeImage 那一套 ImagePickerRow）。
+//   - keepAlive：后台保活开关，跟主聊天 db.chats.keepAlive 是同一个机制
+//     （App.jsx 全局那一套静音音频循环+MediaSession，见 AudioKeepAlive.jsx），
+//     只是主聊天存在 db.chats 上、RP会话存在 db.rpSessions 上——两张表分开
+//     查、结果在 App.jsx 里合并成一个数组喂给同一套 AudioKeepAlive/
+//     KeepAliveIndicator，不需要新写一套保活机制，也不需要把 RP 会话塞进
+//     db.chats 表（那样会被"读取全部db.chats、不分mode"的20多处地方一起
+//     读到，参照 bubbleService.js 当初回退镜像写入的教训，能不共表就不共表）。
 //   - cardPresetId / cardCornerRadius：消息卡片的样式（字体/行距/圆角），
 //     见 rpCardStylePresets.js。跟用户确认过的方案是"预设为主+可微调"：
 //     cardPresetId 选中某一套预设（决定 fontFamily/lineHeight/圆角默认值），
@@ -119,6 +126,9 @@ export const createRpSession = async ({ characterId, title } = {}) => {
       cardPresetId: 'classic-serif',
       cardCornerRadius: null,
       fontSize: null,
+
+      // 后台保活（设置面板）：默认关闭，跟主聊天的默认值一致。
+      keepAlive: false,
 
       // 世界书系统留到那个切片再建表，这里先占位空数组
       attachedWorldBookIds: [],
@@ -289,6 +299,19 @@ export const updateRpSessionUserProfile = async (sessionId, { userName, userAvat
 };
 
 /**
+ * 切换本会话的后台保活开关（跟主聊天 db.chats.keepAlive 同一套机制，见
+ * 文件头注释）。
+ */
+export const updateRpSessionKeepAlive = async (sessionId, keepAlive) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    await db.rpSessions.update(Number(sessionId), { keepAlive: Boolean(keepAlive) });
+  } catch (err) {
+    console.error('[rpService] 切换后台保活失败:', err);
+  }
+};
+
+/**
  * 设置面板里编辑消息卡片样式：选中的预设 + 圆角手动覆盖值 + 字号。
  * cardCornerRadius 传 null 等于"跟着预设走，不手动覆盖"。
  */
@@ -380,6 +403,7 @@ export default {
   updateRpSessionWorldBooks,
   updateRpSessionUserProfile,
   updateRpSessionCardStyle,
+  updateRpSessionKeepAlive,
   updateRpSessionBackground,
   updateRpSessionAvatarBackdrop,
   updateRpSessionThinkingFold,

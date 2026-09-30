@@ -7,7 +7,7 @@
 // BubbleRoomSettingsModal.jsx 的结构和图片上传/压缩写法新建的，不是恢复
 // 什么旧代码。
 //
-// 分成七块：
+// 分成八块：
 // 1. 整间聊天室背景图（bgImage/bgOpacity/isBgDimmed）——跟泡泡模式的
 //    BubbleRoomSettingsModal 同一套字段名、同一套"淡化叠加/显示原图"逻辑。
 // 2. 头像背后的背景图（avatarBackdropEnabled/avatarBackdropImage）——注意
@@ -27,11 +27,14 @@
 //    字段是挂在角色卡本身上的，不是挂在会话上，所以改了之后这个角色在
 //    "所有"用到TA的RP会话里都会看到新的签名/徽章，这一点在UI里明确提示
 //    用户，不能让人以为只改了当前这一局。
-// 6. 前情提要：session.summaryEntries 是一个数组，每次自动总结是独立的
+// 6. 后台保活（keepAlive）——跟主聊天设置面板里"尝试维持后台活跃"是同一套
+//    机制（App.jsx 全局的静音音频循环，见 rpService.js 顶部注释），只是这里
+//    存在 rpSessions 表上。
+// 7. 前情提要：session.summaryEntries 是一个数组，每次自动总结是独立的
 //    一条（不是滚动覆盖成一份大文本——跟用户确认过，总结内容不能挤在
 //    一起），这里把每条都单独列出来，各自可以编辑正文、也可以单独删除
 //    （删除要走 ConfirmModal 二次确认，跟预设/世界书删除的规则一致）。
-// 7. 思维链折叠（foldTagNames/thinkingLabelText）——要折叠哪些标签、收起
+// 8. 思维链折叠（foldTagNames/thinkingLabelText）——要折叠哪些标签、收起
 //    时显示什么字，都是用户自己填，不写死。
 //
 // 图片上传统一复用 snapshots 那边已经在用的 compressImageFile（限制最大
@@ -40,7 +43,7 @@
 
 import React, { useRef, useState } from 'react';
 import {
-  X, Upload, Trash2, Eye, EyeOff, Image as ImageIcon, User, Tag, ScrollText, Snowflake, Type,
+  X, Upload, Trash2, Eye, EyeOff, Image as ImageIcon, User, Tag, ScrollText, Snowflake, Type, Radio,
 } from 'lucide-react';
 
 import db from '../../db';
@@ -51,6 +54,7 @@ import {
   updateRpSessionAvatarBackdrop,
   updateRpSessionUserProfile,
   updateRpSessionCardStyle,
+  updateRpSessionKeepAlive,
   updateRpSessionSummaryEntryText,
   deleteRpSessionSummaryEntry,
   updateRpSessionThinkingFold,
@@ -215,6 +219,8 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
   const [rpTitle, setRpTitle] = useState(character?.rpTitle || '');
   const [rpSignature, setRpSignature] = useState(character?.rpSignature || '');
 
+  const [keepAlive, setKeepAlive] = useState(Boolean(session?.keepAlive));
+
   const [summaryEntries, setSummaryEntries] = useState(
     Array.isArray(session?.summaryEntries) ? session.summaryEntries : []
   );
@@ -305,6 +311,15 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
     void (async () => {
       await updateRpSessionCardStyle(session.id, { cardCornerRadius: null });
       void commitSession({ cardCornerRadius: null });
+    })();
+  };
+
+  const handleToggleKeepAlive = () => {
+    const next = !keepAlive;
+    setKeepAlive(next);
+    void (async () => {
+      await updateRpSessionKeepAlive(session.id, next);
+      void commitSession({ keepAlive: next });
     })();
   };
 
@@ -659,7 +674,28 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
           </SectionCard>
         )}
 
-        {/* 6. 前情提要：每次总结是独立条目，各自可编辑/删除 */}
+        {/* 6. 后台保活 */}
+        <SectionCard
+          icon={Radio}
+          title="后台保活"
+          tag="KEEP ALIVE"
+          description="开启后会跟主聊天的「尝试维持后台活跃」一样，循环播放一段静音音频，降低手机浏览器把这局RP的后台标签页整个挂起、导致生成中途被打断的概率；缺点是费电，不是每一局都需要一直开着。"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] opacity-60">在这一局会话里保活</span>
+            <button
+              type="button"
+              onClick={handleToggleKeepAlive}
+              className="flex items-center gap-1.5 text-[10px] font-semibold opacity-75 hover:opacity-100"
+              style={{ color: keepAlive ? 'var(--accent-color)' : 'var(--text-muted)' }}
+            >
+              {keepAlive ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+              <span>{keepAlive ? '已开启' : '已关闭'}</span>
+            </button>
+          </div>
+        </SectionCard>
+
+        {/* 7. 前情提要：每次总结是独立条目，各自可编辑/删除 */}
         <SectionCard
           icon={ScrollText}
           title="前情提要"
@@ -683,7 +719,7 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
           )}
         </SectionCard>
 
-        {/* 7. 思维链折叠 */}
+        {/* 8. 思维链折叠 */}
         <SectionCard
           icon={Snowflake}
           title="思维链折叠"
