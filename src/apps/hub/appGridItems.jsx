@@ -564,7 +564,36 @@ export const buildAppGridItems = ({
           </div>
         </div>
 
-        <ArrowUpRight className="h-4 w-4 opacity-30 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+             <ArrowUpRight className="h-4 w-4 opacity-30 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+      </GlassCard>
+    ),
+  },
+
+  {
+    id: 'shell',
+    colSpan: 1,
+    content: (
+      <GlassCard
+        blur={false}
+        onClick={() => onOpenApp('shell')}
+        className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
+      >
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: 'var(--control-soft-bg)' }}
+        >
+          <Waves
+            className="h-5 w-5 opacity-90"
+            style={{ color: 'var(--text-main)' }}
+          />
+        </div>
+
+        <div>
+          <AppTitle en="Tidal Shell" zh="潮汐贝壳" mode={nameMode} />
+          <p className="mt-0.5 text-[11px] uppercase tracking-wider opacity-50">
+            Fragments washed ashore
+          </p>
+        </div>
       </GlassCard>
     ),
   },

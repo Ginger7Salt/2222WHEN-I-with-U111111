@@ -4643,4 +4643,7 @@ db.version(70).stores({
 db.version(71).stores({
   rpWorldBooks: '++id, name, createdAt, updatedAt',
 });
+db.version(72).stores({
+  shellCatches: '++id, characterId, chatId, tier, identity, form, createdAt, [characterId+createdAt]',
+});
 export default db;

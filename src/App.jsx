@@ -123,7 +123,9 @@ const BubbleApp = lazyWithRetry(() => import('./apps/bubble/BubbleApp'), 'Bubble
 const RpApp = lazyWithRetry(() => import('./apps/rp/RpApp'), 'RpApp');
 const HabitatApp = lazyWithRetry(() => import('./apps/habitat/HabitatApp'), 'HabitatApp');
 const EphemeraApp = lazyWithRetry(() => import('./apps/ephemera/EphemeraApp'), 'EphemeraApp');
+
 const AskBoxApp = lazyWithRetry(() => import('./apps/askbox/AskBoxApp'), 'AskBoxApp');
+const ShellApp = lazyWithRetry(() => import('./apps/shell/ShellApp'), 'ShellApp');
 const ManualApp = lazyWithRetry(() => import('./apps/manual/ManualApp'), 'ManualApp');
 const MemoryApp = lazyWithRetry(() => import('./apps/memory/MemoryApp'), 'MemoryApp');
 const NewspaperApp = lazyWithRetry(() => import('./apps/newspaper/NewspaperApp'), 'NewspaperApp');
@@ -207,6 +209,7 @@ const REGISTERED_APPS = [
   'rp',
   'ephemera',
   'askbox',
+  'shell',
   'rhythm',
   'almanac',
   'shared-world',
@@ -1196,10 +1199,20 @@ const [hubBackground, setHubBackground] = useState('');
           </ErrorBoundary>
         )}
 
-        {currentApp === 'askbox' && (
+               {currentApp === 'askbox' && (
           <ErrorBoundary>
             <React.Suspense fallback={<AppLoadingFallback />}>
               <AskBoxApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
+          </ErrorBoundary>
+        )}
+
+        {currentApp === 'shell' && (
+          <ErrorBoundary>
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <ShellApp
                 onBackHub={() => openApp('hub')}
               />
             </React.Suspense>
