@@ -39,7 +39,7 @@ import RpPresetManager from './RpPresetManager';
 import RpWorldBookManager from './RpWorldBookManager';
 import RpRoomSettingsModal from './RpRoomSettingsModal';
 import RpMessageCard from './RpMessageCard';
-import { TypingIndicator } from '../messages/components/TypingIndicator';
+import RpTypingIndicator from './RpTypingIndicator';
 
 const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const [session, setSession] = useState(null);
@@ -479,10 +479,7 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
 
           {isTyping ? (
             <div className="flex justify-center">
-              <TypingIndicator
-                customText={`${character?.name || 'TA'} 正在书写...`}
-                styleType={session?.typingStyle || 'default'}
-              />
+              <RpTypingIndicator customText={`${character?.name || 'TA'} 正在书写这一段...`} />
             </div>
           ) : null}
         </div>
