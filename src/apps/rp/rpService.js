@@ -167,6 +167,21 @@ export const updateRpSessionSummary = async (sessionId, { summaryText, summaryCo
   }
 };
 
+/**
+ * 切换本会话挂载的世界书列表（整份覆盖，不是增量）。
+ */
+export const updateRpSessionWorldBooks = async (sessionId, attachedWorldBookIds) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    await db.rpSessions.update(Number(sessionId), {
+      attachedWorldBookIds: Array.isArray(attachedWorldBookIds) ? attachedWorldBookIds : [],
+      updatedAt: Date.now(),
+    });
+  } catch (err) {
+    console.error('[rpService] 切换世界书挂载失败:', err);
+  }
+};
+
 export default {
   getAllRpSessions,
   getRpSessionById,
@@ -175,4 +190,5 @@ export default {
   updateRpSessionPreset,
   updateRpSessionCollapse,
   updateRpSessionSummary,
+  updateRpSessionWorldBooks,
 };

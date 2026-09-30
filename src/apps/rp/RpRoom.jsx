@@ -24,15 +24,18 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft, ScrollText, BookOpen, SendHorizontal, ChevronDown, ChevronUp, Archive,
+  ArrowLeft, ScrollText, BookOpen, Library, SendHorizontal, ChevronDown, ChevronUp, Archive,
 } from 'lucide-react';
 
 import db from '../../db';
 import ConfirmModal from '../../components/ConfirmModal';
-import { getRpSessionById, updateRpSessionPreset, updateRpSessionCollapse } from './rpService';
+import {
+  getRpSessionById, updateRpSessionPreset, updateRpSessionCollapse, updateRpSessionWorldBooks,
+} from './rpService';
 import { getRpMessages, switchRpMessageVersion, editRpMessageAndTruncate } from './rpMessageService';
 import { sendRpMessage, rerollRpMessage, archiveRpMessages, subscribeRpAiEvents } from './rpAiService';
 import RpPresetManager from './RpPresetManager';
+import RpWorldBookManager from './RpWorldBookManager';
 import RpMessageCard from './RpMessageCard';
 
 const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
@@ -41,6 +44,7 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPresetManager, setShowPresetManager] = useState(false);
+  const [showWorldBookManager, setShowWorldBookManager] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -110,6 +114,15 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const handleSelectPreset = async (presetId) => {
     await updateRpSessionPreset(sessionId, presetId);
     setSession((prev) => (prev ? { ...prev, presetId } : prev));
+  };
+
+  const handleToggleWorldBookAttach = async (worldBookId) => {
+    const current = session.attachedWorldBookIds || [];
+    const next = current.includes(worldBookId)
+      ? current.filter((id) => id !== worldBookId)
+      : [...current, worldBookId];
+    await updateRpSessionWorldBooks(sessionId, next);
+    setSession((prev) => (prev ? { ...prev, attachedWorldBookIds: next } : prev));
   };
 
   const handleToggleCollapse = async () => {
@@ -275,14 +288,27 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
           <span className="text-[11px] font-semibold">{session.title}</span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowPresetManager(true)}
-          className="flex h-8 w-8 items-center justify-center rounded-full shadow-sm backdrop-blur-md"
+        <div
+          className="flex items-center gap-1 rounded-full p-1 shadow-sm backdrop-blur-md"
           style={{ backgroundColor: 'color-mix(in srgb, var(--card-bg) 82%, transparent)' }}
         >
-          <BookOpen className="h-4 w-4" />
-        </button>
+          <button
+            type="button"
+            onClick={() => setShowWorldBookManager(true)}
+            className="flex h-6 w-6 items-center justify-center rounded-full"
+            title="世界书"
+          >
+            <Library className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPresetManager(true)}
+            className="flex h-6 w-6 items-center justify-center rounded-full"
+            title="预设"
+          >
+            <BookOpen className="h-4 w-4" />
+          </button>
+        </div>
       </header>
 
       {/* 唯一可滚动的区域 */}
@@ -426,6 +452,19 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
             currentPresetId={session.presetId}
             onSelectPreset={handleSelectPreset}
             onClose={() => setShowPresetManager(false)}
+          />
+        </div>
+      )}
+
+      {showWorldBookManager && (
+        <div
+          className="fixed inset-0 z-50 animate-fade-in"
+          style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}
+        >
+          <RpWorldBookManager
+            attachedWorldBookIds={session.attachedWorldBookIds || []}
+            onToggleAttach={handleToggleWorldBookAttach}
+            onClose={() => setShowWorldBookManager(false)}
           />
         </div>
       )}

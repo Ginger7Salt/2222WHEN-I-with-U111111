@@ -4640,4 +4640,7 @@ db.version(69).stores({
 db.version(70).stores({
   rpMessages: '++id, sessionId, senderType, timestamp, [sessionId+timestamp]',
 });
+db.version(71).stores({
+  rpWorldBooks: '++id, name, createdAt, updatedAt',
+});
 export default db;

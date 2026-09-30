@@ -10,11 +10,15 @@
 // 不接MCP，切片B设计讨论时确认过）。
 //
 // system prompt 由 rpPromptAssembler.assembleRpSystemPrompt 组装（读这个
-// 会话绑定的预设 + 角色人设 + user人设 + 世界书占位 + 前情提要 + 历史占位），
+// 会话绑定的预设 + 角色人设 + user人设 + 世界书注入 + 前情提要 + 历史占位），
 // 历史由 rpPromptAssembler.buildRpHistoryContext 组装（按 contextWindowSize
-// 截取 + 走一遍正则脚本的 prompt 阶段）。世界书扫描逻辑还没做（留给以后
-// 的世界书切片），这里先始终传空字符串，assembleRpSystemPrompt 对空
-// worldBookText 的处理是"跳过这一块，不报错"。
+// 截取 + 走一遍正则脚本的 prompt 阶段）。
+//
+// 切片E：世界书扫描——每次生成回复之前，从"最近 WORLD_BOOK_SCAN_WINDOW
+// 条未存档消息"里找关键词命中，命中的条目（跨这个会话挂的所有世界书汇总，
+// 不分书优先级，总数封顶 WORLD_BOOK_MAX_ENTRIES 条）拼成一段文本传给
+// assembleRpSystemPrompt。这两个数字先给个能用的默认值，以后想调整
+// 直接改这两个常量即可，不用改调用它们的逻辑。
 //
 // 切片D：已存档（archived）的消息在这个文件里被彻底当作不存在——不管是
 // 拼历史文本、组装 contextWindowSize 截取用的数组，还是喂给自动总结的
@@ -39,7 +43,11 @@ import {
   archiveRpMessagesBefore,
 } from './rpMessageService';
 import { getRpPresetById } from './rpPresetService';
+import { scanRpWorldBooks } from './rpWorldBookService';
 import { assembleRpSystemPrompt, buildRpHistoryContext } from './rpPromptAssembler';
+
+const WORLD_BOOK_SCAN_WINDOW = 6;
+const WORLD_BOOK_MAX_ENTRIES = 5;
 
 const listeners = new Set();
 
@@ -58,15 +66,26 @@ const notify = (event) => {
  * preset 传 null 给 assembleRpSystemPrompt，它会自己退化成只剩历史文本；
  * regexScripts 退化成空数组，等于不做任何正则处理。
  */
-const resolvePresetAndPrompt = async ({ session, character, historyText }) => {
+const resolvePresetAndPrompt = async ({ session, character, historyForContext, historyText }) => {
   const preset = session.presetId ? await getRpPresetById(session.presetId) : null;
   const regexScripts = preset?.regexScripts || [];
+
+  const scanText = historyForContext
+    .slice(-WORLD_BOOK_SCAN_WINDOW)
+    .map((m) => m.content)
+    .join('\n');
+
+  const worldBookText = await scanRpWorldBooks(
+    session.attachedWorldBookIds,
+    scanText,
+    { maxEntries: WORLD_BOOK_MAX_ENTRIES }
+  );
 
   const systemPrompt = assembleRpSystemPrompt({
     preset,
     character,
     session,
-    worldBookText: '',
+    worldBookText,
     summaryText: session.summaryText || '',
     historyText,
   });
@@ -96,6 +115,7 @@ const generateAndWriteReply = async ({ session, character, historyForContext, is
     const { systemPrompt, regexScripts } = await resolvePresetAndPrompt({
       session,
       character,
+      historyForContext,
       historyText,
     });
 
