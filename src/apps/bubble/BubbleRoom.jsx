@@ -52,6 +52,7 @@ import BubbleRoomSettingsModal from './BubbleRoomSettingsModal';
 import BubbleCustomizer from '../messages/components/BubbleCustomizer';
 import { isValidHexColor, getReadableTextColor } from '../messages/utils/chatColors';
 import { getControlStyleRules } from '../messages/chatControlStylePresets';
+import { TypingIndicator } from '../messages/components/TypingIndicator';
 
 const BubbleRoom = ({ roomId, onBack, onChatRoomStateChange }) => {
   const [room, setRoom] = useState(null);
@@ -290,7 +291,7 @@ const BubbleRoom = ({ roomId, onBack, onChatRoomStateChange }) => {
     .filter(Boolean);
 
   return (
-    <div className="bubble-room-container relative flex flex-col h-full animate-fade-in overflow-hidden">
+    <div className="bubble-room-container fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden text-left text-xs animate-fade-in-up">
       {bubbleMessageStyle}
       {controlStylePresetStyle}
       {roomColorStyle}
@@ -361,12 +362,6 @@ const BubbleRoom = ({ roomId, onBack, onChatRoomStateChange }) => {
             >
               {room?.title || (isLoading ? '加载中...' : '未命名房间')}
             </h2>
-
-            {typingNames.length > 0 && (
-              <p className="text-[9px] opacity-60 truncate">
-                {typingNames.join('、')} 正在输入...
-              </p>
-            )}
           </div>
 
           <button
@@ -392,6 +387,15 @@ const BubbleRoom = ({ roomId, onBack, onChatRoomStateChange }) => {
           </div>
         ) : (
           <BubbleMessageRow messages={messages} membersById={membersById} />
+        )}
+
+        {typingNames.length > 0 && (
+          <div className="mt-2 px-1">
+            <TypingIndicator
+              customText={`${typingNames.join('、')} 正在输入...`}
+              styleType={room?.typingStyle || 'default'}
+            />
+          </div>
         )}
       </div>
 

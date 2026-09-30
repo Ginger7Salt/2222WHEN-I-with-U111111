@@ -37,6 +37,7 @@ import { sendRpMessage, rerollRpMessage, archiveRpMessages, subscribeRpAiEvents 
 import RpPresetManager from './RpPresetManager';
 import RpWorldBookManager from './RpWorldBookManager';
 import RpMessageCard from './RpMessageCard';
+import { TypingIndicator } from '../messages/components/TypingIndicator';
 
 const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const [session, setSession] = useState(null);
@@ -404,14 +405,11 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
           )}
 
           {isTyping ? (
-            <div className="flex flex-col items-center gap-2 opacity-50">
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-bold"
-                style={{ backgroundColor: 'var(--control-soft-bg)' }}
-              >
-                {character?.name?.[0] || '?'}
-              </div>
-              <p className="text-[11px] italic">{character?.name || 'TA'} 正在书写...</p>
+            <div className="flex justify-center">
+              <TypingIndicator
+                customText={`${character?.name || 'TA'} 正在书写...`}
+                styleType={session?.typingStyle || 'default'}
+              />
             </div>
           ) : null}
         </div>

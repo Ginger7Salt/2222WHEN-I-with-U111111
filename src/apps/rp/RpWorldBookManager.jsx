@@ -8,9 +8,10 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  X, Plus, Trash2, ChevronDown, ChevronUp, Check,
+  X, Plus, Trash2, ChevronDown, ChevronUp, Check, Info,
 } from 'lucide-react';
 
+import ConfirmModal from '../../components/ConfirmModal';
 import {
   getAllRpWorldBooks,
   createRpWorldBook,
@@ -175,6 +176,7 @@ const SHELF_GRADIENT_VARS = ['--bg-blob-1', '--bg-blob-2', '--bg-blob-3'];
 const RpWorldBookManager = ({ attachedWorldBookIds = [], onToggleAttach, onClose }) => {
   const [books, setBooks] = useState([]);
   const [editingBook, setEditingBook] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     loadBooks();
@@ -194,6 +196,7 @@ const RpWorldBookManager = ({ attachedWorldBookIds = [], onToggleAttach, onClose
 
   const handleDelete = async (bookId) => {
     await deleteRpWorldBook(bookId);
+    setDeleteTarget(null);
     loadBooks();
   };
 
@@ -227,7 +230,12 @@ const RpWorldBookManager = ({ attachedWorldBookIds = [], onToggleAttach, onClose
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 pb-4 pt-1">
-        <p className="mb-4 text-center text-[10.5px] opacity-45">点封面挂载 / 取消挂载到本局</p>
+        <div className="mb-4 flex items-start gap-2 rounded-2xl px-3 py-2.5 text-[10.5px] leading-relaxed opacity-70" style={{ backgroundColor: 'var(--control-soft-bg)' }}>
+          <Info className="mt-0.5 h-3 w-3 shrink-0" />
+          <span>
+            点封面挂载/取消挂载到本局，一局可以同时挂多本。生成时只会扫描最近几层楼里命中关键词的条目注入给AI，不是整本无条件塞给AI。删除某本世界书无法恢复。
+          </span>
+        </div>
 
         {books.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16">
@@ -315,7 +323,7 @@ const RpWorldBookManager = ({ attachedWorldBookIds = [], onToggleAttach, onClose
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(book.id)}
+                      onClick={() => setDeleteTarget(book)}
                       className="text-red-500 opacity-60 hover:opacity-100"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -327,6 +335,17 @@ const RpWorldBookManager = ({ attachedWorldBookIds = [], onToggleAttach, onClose
           </div>
         )}
       </div>
+
+      {deleteTarget && (
+        <ConfirmModal
+          isOpen={Boolean(deleteTarget)}
+          title="删除世界书"
+          message={`确定要删除世界书『${deleteTarget.name}』吗？这个操作无法撤销，正在挂载它的会话会自动失去这本书里所有条目。`}
+          confirmText="删除"
+          onConfirm={() => handleDelete(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 };

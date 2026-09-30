@@ -16,9 +16,10 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  X, Plus, Trash2, ChevronDown, ChevronUp, Download, Upload, Check, ArrowLeftRight,
+  X, Plus, Trash2, ChevronDown, ChevronUp, Download, Upload, Check, ArrowLeftRight, Info,
 } from 'lucide-react';
 
+import ConfirmModal from '../../components/ConfirmModal';
 import {
   getAllRpPresets,
   createRpPreset,
@@ -340,6 +341,8 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
   const [focusIndex, setFocusIndex] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [dragPct, setDragPct] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [importNotice, setImportNotice] = useState('');
   const fileInputRef = useRef(null);
   const railRef = useRef(null);
   const trackRef = useRef(null);
@@ -381,6 +384,7 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
 
   const handleDelete = async (presetId) => {
     await deleteRpPreset(presetId);
+    setDeleteTarget(null);
     loadPresets();
   };
 
@@ -388,9 +392,18 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const text = await file.text();
-    await importRpPresetFromJson(text);
+    const newId = await importRpPresetFromJson(text);
     await loadPresets();
     e.target.value = '';
+
+    if (newId) {
+      const fresh = await getAllRpPresets();
+      const created = fresh.find((p) => p.id === newId);
+      setImportNotice(created ? `已导入为新预设『${created.name}』，不会影响其他预设。` : '导入完成。');
+    } else {
+      setImportNotice('导入失败：文件格式不对，需要是本应用自己导出的预设JSON。');
+    }
+    window.setTimeout(() => setImportNotice(''), 4000);
   };
 
   // 调台指针停在某个台：既更新界面焦点，也当场选用这个预设——跟原来
@@ -496,6 +509,22 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
         </button>
         <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
       </div>
+
+      {/* 使用说明 + 导入结果提示：预设决定AI每次回复看到的提示词顺序和
+          正则处理规则，删除是不可逆操作；导入不会覆盖任何已有预设，只会
+          新建一份"XX（导入）"。 */}
+      <div className="mx-4 mb-2 flex items-start gap-2 rounded-2xl px-3 py-2.5 text-[10.5px] leading-relaxed opacity-70" style={{ backgroundColor: 'var(--control-soft-bg)' }}>
+        <Info className="mt-0.5 h-3 w-3 shrink-0" />
+        <span>
+          预设决定AI每次回复会看到的提示词顺序和正则处理规则。删除某个预设无法恢复；导入一份JSON文件不会覆盖任何已有预设，只会新建一份带"（导入）"后缀的预设。
+        </span>
+      </div>
+
+      {importNotice && (
+        <div className="mx-4 mb-2 rounded-2xl px-3 py-2 text-[10.5px]" style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}>
+          {importNotice}
+        </div>
+      )}
 
       {presets.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6">
@@ -616,7 +645,7 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(focusedPreset.id)}
+                    onClick={() => setDeleteTarget(focusedPreset)}
                     className="text-red-500 opacity-60 hover:opacity-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -693,6 +722,17 @@ const RpPresetManager = ({ currentPresetId, onClose, onSelectPreset }) => {
             </button>
           </div>
         </>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          isOpen={Boolean(deleteTarget)}
+          title="删除预设"
+          message={`确定要删除预设『${deleteTarget.name}』吗？这个操作无法撤销，正在使用这份预设的会话会自动退回到只有历史记录、没有提示词的状态。`}
+          confirmText="删除"
+          onConfirm={() => handleDelete(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

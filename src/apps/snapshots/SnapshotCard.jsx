@@ -13,7 +13,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import db from '../../db';
 import { generateSnapshotComment, generateSnapshotReply } from './services/snapshotAiService';
-import { getNpcsByChatId } from './services/snapshotNpcService';
+import { getNpcsByChatId, ensureNpcPersona } from './services/snapshotNpcService';
 import { compressImageFile } from './services/snapshotMediaService';
 
 export const SnapshotCard = ({
@@ -124,9 +124,16 @@ export const SnapshotCard = ({
       if (target && (target.type === 'character' || target.type === 'npc')) {
         setTimeout(async () => {
           try {
+            let responder = target;
+            if (target.type === 'npc') {
+              const chat = await db.chats.get(Number(currentChatId));
+              const character = chat?.characterId ? await db.characters.get(chat.characterId) : null;
+              responder = await ensureNpcPersona(target, character);
+            }
+
             const replyText = await generateSnapshotReply(
               localSnapshot,
-              target,
+              responder,
               { senderName, content: text },
               text,
               Number(currentChatId)
@@ -162,25 +169,27 @@ export const SnapshotCard = ({
     setIsSummoning(true);
     try {
       const chat = await db.chats.get(Number(currentChatId));
+      const character = chat?.characterId ? await db.characters.get(chat.characterId) : null;
       const pool = [];
 
-      if (chat?.characterId && String(localSnapshot.characterId) !== String(chat.characterId)) {
-        const char = await db.characters.get(chat.characterId);
-        if (char) {
-          pool.push({ type: 'character', id: char.id, name: char.name, avatar: char.avatar });
-        }
+      if (character && String(localSnapshot.characterId) !== String(character.id)) {
+        pool.push({ type: 'character', id: character.id, name: character.name, avatar: character.avatar });
       }
 
       const npcs = await getNpcsByChatId(Number(currentChatId));
       npcs.forEach((n) => {
         if (String(localSnapshot.npcId) !== String(n.id)) {
-          pool.push({ type: 'npc', id: n.id, name: n.name, roleTag: n.roleTag, avatar: '' });
+          pool.push({ type: 'npc', id: n.id, name: n.name, roleTag: n.roleTag, avatar: '', personaSummary: n.personaSummary });
         }
       });
 
-      const chosen = pool.length > 0
+      let chosen = pool.length > 0
         ? pool[Math.floor(Math.random() * pool.length)]
         : { type: 'npc', id: null, name: '街角常客', roleTag: '路人', avatar: '' };
+
+      if (chosen.type === 'npc' && chosen.id !== null) {
+        chosen = await ensureNpcPersona(chosen, character);
+      }
 
       const commentText = await generateSnapshotComment(localSnapshot, chosen, Number(currentChatId));
 

@@ -5,7 +5,7 @@
 // NPC 现在按 chatId 专属，存在 db.snapshotNpcs 表（见 db v49 迁移）。
 //
 import db from '../../../db';
-import { extractOrInventNpcs } from './snapshotAiService';
+import { extractOrInventNpcs, generateNpcPersonaText } from './snapshotAiService';
 
 const AUTO_NPC_TARGET_COUNT = 3;
 const autoSeedSettingKey = (chatId) => `snapshotNpcAutoSeeded_${chatId}`;
@@ -76,7 +76,7 @@ export const addNpc = async (chatId, { name, roleTag, avatar, source } = {}) => 
  * 这个标记只在 AI 调用真正跑完（不管成功生成几个）之后才会写入——如果
  * 中途报错（例如临时网络问题），不标记，下一轮巡检还会再试一次。
  */
-export const ensureAutoNpcPool = async (chatId, character) => {
+export const ensureAutoNpcPool = async (chatId, character, chat = null) => {
   if (!chatId) return;
   const numericChatId = Number(chatId);
 
@@ -87,7 +87,11 @@ export const ensureAutoNpcPool = async (chatId, character) => {
     const seededFlag = await db.settings.get(autoSeedSettingKey(numericChatId));
     if (seededFlag?.value) return;
 
-    const invented = await extractOrInventNpcs(character, AUTO_NPC_TARGET_COUNT);
+    const userAliases = chat
+      ? { userName: chat.userName || '', userPersona: chat.userPersona || '' }
+      : null;
+
+    const invented = await extractOrInventNpcs(character, AUTO_NPC_TARGET_COUNT, userAliases);
     for (const item of invented) {
       await addNpc(numericChatId, { name: item.name, roleTag: item.roleTag, source: 'auto' });
     }
@@ -95,6 +99,34 @@ export const ensureAutoNpcPool = async (chatId, character) => {
     await db.settings.put({ key: autoSeedSettingKey(numericChatId), value: true });
   } catch (err) {
     console.error('[snapshotNpcService] 自动补齐 NPC 失败:', err);
+  }
+};
+
+/**
+ * 确保某个 NPC 已经有固化的人设/说话风格描述（npc.personaSummary，
+ * 存在 db.snapshotNpcs 的一个新增的、不需要建索引的普通字段上）。
+ * 已经有的话原样返回；没有的话调用AI生成一次并永久写回数据库，
+ * 之后每次这个NPC发帖/评论/回复都复用同一份，保证长期人设一致，
+ * 也是这次修"NPC容易被char夺舍/OOC"问题的关键——之前NPC只有
+ * name+roleTag，人设太单薄，容易被prompt里其他人的语气带跑偏。
+ *
+ * 返回值是"确保已带上 personaSummary"的npc对象（不是void），方便
+ * 调用方直接拿返回值继续往下传给 generateNpcPost/generateSnapshotComment
+ * /generateSnapshotReply，不需要调用方自己再查一次数据库。
+ */
+export const ensureNpcPersona = async (npc, character) => {
+  if (!npc) return npc;
+  if (npc.personaSummary) return npc;
+
+  try {
+    const personaSummary = await generateNpcPersonaText(npc, character);
+    if (npc.id !== null && npc.id !== undefined) {
+      await db.snapshotNpcs.update(Number(npc.id), { personaSummary });
+    }
+    return { ...npc, personaSummary };
+  } catch (err) {
+    console.error(`[snapshotNpcService] NPC(${npc?.name}) 人设固化失败:`, err);
+    return npc;
   }
 };
 
@@ -117,5 +149,6 @@ export default {
   getNpcById,
   addNpc,
   deleteNpc,
-  ensureAutoNpcPool
+  ensureAutoNpcPool,
+  ensureNpcPersona
 };

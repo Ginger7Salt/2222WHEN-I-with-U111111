@@ -14,7 +14,7 @@
 // 这里的 autoGenerateNpcComments 即可。
 //
 import db from '../../../db';
-import { getNpcsByChatId } from './snapshotNpcService';
+import { getNpcsByChatId, ensureNpcPersona } from './snapshotNpcService';
 import { generateSnapshotComment } from './snapshotAiService';
 
 /**
@@ -51,15 +51,22 @@ export const autoGenerateNpcComments = async (chatId, snapshot, posterEntity) =>
     );
     if (candidates.length === 0) return;
 
+    // 拿角色人设，供 ensureNpcPersona 在还没固化人设的NPC身上生成一次
+    // 独立于char的说话风格（见 snapshotNpcService.ensureNpcPersona 的注释，
+    // 这是修"NPC评论容易被char夺舍/OOC"问题的一部分）。
+    const chat = await db.chats.get(numericChatId);
+    const character = chat?.characterId ? await db.characters.get(chat.characterId) : null;
+
     // 1~3条，池子不够就有多少发多少
     const targetCount = Math.min(candidates.length, 1 + Math.floor(Math.random() * 3));
     const chosenOnes = sampleWithoutReplacement(candidates, targetCount);
 
     for (const npc of chosenOnes) {
       try {
+        const npcWithPersona = await ensureNpcPersona(npc, character);
         const commentText = await generateSnapshotComment(
           snapshot,
-          { type: 'npc', id: npc.id, name: npc.name, roleTag: npc.roleTag },
+          { type: 'npc', id: npcWithPersona.id, name: npcWithPersona.name, roleTag: npcWithPersona.roleTag, personaSummary: npcWithPersona.personaSummary },
           numericChatId
         );
 
