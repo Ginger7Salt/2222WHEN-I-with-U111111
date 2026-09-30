@@ -21,8 +21,12 @@
 // message.sceneImage（每条消息各自的场景图，铺在整张卡片上方）是完全不同
 // 的两个东西，不要混。
 
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, RotateCcw, Pencil, Quote, Check, X } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Pencil, Quote, Check, X, Brain,
+} from 'lucide-react';
+
+import { splitContentByFoldTags, DEFAULT_FOLD_TAG_NAMES, DEFAULT_THINKING_LABEL_TEXT } from './rpThinkingFold';
 
 const renderParagraphs = (text) => {
   const paragraphs = String(text || '').split(/\n+/).filter((p) => p.trim());
@@ -40,6 +44,41 @@ const renderParagraphs = (text) => {
       </p>
     );
   });
+};
+
+// 思维链折叠框：跟其他楼层元素一样，展开/收起状态不跨刷新记住（跟用户
+// 确认过），纯本地 state，默认收起。label 是会话设置面板里用户自己写的
+// 那行字，不是写死的"思考了一会"。
+const ThinkingFoldBlock = ({ label, content }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div
+      className="my-2 rounded-xl border"
+      style={{ borderColor: 'var(--divider)', backgroundColor: 'var(--control-soft-bg)' }}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[11px] opacity-70 hover:opacity-100"
+      >
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Brain className="h-3 w-3 shrink-0" />
+          <span className="truncate">{label}</span>
+        </span>
+        {expanded ? <ChevronUp className="h-3 w-3 shrink-0" /> : <ChevronDown className="h-3 w-3 shrink-0" />}
+      </button>
+
+      {expanded && (
+        <div
+          className="border-t px-3 py-2 text-[12px] italic leading-relaxed opacity-70"
+          style={{ borderColor: 'var(--divider)' }}
+        >
+          {renderParagraphs(content)}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const RpMessageCard = ({
@@ -73,6 +112,16 @@ const RpMessageCard = ({
 
   const hasVersions = Array.isArray(message.versions) && message.versions.length > 1;
   const hasScene = Boolean(message.sceneImage);
+
+  // 思维链折叠：foldTagNames 为空数组等于用户关闭了折叠功能，整段按原文
+  // 渲染。标签名和收起时的文案都是会话设置面板里用户自己填的，不写死。
+  const foldTagNames = Array.isArray(session?.foldTagNames) ? session.foldTagNames : DEFAULT_FOLD_TAG_NAMES;
+  const thinkingLabelText = session?.thinkingLabelText || DEFAULT_THINKING_LABEL_TEXT;
+  const contentSegments = useMemo(
+    () => splitContentByFoldTags(message.content, foldTagNames),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [message.content, foldTagNames.join('\u0001')]
+  );
 
   const startEdit = () => {
     setDraft(message.content);
@@ -175,7 +224,13 @@ const RpMessageCard = ({
             style={{ fontFamily: 'inherit' }}
           />
         ) : (
-          renderParagraphs(message.content)
+          contentSegments.map((seg, idx) => (
+            seg.type === 'thinking' ? (
+              <ThinkingFoldBlock key={idx} label={thinkingLabelText} content={seg.content} />
+            ) : (
+              <React.Fragment key={idx}>{renderParagraphs(seg.content)}</React.Fragment>
+            )
+          ))
         )}
       </div>
 

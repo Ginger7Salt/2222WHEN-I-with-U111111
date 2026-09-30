@@ -7,7 +7,7 @@
 // BubbleRoomSettingsModal.jsx 的结构和图片上传/压缩写法新建的，不是恢复
 // 什么旧代码。
 //
-// 分成五块：
+// 分成六块：
 // 1. 整间聊天室背景图（bgImage/bgOpacity/isBgDimmed）——跟泡泡模式的
 //    BubbleRoomSettingsModal 同一套字段名、同一套"淡化叠加/显示原图"逻辑。
 // 2. 头像背后的背景图（avatarBackdropEnabled/avatarBackdropImage）——注意
@@ -22,8 +22,12 @@
 //    字段是挂在角色卡本身上的，不是挂在会话上，所以改了之后这个角色在
 //    "所有"用到TA的RP会话里都会看到新的签名/徽章，这一点在UI里明确提示
 //    用户，不能让人以为只改了当前这一局。
-// 5. 前情提要：编辑当前 summaryText（手动改一次，旧版本会自动存进
-//    summaryHistory，不会丢），以及展开查看最近的历史版本列表（只读）。
+// 5. 前情提要：session.summaryEntries 是一个数组，每次自动总结是独立的
+//    一条（不是滚动覆盖成一份大文本——跟用户确认过，总结内容不能挤在
+//    一起），这里把每条都单独列出来，各自可以编辑正文、也可以单独删除
+//    （删除要走 ConfirmModal 二次确认，跟预设/世界书删除的规则一致）。
+// 6. 思维链折叠（foldTagNames/thinkingLabelText）——要折叠哪些标签、收起
+//    时显示什么字，都是用户自己填，不写死。
 //
 // 图片上传统一复用 snapshots 那边已经在用的 compressImageFile（限制最大
 // 尺寸+压缩质量，不是snapshot专属的逻辑，这个工具函数本来就是通用的，没
@@ -31,17 +35,21 @@
 
 import React, { useRef, useState } from 'react';
 import {
-  X, Upload, Trash2, Eye, EyeOff, Image as ImageIcon, User, Tag, ScrollText, ChevronDown, ChevronUp,
+  X, Upload, Trash2, Eye, EyeOff, Image as ImageIcon, User, Tag, ScrollText, Brain,
 } from 'lucide-react';
 
 import db from '../../db';
+import ConfirmModal from '../../components/ConfirmModal';
 import { compressImageFile } from '../snapshots/services/snapshotMediaService';
 import {
   updateRpSessionBackground,
   updateRpSessionAvatarBackdrop,
   updateRpSessionUserProfile,
-  updateRpSessionSummaryManual,
+  updateRpSessionSummaryEntryText,
+  deleteRpSessionSummaryEntry,
+  updateRpSessionThinkingFold,
 } from './rpService';
+import { parseFoldTagNamesInput, DEFAULT_THINKING_LABEL_TEXT } from './rpThinkingFold';
 
 const SectionCard = ({ icon: Icon, title, tag, description, children }) => (
   <div
@@ -144,6 +152,39 @@ const formatTime = (ts) => {
   }
 };
 
+// 单条总结条目：本地草稿 + onBlur 才提交，跟其他文本输入框一个写法，避免
+// 每敲一个字就写一次 Dexie。
+const SummaryEntryCard = ({ ordinal, entry, onCommitText, onRequestDelete }) => {
+  const [draft, setDraft] = useState(entry.text || '');
+
+  return (
+    <div
+      className="space-y-1.5 rounded-xl border px-2.5 py-2"
+      style={{ borderColor: 'var(--divider)', backgroundColor: 'var(--bg-main)' }}
+    >
+      <div className="flex items-center justify-between text-[9px] opacity-50">
+        <span>第 {ordinal} 次总结{entry.createdAt ? ` · ${formatTime(entry.createdAt)}` : ''}</span>
+        <button
+          type="button"
+          onClick={() => onRequestDelete(entry.id)}
+          className="text-red-500 opacity-80 hover:opacity-100"
+          title="删除这一条"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+      <textarea
+        rows={3}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => onCommitText(entry.id, draft.trim())}
+        className="w-full resize-y overflow-y-auto rounded-lg border px-2 py-1.5 text-[10.5px] leading-relaxed outline-none max-h-32 min-h-[48px]"
+        style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)', color: 'var(--text-main)' }}
+      />
+    </div>
+  );
+};
+
 const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, onCharacterUpdated }) => {
   const [isBgDimmed, setIsBgDimmed] = useState(session?.isBgDimmed ?? true);
   const [bgOpacity, setBgOpacity] = useState(session?.bgOpacity ?? 0.3);
@@ -160,8 +201,17 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
   const [rpTitle, setRpTitle] = useState(character?.rpTitle || '');
   const [rpSignature, setRpSignature] = useState(character?.rpSignature || '');
 
-  const [summaryDraft, setSummaryDraft] = useState(session?.summaryText || '');
-  const [showHistory, setShowHistory] = useState(false);
+  const [summaryEntries, setSummaryEntries] = useState(
+    Array.isArray(session?.summaryEntries) ? session.summaryEntries : []
+  );
+  const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState(null);
+
+  const [foldTagNamesInput, setFoldTagNamesInput] = useState(
+    (Array.isArray(session?.foldTagNames) ? session.foldTagNames : ['thinking']).join('、')
+  );
+  const [thinkingLabelText, setThinkingLabelText] = useState(
+    session?.thinkingLabelText || DEFAULT_THINKING_LABEL_TEXT
+  );
 
   if (!session?.id) return null;
 
@@ -233,14 +283,40 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
     })();
   };
 
-  const handleCommitSummary = () => {
+  const handleCommitSummaryEntryText = (entryId, text) => {
     void (async () => {
-      await updateRpSessionSummaryManual(session.id, summaryDraft.trim());
-      void commitSession({ summaryText: summaryDraft.trim() });
+      await updateRpSessionSummaryEntryText(session.id, entryId, text);
+      const next = summaryEntries.map((e) => (e.id === entryId ? { ...e, text } : e));
+      setSummaryEntries(next);
+      void commitSession({ summaryEntries: next });
     })();
   };
 
-  const summaryHistory = Array.isArray(session?.summaryHistory) ? [...session.summaryHistory].reverse() : [];
+  const handleDeleteSummaryEntry = (entryId) => {
+    void (async () => {
+      await deleteRpSessionSummaryEntry(session.id, entryId);
+      const next = summaryEntries.filter((e) => e.id !== entryId);
+      setSummaryEntries(next);
+      void commitSession({ summaryEntries: next });
+      setPendingDeleteEntryId(null);
+    })();
+  };
+
+  const handleCommitThinkingFold = () => {
+    const foldTagNames = parseFoldTagNamesInput(foldTagNamesInput);
+    const label = thinkingLabelText.trim() || DEFAULT_THINKING_LABEL_TEXT;
+    setThinkingLabelText(label);
+    void (async () => {
+      await updateRpSessionThinkingFold(session.id, { foldTagNames, thinkingLabelText: label });
+      void commitSession({ foldTagNames, thinkingLabelText: label });
+    })();
+  };
+
+  // 展示顺序是最新的在最上面，但"第几次"这个序号按发生的时间顺序算，
+  // 不受展示顺序影响。
+  const displayEntries = summaryEntries
+    .map((entry, idx) => ({ entry, ordinal: idx + 1 }))
+    .reverse();
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center animate-fade-in-up">
@@ -450,52 +526,73 @@ const RpRoomSettingsModal = ({ session, character, onClose, onSessionUpdated, on
           </SectionCard>
         )}
 
-        {/* 5. 前情提要：编辑 + 历史 */}
+        {/* 5. 前情提要：每次总结是独立条目，各自可编辑/删除 */}
         <SectionCard
           icon={ScrollText}
           title="前情提要"
           tag="SUMMARY"
-          description="每隔一段楼层AI会自动重新总结一次并整份覆盖这里的文本；你也可以手动改。改之前的旧版本都会存进下面的历史里，不会丢。"
+          description="每隔一段楼层AI会自动生成一条新的总结，各条互不覆盖，可以单独编辑或删除。组装给AI的前情提要是把下面所有条目按发生顺序拼起来。"
         >
-          <textarea
-            rows={4}
-            value={summaryDraft}
-            placeholder="还没有生成过前情提要"
-            onChange={(e) => setSummaryDraft(e.target.value)}
-            onBlur={handleCommitSummary}
-            className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs leading-relaxed overflow-y-auto resize-y max-h-40 min-h-[64px]"
-            style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-          />
-
-          {summaryHistory.length > 0 && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowHistory((v) => !v)}
-                className="flex items-center gap-1 text-[10px] font-semibold opacity-70 hover:opacity-100"
-              >
-                {showHistory ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                <span>{showHistory ? '收起历史版本' : `查看历史版本（${summaryHistory.length}）`}</span>
-              </button>
-
-              {showHistory && (
-                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {summaryHistory.map((entry, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-xl border px-2.5 py-2 text-[10.5px] leading-relaxed opacity-70"
-                      style={{ borderColor: 'var(--divider)', backgroundColor: 'var(--bg-main)' }}
-                    >
-                      <div className="mb-1 text-[9px] opacity-50">{formatTime(entry.archivedAt)}</div>
-                      <div className="whitespace-pre-wrap">{entry.text}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+          {displayEntries.length === 0 ? (
+            <p className="text-[10.5px] opacity-45">还没有生成过总结条目，攒够楼层数会自动生成第一条。</p>
+          ) : (
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {displayEntries.map(({ entry, ordinal }) => (
+                <SummaryEntryCard
+                  key={entry.id}
+                  ordinal={ordinal}
+                  entry={entry}
+                  onCommitText={handleCommitSummaryEntryText}
+                  onRequestDelete={setPendingDeleteEntryId}
+                />
+              ))}
             </div>
           )}
         </SectionCard>
+
+        {/* 6. 思维链折叠 */}
+        <SectionCard
+          icon={Brain}
+          title="思维链折叠"
+          tag="THINKING FOLD"
+          description="被这里填写的标签包住的内容（比如 <thinking>...</thinking>）会被折叠成一个可展开的小条，不会直接铺在正文里。留空则不折叠任何内容。"
+        >
+          <div>
+            <label className="block text-[10px] opacity-60 mb-1">要折叠的标签名（可填多个，用顿号/逗号分隔）</label>
+            <input
+              type="text"
+              value={foldTagNamesInput}
+              placeholder="例如：thinking、think"
+              onChange={(e) => setFoldTagNamesInput(e.target.value)}
+              onBlur={handleCommitThinkingFold}
+              className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs font-mono"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] opacity-60 mb-1">折叠框收起时显示的文字</label>
+            <input
+              type="text"
+              value={thinkingLabelText}
+              placeholder={DEFAULT_THINKING_LABEL_TEXT}
+              onChange={(e) => setThinkingLabelText(e.target.value)}
+              onBlur={handleCommitThinkingFold}
+              className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+            />
+          </div>
+        </SectionCard>
       </div>
+
+      <ConfirmModal
+        isOpen={Boolean(pendingDeleteEntryId)}
+        title="删除这条总结"
+        message="删除之后，AI以后就看不到这一条总结覆盖的那段剧情梗概了（原始消息本身不受影响，除非已经被存档移出）。这个操作不能撤销，确定吗？"
+        confirmText="删除"
+        onConfirm={() => handleDeleteSummaryEntry(pendingDeleteEntryId)}
+        onCancel={() => setPendingDeleteEntryId(null)}
+      />
     </div>
   );
 };

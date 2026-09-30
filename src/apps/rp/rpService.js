@@ -19,14 +19,13 @@
 //   - collapseEarlierFloors：是否手动隐藏/折叠早期楼层
 //   - allowHtml：是否允许AI输出的HTML内联CSS被渲染。跟用户确认过，这个
 //     开关放在会话设置里，不放在预设（rpPresets）上——切片B补的字段。
-//   - summaryText：滚动更新的"前情提要"文本，切片D补的字段。每次总结都是
-//     "旧提要 + 新发生的剧情 -> 融合成新提要"整份覆盖，不是追加。
-//   - summaryCoveredThroughMessageId：目前的 summaryText 已经覆盖到了
-//     哪条消息（按 rpMessages 自增id），用来算"这次总结完之后又新发生了
-//     多少条消息，够不够再触发一次"，不需要另外记一个计数器。
-//   - summaryHistory：设置面板补的字段。summaryText 每次被覆盖（无论是自动
-//     总结触发，还是用户在设置面板里手动编辑）之前，旧的那份文本都会先被
-//     推进这个数组存档，最多保留最近20份，方便用户"查看过去总结的内容"。
+//   - summaryEntries：切片D字段，跟用户确认过不能做成"一份滚动覆盖的总结
+//     整段文本"——每 summaryIntervalTurns 轮触发一次自动总结，都是单独一
+//     个条目 { id, text, coveredFromMessageId, coveredThroughMessageId,
+//     createdAt, updatedAt }，条目之间互不覆盖，各自可以单独编辑/删除。
+//     "现在总结覆盖到哪条消息了"直接取最后一个条目的 coveredThroughMessageId
+//     （没有条目就是0），不用另外维护一个游标字段。组装system prompt时把
+//     所有条目的 text 按顺序拼起来当"前情提要"喂给AI。
 //   - bgImage / bgOpacity / isBgDimmed：整个聊天室的背景图（设置面板补的
 //     字段），跟 bubbleRooms 那套同名字段是同一个思路：isBgDimmed=true 时
 //     背景图按 bgOpacity 淡化叠加在聊天室底色上，false 时显示原图。
@@ -34,6 +33,12 @@
 //     背景图开关（不同于上面整个聊天室的背景图，也不同于 RpMessageCard.jsx
 //     里 message.sceneImage 那个每条消息各自的场景图）。关闭时头像背后是
 //     透明的；开启且上传了图才显示。
+//   - foldTagNames / thinkingLabelText：思维链折叠（设置面板补的字段）。
+//     foldTagNames 是需要被折叠渲染的标签名数组（比如 ['thinking']），具体
+//     折哪些标签由用户自己填，不是写死只认一种写法；清空数组等于关闭折叠。
+//     thinkingLabelText 是折叠框收起时显示的那行字，同样是用户自己写的，
+//     不是写死的"思考了一会"。这两个字段只影响渲染，message.content 在
+//     数据库里永远保留AI原样输出的带标签全文。
 
 import db from '../../db';
 import { deleteAllRpMessagesForSession } from './rpMessageService';
@@ -105,10 +110,8 @@ export const createRpSession = async ({ characterId, title } = {}) => {
       // HTML内联CSS渲染开关（切片B：跟预设分开，属于会话设置）
       allowHtml: false,
 
-      // 前情提要（切片D）
-      summaryText: '',
-      summaryCoveredThroughMessageId: null,
-      summaryHistory: [],
+      // 前情提要（切片D）：每次自动总结是一个独立条目，见文件头注释
+      summaryEntries: [],
 
       // 整个聊天室的背景图（设置面板）
       bgImage: '',
@@ -118,6 +121,13 @@ export const createRpSession = async ({ characterId, title } = {}) => {
       // 头像背后的背景图开关（设置面板，跟整间聊天室的背景图分开）
       avatarBackdropEnabled: false,
       avatarBackdropImage: '',
+
+      // 思维链折叠（设置面板）：foldTagNames 是需要被折叠的标签名数组，
+      // 具体是哪些标签由用户自己填，不写死只认 <thinking>；清空这个数组
+      // 就是关掉折叠功能。thinkingLabelText 是折叠框收起时显示的那行字，
+      // 也是用户自己写的，不是写死的"思考了一会"。
+      foldTagNames: ['thinking'],
+      thinkingLabelText: '点击查看思考过程',
     });
     return newId;
   } catch (err) {
@@ -172,57 +182,71 @@ export const updateRpSessionCollapse = async (sessionId, collapseEarlierFloors) 
   }
 };
 
-const MAX_SUMMARY_HISTORY = 20;
+const makeSummaryEntryId = () => (
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+);
 
 /**
- * 把当前的 summaryText 存档进 summaryHistory（如果非空），最多保留最近
- * MAX_SUMMARY_HISTORY 份。updateRpSessionSummary / updateRpSessionSummaryManual
- * 共用这一段存档逻辑，覆盖 summaryText 之前都先调用它。
+ * 追加一个新的总结条目（rpAiService 的自动总结流程调用，每触发一次算
+ * 一个独立条目，不覆盖之前的）。
  */
-const archiveCurrentSummary = async (session) => {
-  if (!session?.summaryText) return Array.isArray(session?.summaryHistory) ? session.summaryHistory : [];
-  const existing = Array.isArray(session.summaryHistory) ? session.summaryHistory : [];
-  const next = [...existing, { text: session.summaryText, archivedAt: Date.now() }];
-  return next.slice(-MAX_SUMMARY_HISTORY);
-};
-
-/**
- * 写入一次新的前情提要（rpAiService 的自动总结流程调用）。旧的一份会先
- * 存进 summaryHistory 再被覆盖。
- */
-export const updateRpSessionSummary = async (sessionId, { summaryText, summaryCoveredThroughMessageId }) => {
+export const addRpSessionSummaryEntry = async (sessionId, { text, coveredFromMessageId, coveredThroughMessageId }) => {
   if (sessionId === null || sessionId === undefined) return;
   try {
     const numericId = Number(sessionId);
     const session = await db.rpSessions.get(numericId);
-    const summaryHistory = await archiveCurrentSummary(session);
-    await db.rpSessions.update(numericId, {
-      summaryText: String(summaryText || ''),
-      summaryCoveredThroughMessageId,
-      summaryHistory,
-    });
+    const existing = Array.isArray(session?.summaryEntries) ? session.summaryEntries : [];
+    const now = Date.now();
+    const entry = {
+      id: makeSummaryEntryId(),
+      text: String(text || ''),
+      coveredFromMessageId: coveredFromMessageId ?? null,
+      coveredThroughMessageId: coveredThroughMessageId ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await db.rpSessions.update(numericId, { summaryEntries: [...existing, entry] });
   } catch (err) {
-    console.error('[rpService] 写入前情提要失败:', err);
+    console.error('[rpService] 追加总结条目失败:', err);
   }
 };
 
 /**
- * 设置面板里用户手动编辑前情提要。跟自动总结共用同一份存档逻辑，但不动
- * summaryCoveredThroughMessageId——手动改文本不代表AI重新总结过消息，
- * 计数基准应该保持不变。
+ * 设置面板里编辑某一条总结条目的正文（不影响它的覆盖范围/顺序）。
  */
-export const updateRpSessionSummaryManual = async (sessionId, summaryText) => {
+export const updateRpSessionSummaryEntryText = async (sessionId, entryId, text) => {
   if (sessionId === null || sessionId === undefined) return;
   try {
     const numericId = Number(sessionId);
     const session = await db.rpSessions.get(numericId);
-    const summaryHistory = await archiveCurrentSummary(session);
-    await db.rpSessions.update(numericId, {
-      summaryText: String(summaryText || ''),
-      summaryHistory,
-    });
+    const existing = Array.isArray(session?.summaryEntries) ? session.summaryEntries : [];
+    const next = existing.map((entry) => (
+      entry.id === entryId ? { ...entry, text: String(text || ''), updatedAt: Date.now() } : entry
+    ));
+    await db.rpSessions.update(numericId, { summaryEntries: next });
   } catch (err) {
-    console.error('[rpService] 手动编辑前情提要失败:', err);
+    console.error('[rpService] 编辑总结条目失败:', err);
+  }
+};
+
+/**
+ * 设置面板里删除某一条总结条目。删除之后不会重新触发对应那一段消息的
+ * 自动总结——"下一次覆盖到哪条消息"是看剩下条目里最后一个的
+ * coveredThroughMessageId，删掉中间某一条不影响这个判断，只是AI以后看不
+ * 到那一段的提要了（还是能看到原始消息，除非那批消息已经被存档移出）。
+ */
+export const deleteRpSessionSummaryEntry = async (sessionId, entryId) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    const numericId = Number(sessionId);
+    const session = await db.rpSessions.get(numericId);
+    const existing = Array.isArray(session?.summaryEntries) ? session.summaryEntries : [];
+    const next = existing.filter((entry) => entry.id !== entryId);
+    await db.rpSessions.update(numericId, { summaryEntries: next });
+  } catch (err) {
+    console.error('[rpService] 删除总结条目失败:', err);
   }
 };
 
@@ -291,6 +315,21 @@ export const updateRpSessionWorldBooks = async (sessionId, attachedWorldBookIds)
   }
 };
 
+/**
+ * 设置面板里编辑思维链折叠配置：要折叠哪些标签、折叠框收起时显示什么字。
+ */
+export const updateRpSessionThinkingFold = async (sessionId, { foldTagNames, thinkingLabelText } = {}) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    const patch = {};
+    if (foldTagNames !== undefined) patch.foldTagNames = Array.isArray(foldTagNames) ? foldTagNames : [];
+    if (thinkingLabelText !== undefined) patch.thinkingLabelText = String(thinkingLabelText || '').trim();
+    await db.rpSessions.update(Number(sessionId), patch);
+  } catch (err) {
+    console.error('[rpService] 编辑思维链折叠设置失败:', err);
+  }
+};
+
 export default {
   getAllRpSessions,
   getRpSessionById,
@@ -298,10 +337,12 @@ export default {
   deleteRpSession,
   updateRpSessionPreset,
   updateRpSessionCollapse,
-  updateRpSessionSummary,
-  updateRpSessionSummaryManual,
+  addRpSessionSummaryEntry,
+  updateRpSessionSummaryEntryText,
+  deleteRpSessionSummaryEntry,
   updateRpSessionWorldBooks,
   updateRpSessionUserProfile,
   updateRpSessionBackground,
   updateRpSessionAvatarBackdrop,
+  updateRpSessionThinkingFold,
 };

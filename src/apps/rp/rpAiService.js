@@ -26,16 +26,18 @@
 // 上下文永久说再见"，只靠前情提要记得它。
 //
 // 自动总结（跟用户确认过：现在就接全自动，每 summaryIntervalTurns 轮
-// [= *2 条消息] 自动触发一次）：每次用户消息发送、角色也回复完之后，
-// 检查"上次总结覆盖到的消息之后，又新发生了多少条未存档消息"，够数就
-// 另外发一次AI请求，把旧的前情提要和这批新剧情揉成一份新的前情提要，
-// 整份覆盖写回 session.summaryText。总结失败不影响这一轮正常收发（静默
-// 失败，因为 summaryCoveredThroughMessageId 没被更新，下次发消息时条件
-// 仍然满足，等于自动重试）。
+// [= *2 条消息] 自动触发一次）：每次用户消息发送、角色也回复完之后，检查
+// "上次总结覆盖到的消息之后，又新发生了多少条未存档消息"，够数就另外发
+// 一次AI请求，只总结这一批新剧情，追加成 session.summaryEntries 里的一个
+// 新条目——不是滚动覆盖成一份大文本（跟用户确认过：每次总结各自是独立
+// 条目，可以在设置面板里单独编辑/删除）。"上次覆盖到哪条消息"直接看
+// summaryEntries 最后一条的 coveredThroughMessageId。总结失败不影响这一轮
+// 正常收发（静默失败，因为没有新条目写入，下次发消息时条件仍然满足，
+// 等于自动重试）。
 
 import db from '../../db';
 import { generateResponse } from '../../services/aiService';
-import { getRpSessionById, updateRpSessionSummary } from './rpService';
+import { getRpSessionById, addRpSessionSummaryEntry } from './rpService';
 import {
   getRpMessages,
   addRpMessage,
@@ -81,12 +83,16 @@ const resolvePresetAndPrompt = async ({ session, character, historyForContext, h
     { maxEntries: WORLD_BOOK_MAX_ENTRIES }
   );
 
+  // 把所有独立的总结条目按发生顺序拼成一段文本喂给AI——AI只需要看到连贯
+  // 的前情提要正文，不需要知道底下其实是分开存的多个条目。
+  const summaryText = (session.summaryEntries || []).map((entry) => entry.text).join('\n\n');
+
   const systemPrompt = assembleRpSystemPrompt({
     preset,
     character,
     session,
     worldBookText,
-    summaryText: session.summaryText || '',
+    summaryText,
     historyText,
   });
 
@@ -160,27 +166,28 @@ const generateAndWriteReply = async ({ session, character, historyForContext, is
 };
 
 /**
- * 拼一段"旧提要 + 新剧情 -> 请融合成新提要"的总结请求文本。只让AI输出
- * 提要正文本身，不要标题、不要客套话——这段文本之后会原样塞进下一轮的
- * system prompt里，多余的寒暄只会污染正文。
+ * 拼一段"总结这一批新剧情"的请求文本。只让AI输出这一段的总结正文本身，
+ * 不要标题、不要客套话——这段文本会作为一个独立条目存进
+ * session.summaryEntries，不再跟旧的提要文本融合（跟用户确认过：每次
+ * 总结各自独立成条，不要把所有总结内容挤在一起）。
  */
-const buildSummaryPrompt = (existingSummary, batchText) => `你是一个长篇角色扮演故事的记忆整理模块。下面是这个故事到目前为止的"前情提要"（可能为空，代表这是第一次总结），以及最新发生的一段剧情。
+const buildSummaryPrompt = (batchText) => `你是一个长篇角色扮演故事的记忆整理模块。下面是这个故事里最新发生的一段剧情。
 
-请把新剧情自然地融合进旧的前情提要里，输出一份更新后的、完整的前情提要——保留对之后剧情有用的关键事件、人物关系变化、约定和伏笔，去掉无关的寒暄和重复细节，尽量精炼。只输出前情提要正文本身，不要加"前情提要："这类标题，不要加任何解释或客套话。
+请把这段剧情总结成一份简短的摘要——保留对之后剧情有用的关键事件、人物关系变化、约定和伏笔，去掉无关的寒暄和重复细节，尽量精炼。只输出摘要正文本身，不要加"总结："这类标题，不要加任何解释或客套话，也不需要提及这是第几次总结。
 
-【已有的前情提要】
-${existingSummary || '（暂无，这是第一次总结）'}
-
-【最新发生的剧情】
+【这一段的剧情】
 ${batchText}`;
 
 /**
- * 检查是否该自动生成一次新的前情提要，够数就真的发一次AI请求。
+ * 检查是否该自动生成一次新的总结条目，够数就真的发一次AI请求。
  * activeMessages 必须是已经过滤掉 archived 的、按时间正序的全量消息。
  */
 const maybeGenerateSummary = async (session, character, activeMessages) => {
   const turnsThresholdMessages = (session.summaryIntervalTurns || 50) * 2;
-  const coveredThroughId = session.summaryCoveredThroughMessageId || 0;
+  const existingEntries = session.summaryEntries || [];
+  const coveredThroughId = existingEntries.length
+    ? existingEntries[existingEntries.length - 1].coveredThroughMessageId || 0
+    : 0;
   const newMessages = activeMessages.filter((m) => m.id > coveredThroughId);
 
   if (newMessages.length < turnsThresholdMessages) return;
@@ -193,12 +200,13 @@ const maybeGenerateSummary = async (session, character, activeMessages) => {
       })
       .join('\n');
 
-    const prompt = buildSummaryPrompt(session.summaryText, batchText);
+    const prompt = buildSummaryPrompt(batchText);
     const newSummary = await generateResponse([{ role: 'user', content: prompt }]);
 
-    await updateRpSessionSummary(session.id, {
-      summaryText: String(newSummary || '').trim(),
-      summaryCoveredThroughMessageId: newMessages[newMessages.length - 1].id,
+    await addRpSessionSummaryEntry(session.id, {
+      text: String(newSummary || '').trim(),
+      coveredFromMessageId: newMessages[0].id,
+      coveredThroughMessageId: newMessages[newMessages.length - 1].id,
     });
 
     notify({ type: 'RP_SUMMARY_UPDATED', sessionId: session.id });

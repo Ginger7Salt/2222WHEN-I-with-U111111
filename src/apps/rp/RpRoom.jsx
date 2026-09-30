@@ -18,9 +18,10 @@
 //   contextWindowSize 设多大、这个折叠开关开不开，AI 上下文和界面渲染
 //   都会永久跳过它们，只能靠前情提要记得。这是个不可逆操作，点之前弹
 //   确认框。
-// 前情提要（session.summaryText）每 summaryIntervalTurns 轮自动更新，
-// 这里只负责显示——点一下"前情提要"这行字可以展开看当前的提要文本，
-// 不提供编辑（编辑前情提要这个功能这次没做）。
+// 前情提要（session.summaryEntries）每 summaryIntervalTurns 轮自动追加一个
+// 新条目（不是滚动覆盖成一份大文本），这里的"查看前情提要"只是把所有条目
+// 按顺序连起来只读展示；单条编辑/删除在会话设置面板（齿轮按钮，
+// RpRoomSettingsModal）里。
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -215,8 +216,12 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const lastCharacterMessageId = [...activeMessages].reverse().find((m) => m.senderType === 'character')?.id;
   const lastMessageId = activeMessages[activeMessages.length - 1]?.id;
 
+  const summaryEntries = session?.summaryEntries || [];
+  const lastSummaryCoveredThroughId = summaryEntries.length
+    ? summaryEntries[summaryEntries.length - 1].coveredThroughMessageId || 0
+    : 0;
   const sinceLastSummary = session
-    ? activeMessages.filter((m) => m.id > (session.summaryCoveredThroughMessageId || 0)).length
+    ? activeMessages.filter((m) => m.id > lastSummaryCoveredThroughId).length
     : 0;
   const turnsThresholdMessages = (session?.summaryIntervalTurns || 50) * 2;
   const floorsUntilSummary = Math.max(0, turnsThresholdMessages - sinceLastSummary);
@@ -361,23 +366,25 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
                 <button type="button" className="underline" onClick={handleToggleCollapse}>
                   {session.collapseEarlierFloors ? '关闭楼层折叠' : '开启楼层折叠'}
                 </button>
-                {session.summaryText ? (
+                {summaryEntries.length > 0 ? (
                   <>
                     {' · '}
                     <button type="button" className="underline" onClick={() => setShowSummary((v) => !v)}>
-                      {showSummary ? '收起前情提要' : '查看前情提要'}
+                      {showSummary ? '收起前情提要' : `查看前情提要（${summaryEntries.length}）`}
                     </button>
                   </>
                 ) : null}
                 {' ——'}
               </p>
 
-              {showSummary && session.summaryText ? (
+              {showSummary && summaryEntries.length > 0 ? (
                 <div
-                  className="w-full rounded-2xl border px-4 py-3 text-left text-[11px] leading-relaxed opacity-75"
+                  className="w-full space-y-2 rounded-2xl border px-4 py-3 text-left text-[11px] leading-relaxed opacity-75"
                   style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--card-bg)' }}
                 >
-                  {session.summaryText}
+                  {summaryEntries.map((entry, idx) => (
+                    <p key={entry.id || idx}>{entry.text}</p>
+                  ))}
                 </div>
               ) : null}
 
@@ -532,7 +539,7 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
         <ConfirmModal
           isOpen={Boolean(pendingArchiveBeforeId)}
           title="存档移出"
-          message="存档之后，这些楼层会从故事和AI的记忆里永久移除——AI以后只能靠前情提要记得它们发生过，不会再看到原文。这个操作不能撤销，确定吗？"
+          message="存档之后，这些楼层会从故事和AI的记忆里永久移除，AI以后只能靠前情提要记得它们发生过，不会再看到原文。这个操作不能撤销，确定吗？"
           confirmText="存档移出"
           onConfirm={confirmArchive}
           onCancel={() => setPendingArchiveBeforeId(null)}
