@@ -19,6 +19,11 @@
 //   - collapseEarlierFloors：是否手动隐藏/折叠早期楼层
 //   - allowHtml：是否允许AI输出的HTML内联CSS被渲染。跟用户确认过，这个
 //     开关放在会话设置里，不放在预设（rpPresets）上——切片B补的字段。
+//   - summaryText：滚动更新的"前情提要"文本，切片D补的字段。每次总结都是
+//     "旧提要 + 新发生的剧情 -> 融合成新提要"整份覆盖，不是追加。
+//   - summaryCoveredThroughMessageId：目前的 summaryText 已经覆盖到了
+//     哪条消息（按 rpMessages 自增id），用来算"这次总结完之后又新发生了
+//     多少条消息，够不够再触发一次"，不需要另外记一个计数器。
 
 import db from '../../db';
 import { deleteAllRpMessagesForSession } from './rpMessageService';
@@ -89,6 +94,10 @@ export const createRpSession = async ({ characterId, title } = {}) => {
 
       // HTML内联CSS渲染开关（切片B：跟预设分开，属于会话设置）
       allowHtml: false,
+
+      // 前情提要（切片D）
+      summaryText: '',
+      summaryCoveredThroughMessageId: null,
     });
     return newId;
   } catch (err) {
@@ -128,10 +137,42 @@ export const updateRpSessionPreset = async (sessionId, presetId) => {
   }
 };
 
+/**
+ * 切换"折叠早期楼层"这个开关（纯UI显示偏好，不影响AI能看到多少历史——
+ * AI那边永远是按 contextWindowSize 截取，跟这个开关是两件事）。
+ */
+export const updateRpSessionCollapse = async (sessionId, collapseEarlierFloors) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    await db.rpSessions.update(Number(sessionId), {
+      collapseEarlierFloors: Boolean(collapseEarlierFloors),
+    });
+  } catch (err) {
+    console.error('[rpService] 切换楼层折叠失败:', err);
+  }
+};
+
+/**
+ * 写入一次新的前情提要（rpAiService 的自动总结流程调用）。
+ */
+export const updateRpSessionSummary = async (sessionId, { summaryText, summaryCoveredThroughMessageId }) => {
+  if (sessionId === null || sessionId === undefined) return;
+  try {
+    await db.rpSessions.update(Number(sessionId), {
+      summaryText: String(summaryText || ''),
+      summaryCoveredThroughMessageId,
+    });
+  } catch (err) {
+    console.error('[rpService] 写入前情提要失败:', err);
+  }
+};
+
 export default {
   getAllRpSessions,
   getRpSessionById,
   createRpSession,
   deleteRpSession,
   updateRpSessionPreset,
+  updateRpSessionCollapse,
+  updateRpSessionSummary,
 };

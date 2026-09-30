@@ -1,28 +1,37 @@
 // src/apps/rp/RpRoom.jsx
 //
-// 长RP子应用切片C：真正的消息收发管道接入房间。
+// 长RP子应用切片C+D：消息收发管道 + 楼层折叠/存档 + 前情提要显示。
 //
-// 外壳（fixed铺满全屏、浮动头尾）是切片A就定好的，这次没动；新增的是
-// 中间消息区域从占位文案换成真实的 RpMessageCard 列表 + 可用的底部
-// 输入框，事件驱动靠订阅 rpAiService（照抄 BubbleRoom.jsx 订阅
-// bubbleAiService 那一套：收到事件就整表重拉一次这个会话的消息，
-// 消息量还不大，不做增量更新）。
+// 外壳（fixed铺满全屏、浮动头尾）是切片A就定好的，没再动。
 //
 // 编辑并截断（跟用户确认过的方案）：点"编辑"→改文字→保存时，如果这条
 // 消息后面还有消息，先弹确认框，确认了才真的截断；如果这条已经是最后
 // 一条，直接保存不用问。
 //
-// 总结/楼层折叠存档 UI 不在这个切片范围内（跟用户确认过留到下一个切片），
-// 所以 session.collapseEarlierFloors 这个字段目前没有对应的界面。
+// 切片D——楼层折叠 vs 存档移出是两件事（跟用户确认过）：
+// - "折叠早期楼层"只是界面显示偏好（session.collapseEarlierFloors），
+//   打开之后默认只渲染最近 contextWindowSize 条，更早的收进一条可展开的
+//   提示条里——展开只是临时在界面上多看一眼，不影响AI能看到多少历史
+//   （AI那边永远是走 rpAiService 的 contextWindowSize 截取，跟这个开关
+//   完全无关）。
+// - "存档移出"是真的把这些消息标记为 archived，之后不管
+//   contextWindowSize 设多大、这个折叠开关开不开，AI 上下文和界面渲染
+//   都会永久跳过它们，只能靠前情提要记得。这是个不可逆操作，点之前弹
+//   确认框。
+// 前情提要（session.summaryText）每 summaryIntervalTurns 轮自动更新，
+// 这里只负责显示——点一下"前情提要"这行字可以展开看当前的提要文本，
+// 不提供编辑（编辑前情提要这个功能这次没做）。
 
-import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ScrollText, BookOpen, SendHorizontal } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowLeft, ScrollText, BookOpen, SendHorizontal, ChevronDown, ChevronUp, Archive,
+} from 'lucide-react';
 
 import db from '../../db';
 import ConfirmModal from '../../components/ConfirmModal';
-import { getRpSessionById, updateRpSessionPreset } from './rpService';
+import { getRpSessionById, updateRpSessionPreset, updateRpSessionCollapse } from './rpService';
 import { getRpMessages, switchRpMessageVersion, editRpMessageAndTruncate } from './rpMessageService';
-import { sendRpMessage, rerollRpMessage, subscribeRpAiEvents } from './rpAiService';
+import { sendRpMessage, rerollRpMessage, archiveRpMessages, subscribeRpAiEvents } from './rpAiService';
 import RpPresetManager from './RpPresetManager';
 import RpMessageCard from './RpMessageCard';
 
@@ -36,6 +45,9 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [pendingEdit, setPendingEdit] = useState(null); // { messageId, newContent }
+  const [foldExpanded, setFoldExpanded] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [pendingArchiveBeforeId, setPendingArchiveBeforeId] = useState(null);
 
   const scrollRef = useRef(null);
 
@@ -59,6 +71,8 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
         setIsTyping(true);
       } else if (event.type === 'RP_TYPING_END') {
         setIsTyping(false);
+      } else if (event.type === 'RP_SUMMARY_UPDATED') {
+        void refreshSession();
       }
     });
     return unsubscribe;
@@ -72,6 +86,11 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const refreshMessages = async () => {
     const rows = await getRpMessages(sessionId);
     setMessages(rows);
+  };
+
+  const refreshSession = async () => {
+    const s = await getRpSessionById(sessionId);
+    if (s) setSession(s);
   };
 
   const loadData = async () => {
@@ -91,6 +110,13 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
   const handleSelectPreset = async (presetId) => {
     await updateRpSessionPreset(sessionId, presetId);
     setSession((prev) => (prev ? { ...prev, presetId } : prev));
+  };
+
+  const handleToggleCollapse = async () => {
+    const next = !session.collapseEarlierFloors;
+    await updateRpSessionCollapse(sessionId, next);
+    setSession((prev) => (prev ? { ...prev, collapseEarlierFloors: next } : prev));
+    setFoldExpanded(false);
   };
 
   const handleSend = async () => {
@@ -140,6 +166,45 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
     setInputText((prev) => (prev ? `${prev}\n> ${quoted}\n` : `> ${quoted}\n`));
   };
 
+  const handleArchiveOut = (beforeMessageId) => {
+    setPendingArchiveBeforeId(beforeMessageId);
+  };
+
+  const confirmArchive = async () => {
+    const beforeId = pendingArchiveBeforeId;
+    setPendingArchiveBeforeId(null);
+    await archiveRpMessages(sessionId, beforeId);
+    setFoldExpanded(false);
+  };
+
+  // 已存档的消息在界面上彻底不存在——不是折叠，是真的不再显示。
+  const activeMessages = useMemo(
+    () => messages.filter((m) => !m.archived),
+    [messages]
+  );
+
+  const { earlierMessages, recentMessages } = useMemo(() => {
+    if (!session?.collapseEarlierFloors || activeMessages.length <= (session?.contextWindowSize || 60)) {
+      return { earlierMessages: [], recentMessages: activeMessages };
+    }
+    const windowSize = session.contextWindowSize || 60;
+    return {
+      earlierMessages: activeMessages.slice(0, activeMessages.length - windowSize),
+      recentMessages: activeMessages.slice(activeMessages.length - windowSize),
+    };
+  }, [activeMessages, session?.collapseEarlierFloors, session?.contextWindowSize]);
+
+  const visibleMessages = foldExpanded ? activeMessages : recentMessages;
+
+  const lastCharacterMessageId = [...activeMessages].reverse().find((m) => m.senderType === 'character')?.id;
+  const lastMessageId = activeMessages[activeMessages.length - 1]?.id;
+
+  const sinceLastSummary = session
+    ? activeMessages.filter((m) => m.id > (session.summaryCoveredThroughMessageId || 0)).length
+    : 0;
+  const turnsThresholdMessages = (session?.summaryIntervalTurns || 50) * 2;
+  const floorsUntilSummary = Math.max(0, turnsThresholdMessages - sinceLastSummary);
+
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center text-xs opacity-50" style={{ background: 'var(--bg-main)' }}>
@@ -161,8 +226,6 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
       </div>
     );
   }
-
-  const lastCharacterMessageId = [...messages].reverse().find((m) => m.senderType === 'character')?.id;
 
   return (
     <div
@@ -225,7 +288,63 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
       {/* 唯一可滚动的区域 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-4">
         <div className="mx-auto flex max-w-[620px] flex-col gap-8 pt-2">
-          {messages.length === 0 ? (
+          {/* 楼层/总结提示条 */}
+          {activeMessages.length > 0 && (
+            <div className="flex flex-col items-center gap-1.5 text-center">
+              <p className="text-[10px] tracking-wide opacity-45">
+                —— 第 {activeMessages.length} 楼
+                {session.summaryIntervalTurns ? ` · 距下次总结还有 ${floorsUntilSummary} 楼` : ''}
+                {' · '}
+                <button type="button" className="underline" onClick={handleToggleCollapse}>
+                  {session.collapseEarlierFloors ? '关闭楼层折叠' : '开启楼层折叠'}
+                </button>
+                {session.summaryText ? (
+                  <>
+                    {' · '}
+                    <button type="button" className="underline" onClick={() => setShowSummary((v) => !v)}>
+                      {showSummary ? '收起前情提要' : '查看前情提要'}
+                    </button>
+                  </>
+                ) : null}
+                {' ——'}
+              </p>
+
+              {showSummary && session.summaryText ? (
+                <div
+                  className="w-full rounded-2xl border px-4 py-3 text-left text-[11px] leading-relaxed opacity-75"
+                  style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--card-bg)' }}
+                >
+                  {session.summaryText}
+                </div>
+              ) : null}
+
+              {earlierMessages.length > 0 && (
+                <div
+                  className="mt-1 flex w-full items-center justify-center gap-3 rounded-2xl border border-dashed px-4 py-2.5 text-[11px]"
+                  style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--card-bg)', color: 'var(--text-muted)' }}
+                >
+                  <span>前面还有 {earlierMessages.length} 楼对话，已折叠</span>
+                  <button
+                    type="button"
+                    className="flex items-center gap-0.5 underline"
+                    onClick={() => setFoldExpanded((v) => !v)}
+                  >
+                    {foldExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    {foldExpanded ? '收起' : '展开'}
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center gap-0.5 underline"
+                    onClick={() => handleArchiveOut(recentMessages[0]?.id)}
+                  >
+                    <Archive className="h-3 w-3" /> 存档移出
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeMessages.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16 text-center opacity-55">
               <ScrollText className="h-8 w-8 opacity-30" />
               <p
@@ -238,20 +357,20 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
               </p>
             </div>
           ) : (
-            messages.map((msg) => (
+            visibleMessages.map((msg) => (
               <RpMessageCard
                 key={msg.id}
                 message={msg}
                 character={character}
                 session={session}
                 canReroll={msg.senderType === 'character' && msg.id === lastCharacterMessageId}
-                hasFollowingMessages={messages[messages.length - 1]?.id !== msg.id}
+                hasFollowingMessages={msg.id !== lastMessageId}
                 onSwitchVersion={(direction) => handleSwitchVersion(msg.id, direction)}
                 onReroll={() => handleReroll(msg.id)}
                 onEditAndTruncate={(newContent) => handleEditAndTruncate(
                   msg.id,
                   newContent,
-                  messages[messages.length - 1]?.id !== msg.id
+                  msg.id !== lastMessageId
                 )}
                 onQuote={handleQuote}
               />
@@ -323,6 +442,17 @@ const RpRoom = ({ sessionId, onBack, onChatRoomStateChange }) => {
             void applyEdit(messageId, newContent);
           }}
           onCancel={() => setPendingEdit(null)}
+        />
+      )}
+
+      {pendingArchiveBeforeId && (
+        <ConfirmModal
+          isOpen={Boolean(pendingArchiveBeforeId)}
+          title="存档移出"
+          message="存档之后，这些楼层会从故事和AI的记忆里永久移除——AI以后只能靠前情提要记得它们发生过，不会再看到原文。这个操作不能撤销，确定吗？"
+          confirmText="存档移出"
+          onConfirm={confirmArchive}
+          onCancel={() => setPendingArchiveBeforeId(null)}
         />
       )}
     </div>

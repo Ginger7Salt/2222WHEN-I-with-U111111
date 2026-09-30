@@ -101,13 +101,24 @@ export const buildRpHistoryContext = (messages = [], regexScripts = [], contextW
  * - worldBookText / historyText 是调用方（切片C的消息管道）传进来的
  *   两段"占位符要替换成什么"，这个函数自己不知道世界书怎么扫描、
  *   历史怎么截取，只负责把它们塞进预设里标了 isMarker 的对应位置。
+ * - summaryText（切片D）是滚动更新的"前情提要"，跟历史占位符共用同一个
+ *   注入点——不新增一个"总结注入点"标记类型，也不用改预设结构/编辑器
+ *   （编辑器目前也没有让用户手动把一个新条目标成isMarker的入口）。有
+ *   summaryText 就在历史文本前面加一段"前情提要"小标题+内容，没有就
+ *   跟切片C之前一样只有历史文本本身，完全向后兼容已经建好的预设。
  * - 找不到预设（session.presetId 指向一个已删除的预设）时，退回成
  *   只有历史、没有任何自定义prompts块的最简拼装——见 rpPresetService
  *   删除函数注释里说的"静默退回"。
  */
-export const assembleRpSystemPrompt = ({ preset, character, session, worldBookText = '', historyText = '' }) => {
+export const assembleRpSystemPrompt = ({
+  preset, character, session, worldBookText = '', summaryText = '', historyText = '',
+}) => {
+  const combinedHistoryBlock = summaryText
+    ? `【前情提要】\n${summaryText}\n\n【最近的对话】\n${historyText}`
+    : historyText;
+
   if (!preset || !Array.isArray(preset.prompts)) {
-    return historyText;
+    return combinedHistoryBlock;
   }
 
   const promptsById = Object.fromEntries(preset.prompts.map((p) => [p.identifier, p]));
@@ -126,7 +137,7 @@ export const assembleRpSystemPrompt = ({ preset, character, session, worldBookTe
       if (identifier === 'world-book' || prompt.name === '世界书注入点') {
         if (worldBookText) blocks.push(worldBookText);
       } else if (identifier === 'history' || prompt.name === '聊天历史注入点') {
-        if (historyText) blocks.push(historyText);
+        if (combinedHistoryBlock) blocks.push(combinedHistoryBlock);
       }
       continue;
     }
