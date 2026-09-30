@@ -570,14 +570,15 @@ const BubbleRoom = ({ roomId, onBack, onChatRoomStateChange }) => {
         </div>
       </footer>
 
-      {showSettings && (
-        <BubbleRoomSettingsModal
-          room={room}
-          onClose={() => setShowSettings(false)}
-          onUpdated={handleAppearanceUpdated}
-          onOpenBubbleCustomizer={() => setShowBubbleCustomizer(true)}
-        />
-      )}
+     {showSettings && (
+  <BubbleRoomSettingsModal
+    room={room}
+    members={members}
+    onClose={() => setShowSettings(false)}
+    onUpdated={handleAppearanceUpdated}
+    onOpenBubbleCustomizer={() => setShowBubbleCustomizer(true)}
+  />
+)}
 
       {showBubbleCustomizer && (
         <BubbleCustomizer

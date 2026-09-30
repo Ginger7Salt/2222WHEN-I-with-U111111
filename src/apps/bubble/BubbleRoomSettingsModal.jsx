@@ -27,13 +27,68 @@
 // 才退回角色自己的默认人设。UI 上照抄 messages/ChatSettingsModal.jsx 编辑
 // 用户人设那两个输入框的写法：本地 state + onBlur 才提交，不是每敲一个字
 // 就写一次 Dexie。
+//
+// 2026-09 新增："记忆总结"面板——泡泡模式回退共享记忆系统之后（见
+// bubbleAiService.js 顶部注释）新加的房间自己的滚动总结，每个角色一份，
+// 互相独立（因为每个角色在房间里看到的历史本来就是各自隔离的）。UI 照抄
+// RP 模式 RpRoomSettingsModal.jsx 的"前情提要"那一节（SummaryEntryCard、
+// 本地草稿+onBlur提交、ConfirmModal二次确认删除），只是外面多包一层"先选
+// 哪个角色"——房间可能有好几个成员，每个成员的总结条目要分开看/分开编辑。
 
 import React, { useRef, useState } from 'react';
 import { X, Upload, Trash2, Eye, EyeOff, Palette, Image as ImageIcon } from 'lucide-react';
 
 import db from '../../db';
+import ConfirmModal from '../../components/ConfirmModal';
 import ColorSettingRow from '../messages/components/ColorSettingRow';
 import { CHAT_CONTROL_STYLE_OPTIONS } from '../messages/chatControlStylePresets';
+import {
+  getBubbleMemberSummaryEntries,
+  updateBubbleMemberSummaryEntryText,
+  deleteBubbleMemberSummaryEntry,
+} from './bubbleService';
+
+const formatTime = (ts) => {
+  if (!ts) return '';
+  try {
+    return new Date(ts).toLocaleString();
+  } catch {
+    return '';
+  }
+};
+
+// 单条总结条目：本地草稿 + onBlur 才提交，避免每敲一个字就写一次 Dexie，
+// 跟 RP 模式 RpRoomSettingsModal.jsx 的 SummaryEntryCard 是同一个写法。
+const SummaryEntryCard = ({ ordinal, entry, onCommitText, onRequestDelete }) => {
+  const [draft, setDraft] = useState(entry.text || '');
+
+  return (
+    <div
+      className="space-y-1.5 rounded-xl border px-2.5 py-2"
+      style={{ borderColor: 'var(--divider)', backgroundColor: 'var(--bg-main)' }}
+    >
+      <div className="flex items-center justify-between text-[9px] opacity-50">
+        <span>第 {ordinal} 次总结{entry.createdAt ? ` · ${formatTime(entry.createdAt)}` : ''}</span>
+        <button
+          type="button"
+          onClick={() => onRequestDelete(entry.id)}
+          className="text-red-500 opacity-80 hover:opacity-100"
+          title="删除这一条"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+      <textarea
+        rows={3}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => onCommitText(entry.id, draft.trim())}
+        className="w-full resize-y overflow-y-auto rounded-lg border px-2 py-1.5 text-[10.5px] leading-relaxed outline-none max-h-32 min-h-[48px]"
+        style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)', color: 'var(--text-main)' }}
+      />
+    </div>
+  );
+};
 
 const SectionCard = ({ title, tag, description, children }) => (
   <div
@@ -59,7 +114,7 @@ const SectionCard = ({ title, tag, description, children }) => (
   </div>
 );
 
-const BubbleRoomSettingsModal = ({ room, onClose, onUpdated, onOpenBubbleCustomizer }) => {
+const BubbleRoomSettingsModal = ({ room, members = [], onClose, onUpdated, onOpenBubbleCustomizer }) => {
   const fileInputRef = useRef(null);
 
   const [isBgDimmed, setIsBgDimmed] = useState(room?.isBgDimmed ?? true);
@@ -68,6 +123,11 @@ const BubbleRoomSettingsModal = ({ room, onClose, onUpdated, onOpenBubbleCustomi
 
   const [userName, setUserName] = useState(room?.userName || '');
   const [userPersona, setUserPersona] = useState(room?.userPersona || '');
+
+  const [selectedSummaryCharacterId, setSelectedSummaryCharacterId] = useState(
+    members[0]?.id ?? null
+  );
+  const [pendingDeleteSummary, setPendingDeleteSummary] = useState(null); // { characterId, entryId }
 
   if (!room?.id) return null;
 
@@ -115,6 +175,32 @@ const BubbleRoomSettingsModal = ({ room, onClose, onUpdated, onOpenBubbleCustomi
       userName: (userName || '').trim(),
       userPersona: (userPersona || '').trim(),
     });
+  };
+
+  const summaryEntries = selectedSummaryCharacterId
+    ? getBubbleMemberSummaryEntries(room, selectedSummaryCharacterId)
+    : [];
+
+  // 展示顺序是最新的在最上面，但"第几次"这个序号按发生的时间顺序算，
+  // 不受展示顺序影响——跟 RP 模式的同一个写法。
+  const displaySummaryEntries = summaryEntries
+    .map((entry, idx) => ({ entry, ordinal: idx + 1 }))
+    .reverse();
+
+  const handleCommitSummaryEntryText = (entryId, text) => {
+    if (!selectedSummaryCharacterId) return;
+    void (async () => {
+      const nextMap = await updateBubbleMemberSummaryEntryText(room.id, selectedSummaryCharacterId, entryId, text);
+      if (nextMap) onUpdated?.({ memberSummaries: nextMap });
+    })();
+  };
+
+  const handleDeleteSummaryEntry = (characterId, entryId) => {
+    void (async () => {
+      const nextMap = await deleteBubbleMemberSummaryEntry(room.id, characterId, entryId);
+      if (nextMap) onUpdated?.({ memberSummaries: nextMap });
+      setPendingDeleteSummary(null);
+    })();
   };
 
   return (
@@ -336,7 +422,64 @@ const BubbleRoomSettingsModal = ({ room, onClose, onUpdated, onOpenBubbleCustomi
           <span className="font-semibold">消息气泡配色与装饰</span>
           <Palette className="w-3.5 h-3.5 opacity-60" />
         </button>
+
+        {/* 记忆总结：每个角色各自独立一份，先选角色再看/编辑那个角色的条目 */}
+        {members.length > 0 && (
+          <SectionCard
+            title="记忆总结"
+            tag="SUMMARY"
+            description="每个角色在这个房间里的总结是各自独立的——每隔一段时间AI会给这个角色自动生成一条新的总结，各条互不覆盖，可以单独编辑或删除。"
+          >
+            {members.length > 1 && (
+              <div className="flex flex-wrap gap-1.5">
+                {members.map((m) => {
+                  const isActive = selectedSummaryCharacterId === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setSelectedSummaryCharacterId(m.id)}
+                      className="px-2.5 py-1 rounded-full border text-[10.5px] font-medium"
+                      style={{
+                        background: isActive ? 'var(--accent-color)' : 'var(--bg-main)',
+                        borderColor: isActive ? 'var(--accent-color)' : 'var(--divider)',
+                        color: isActive ? 'var(--accent-foreground)' : 'var(--text-main)',
+                      }}
+                    >
+                      {m.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {displaySummaryEntries.length === 0 ? (
+              <p className="text-[10.5px] opacity-45">这个角色在这个房间里还没有生成过总结，攒够轮数会自动生成第一条。</p>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {displaySummaryEntries.map(({ entry, ordinal }) => (
+                  <SummaryEntryCard
+                    key={entry.id}
+                    ordinal={ordinal}
+                    entry={entry}
+                    onCommitText={handleCommitSummaryEntryText}
+                    onRequestDelete={(entryId) => setPendingDeleteSummary({ characterId: selectedSummaryCharacterId, entryId })}
+                  />
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        )}
       </div>
+
+      <ConfirmModal
+        isOpen={Boolean(pendingDeleteSummary)}
+        title="删除这条总结"
+        message="删除之后，这个角色以后就看不到这一条总结覆盖的那段对话梗概了（原始消息本身不受影响）。这个操作不能撤销，确定吗？"
+        confirmText="删除"
+        onConfirm={() => handleDeleteSummaryEntry(pendingDeleteSummary?.characterId, pendingDeleteSummary?.entryId)}
+        onCancel={() => setPendingDeleteSummary(null)}
+      />
     </div>
   );
 };

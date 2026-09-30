@@ -5,12 +5,24 @@
 // 房间本身是一条 bubbleRooms 记录，成员名单 selectedCharacterIds 是内联
 // 的非索引数组字段，不单独建成员关系表。
 //
-// 切片B新增：bubbleMessages 表的读写（getBubbleMessages/addBubbleMessage），
-// 以及 ensureCharacterChatId——把一个角色的回复镜像写进它自己真实的一对一
-// 聊天记录（用于免费接入现有记忆系统，见 bubbleAiService.js 顶部注释）时，
-// 如果这个角色压根还没有一对一聊天记录，就悄悄帮它建一个空的（跟
-// messages/NewChatModal.jsx 新建聊天时的默认字段保持一致），这是跟用户
-// 确认过的方案。
+// 切片B新增：bubbleMessages 表的读写（getBubbleMessages/addBubbleMessage）。
+//
+// 2026-09：这里原本还有一个 ensureCharacterChatId——把角色在房间里的回复
+// 镜像写进它自己真实的一对一聊天记录，用于接入共享记忆系统。已经跟
+// bubbleAiService.js 里调用它的那部分一起回退（见那个文件顶部注释），
+// 泡泡模式暂时完全不碰共享记忆系统，这个函数也一并删掉，不留没人用的
+// 死代码。
+//
+// 2026-09 新增：房间自己的滚动总结（跟共享记忆系统完全独立，纯粹是给
+// bubbleAiService.js 的"上下文窗口截断"配套用的，参照 RP 模式
+// rpService.js 的 summaryEntries 那一套）。跟RP不同的地方：RP一个会话
+// 只对应一个角色，总结天然是会话级的；泡泡房间一个房间有好几个角色，
+// 每个角色在房间里看到的历史是各自隔离的（见 bubbleAiService.js 的
+// buildIsolatedHistory），所以总结也必须按"角色"分开存，不能整个房间共用
+// 一份——跟用户确认过，存成 room.memberSummaries = { [characterId]: [条目...] }，
+// 每个角色自己的条目数组结构跟 RP 的 summaryEntries 完全一样（每次总结
+// 独立成一条，不覆盖，可以单独编辑/删除），只是外面多包一层按角色分类的
+// 字段名。非索引附加字段，不需要 db 版本升级。
 //
 // @定向可见度（切片C）相关字段留到那时候再加。
 
@@ -122,40 +134,92 @@ export const addBubbleMessage = async (entry) => {
   }
 };
 
+const makeSummaryEntryId = () => (
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+);
+
 /**
- * 确保一个角色有一条真实的一对一聊天记录（chats 表），没有就静默建一个
- * 空的——字段照抄 messages/NewChatModal.jsx 新建聊天时的默认值，这样
- * 用户万一自己点进这条聊天，看到的是正常的空聊天而不是残缺数据。
- *
- * 泡泡模式用这条聊天的 chatId 给角色在房间里的回复挂记忆（见
- * bubbleAiService.js），角色自己一对一聊天的消息列表/AI上下文永远不会
- * 读到泡泡模式写进去的内容（那些消息打了 mode:'bubble' 标记，
- * ChatRoom.jsx / aiService.js 读取消息的几处已经排除掉这个 mode）。
+ * 取某个角色在某个房间里当前的总结条目数组（纯函数，room 记录已经在手上
+ * 时直接用这个，不用再查一次库）。room.memberSummaries 或者对应角色这个
+ * key 还不存在时返回空数组，不是 null/undefined，方便调用方直接 .map。
  */
-export const ensureCharacterChatId = async (characterId) => {
+export const getBubbleMemberSummaryEntries = (room, characterId) => {
+  const entries = room?.memberSummaries?.[characterId];
+  return Array.isArray(entries) ? entries : [];
+};
+
+/**
+ * 追加一条新的总结条目（bubbleAiService 的自动总结流程调用，每触发一次
+ * 算一个独立条目，不覆盖之前该角色已有的条目）。
+ */
+export const addBubbleMemberSummaryEntry = async (roomId, characterId, { text, coveredFromMessageId, coveredThroughMessageId }) => {
+  if (roomId === null || roomId === undefined) return;
   try {
-    const existing = await db.chats.where('characterId').equals(characterId).first();
-    if (existing) return existing.id;
-
-    const character = await db.characters.get(characterId);
-    if (!character) return null;
-
-    const now = new Date().toISOString();
-
-    return await db.chats.add({
-      characterId,
-      mode: 'real',
-      title: character.name,
+    const numericId = Number(roomId);
+    const room = await db.bubbleRooms.get(numericId);
+    const existingMap = room?.memberSummaries || {};
+    const existingEntries = Array.isArray(existingMap[characterId]) ? existingMap[characterId] : [];
+    const now = Date.now();
+    const entry = {
+      id: makeSummaryEntryId(),
+      text: String(text || ''),
+      coveredFromMessageId: coveredFromMessageId ?? null,
+      coveredThroughMessageId: coveredThroughMessageId ?? null,
+      createdAt: now,
       updatedAt: now,
-      userName: character.userName || '',
-      userAvatar: character.userAvatar || '',
-      userPersona: character.userPersona || '',
-      inputPlaceholder: `与 ${character.name} 倾诉...`,
-      typingText: '',
-      keepAlive: false,
-    });
+    };
+    const nextMap = { ...existingMap, [characterId]: [...existingEntries, entry] };
+    await db.bubbleRooms.update(numericId, { memberSummaries: nextMap });
+    return nextMap;
   } catch (err) {
-    console.error('[bubbleService] 确保角色一对一聊天记录失败:', err);
+    console.error('[bubbleService] 追加房间总结条目失败:', err);
+    return null;
+  }
+};
+
+/**
+ * 设置面板里编辑某个角色的某一条总结条目正文（不影响它的覆盖范围/顺序）。
+ */
+export const updateBubbleMemberSummaryEntryText = async (roomId, characterId, entryId, text) => {
+  if (roomId === null || roomId === undefined) return;
+  try {
+    const numericId = Number(roomId);
+    const room = await db.bubbleRooms.get(numericId);
+    const existingMap = room?.memberSummaries || {};
+    const existingEntries = Array.isArray(existingMap[characterId]) ? existingMap[characterId] : [];
+    const nextEntries = existingEntries.map((entry) => (
+      entry.id === entryId ? { ...entry, text: String(text || ''), updatedAt: Date.now() } : entry
+    ));
+    const nextMap = { ...existingMap, [characterId]: nextEntries };
+    await db.bubbleRooms.update(numericId, { memberSummaries: nextMap });
+    return nextMap;
+  } catch (err) {
+    console.error('[bubbleService] 编辑房间总结条目失败:', err);
+    return null;
+  }
+};
+
+/**
+ * 设置面板里删除某个角色的某一条总结条目。删掉之后不会重新触发那一段
+ * 消息的自动总结——"下一次覆盖到哪条消息"看的是这个角色剩下条目里最后
+ * 一个的 coveredThroughMessageId，删掉中间某一条不影响这个判断，只是AI
+ * 以后看不到那一段的提要了（原始消息本身没删）。
+ */
+export const deleteBubbleMemberSummaryEntry = async (roomId, characterId, entryId) => {
+  if (roomId === null || roomId === undefined) return;
+  try {
+    const numericId = Number(roomId);
+    const room = await db.bubbleRooms.get(numericId);
+    const existingMap = room?.memberSummaries || {};
+    const existingEntries = Array.isArray(existingMap[characterId]) ? existingMap[characterId] : [];
+    const nextEntries = existingEntries.filter((entry) => entry.id !== entryId);
+    const nextMap = { ...existingMap, [characterId]: nextEntries };
+    await db.bubbleRooms.update(numericId, { memberSummaries: nextMap });
+    return nextMap;
+  } catch (err) {
+    console.error('[bubbleService] 删除房间总结条目失败:', err);
     return null;
   }
 };
@@ -168,5 +232,8 @@ export default {
   deleteBubbleRoom,
   getBubbleMessages,
   addBubbleMessage,
-  ensureCharacterChatId,
+  getBubbleMemberSummaryEntries,
+  addBubbleMemberSummaryEntry,
+  updateBubbleMemberSummaryEntryText,
+  deleteBubbleMemberSummaryEntry,
 };
