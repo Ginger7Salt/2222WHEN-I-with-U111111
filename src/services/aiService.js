@@ -687,20 +687,23 @@ export const sendChatMessage = generateResponse;
 export const generateText = generateResponse;
 export const chat = generateResponse;
 
+// 判断一次 AI 请求的失败结果，是否够格触发「切到备用 API」——
+// 网络错误、以及任何非 2xx 状态码（含 401 认证失败、402 余额不足、
+// 429 限流、5xx 服务器错误等）都算；本地就能判断出来的
+// CONFIG_MISSING（这个端点压根没配置）也算，这样"主 API 干脆没填，
+// 只填了备用"这种用法也能直接生效；EMPTY_RESPONSE（连上了但没内容）
+// 暂不触发，因为换端点大概率也是同样的模型/参数问题，意义不大。
+const isFallbackWorthyError = (result) => {
+  if (!result?.error) return false;
+  if (result.code === 'NETWORK_ERROR' || result.code === 'CONFIG_MISSING') {
+    return true;
+  }
+  return typeof result.code === 'string' && result.code.startsWith('HTTP_');
+};
 
- const performFetchAiCompletionWithTools = async ({
-  systemPrompt = '',
-  messages = [],
-  apiConfig: configOverride = null,
-  tools = [],
-}) => {
-  const apiSettings = configOverride
-    ? null
-    : await db.settings.get('apiConfig');
-
-  const apiConfig = configOverride || apiSettings?.value || {};
-
-  if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+// 真正打一次请求（不管是主 API 还是备用 API，都走这同一份逻辑）。
+const attemptAiCompletionOnce = async ({ apiConfig, systemPrompt, messages, tools }) => {
+  if (!apiConfig?.baseUrl || !apiConfig?.apiKey) {
     return {
       error: true,
       code: 'CONFIG_MISSING',
@@ -799,6 +802,71 @@ export const chat = generateResponse;
   }
 };
 
+ const performFetchAiCompletionWithTools = async ({
+  systemPrompt = '',
+  messages = [],
+  apiConfig: configOverride = null,
+  tools = [],
+}) => {
+  const apiSettings = configOverride
+    ? null
+    : await db.settings.get('apiConfig');
+
+  const primaryConfig = configOverride || apiSettings?.value || {};
+
+  const primaryResult = await attemptAiCompletionOnce({
+    apiConfig: primaryConfig,
+    systemPrompt,
+    messages,
+    tools,
+  });
+
+  if (!primaryResult.error || !isFallbackWorthyError(primaryResult)) {
+    // usedApiConfig 只在这个函数和 fetchAiCompletionWithTools 内部流转，
+    // 用来记日志用的 model/baseUrl；fetchAiCompletionWithTools 会在
+    // 返回给调用方之前把它连同 apiKey 一起剥掉，绝不会流出这两个函数。
+    return { ...primaryResult, usedApiConfig: primaryConfig };
+  }
+
+  // 主 API 不成功且值得切换：看看有没有配置备用 API。
+  let backupConfig = null;
+  try {
+    const backupSettings = await db.settings.get('apiConfigBackup');
+    backupConfig = backupSettings?.value || null;
+  } catch {
+    backupConfig = null;
+  }
+
+  if (!backupConfig?.baseUrl || !backupConfig?.apiKey) {
+    // 没配置备用，原样返回主 API 的失败结果，行为跟没有这个功能之前一致。
+    return { ...primaryResult, usedApiConfig: primaryConfig };
+  }
+
+  const backupResult = await attemptAiCompletionOnce({
+    apiConfig: backupConfig,
+    systemPrompt,
+    messages,
+    tools,
+  });
+
+  if (!backupResult.error) {
+    return {
+      ...backupResult,
+      usedApiConfig: backupConfig,
+      usedFallbackApi: true,
+    };
+  }
+
+  // 主备都失败：把两边的错误都带上，方便直接看出是哪一边的问题。
+  return {
+    error: true,
+    code: backupResult.code,
+    message: `[主 API] ${primaryResult.message}\n[备用 API] ${backupResult.message}`,
+    usedApiConfig: backupConfig,
+    fallbackAttempted: true,
+  };
+};
+
 export const fetchAiCompletionWithTools = async ({
   systemPrompt = '',
   messages = [],
@@ -808,30 +876,30 @@ export const fetchAiCompletionWithTools = async ({
   characterId = null,
 } = {}) => {
   const startedAt = Date.now();
-  const result = await performFetchAiCompletionWithTools({
+  const rawResult = await performFetchAiCompletionWithTools({
     systemPrompt,
     messages,
     apiConfig: configOverride,
     tools,
   });
 
-  try {
-    const apiSettings = configOverride
-      ? null
-      : await db.settings.get('apiConfig');
-    const apiConfig = configOverride || apiSettings?.value || {};
+  // usedApiConfig 带着完整的 apiKey，只在这里用来记日志（只取 model/baseUrl），
+  // 绝不能跟着 result 一起返回给调用方——下面从要返回的对象里去掉它。
+  const { usedApiConfig, ...result } = rawResult;
 
-       logChatApiCall({
+  try {
+    logChatApiCall({
       chatId,
       characterId,
-      model: apiConfig.model,
-      baseUrl: apiConfig.baseUrl,
+      model: usedApiConfig?.model,
+      baseUrl: usedApiConfig?.baseUrl,
       status: result?.error ? 'error' : 'success',
       latencyMs: Date.now() - startedAt,
       errorMessage: result?.error ? result?.message : '',
       promptTokens: result?.usage?.prompt_tokens ?? null,
       completionTokens: result?.usage?.completion_tokens ?? null,
       totalTokens: result?.usage?.total_tokens ?? null,
+      usedFallback: Boolean(result?.usedFallbackApi),
     });
   } catch {
     // 记日志本身绝不能影响聊天流程。
@@ -839,7 +907,6 @@ export const fetchAiCompletionWithTools = async ({
 
   return result;
 };
-
 const saveAiErrorMessage = async (chatId, character, result) => {
   const nowIso = new Date().toISOString();
 
@@ -2394,13 +2461,16 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
           sender: 'character',
           type: msgData.type || 'text',
           content: msgData.content || '',
-                 metadata: {
+                               metadata: {
   ...(msgData.metadata || {}),
   ...(messageIndex === 0 && mcpTrace
     ? { mcpTrace }
     : {}),
   ...(messageIndex === 0 && result.mcpCard
     ? { mcpCard: result.mcpCard }
+    : {}),
+  ...(messageIndex === 0 && result.usedFallbackApi
+    ? { usedFallbackApi: true }
     : {}),
 },
 
@@ -2417,8 +2487,10 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
   ...(messageIndex === 0 && result.mcpCard
     ? { mcpCard: result.mcpCard }
     : {}),
+  ...(messageIndex === 0 && result.usedFallbackApi
+    ? { usedFallbackApi: true }
+    : {}),
 },
-
 
               timestamp: nowIso
             }
@@ -2782,7 +2854,7 @@ const result = await runAiToolOrchestrator({
         mcpTraceSession,
       );
 
-      const firstMessage = parsed[0] || {
+            const firstMessage = parsed[0] || {
         type: 'text',
         content: result.content,
         metadata: {},
@@ -2792,7 +2864,10 @@ const result = await runAiToolOrchestrator({
       newVersion = {
         type: firstMessage.type || 'text',
         content: firstMessage.content || '',
-        metadata: firstMessage.metadata || {},
+        metadata: {
+          ...(firstMessage.metadata || {}),
+          ...(result.usedFallbackApi ? { usedFallbackApi: true } : {}),
+        },
         timestamp: nowIso
       };
     }

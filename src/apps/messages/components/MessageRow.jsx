@@ -37,6 +37,7 @@ import OrderRequestCard from './cards/OrderRequestCard';
 import StickerCard from './cards/StickerCard';
 import PhotoCard from './cards/PhotoCard';
 import McpUsageTraceCard from './cards/McpUsageTraceCard';
+import ApiFallbackHint from './cards/ApiFallbackHint';
 import CompanionOfferCard from './cards/CompanionOfferCard';
 
 import McdOrderCard from './cards/McdOrderCard';
@@ -518,11 +519,16 @@ const MessageRow = ({
             />
           )}
 
-          {/* MCP 外接痕迹通用胶囊 */}
+                  {/* MCP 外接痕迹通用胶囊 */}
           {!isUser && messageMcpTrace && (
             <McpUsageTraceCard
               trace={messageMcpTrace}
             />
+          )}
+
+          {/* 双 API 备用：这条回复是主 API 失败后自动切到备用 API 生成的 */}
+          {!isUser && msg.metadata?.usedFallbackApi && (
+            <ApiFallbackHint />
           )}
 
           {/* 麦当劳专属卡片 */}

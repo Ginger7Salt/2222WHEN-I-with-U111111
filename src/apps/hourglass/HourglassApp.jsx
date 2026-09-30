@@ -165,6 +165,7 @@ export const HourglassApp = ({ onBackHub }) => {
       latencyMs: log.latencyMs,
       totalTokens: log.totalTokens ?? null,
       errorMessage: log.errorMessage || '',
+      usedFallback: Boolean(log.usedFallback),
     }));
 
     return [...chatRows, ...mcpRows].sort(
@@ -286,6 +287,7 @@ export const HourglassApp = ({ onBackHub }) => {
                   <div className="hourglass-row__meta">
                     {row.kind === 'chat' ? '主聊天' : 'MCP 工具'}
                     {row.meta ? ` · ${row.meta}` : ''}
+                    {row.usedFallback ? ' · 备用线路' : ''}
                     {Number.isFinite(row.latencyMs)
                       ? ` · ${(row.latencyMs / 1000).toFixed(1)}s`
                       : ''}

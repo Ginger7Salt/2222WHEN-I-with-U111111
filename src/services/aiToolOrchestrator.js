@@ -526,9 +526,13 @@ export const runAiToolOrchestrator = async ({
    * 下一条用户消息会再次进入 runAiToolOrchestrator，
    * 因而不会阻断用户后续持续查询同一个 MCP 工具。
    */
-    const callCounts = new Map();
+      const callCounts = new Map();
   const failureCounts = new Map();
   let latestMcpCard = null; // <--- 新增这行，记录卡片
+  // 双 API 备用：只要这轮工具调用循环里，任何一次实际请求是靠备用 API
+  // 才成功的，就记下来——循环结束时要带着这个标记一起返回给上层
+  // （不然默认的返回分支是重新拼的对象，会把这条信息弄丢）。
+  let hasUsedFallbackApi = false;
 
 
   /*
@@ -545,8 +549,12 @@ export const runAiToolOrchestrator = async ({
       tools,
     });
 
-    if (completion?.error) {
+     if (completion?.error) {
       return completion;
+    }
+
+    if (completion?.usedFallbackApi) {
+      hasUsedFallbackApi = true;
     }
 
     const assistantMessage = completion?.message || {
@@ -571,14 +579,14 @@ export const runAiToolOrchestrator = async ({
         };
       }
 
-            return {
+               return {
         error: false,
         content,
         mcpCard: latestMcpCard, // <--- 新增这行，返回给外层
+        usedFallbackApi: hasUsedFallbackApi,
       };
 
     }
-
     messages.push({
       role: 'assistant',
       content: assistantMessage.content ?? null,

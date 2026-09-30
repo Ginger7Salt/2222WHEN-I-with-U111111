@@ -172,10 +172,11 @@ export const triggerOfflineAiResponse = async (chatId, offlineSessionId) => {
 
       const mcpTrace = getMcpChatTraceSummary(mcpTraceSession);
 
-      for (const [index, msgData] of safeParsedMessages.entries()) {
+           for (const [index, msgData] of safeParsedMessages.entries()) {
         const metadata = {
           ...(msgData.metadata || {}),
           ...(index === 0 && mcpTrace ? { mcpTrace } : {}),
+          ...(index === 0 && result.usedFallbackApi ? { usedFallbackApi: true } : {}),
         };
 
         const payload = {

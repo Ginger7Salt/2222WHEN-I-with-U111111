@@ -39,6 +39,8 @@ export const logChatApiCall = async ({
   promptTokens = null,
   completionTokens = null,
   totalTokens = null,
+  // 这一笔实际是不是靠备用 API 才成功的（主 API 失败后自动切换）。
+  usedFallback = false,
 } = {}) => {
   try {
     let host = '';
@@ -65,6 +67,7 @@ export const logChatApiCall = async ({
       promptTokens: toTokenCount(promptTokens),
       completionTokens: toTokenCount(completionTokens),
       totalTokens: toTokenCount(totalTokens),
+      usedFallback: Boolean(usedFallback),
       timestamp: nowIso(),
     });
   } catch (error) {

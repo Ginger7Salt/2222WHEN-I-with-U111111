@@ -148,6 +148,16 @@ const [newCategoryQuoteInputs, setNewCategoryQuoteInputs] = useState({});
     model: '',
   });
 
+  // 备用 API：主 API 请求失败（网络错误/任何非 2xx 状态码）时自动顶上，
+  // 只在填了 baseUrl + apiKey 时才生效，不需要额外开关。目前只覆盖
+  // 主聊天（messages）和 offline 线下场景邀约，两者共用同一段底层
+  // 请求代码（aiService.js 的 performFetchAiCompletionWithTools）。
+  const [apiConfigBackup, setApiConfigBackup] = useState({
+    baseUrl: '',
+    apiKey: '',
+    model: '',
+  });
+
   const [lockscreenQuotes, setLockscreenQuotes] = useState([]);
   const [newQuoteInput, setNewQuoteInput] = useState('');
  const [isCompanionEnabled, setIsCompanionEnabled] = useState(false);
@@ -375,13 +385,23 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
           }));
         }
 
-        if (
+                if (
           settingMap.apiConfig &&
           typeof settingMap.apiConfig === 'object'
         ) {
           setApiConfig((previous) => ({
             ...previous,
             ...settingMap.apiConfig,
+          }));
+        }
+
+        if (
+          settingMap.apiConfigBackup &&
+          typeof settingMap.apiConfigBackup === 'object'
+        ) {
+          setApiConfigBackup((previous) => ({
+            ...previous,
+            ...settingMap.apiConfigBackup,
           }));
         }
 
@@ -783,7 +803,8 @@ const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
           { key: 'frequency', value: frequency },
           { key: 'snapshotNpcAutoPostEnabled', value: npcAutoPost },
           { key: 'quietHours', value: quietHours },
-          { key: 'apiConfig', value: apiConfig },
+                   { key: 'apiConfig', value: apiConfig },
+          { key: 'apiConfigBackup', value: apiConfigBackup },
           {
   key: 'preloaderQuoteConfig',
   value: cleanPreloaderQuoteConfig,
@@ -1813,7 +1834,7 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
                 }
                 className="w-full rounded-lg bg-black/5 p-2 outline-none dark:bg-white/10"
               >
-                {models.map((model) => (
+                                {models.map((model) => (
                   <option key={model} value={model}>
                     {model}
                   </option>
@@ -1824,8 +1845,72 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
         </div>
       </GlassCard>
 
-      <VisionApiSettings />
+      {/* 4b. 备用 API：主 API 请求失败（网络错误/任何非 2xx 状态码）时自动顶上，
+          目前只覆盖主聊天与 offline 线下场景邀约。填了 Base URL + API Key
+          才会生效，不需要额外开关；留空则完全不影响现有行为。 */}
+      <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <Cpu className="h-4 w-4" />
+          <span>备用 API (Fallback Model)</span>
+        </div>
 
+        <p className="text-[10px] leading-relaxed opacity-50">
+          主 API 请求失败时自动切换到这里，成功后会在那条回复旁给个小提示。
+          只对主聊天和线下场景邀约生效；留空这里则完全不影响现有使用。
+        </p>
+
+        <div className="space-y-3.5 text-xs">
+          <div>
+            <label className="mb-1 block opacity-60">备用 Base URL</label>
+            <input
+              type="text"
+              placeholder="e.g. https://api.openai.com/v1"
+              value={apiConfigBackup.baseUrl}
+              onChange={(event) =>
+                setApiConfigBackup((previous) => ({
+                  ...previous,
+                  baseUrl: event.target.value,
+                }))
+              }
+              className="w-full rounded-xl bg-black/5 p-3 outline-none focus:bg-black/10 dark:bg-white/10"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block opacity-60">备用 API Key</label>
+            <input
+              type="password"
+              placeholder="sk-..."
+              value={apiConfigBackup.apiKey}
+              onChange={(event) =>
+                setApiConfigBackup((previous) => ({
+                  ...previous,
+                  apiKey: event.target.value,
+                }))
+              }
+              className="w-full rounded-xl bg-black/5 p-3 outline-none focus:bg-black/10 dark:bg-white/10"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block opacity-60">备用 Model</label>
+            <input
+              type="text"
+              placeholder="gpt-4o"
+              value={apiConfigBackup.model}
+              onChange={(event) =>
+                setApiConfigBackup((previous) => ({
+                  ...previous,
+                  model: event.target.value,
+                }))
+              }
+              className="w-full rounded-xl bg-black/5 p-3 outline-none focus:bg-black/10 dark:bg-white/10"
+            />
+          </div>
+        </div>
+      </GlassCard>
+
+      <VisionApiSettings />
       {/* 5. 今日留物设置组件（已装配） */}
       <DailyOfferingSettings />
 
