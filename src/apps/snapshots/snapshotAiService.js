@@ -251,7 +251,11 @@ ${memoryContext}
 // ==========================================
 // 2. 动态生成: NPC 街坊生活碎片发帖 (生活交集碰撞)
 // ==========================================
-export const generateNpcPost = async (npc, chatId = null, charName = '', userName = '', topicHint = '') => {
+// userPersona: chat.userPersona 原文（可选）——之前这里完全没传，NPC提到
+// User时只能凭”另一位常客”这个称呼自由发挥，等于在邀请AI凭空替用户编造
+// 具体做了什么、去了哪里；现在允许提用户的存在，但只能依据这里传进来的
+// 真实人设文本，不能在此之外自行想象场景（跟用户确认过的处理方式）。
+export const generateNpcPost = async (npc, chatId = null, charName = '', userName = '', topicHint = '', userPersona = '') => {
   const memoryContext = await buildRecentPlotContext(chatId);
   const personaText = npc.personaSummary
     ? `你的说话风格/性格棱角: ${npc.personaSummary}`
@@ -266,19 +270,19 @@ ${personaText}
 
 【同城生活的邻里常客】
 - 常常出没的伙伴: ${charName || '熟悉的面孔'}
-- 另一位常客: ${userName || 'User'}
+- 另一位常客: ${userName || 'User'}${userPersona ? `（关于TA真实、已知的设定：${userPersona}）` : '（关于TA目前没有更多已知设定）'}
 
 ${memoryContext ? `${memoryContext}\n（以上片段仅供你感知当下季节/氛围，不要模仿里面任何人的说话方式或语气，也不要逐字引用，你要保持你自己的口吻）` : ''}
 
-${memoryContext ? `【重要：不要张冠李戴】\n上面片段里 "user:" 开头的每一句话，是 [${userName || 'User'}] 本人的言行；"character:" 开头的每一句话，是 [${charName || '这位常客'}] 本人的言行——这是两个不同的人，绝对不能把其中一方做的事、说的话，写成是另一方做的。如果你想在动态里提到这段互动里的具体细节（谁做了什么动作、说了什么），必须严格对应片段里原本的身份；拿不准具体是哪一方做的，就只写模糊的氛围或旁观印象，不要给出具体归属的动作或台词。\n` : ''}
 【创作指导】
 1. 内容必须强烈体现你的职业标签和你自己的说话风格（例如花店店主提到了修剪残枝、咖啡师提到了刚烘焙的新批次豆子、摄影师拍下的逆光街景）。
-2. 可以自然、不经意地带出一丝与同城伙伴的生活交集（例如：“方才看见 ${charName || '熟悉的身影'} 匆匆走过街口”，或者提及常客的小习惯），让整个街区生活圈产生真实的偶遇感。
+2. 可以自然、不经意地带出一丝与同城伙伴 [${charName || '熟悉的身影'}] 的生活交集（例如：”方才看见${charName || '熟悉的身影'}匆匆走过街口”，或者提及TA的小习惯），让整个街区生活圈产生真实的偶遇感。
+2b. [${userName || 'User'}] 是真实用户本人，不是可以被你自由编排情节的虚构角色：可以自然提一句TA的存在（比如”是${charName || 'TA'}常提起的那位”），但绝对不能编造TA具体做了什么、去了哪里、说了什么这类你自己想象出来的场景或小习惯。${userPersona ? `如果要更具体地提到TA，只能依据上面【关于TA真实、已知的设定】里写到的信息，不能在那之外自行想象或编造新的行为/场景。` : '目前没有关于TA的已知设定，所以除了提一句TA的存在之外，不要编出任何关于TA具体在做什么的细节。'}
 3. 不要逐字引用对话内容，也不要窥探式地转述用户的私人对话。
 4. 必须输出纯 JSON 字符串，不要带 Markdown 语法：
-   - "imagePrompt": 照片画面的细节描摹，80字以内；
-   - "content": 随感正文，不超过100字；
-   - "location": 与你身份相符的地点（如：木槿花房、烘焙吧台、转角书店）。
+   - “imagePrompt”: 照片画面的细节描摹，80字以内；
+   - “content”: 随感正文，不超过100字；
+   - “location”: 与你身份相符的地点（如：木槿花房、烘焙吧台、转角书店）。
 5. 绝对禁止使用任何 Emoji。`;
 
   const userPrompt = topicHint

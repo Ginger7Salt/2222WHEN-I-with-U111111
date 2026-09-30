@@ -137,7 +137,9 @@ const postNpcSnapshot = async (chat, character, npc, now, budget) => {
       npcWithPersona,
       chat.id,
       character?.name || '朋友',
-      chat.userName || '常客'
+      chat.userName || '常客',
+      '',
+      chat.userPersona || ''
     );
 
     const record = {

@@ -168,7 +168,9 @@ class SnapshotScheduler {
             npcWithPersona,
             this.activeChatId,
             char?.name || '朋友',
-            chat.userName || '常客'
+            chat.userName || '常客',
+            '',
+            chat.userPersona || ''
           );
 
           const record = {

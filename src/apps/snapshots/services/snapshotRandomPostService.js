@@ -94,7 +94,9 @@ export const triggerRandomDailyPosts = async (chatId) => {
             npcWithPersona,
             numericChatId,
             character?.name || '',
-            chat.userName || 'User'
+            chat.userName || 'User',
+            '',
+            chat.userPersona || ''
           );
         }
 

@@ -41,6 +41,10 @@ export const SnapshotCard = ({
   const [commentInput, setCommentInput] = useState('');
   const [replyTarget, setReplyTarget] = useState(null);
   const [isSummoning, setIsSummoning] = useState(false);
+  // 用户发完评论后，等待角色/NPC追评生成期间的一个可见提示——
+  // 之前这段等待完全是"暗地里"的（setTimeout+异步生成，UI上什么都不显示），
+  // 用户会以为对方压根不回复。只在真的会触发追评时才置 true。
+  const [isWaitingReply, setIsWaitingReply] = useState(false);
   const [showPromptDetail, setShowPromptDetail] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLikePopping, setIsLikePopping] = useState(false);
@@ -117,11 +121,41 @@ export const SnapshotCard = ({
 
       await db.snapshotComments.add(newComment);
       setCommentInput('');
-      const target = replyTarget;
+      let target = replyTarget;
       setReplyTarget(null);
       await loadComments();
 
+      // 没有明确"回复谁"（比如第一次直接在动态下面写一句，而不是点了
+      // 某条已有评论的"回复"）时，之前这里直接跳过、没人接话。改成默认
+      // 由这条动态本身的作者（如果是角色/NPC）来接住这条评论，行为上更
+      // 像真实社交动态的评论区——用户发的原帖(authorType==='user')和
+      // 本地生活速报(authorType==='news')没有可以接话的虚拟身份，维持
+      // 不接话。
+      if (!target) {
+        if (localSnapshot.authorType === 'character' && localSnapshot.characterId) {
+          target = {
+            id: localSnapshot.characterId,
+            name: localSnapshot.authorName,
+            type: 'character',
+            avatar: localSnapshot.authorAvatar || ''
+          };
+        } else if (localSnapshot.authorType === 'npc' && localSnapshot.npcId) {
+          const npcRecord = await db.snapshotNpcs.get(Number(localSnapshot.npcId));
+          if (npcRecord) {
+            target = {
+              id: npcRecord.id,
+              name: npcRecord.name,
+              type: 'npc',
+              roleTag: npcRecord.roleTag || '街区邻里',
+              avatar: npcRecord.avatar || '',
+              personaSummary: npcRecord.personaSummary || ''
+            };
+          }
+        }
+      }
+
       if (target && (target.type === 'character' || target.type === 'npc')) {
+        setIsWaitingReply(true);
         setTimeout(async () => {
           try {
             let responder = target;
@@ -155,6 +189,8 @@ export const SnapshotCard = ({
             }
           } catch (replyErr) {
             console.error('追评生成失败:', replyErr);
+          } finally {
+            setIsWaitingReply(false);
           }
         }, 1200);
       }
@@ -567,6 +603,18 @@ export const SnapshotCard = ({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 对方正在回复中：只在真的排了追评队列时出现，回复写入或失败后即消失 */}
+      {!isEditingPost && isWaitingReply && (
+        <div className="flex items-center gap-1.5 px-1.5 pt-1 text-[10px] text-neutral-400 animate-fade-in">
+          <span className="flex gap-0.5">
+            <span className="w-1 h-1 rounded-full bg-neutral-300 animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1 h-1 rounded-full bg-neutral-300 animate-bounce" style={{ animationDelay: '120ms' }} />
+            <span className="w-1 h-1 rounded-full bg-neutral-300 animate-bounce" style={{ animationDelay: '240ms' }} />
+          </span>
+          <span>对方正在回复中...</span>
         </div>
       )}
 
