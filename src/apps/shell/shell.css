@@ -39,6 +39,12 @@
   position: relative;
   overflow: hidden;
   border-radius: 0;
+  /* 跟 memory app 的 .memory-app 对齐：没有这个的话页面高度只看内容多少，
+     内容少时页面下方会露出底色。桌面端用 100vh，移动端浏览器地址栏会
+     动态伸缩，改用 100dvh 更准确（不支持 dvh 的浏览器会直接忽略这条，
+     退回上面的 100vh）。 */
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 .ts-haze {
   position: absolute;

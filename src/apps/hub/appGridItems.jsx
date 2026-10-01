@@ -38,6 +38,7 @@ import {
 
 import GlassCard from '../../components/GlassCard';
 import AppTitle from './AppTitle';
+import ShellIcon from '../shell/ShellIcon';
 
 export const buildAppGridItems = ({
   onOpenApp,
@@ -582,10 +583,7 @@ export const buildAppGridItems = ({
           className="flex h-10 w-10 items-center justify-center rounded-2xl"
           style={{ backgroundColor: 'var(--control-soft-bg)' }}
         >
-          <Waves
-            className="h-5 w-5 opacity-90"
-            style={{ color: 'var(--text-main)' }}
-          />
+                   <ShellIcon tier={0} className="h-6 w-6" />
         </div>
 
         <div>
