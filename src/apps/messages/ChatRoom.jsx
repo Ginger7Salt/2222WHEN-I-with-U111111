@@ -1559,6 +1559,20 @@ useLayoutEffect(() => {
     });
   };
 
+  // 背景图库：AI 会参考每张图的注释自主决定要不要切换当前背景
+  // （实际切换只是把某一张图库条目的 image 写回 chat.bgImage，
+  // 渲染那边完全不用改）。
+  const handleUpdateBackgrounds = async (nextBackgrounds) => {
+    setChat((previous) => ({
+      ...previous,
+      backgrounds: nextBackgrounds,
+    }));
+
+    await db.chats.update(chatId, {
+      backgrounds: nextBackgrounds,
+    });
+  };
+
   const handleToggleKeepAlive = async (value) => {
     setChat((previous) => ({
       ...previous,
@@ -2591,8 +2605,9 @@ useLayoutEffect(() => {
           character={character}
           fontStatus={customFontStatus}
           onClose={() => setShowChatSettings(false)}
-          onUpdateBgImage={handleUpdateBgImage}
+                 onUpdateBgImage={handleUpdateBgImage}
           onUpdateBgOpacity={handleUpdateBgOpacity}
+          onUpdateBackgrounds={handleUpdateBackgrounds}
           onToggleKeepAlive={handleToggleKeepAlive}
           onTogglePinTopToolbar={handleTogglePinTopToolbar}
           onToggleHeartbeatEffect={handleToggleHeartbeatEffect}

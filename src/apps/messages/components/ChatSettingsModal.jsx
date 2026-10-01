@@ -21,6 +21,7 @@ import SavedInfoSection from './SavedInfoSection';
 import AwaySettingsSection from '../away/AwaySettingsSection';
 import db from '../../../db';
 import { CHAT_CONTROL_STYLE_OPTIONS } from '../chatControlStylePresets';
+import { compressImageFile } from '../../../utils/imageHelper';
 
 import { triggerGlobalToast } from '../../../components/NotificationToast';
 import { getLocationSettings, setLocationEnabled } from '../../../apps/location/placeService';
@@ -30,8 +31,9 @@ export const ChatSettingsModal = ({
   chat,
   character,
   onClose,
-  onUpdateBgImage,
+   onUpdateBgImage,
   onUpdateBgOpacity,
+  onUpdateBackgrounds,
   onToggleKeepAlive,
   onOpenBubbleCustomizer,
   onClearHistory,
@@ -80,6 +82,10 @@ export const ChatSettingsModal = ({
   // 背景图淡化控制：B 方案，只控制背景图本身透明度
   const [isBgDimmed, setIsBgDimmed] = useState(chat?.isBgDimmed ?? true);
   const [bgOpacity, setBgOpacity] = useState(chat?.bgOpacity ?? 0.3);
+
+  // 背景图库：每张图配一句注释，角色会参考注释自主决定什么时候切换背景
+  const [galleryBackgrounds, setGalleryBackgrounds] = useState(chat?.backgrounds || []);
+  const galleryFileInputRef = useRef(null);
 
   const [isSavingUserIdentity, setIsavingUserIdentity] = useState(false);
 
@@ -263,16 +269,78 @@ const handleToggleLocation = async () => {
     });
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      onUpdateBgImage(reader.result);
-    };
-    reader.readAsDataURL(file);
+    // 之前这里直接 readAsDataURL 原图，没有走压缩，是真的没压缩——
+    // 现在跟其它上传入口一样，统一走 compressImageFile。
+    try {
+      const compressed = await compressImageFile(file);
+      onUpdateBgImage(compressed);
+    } catch (error) {
+      console.error('[ChatSettingsModal] 背景图压缩失败：', error);
+    }
+
     e.target.value = '';
+  };
+
+  // 背景图库：持久化整份数组（新增/删除/设为当前都走这一个出口）
+  const persistBackgrounds = (next) => {
+    setGalleryBackgrounds(next);
+    if (onUpdateBackgrounds) {
+      onUpdateBackgrounds(next);
+    }
+  };
+
+  const handleAddGalleryImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const compressed = await compressImageFile(file);
+      const entry = {
+        id: `bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        image: compressed,
+        caption: '',
+      };
+      persistBackgrounds([...galleryBackgrounds, entry]);
+    } catch (error) {
+      console.error('[ChatSettingsModal] 背景图压缩失败：', error);
+    }
+
+    e.target.value = '';
+  };
+
+  // 注释输入框只在 onChange 时更新本地状态，onBlur 才真正落库，
+  // 避免每敲一个字就写一次数据库。
+  const handleGalleryCaptionChange = (id, caption) => {
+    setGalleryBackgrounds((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, caption } : item))
+    );
+  };
+
+  const handleGalleryCaptionBlur = () => {
+    if (onUpdateBackgrounds) {
+      onUpdateBackgrounds(galleryBackgrounds);
+    }
+  };
+
+  const handleSetActiveBackground = (entry) => {
+    if (onUpdateBgImage) {
+      onUpdateBgImage(entry.image);
+    }
+  };
+
+  const handleDeleteGalleryBackground = (id) => {
+    const removed = galleryBackgrounds.find((item) => item.id === id);
+    const next = galleryBackgrounds.filter((item) => item.id !== id);
+    persistBackgrounds(next);
+
+    // 删除的正好是当前使用中的背景图时，顺手清空当前背景
+    if (removed && removed.image && removed.image === bgImage && onUpdateBgImage) {
+      onUpdateBgImage('');
+    }
   };
 
   const handleUserAvatarUpload = (e) => {
@@ -1181,7 +1249,7 @@ const handleToggleLocation = async () => {
                 <span>{Math.round(bgOpacity * 100)}%</span>
               </div>
 
-              <input
+                            <input
                 type="range"
                 min="0.1"
                 max="1"
@@ -1191,6 +1259,106 @@ const handleToggleLocation = async () => {
                 className="w-full"
                 style={{ accentColor: 'var(--accent-color)' }}
               />
+            </div>
+          )}
+        </div>
+
+        {/* 背景图库：AI 自主切换背景用 */}
+        <div
+          className="space-y-2 p-3 rounded-2xl border"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)'
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <label className="block font-mono opacity-60 text-[10px]">
+              BACKGROUND GALLERY / 背景图库
+            </label>
+
+            <button
+              type="button"
+              onClick={() => galleryFileInputRef.current?.click()}
+              className="flex items-center gap-1 text-[10px] font-semibold opacity-75 hover:opacity-100 transition-opacity"
+              style={{ color: 'var(--accent-color)' }}
+            >
+              <Plus className="w-3 h-3" />
+              <span>添加</span>
+            </button>
+
+            <input
+              ref={galleryFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAddGalleryImage}
+            />
+          </div>
+
+          <p className="text-[10px] leading-relaxed opacity-50">
+            每张图配一句注释，角色会参考注释自主决定什么时候切换背景（比如写"下雨天用"，聊到下雨角色可能会自己换过去），不设频率限制。注释留空的图，角色不会主动选用。
+          </p>
+
+          {galleryBackgrounds.length === 0 ? (
+            <p className="text-[10px] opacity-40 py-1">还没有图库，点"添加"上传第一张。</p>
+          ) : (
+            <div className="space-y-2 pt-1">
+              {galleryBackgrounds.map((item) => {
+                const isActive = !!item.image && item.image === bgImage;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-2 p-1.5 rounded-xl border"
+                    style={{
+                      borderColor: isActive ? 'var(--accent-color)' : 'var(--divider)',
+                      background: isActive ? 'var(--control-soft-bg)' : 'transparent',
+                    }}
+                  >
+                    <div
+                      onClick={() => handleSetActiveBackground(item)}
+                      className="w-10 h-10 rounded-lg overflow-hidden shrink-0 cursor-pointer relative"
+                      title="设为当前背景"
+                    >
+                      <img
+                        src={item.image}
+                        alt="背景图库"
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      {isActive && (
+                        <div
+                          className="absolute inset-0 flex items-center justify-center"
+                          style={{ background: 'rgba(0,0,0,0.25)' }}
+                        >
+                          <Check className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={item.caption}
+                      onChange={(e) => handleGalleryCaptionChange(item.id, e.target.value)}
+                      onBlur={handleGalleryCaptionBlur}
+                      placeholder="注释，比如：下雨天用"
+                      maxLength={30}
+                      className="flex-1 min-w-0 px-2 py-1 rounded-lg border text-[11px] bg-transparent"
+                      style={{ borderColor: 'var(--divider)', color: 'var(--text-main)' }}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGalleryBackground(item.id)}
+                      className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 shrink-0"
+                      title="删除这张"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

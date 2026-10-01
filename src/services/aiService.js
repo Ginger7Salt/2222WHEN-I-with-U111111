@@ -26,6 +26,7 @@ import { getLocationPromptContext } from '../apps/location/locationPromptContext
 import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
 import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/companion/companionOfferService';
 import { BUBBLE_STYLE_PROMPT_NOTE, applyBubbleStyleDirective } from '../apps/messages/bubbleStyleDirective';
+import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
 import { getAvatarHistorySwitchNote, applyAvatarHistorySwitchDirective } from '../apps/messages/avatarHistoryDirective';
 import { applyMemoirNoteDirective, MEMOIR_NOTE_PROMPT } from '../apps/memoir/memoirNoteDirective';
 import {
@@ -2216,7 +2217,14 @@ const companionOfferNote = options.ignoreAway
 // 限制（跟小伙伴邀请不同），只在 ignoreAway 时跟其它"可选行为"一样收起。
 const bubbleStyleNote = options.ignoreAway ? '' : BUBBLE_STYLE_PROMPT_NOTE;
 
-// #3 头像历史相册：换头像视觉冲击比换气泡颜色大，这里跟小伙伴邀请一样
+// 背景图切换：跟气泡风格同一套"不设限制"的约定，只有这个聊天窗配置了
+// 背景图库（带注释）时才会往提示词里加字，否则 buildBackgroundSwitchPromptNote
+// 自己返回空字符串。
+const backgroundSwitchNote = options.ignoreAway
+  ? ''
+  : buildBackgroundSwitchPromptNote(chat.backgrounds);
+
+// #3 头像历史相册
 // 走"概率 + 冷却"，只有真的把选项交给角色时才会往提示词里加字。
 const avatarHistorySwitchNote = options.ignoreAway
   ? ''
@@ -2228,6 +2236,8 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   companionOfferNote ? `\n\n${companionOfferNote}` : ''
 }${
   bubbleStyleNote ? `\n\n${bubbleStyleNote}` : ''
+}${
+  backgroundSwitchNote ? `\n\n${backgroundSwitchNote}` : ''
 }${
   avatarHistorySwitchNote ? `\n\n${avatarHistorySwitchNote}` : ''
 }`;
@@ -2366,14 +2376,23 @@ const { content: contentAfterBubbleStyle } = await applyBubbleStyleDirective({
   content: contentAfterCompanionOffer,
 });
 
+// 取出角色的 [SWITCH_BACKGROUND: ...] 标签（一律从正文去掉）；标签里写的
+// 注释只要能匹配上这个聊天窗图库里的某一条就直接把它设为当前背景，不需要
+// 额外的"是否交出过选项"校验（这个功能本身就不设限制，参见
+// backgroundSwitchDirective.js 顶部注释）。
+const { content: contentAfterBackgroundSwitch } = await applyBackgroundSwitchDirective({
+  chatId,
+  content: contentAfterBubbleStyle,
+  backgrounds: chat.backgrounds,
+});
+
 // 取出角色的 [AVATAR_HISTORY_SWITCH] 标签（一律从正文去掉）；
 // 只有这次真的把选项交给了角色时，才会随机换回一张历史头像。
 const { content: visibleReplyContent } = await applyAvatarHistorySwitchDirective({
   characterId: character.id,
-  content: contentAfterBubbleStyle,
+  content: contentAfterBackgroundSwitch,
   offered: Boolean(avatarHistorySwitchNote),
 });
-
 const mcpTrace = getMcpChatTraceSummary(
   mcpTraceSession,
 );
