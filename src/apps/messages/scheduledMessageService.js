@@ -259,7 +259,11 @@ export const createScheduledMessage = async ({
   delayMinutes,
   intent = '',
   scheduleType = SCHEDULE_TYPES.FOLLOW_UP,
-  cancelPolicy = null
+  cancelPolicy = null,
+  // 周期性提醒（比如"每隔2小时提醒我喝水"）：发送成功后会用同样的
+  // 间隔自动重新排一条下一次。跟一次性预约共用同一张表、同一套调度
+  // 逻辑，只是发送成功那一刻多做一步"再排一条"，不单独起表。
+  recurringIntervalMinutes = null
 }) => {
   if (!chatId || !characterId) {
     return null;
@@ -293,6 +297,9 @@ export const createScheduledMessage = async ({
     Date.now() +
     normalizedDelay * 60 * 1000
   ).toISOString();
+
+  const normalizedRecurringIntervalMinutes =
+    normalizeDelayMinutes(recurringIntervalMinutes);
 
   let scheduleId = null;
 
@@ -340,6 +347,7 @@ export const createScheduledMessage = async ({
         attemptCount: 0,
         sentMessageId: null,
         cancelledReason: '',
+        recurringIntervalMinutes: normalizedRecurringIntervalMinutes || null,
         createdAt: nowIso,
         updatedAt: nowIso
       });
@@ -1067,6 +1075,30 @@ const executeScheduledMessage = async (
         updatedAt: getNowIso()
       }
     );
+
+    /*
+     * 周期性提醒：这一条发出去之后，立刻用同样的间隔再排下一次，
+     * 让它自己滚动下去，直到用户在待办/设置里把它关掉（关闭的方式是
+     * 把这条记录的 recurringIntervalMinutes 清空，或者直接取消
+     * pending 记录——这里只负责"发完了就排下一条"）。
+     */
+    if (claimedScheduledMessage.recurringIntervalMinutes) {
+      try {
+        await createScheduledMessage({
+          chatId: claimedScheduledMessage.chatId,
+          characterId: claimedScheduledMessage.characterId,
+          delayMinutes: claimedScheduledMessage.recurringIntervalMinutes,
+          intent: claimedScheduledMessage.intent,
+          scheduleType: SCHEDULE_TYPES.REMINDER,
+          recurringIntervalMinutes: claimedScheduledMessage.recurringIntervalMinutes
+        });
+      } catch (recurringError) {
+        console.error(
+          '[ScheduledMessage] 重新排下一次周期提醒失败：',
+          recurringError
+        );
+      }
+    }
 
     console.log(
       '[ScheduledMessage] 已发送到期预约消息：',

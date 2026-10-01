@@ -457,7 +457,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                               color: 'var(--text-muted)',
                             }}
                           >
-                            {chatItem.mode === 'rp' ? 'RP' : 'Real'}
+                                                       {chatItem.mode === 'rp' ? 'RP' : chatItem.mode === 'work' ? 'Work' : 'Real'}
                           </span>
                         </div>
 

@@ -7,9 +7,10 @@ export const CharacterLibrary = ({ onSelectCharacter, onCreateNew }) => {
   const [characters, setCharacters] = useState([]);
 
   useEffect(() => {
-    const loadCharacters = async () => {
+      const loadCharacters = async () => {
       const list = await db.characters.toArray();
-      setCharacters(list);
+      // work 助理是全局隐藏身份，不是真的"角色"，不在这里显示。
+      setCharacters(list.filter((character) => character.isWorkAssistant !== true));
     };
     loadCharacters();
   }, []);
