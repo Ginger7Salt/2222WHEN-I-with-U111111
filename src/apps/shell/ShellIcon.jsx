@@ -1,9 +1,20 @@
 // src/apps/shell/ShellIcon.jsx
 //
 // 正面扇贝图标：铰链在下，扇形轮廓带波浪缺口，肋线从铰链点向上放射。
-// tier 0/1 用当前主题的浅色调（gC0），tier 2 用墨卡（ink）配色 + 顶部
-// 三颗小珠点缀，呼应贝壳册卡片里"高稀有度用墨卡底"的既有视觉语言
-// （跟 RpMessageCard/占卜卡的稀有度处理是同一套做法）。
+// tier 0/1 用当前主题的浅色调，tier 2 用墨卡（ink）配色 + 顶部三颗
+// 小珠点缀，呼应贝壳册卡片里"高稀有度用墨卡底"的既有视觉语言（跟
+// RpMessageCard/占卜卡的稀有度处理是同一套做法）。
+//
+// 2026-10 修复：这个图标在首页格子里是放在 var(--control-soft-bg)
+// 底色的小圆角方块里展示的（24×24，很小）。tier 0/1 原本描边/肋线用
+// --bg-blob-1/3 这几个 token——这几个颜色是给大面积弥散光斑设计的，
+// 饱和度刻意压得很低，跟 --control-soft-bg 几乎同色，图标缩小到这个
+// 尺寸之后基本看不出形状，等于一片空白。改成跟同一个格子里其它图标
+// （比如传石的 lucide Waves，靠 currentColor 继承文字色）一样的思路：
+// 描边/肋线换成 --text-main/--text-muted 这类文字色 token——这些颜色
+// 在任何主题下都是跟 --control-soft-bg 这类表面色对比度拉满的，不会
+// 再出现"画出来了但看不见"的问题；填充色继续保留柔和色调，不再指望
+// 它来承担对比度。
 import React from 'react';
 
 let uid = 0;
@@ -33,8 +44,8 @@ export default function ShellIcon({ tier = 0, className = '', style }) {
   const sc = 7;
 
   const fill = tier === 0 ? 'var(--bg-blob-2)' : tier === 1 ? 'var(--bg-blob-1)' : 'var(--ink-a)';
-  const edge = tier === 2 ? 'var(--ink-card-border)' : 'var(--bg-blob-3)';
-  const ribClr = tier === 2 ? 'var(--text-on-ink-muted)' : 'var(--bg-blob-1)';
+  const edge = tier === 2 ? 'var(--ink-card-border)' : 'var(--text-main)';
+  const ribClr = tier === 2 ? 'var(--text-on-ink-muted)' : 'var(--text-muted)';
   const innerFill = tier === 2 ? 'var(--ink-b)' : 'var(--bg-surface-strong)';
 
   const pts = shellOutline(cx, cy, r, sc);
