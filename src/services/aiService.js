@@ -28,6 +28,7 @@ import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/com
 import { BUBBLE_STYLE_PROMPT_NOTE, applyBubbleStyleDirective } from '../apps/messages/bubbleStyleDirective';
 import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
 import { getAvatarHistorySwitchNote, applyAvatarHistorySwitchDirective } from '../apps/messages/avatarHistoryDirective';
+import { WORK_KAOMOJI_PROMPT_NOTE, applyWorkKaomojiDirective } from '../apps/messages/work/workKaomojiDirective';
 import { applyMemoirNoteDirective, MEMOIR_NOTE_PROMPT } from '../apps/memoir/memoirNoteDirective';
 import {
   recordFoodMemoir,
@@ -2319,6 +2320,12 @@ const avatarHistorySwitchNote = options.ignoreAway
   ? ''
   : await getAvatarHistorySwitchNote({ characterId: character.id, character });
 
+// work 模式头像兜底：强制行为，没有"是否交出选项"这一说，只要是
+// work 聊天窗、且不是 ignoreAway 的收起场景，就一定带上这条提示词。
+const workKaomojiNote = (!options.ignoreAway && chat.mode === 'work')
+  ? WORK_KAOMOJI_PROMPT_NOTE
+  : '';
+
 const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   awayOfferNote ? `\n\n${awayOfferNote}` : ''
 }${
@@ -2329,6 +2336,8 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   backgroundSwitchNote ? `\n\n${backgroundSwitchNote}` : ''
 }${
   avatarHistorySwitchNote ? `\n\n${avatarHistorySwitchNote}` : ''
+}${
+  workKaomojiNote ? `\n\n${workKaomojiNote}` : ''
 }`;
 
 const historyContext = buildHistoryContext(
@@ -2482,6 +2491,15 @@ const { content: visibleReplyContent } = await applyAvatarHistorySwitchDirective
   content: contentAfterBackgroundSwitch,
   offered: Boolean(avatarHistorySwitchNote),
 });
+
+// 取出角色的 [KAOMOJI: ...] 标签（一律从正文去掉）；work 模式下落库成
+// 这个聊天窗当前的状态颜文字，用来在没有头像图片时顶替头像坑位。
+const { content: contentAfterWorkKaomoji } = await applyWorkKaomojiDirective({
+  chatId,
+  content: visibleReplyContent,
+  isWorkMode: chat.mode === 'work',
+});
+
 const mcpTrace = getMcpChatTraceSummary(
   mcpTraceSession,
 );
@@ -2493,7 +2511,7 @@ const {
   content: contentAfterMemoirNote,
   emotion: memoirEmotion,
   feeling: memoirFeeling,
-} = applyMemoirNoteDirective(visibleReplyContent);
+} = applyMemoirNoteDirective(contentAfterWorkKaomoji);
 
 /**
  * 必须先处理真实声音隐藏区块，再解析普通消息。

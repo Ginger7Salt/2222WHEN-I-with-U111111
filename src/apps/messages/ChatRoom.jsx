@@ -72,6 +72,10 @@ import ScheduledMessageArchive from './components/ScheduledMessageArchive';
 import McpToolApprovalModal from './mcp/McpToolApprovalModal';
 import MessageList from './components/MessageList';
 import ParallelOrbit from './components/ParallelOrbit';
+import WorkChatHeader from './work/WorkChatHeader';
+import WorkEmptyStage from './work/WorkEmptyStage';
+import WorkInlineGreeting from './work/WorkInlineGreeting';
+import WorkAssistantSettingsModal from './work/WorkAssistantSettingsModal';
 
 import { createInteractionMessage, createTruthOrDareMessage } from './interactions/interactionService';
 import DivinationSetupModal from './interactions/divination/DivinationSetupModal';
@@ -218,6 +222,7 @@ export const ChatRoom = ({
   const [showBubbleCustomizer, setShowBubbleCustomizer] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
   const [showScheduledArchive, setShowScheduledArchive] = useState(false);
+  const [showWorkAssistantSettings, setShowWorkAssistantSettings] = useState(false);
   const [showCallModeMenu, setShowCallModeMenu] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
@@ -1791,8 +1796,18 @@ useLayoutEffect(() => {
         </div>
       )}
 
+            {chat?.mode === 'work' ? (
+        <WorkChatHeader
+          chat={chat}
+          character={character}
+          onBack={onBack}
+          onOpenSettings={() => setShowChatSettings(true)}
+          onOpenNotebook={() => setShowScheduledArchive(true)}
+        />
+      ) : (
       <header className="z-20 shrink-0 px-4 pb-1 pt-3">
         {selectionMode ? (
+
           <div className="flex items-center justify-between gap-2 pb-1">
             <div className="flex items-center gap-3">
               <button
@@ -2077,13 +2092,21 @@ useLayoutEffect(() => {
         />
         </>
         )}
-      </header>
+              </header>
+      )}
 
       <section
         ref={scrollAreaRef}
         onScroll={handleMessagesScroll}
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-3 no-scrollbar"
+        className={`min-h-0 flex-1 overflow-y-auto no-scrollbar ${
+          chat?.mode === 'work' ? 'px-4 pt-14 pb-3' : 'px-4 py-3'
+        }`}
       >
+        {chat?.mode === 'work' && visibleMessages.length === 0 ? (
+          <WorkEmptyStage chat={chat} character={character} />
+        ) : (
+        <>
+        {chat?.mode === 'work' && <WorkInlineGreeting character={character} />}
         <MessageList
           visibleMessages={visibleMessages}
           messagesById={messagesById}
@@ -2110,6 +2133,8 @@ useLayoutEffect(() => {
           onToggleSelected={handleToggleMessageSelected}
           onEnterSelectionMode={handleEnterSelectionMode}
         />
+        </>
+        )}
       </section>
 
       
@@ -2622,6 +2647,15 @@ useLayoutEffect(() => {
           onDeletedChat={onBack}
           onSaveSummary={handleSaveSummary}
           onUpdatedUserPersona={loadChatData}
+          onOpenWorkAssistantSettings={() => setShowWorkAssistantSettings(true)}
+        />
+      )}
+
+      {showWorkAssistantSettings && (
+        <WorkAssistantSettingsModal
+          character={character}
+          onClose={() => setShowWorkAssistantSettings(false)}
+          onUpdated={loadChatData}
         />
       )}
 

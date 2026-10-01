@@ -43,6 +43,7 @@ export const ChatSettingsModal = ({
   onUpdatedUserPersona,
   onTogglePinTopToolbar,
   onToggleHeartbeatEffect,
+  onOpenWorkAssistantSettings,
   fontStatus,
 }) => {
 
@@ -1707,13 +1708,39 @@ const handleToggleLocation = async () => {
               color: 'var(--text-main)'
             }}
           >
-            <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
               <Sliders className="w-3.5 h-3.5 opacity-70" />
               <span>定制气泡 CSS 样式</span>
             </div>
             <span className="opacity-40 font-mono text-[10px]">&gt;</span>
           </button>
         </div>
+
+        {/* work 聊天窗专属：助理身份（名字/头像/人设/对你的偏好）是全局
+            共享的，不属于"本窗设置"，单独拎到它自己的面板去改。 */}
+        {chat?.mode === 'work' && onOpenWorkAssistantSettings && (
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenWorkAssistantSettings();
+              }}
+              className="w-full p-2.5 rounded-xl flex items-center justify-between border transition-all"
+              style={{
+                background: 'var(--control-soft-bg)',
+                borderColor: 'var(--divider)',
+                color: 'var(--text-main)'
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <User className="w-3.5 h-3.5 opacity-70" />
+                <span>助理设置（名字/头像/人设，全部 work 窗口共用）</span>
+              </div>
+              <span className="opacity-40 font-mono text-[10px]">&gt;</span>
+            </button>
+          </div>
+        )}
 
         {/* 危险区 */}
         <div className="pt-2 space-y-2">
