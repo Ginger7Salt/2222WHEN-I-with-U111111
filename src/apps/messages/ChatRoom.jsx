@@ -134,7 +134,7 @@ import InnerWorldApp from '../innerworld/InnerWorldApp';
 import OfflineChatRoom from '../offline/OfflineChatRoom';
 import OfflineInviteComposer from '../offline/OfflineInviteComposer';
 
-import { MapPinned } from 'lucide-react';
+import { MapPinned, Palette } from 'lucide-react';
 import PlaceBooklet from '../location/PlaceBooklet';
 import PendingPlaceBanner from './components/cards/PendingPlaceBanner';
 
@@ -213,6 +213,9 @@ const CompanionPage = lazy(() => import('../companion/CompanionPage'));
 
 // 回忆录，同样只有用户点开 🐾 更多入口里的入口才加载
 const MemoirPage = lazy(() => import('../memoir/MemoirPage'));
+
+// 角色的DIY小屋，同样只有用户点开 🐾 更多入口里的入口才加载
+const CharacterDiyPage = lazy(() => import('./diy/CharacterDiyPage'));
 
 export const ChatRoom = ({
   chatId,
@@ -301,6 +304,7 @@ const [pendingNamePlace, setPendingNamePlace] = useState(null);
 const [showTopMenu, setShowTopMenu] = useState(false);
 const [showCompanionPage, setShowCompanionPage] = useState(false);
   const [showMemoirPage, setShowMemoirPage] = useState(false);
+  const [showCharacterDiy, setShowCharacterDiy] = useState(false);
 
 // 顶部按钮行默认收起，只保留返回按钮；展开/收起统一由 ChatHeaderBar
 // 里那一颗爱心控制（同时带出这一整排按钮和下面的身份卡片）
@@ -1140,6 +1144,7 @@ void openChatAndMarkMessagesAsRead();
   showPlaceBooklet,
   showCompanionPage,
   showMemoirPage,
+  showCharacterDiy,
   activeOfflineSessionId,
 ]);
 
@@ -1171,6 +1176,7 @@ void openChatAndMarkMessagesAsRead();
     showPlaceBooklet,
     showCompanionPage,
     showMemoirPage,
+    showCharacterDiy,
     activeOfflineSessionId,
   ]);
 
@@ -1861,6 +1867,21 @@ useLayoutEffect(() => {
   );
 }
 
+  if (showCharacterDiy) {
+  return (
+    <Suspense fallback={null}>
+      <CharacterDiyPage
+        chatId={chatId}
+        character={character}
+        onBack={() => {
+  hasScrolledToLatestRef.current = false;
+  setShowCharacterDiy(false);
+}}
+      />
+    </Suspense>
+  );
+}
+
 
 
   return (
@@ -2113,6 +2134,18 @@ useLayoutEffect(() => {
                       >
                         <BookHeart className="h-4 w-4" />
                         <span>回忆录</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowCharacterDiy(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Palette className="h-4 w-4" />
+                        <span>角色的DIY</span>
                       </button>
                     </div>
                   </>

@@ -14,6 +14,7 @@ import {
 
 import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
 import ChatPokeNotice from '../interactions/ChatPokeNotice';
+import ChatDiyUpdateNotice from '../diy/ChatDiyUpdateNotice';
 import ChatTrickNotice from '../interactions/halloween/ChatTrickNotice';
 import SpiderEgg from '../interactions/halloween/SpiderEgg';
 import OfflineInviteCard from '../../offline/OfflineInviteCard';
@@ -230,6 +231,12 @@ const MessageRow = ({
         activeUserName={activeUserName}
       />
     );
+  }
+
+  // 角色DIY小屋换了样子之后的提示：跟戳一戳同理，一条居中系统提示行，
+  // 纯文字公告，不可点击跳转。
+  if (msg.type === 'diy_update') {
+    return <ChatDiyUpdateNotice message={msg} />;
   }
 
   return (

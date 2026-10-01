@@ -18,6 +18,7 @@ import {
 } from './memoryProvider';
 import { markCharacterInteraction } from '../apps/memory/memoryCharacterState';
 import { checkAbsenceEmotionSignal } from '../apps/memory/characterAbsenceService';
+import { maybeUpdateDiyArea } from '../apps/messages/diy/diyAreaService';
 import {
   generateCompanionProactiveDiary as generateStandaloneDiary} from '../apps/diaries/diaryGenerationService';
 
@@ -2910,6 +2911,14 @@ if (!result.error) {
   // 记忆整理是独立、延迟、非阻塞的后台任务。
   // 它不写入聊天消息，也不会影响当前回复。
   void scheduleMemoryProcessing(chatId);
+
+  // 角色的DIY小屋：只挂在「用户发消息 -> 角色正常回复」这条主路径上
+  // （跟上面 checkAbsenceEmotionSignal 的取舍一致），内部自己做冷却
+  // 判断，大部分时候这一行什么都不会发生。同样是独立、不阻塞的后台
+  // 任务，失败了也只是「这次小屋没换成」，不影响正常聊天。
+  void maybeUpdateDiyArea({ chatId, character, apiConfig }).catch((error) => {
+    console.warn('[DIY] Character DIY area check skipped safely:', error);
+  });
 }
 
 
