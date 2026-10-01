@@ -54,6 +54,34 @@ export function getGreetingCardContent(period) {
   return GREETING_CONTENT[period] || null;
 }
 
+// 早安/晚安改成"发消息触发"之后用的关键词表：只认这些比较明确的问候
+// 说法，不用单字（比如"早"）去做包含匹配，避免"我早就想说"这种句子
+// 被误判成在问候。判断时忽略大小写、首尾空白，用"整句包含"匹配——
+// 用户说"早安呀"也能命中"早安"。
+const GREETING_KEYWORDS = {
+  morning: ['早安', '早上好', 'morning', 'good morning', 'gm'],
+  night: ['晚安', 'good night', 'gn'],
+};
+
+// 从一条用户发的文字消息里判断是不是在问候，返回 'morning' / 'night' /
+// null。只负责"这句话像不像在问候"，跟当前是不是真的在对应的时段
+// 无关——是否要卡时段由调用方自己再查一次 getGreetingPeriod() 决定。
+export function matchGreetingKeyword(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+
+  if (!normalized) return null;
+
+  for (const period of Object.keys(GREETING_KEYWORDS)) {
+    const hit = GREETING_KEYWORDS[period].some(
+      (keyword) => normalized.includes(keyword.toLowerCase())
+    );
+
+    if (hit) return period;
+  }
+
+  return null;
+}
+
 // 按本地日期生成一个 "YYYY-MM-DD" 的去重用 key。
 export function getLocalDateKey(date = new Date()) {
   const year = date.getFullYear();

@@ -340,7 +340,7 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
   // 早安/晚安问候卡、节日彩蛋卡：每个聊天窗第一次进来时各自判断一次，
   // 播完自动消失，不写进聊天记录。
-  const { entryCard, dismissEntryCard } = useChatEntryCard(chat);
+  const { entryCard, dismissEntryCard, triggerGreetingFromMessage } = useChatEntryCard(chat);
 
   // 本聊天窗自定义字号（px）。未设置时不输出任何规则，保持原有样式不变。
   const chatFontSizePx = Number.isFinite(chat?.chatFontSize)
@@ -1182,6 +1182,12 @@ useLayoutEffect(() => {
 
     const msgId = await db.messages.add(payload);
     newMsg.id = msgId;
+
+    // 早安/晚安彩蛋：改成发消息触发之后，这里是唯一的判断入口。
+    // 只看纯文字消息，图片/转账这类卡片类型不参与问候判断。
+    if (selectedType === 'text') {
+      triggerGreetingFromMessage(newMsg.content);
+    }
 
     void recordAlmanacEvent({
   chatId,

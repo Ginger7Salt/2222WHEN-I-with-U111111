@@ -44,6 +44,10 @@ import {
   buildLearningModePromptBlock,
   extractBubbleTranslation,
 } from '../apps/messages/learningMode/learningModePrompt';
+import {
+  pickDailyLifeTopic,
+  describeDailyLifeTopic,
+} from './dailyLifeTopicPicker';
 import { getActiveCallAwarenessNote, hasAnyLiveCall } from './callService';
 
 import {
@@ -1103,6 +1107,27 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
       customPrompt: chat.characterAnalysisPrompt,
     });
 
+  // 角色聊自己的话题：复用 dailyLifeTopicPicker.js 里碎碎念/今日安排/
+  // 拍立得动态已经在用的那套话题池（npc 动态 / 资讯 / 单纯想到用户 /
+  // 自己的工作爱好），接进正式聊天的系统提示词——但不是每次回复都塞，
+  // 按概率抽，抽不中就是普通回复，没有这一段。概率和注入文案都收在
+  // 这一个变量里，方便以后单独调整，不用再去翻模板正文。
+  const DAILY_LIFE_CHAT_INJECT_PROBABILITY = 0.2;
+  let dailyLifeTopicBlock = '';
+
+  if (Math.random() < DAILY_LIFE_CHAT_INJECT_PROBABILITY) {
+    try {
+      const dailyLifeTopic = await pickDailyLifeTopic(chatId, character);
+      const topicText = describeDailyLifeTopic(dailyLifeTopic);
+
+      if (topicText) {
+        dailyLifeTopicBlock = `\n【这次可以聊聊自己（不是每次都要用，只是这次恰好想到，不要刻意引导话题，顺着聊天自然带出来就好）】：\n${topicText}\n`;
+      }
+    } catch (error) {
+      console.warn('[buildChatSystemPrompt] 拉取角色日常话题素材失败：', error);
+    }
+  }
+
   // 语言学习模式：关闭时，或者角色回应语言/翻译语言没选全时，
   // 返回空字符串，不影响默认行为。
   const learningModePromptBlock = buildLearningModePromptBlock(chat);
@@ -1208,7 +1233,7 @@ ${summaryText}
 ${todoText}
 ${diaryText}
 ${characterAnalysisPromptBlock}
-  
+${dailyLifeTopicBlock}
 【陪伴表达准则】：
 - 维持细腻的浪漫感与陪伴温度，文风应具有呼吸感和留白空间。
 - 坚决杜绝生硬客服腔、机械化的模板套句与生硬说教。

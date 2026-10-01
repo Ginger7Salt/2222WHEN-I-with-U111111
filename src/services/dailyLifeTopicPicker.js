@@ -25,6 +25,7 @@
 import db from '../db';
 import { getNpcsByChatId } from '../apps/snapshots/services/snapshotNpcService';
 import { searchLatestNews } from '../apps/newspaper/newspaperSearchService';
+import { ensureCharacterNewsKeyword } from './characterNewsKeywordService';
 
 export const DAILY_LIFE_TOPICS = {
   NPC: 'npc',
@@ -76,7 +77,7 @@ const getRecentNpcSnapshotMaterial = async (chatId) => {
   }
 };
 
-const getNewsMaterial = async () => {
+const getNewsMaterial = async (character = null) => {
   try {
     // newspaper 应用已有的设置项，key 是 'newspaper_settings'（见
     // NewspaperApp.jsx）。这里只读它的 tavilyKey 顺手复用，用户没配置
@@ -85,7 +86,16 @@ const getNewsMaterial = async () => {
     const savedSettings = await db.settings.get('newspaper_settings');
     const tavilyKey = savedSettings?.value?.tavilyKey || '';
 
-    const results = await searchLatestNews('今日趣闻', { tavilyKey });
+    // 传了 character 时，优先用角色自己职业/兴趣相关的关键词去搜
+    // （比如纹身师搜"纹身艺术"），人设里提炼不出关键词、或者没传
+    // character（murmur/今日安排/拍立得这几个老调用方都不传）时，
+    // 退回原来的通用"今日趣闻"查询，行为跟之前完全一样。
+    const characterKeyword = character
+      ? await ensureCharacterNewsKeyword(character)
+      : '';
+    const query = characterKeyword || '今日趣闻';
+
+    const results = await searchLatestNews(query, { tavilyKey });
     if (!Array.isArray(results) || results.length === 0) return null;
 
     const picked = results[Math.floor(Math.random() * results.length)];
@@ -108,7 +118,7 @@ const getNewsMaterial = async () => {
  * mood/hobby 恒为 null，npc/news 拿不到真实素材时会降级成
  * { topic: 'mood', material: null } 返回。
  */
-export const pickDailyLifeTopic = async (chatId) => {
+export const pickDailyLifeTopic = async (chatId, character = null) => {
   const topic = pickRandomTopic();
 
   if (topic === DAILY_LIFE_TOPICS.NPC) {
@@ -120,7 +130,7 @@ export const pickDailyLifeTopic = async (chatId) => {
   }
 
   if (topic === DAILY_LIFE_TOPICS.NEWS) {
-    const material = await getNewsMaterial();
+    const material = await getNewsMaterial(character);
     if (!material) {
       return { topic: DAILY_LIFE_TOPICS.MOOD, material: null };
     }
