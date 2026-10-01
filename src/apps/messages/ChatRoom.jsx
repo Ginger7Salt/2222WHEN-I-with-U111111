@@ -87,6 +87,14 @@ import {
   pickPokeReply,
 } from './interactions/pokeService';
 import { INTERACTION_TYPES } from './interactions/interactionRules';
+import { createTrickMessage } from './interactions/halloween/trickService';
+import TrickEffectOverlay from './interactions/halloween/TrickEffectOverlay';
+import HalloweenSvgDefs from './interactions/halloween/HalloweenSvgDefs';
+import { isHalloweenSeasonActive } from './interactions/halloween/halloweenSeason';
+import { containsHalloweenKeyword } from './interactions/halloween/halloweenKeywords';
+import KeywordWalkerLane from './interactions/halloween/KeywordWalkerLane';
+import { checkAndMarkMidnightEgg } from './interactions/halloween/midnightEgg';
+import MidnightEggOverlay from './interactions/halloween/MidnightEggOverlay';
 
 import CheckInNotice from './check-in/CheckInNotice';
 import { checkForCrossChatCheckIn } from './check-in/checkInService';
@@ -245,6 +253,10 @@ export const ChatRoom = ({
   const mcpApprovalResolverRef = useRef(null);
   const scrollAreaRef = useRef(null);
   const inputRef = useRef(null);
+  const keywordWalkerRef = useRef(null);
+  const hadHalloweenKeywordRef = useRef(false);
+  const midnightEggRef = useRef(null);
+  const midnightCheckInFlightRef = useRef(false);
 
 const sendIconRef = useRef(null);
 const sparklesIconRef = useRef(null);
@@ -756,11 +768,60 @@ forceScrollMessageIdRef.current = stickerMsgId;
         targetLabel: character.name || '对方',
       });
 
-      await loadChatData();
+       await loadChatData();
     } catch (error) {
       console.error('[ChatRoom] 戳一戳失败：', error);
     }
   };
+
+  const handleTrickCharacter = async () => {
+    if (!chat?.id || !character?.id || !isHalloweenSeasonActive()) return;
+
+    try {
+      await createTrickMessage({
+        chatId: chat.id,
+        characterId: character.id,
+        direction: 'user_to_char',
+        actorLabel: activeUserName || '你',
+        targetLabel: character.name || '对方',
+      });
+
+      await loadChatData();
+    } catch (error) {
+      console.error('[ChatRoom] 恶作剧失败：', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!isHalloweenSeasonActive()) {
+      hadHalloweenKeywordRef.current = false;
+      return;
+    }
+
+    const hasKeyword = containsHalloweenKeyword(inputText);
+
+    if (hasKeyword && !hadHalloweenKeywordRef.current) {
+      keywordWalkerRef.current?.spawnWalkers();
+    }
+
+    hadHalloweenKeywordRef.current = hasKeyword;
+  }, [inputText]);
+
+  useEffect(() => {
+    if (!chat?.id || midnightCheckInFlightRef.current) return;
+
+    midnightCheckInFlightRef.current = true;
+
+    checkAndMarkMidnightEgg(chat)
+      .then((triggered) => {
+        if (triggered) {
+          midnightEggRef.current?.play();
+        }
+      })
+      .finally(() => {
+        midnightCheckInFlightRef.current = false;
+      });
+  }, [chat?.id, chat?.lastMidnightEggDate]);
 
   const closePendingMcpApproval = useCallback((result) => {
     const resolver = mcpApprovalResolverRef.current;
@@ -1829,7 +1890,14 @@ useLayoutEffect(() => {
         }}
       />
 
-      <ChatEntryCardOverlay card={entryCard} onDone={dismissEntryCard} />
+           <ChatEntryCardOverlay card={entryCard} onDone={dismissEntryCard} />
+
+      {isHalloweenSeasonActive() && (
+        <>
+          <HalloweenSvgDefs />
+          <TrickEffectOverlay />
+        </>
+      )}
 
       {chat.bgImage && (
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -2440,14 +2508,21 @@ useLayoutEffect(() => {
 
         <HeartbeatPulse pulseKey={heartbeatPulseKey} />
 
-        <div
-          className="chat-input-bar flex items-center gap-2 rounded-full px-3 py-2 shadow-2xl backdrop-blur-2xl transition-all duration-300"
+              <div
+          className="chat-input-bar relative flex items-center gap-2 rounded-full px-3 py-2 shadow-2xl backdrop-blur-2xl transition-all duration-300"
           style={{
             background: 'var(--card-bg-gradient)',
             color: 'var(--text-main)',
             boxShadow: '0 16px 40px rgba(0, 0, 0, 0.15)',
           }}
         >
+          {isHalloweenSeasonActive() && (
+            <>
+              <KeywordWalkerLane ref={keywordWalkerRef} />
+              <MidnightEggOverlay ref={midnightEggRef} />
+            </>
+          )}
+
           <div className="relative flex items-center gap-1 opacity-80">
             <InteractiveMenuPopover
               onSelectAction={(type) => {
@@ -2506,8 +2581,13 @@ useLayoutEffect(() => {
                   return;
                 }
 
-                if (type === 'interaction_poke') {
+                      if (type === 'interaction_poke') {
                   void handlePokeCharacter('full');
+                  return;
+                }
+
+                if (type === 'interaction_trick') {
+                  void handleTrickCharacter();
                   return;
                 }
 

@@ -30,6 +30,8 @@ import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from 
 import { CONFIRM_CARD_PROMPT_NOTE, applyConfirmCardDirective } from '../apps/messages/confirmCardDirective';
 import { getAvatarHistorySwitchNote, applyAvatarHistorySwitchDirective } from '../apps/messages/avatarHistoryDirective';
 import { WORK_KAOMOJI_PROMPT_NOTE, applyWorkKaomojiDirective } from '../apps/messages/work/workKaomojiDirective';
+import { MOOD_BUBBLE_PROMPT_NOTE, applyMoodBubbleDirective } from '../apps/messages/mood/moodBubbleDirective';
+import { isHalloweenSeasonActive } from '../apps/messages/interactions/halloween/halloweenSeason';
 import { applyMemoirNoteDirective, MEMOIR_NOTE_PROMPT } from '../apps/memoir/memoirNoteDirective';
 import {
   recordFoodMemoir,
@@ -250,7 +252,7 @@ export const parseAiResponseToMessages = async (text = '') => {
 
   // 支持的 AI 卡片标签，加入 STICKER
  const pattern =
-  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION):\s*([^\]]+)\]/g;
+  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK):\s*([^\]]+)\]/g;
 
   // 一次性读取本地表情包库，建立「名称 -> URL」映射
   const allStickers = await db.stickers.toArray();
@@ -401,7 +403,7 @@ export const parseAiResponseToMessages = async (text = '') => {
         stickerMap.get(stickerName) ||
         '';
 
-      result.push({
+           result.push({
         type: 'sticker',
         content: stickerName,
         metadata: {
@@ -409,6 +411,14 @@ export const parseAiResponseToMessages = async (text = '') => {
           url: stickerUrl
         }
       });
+} else if (cardType === 'trick') {
+  if (isHalloweenSeasonActive()) {
+    result.push({
+      type: 'trick',
+      content: '对你恶作剧了一下',
+      metadata: { direction: 'char_to_user' }
+    });
+  }
     }
 
     lastIndex = pattern.lastIndex;
@@ -2338,6 +2348,18 @@ const workKaomojiNote = (!options.ignoreAway && chat.mode === 'work')
 // ignoreAway 时跟其它可选行为一起收起。
 const confirmCardNote = options.ignoreAway ? '' : CONFIRM_CARD_PROMPT_NOTE;
 
+const moodBubbleNote = options.ignoreAway ? '' : MOOD_BUBBLE_PROMPT_NOTE;
+
+const trickButtonNote = (!options.ignoreAway && isHalloweenSeasonActive())
+  ? `
+【万圣节限定·可选：恶作剧按钮】
+现在是万圣节期间，如果这一刻你想跟 User 开个小玩笑，可以在本次回复
+正文的任意位置单独写一行（用户不会看到这行原始文字，只会看到一个
+"你对 TA 恶作剧了一下"的惊喜效果）：
+[TRICK: 恶作剧]
+完全自愿，不是每次回复都需要带这个标签，想用再用。`
+  : '';
+
 const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   awayOfferNote ? `\n\n${awayOfferNote}` : ''
 }${
@@ -2352,6 +2374,10 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   workKaomojiNote ? `\n\n${workKaomojiNote}` : ''
 }${
   confirmCardNote ? `\n\n${confirmCardNote}` : ''
+}${
+  moodBubbleNote ? `\n\n${moodBubbleNote}` : ''
+}${
+  trickButtonNote ? `\n\n${trickButtonNote}` : ''
 }`;
 
 const historyContext = buildHistoryContext(
@@ -2514,11 +2540,14 @@ const { content: contentAfterWorkKaomoji } = await applyWorkKaomojiDirective({
   isWorkMode: chat.mode === 'work',
 });
 
-// 取出角色的 [CONFIRM_CARD: ...] 标签（一律从正文去掉）；格式正确时
-// 生成一张确认/选择/填写卡片消息，交给下面统一追加到 messageIds。
+const { content: contentAfterMood } = await applyMoodBubbleDirective({
+  characterId: character.id,
+  content: contentAfterWorkKaomoji,
+});
+
 const { content: contentAfterConfirmCard, cardMessage: confirmCardMessage } =
   await applyConfirmCardDirective({
-    content: contentAfterWorkKaomoji,
+    content: contentAfterMood,
   });
 
 const mcpTrace = getMcpChatTraceSummary(

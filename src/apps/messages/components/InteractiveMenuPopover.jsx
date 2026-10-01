@@ -15,7 +15,9 @@ import {
   HelpCircle,
     Flame,
   Moon,
+  Ghost,
 } from 'lucide-react';
+import { isHalloweenSeasonActive } from '../interactions/halloween/halloweenSeason';
 import {
   ORDER_ENTRY_STATES,
   getOrderEntryState,
@@ -190,9 +192,21 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
               className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
               style={{ backgroundColor: 'var(--control-soft-bg)' }}
             >
-              <Hand className="h-3.5 w-3.5" />
+                          <Hand className="h-3.5 w-3.5" />
               <span>戳一戳</span>
             </button>
+
+            {isHalloweenSeasonActive() && (
+              <button
+                type="button"
+                onClick={() => handleAction('interaction_trick')}
+                className="mt-1 flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
+                style={{ backgroundColor: 'var(--control-soft-bg)' }}
+              >
+                <Ghost className="h-3.5 w-3.5" />
+                <span>恶作剧</span>
+              </button>
+            )}
           </div>
 
           <div

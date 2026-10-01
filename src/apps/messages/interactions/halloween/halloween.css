@@ -1,0 +1,256 @@
+/* src/apps/messages/interactions/halloween/halloween.css
+ *
+ * 四个万圣节彩蛋共用的样式。幽灵统一用纯白色（不跟随主题变化，万圣节
+ * 彩蛋本身就不追求跟四套主题自动配色，保持"节日限定"的统一调性），
+ * 蝙蝠/蜘蛛用跟随主题的文字色，在浅色和深色主题下都看得清。
+ */
+
+:root {
+  --hwe-ghost-body: #ffffff;
+  --hwe-ghost-edge: #b9b4cf;
+  --hwe-glow: rgba(155, 107, 214, 0.45);
+  --hwe-bat-color: var(--text-sub);
+  --hwe-spider-color: var(--text-main);
+}
+
+.hwe-ghost-body { fill: var(--hwe-ghost-body); stroke: var(--hwe-ghost-edge); stroke-width: 1.6; stroke-linejoin: round; }
+.hwe-ghost-eye { fill: #2a1636; }
+.hwe-ghost-cheek { fill: #f2a5b8; opacity: 0.7; }
+
+/* ───────── 1. 恶作剧按钮：全聊天室居中弹出的幽灵 + 文字 ───────── */
+
+.hwe-trick-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.hwe-trick-halo {
+  position: absolute;
+  width: 16rem;
+  height: 16rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--hwe-glow) 0%, transparent 68%);
+  opacity: 0;
+}
+
+.hwe-trick-ghost {
+  width: 7rem;
+  height: 8.2rem;
+  opacity: 0;
+  position: relative;
+}
+
+.hwe-trick-text {
+  position: relative;
+  font-family: Georgia, 'Songti SC', serif;
+  font-style: italic;
+  font-size: 1.3rem;
+  letter-spacing: 0.06em;
+  color: var(--text-main);
+  opacity: 0;
+  text-shadow: 0 0 0.9rem var(--hwe-glow);
+  white-space: nowrap;
+}
+
+.hwe-trick-stage--go .hwe-trick-halo { animation: hweHalo 2.8s ease-out forwards; }
+.hwe-trick-stage--go .hwe-trick-ghost { animation: hweGhost 2.8s cubic-bezier(0.2, 1.2, 0.4, 1) forwards; }
+.hwe-trick-stage--go .hwe-trick-text { animation: hweText 2.8s ease-out forwards; }
+
+@keyframes hweHalo {
+  0% { opacity: 0; transform: scale(0.4); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+@keyframes hweGhost {
+  0% { opacity: 0; filter: blur(1.1rem); transform: scale(0.4) translateY(1.9rem); }
+  22% { opacity: 1; filter: blur(0); transform: scale(1.08) translateY(0); }
+  32% { transform: scale(1) translateY(0); }
+  70% { opacity: 1; filter: blur(0); transform: scale(1) translateY(-0.5rem); }
+  100% { opacity: 0; filter: blur(0.9rem); transform: scale(1.12) translateY(-2.1rem); }
+}
+
+@keyframes hweText {
+  0%, 28% { opacity: 0; transform: translateY(0.6rem); filter: blur(0.4rem); }
+  42% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  72% { opacity: 1; filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-0.9rem); filter: blur(0.5rem); }
+}
+
+/* 恶作剧广播消息：居中的小提示条，样式对齐 poke 的系统提示条 */
+.hwe-trick-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0.6rem auto;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  width: fit-content;
+  background: color-mix(in srgb, #9b6bd6 16%, var(--bg-surface, var(--card-bg)));
+  border: 1px solid color-mix(in srgb, #9b6bd6 40%, var(--card-border));
+  color: var(--text-sub);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+/* ───────── 2. 关键词粒子：一排幽灵/南瓜从输入框上方走过 ───────── */
+
+.hwe-walk-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 2.6rem;
+  margin-bottom: 0.3rem;
+  z-index: 15;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hwe-walker {
+  position: absolute;
+  bottom: 0;
+  width: 1.7rem;
+  height: 2rem;
+  left: -2.2rem;
+  animation: hweWalkAcross 5.2s linear forwards;
+}
+
+.hwe-walker svg {
+  width: 100%;
+  height: 100%;
+  animation: hweHop 0.5s ease-in-out infinite;
+  transform-origin: 50% 100%;
+}
+
+.hwe-walker--pumpkin { width: 1.8rem; height: 1.7rem; }
+
+@keyframes hweWalkAcross {
+  from { left: -2.2rem; }
+  to { left: calc(100% + 1.2rem); }
+}
+
+@keyframes hweHop {
+  0%, 100% { transform: translateY(0) rotate(-4deg) scaleY(1); }
+  50% { transform: translateY(-0.35rem) rotate(4deg) scaleY(1.04); }
+}
+
+/* ───────── 3. 深夜彩蛋：蝙蝠飞过 / 小幽灵浮起 ───────── */
+
+.hwe-midnight-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 5rem;
+  margin-bottom: 0.3rem;
+  z-index: 16;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hwe-midnight-bat {
+  position: absolute;
+  width: 3.6rem;
+  height: 2rem;
+  left: -4.4rem;
+  top: 0.3rem;
+  opacity: 0;
+}
+
+.hwe-midnight-bat .hwe-bat-wl,
+.hwe-midnight-bat .hwe-bat-wr {
+  transform-origin: 32px 20px;
+  animation: hweFlap 0.22s ease-in-out infinite alternate;
+}
+
+.hwe-midnight-bat .hwe-bat-wr { animation-direction: alternate-reverse; }
+
+@keyframes hweFlap {
+  from { transform: scaleY(1); }
+  to { transform: scaleY(0.35); }
+}
+
+.hwe-midnight-bat--go { animation: hweBatFly 4.2s ease-in-out forwards; }
+
+@keyframes hweBatFly {
+  0% { left: -4.4rem; top: 0.3rem; opacity: 1; }
+  40% { left: calc(50% - 1.8rem); top: 1.9rem; opacity: 1; }
+  52% { left: calc(50% - 1.8rem); top: 2.4rem; opacity: 1; }
+  72% { left: calc(50% - 1.8rem); top: 2.4rem; opacity: 1; }
+  100% { left: calc(100% + 4.4rem); top: 0; opacity: 1; }
+}
+
+.hwe-midnight-ghost {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 2.6rem;
+  height: 3rem;
+  margin-left: -1.3rem;
+  opacity: 0;
+}
+
+.hwe-midnight-ghost--go { animation: hweMidnightGhost 4s ease-in-out forwards; }
+
+@keyframes hweMidnightGhost {
+  0% { opacity: 0; transform: translateY(1.3rem) scale(0.5); filter: blur(0.35rem); }
+  22% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  40% { transform: translateY(-0.45rem); }
+  58% { transform: translateY(0); }
+  76% { opacity: 1; transform: translateY(-0.45rem); }
+  100% { opacity: 0; transform: translateY(-1.7rem) scale(1.1); filter: blur(0.45rem); }
+}
+
+/* ───────── 4. 蜘蛛彩蛋：从消息气泡顶部垂丝而下 ───────── */
+
+.hwe-spider-drop {
+  position: absolute;
+  left: 1.1rem;
+  top: -0.1rem;
+  width: 1.3rem;
+  z-index: 5;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: top center;
+}
+
+.hwe-spider-drop::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -3rem;
+  width: 1px;
+  height: 3rem;
+  background: var(--hwe-spider-color);
+  opacity: 0.55;
+}
+
+.hwe-spider-drop--go { animation: hweSpiderDrop 3.4s cubic-bezier(0.32, 0.7, 0.35, 1) forwards; }
+
+@keyframes hweSpiderDrop {
+  0% { opacity: 0; transform: translateY(-3rem); }
+  10% { opacity: 1; }
+  38% { transform: translateY(0.4rem); }
+  48% { transform: translateY(0.1rem); }
+  80% { opacity: 1; transform: translateY(0.3rem); }
+  100% { opacity: 0; transform: translateY(-3rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hwe-trick-stage,
+  .hwe-walker,
+  .hwe-midnight-bat,
+  .hwe-midnight-ghost,
+  .hwe-spider-drop {
+    animation-duration: 0.01ms !important;
+  }
+}

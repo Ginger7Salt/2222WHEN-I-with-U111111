@@ -3,6 +3,7 @@ import React from 'react';
 import TypingIndicator from './TypingIndicator';
 import McpToolUsageIndicator from './McpToolUsageIndicator';
 import MessageRow from './MessageRow';
+import DateDivider, { toDayKey } from './DateDivider';
 
 const MessageList = ({
   visibleMessages,
@@ -46,14 +47,21 @@ const MessageList = ({
       </div>
     )}
 
-    {visibleMessages.map((msg) => {
+      {visibleMessages.map((msg, index) => {
       const quoted = msg.quotedMessageId
         ? messagesById.get(msg.quotedMessageId)
         : null;
 
+      const prevMsg = visibleMessages[index - 1];
+      const dayKey = toDayKey(msg.timestamp);
+      const showDateDivider = dayKey !== null
+        && dayKey !== toDayKey(prevMsg?.timestamp);
+
       return (
-        <MessageRow
-          key={msg.id}
+        <React.Fragment key={msg.id}>
+          {showDateDivider && <DateDivider timestamp={msg.timestamp} />}
+
+          <MessageRow
           msg={msg}
           quoted={quoted}
           bubbleDecoration={bubbleDecoration}
@@ -73,9 +81,10 @@ const MessageList = ({
           onPokeAvatar={onPokeAvatar}
           selectionMode={selectionMode}
           isSelected={selectedMessageIds ? selectedMessageIds.has(msg.id) : false}
-          onToggleSelected={onToggleSelected}
+                  onToggleSelected={onToggleSelected}
           onEnterSelectionMode={onEnterSelectionMode}
-        />
+          />
+        </React.Fragment>
       );
     })}
 

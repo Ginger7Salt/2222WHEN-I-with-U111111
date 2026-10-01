@@ -14,6 +14,8 @@ import {
 
 import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
 import ChatPokeNotice from '../interactions/ChatPokeNotice';
+import ChatTrickNotice from '../interactions/halloween/ChatTrickNotice';
+import SpiderEgg from '../interactions/halloween/SpiderEgg';
 import OfflineInviteCard from '../../offline/OfflineInviteCard';
 import RealVoiceCard from '../../../features/real-voice/components/RealVoiceCard';
 import CallLogEntry from './CallLogEntry';
@@ -220,6 +222,16 @@ const MessageRow = ({
     );
   }
 
+  if (msg.type === 'trick') {
+    return (
+      <ChatTrickNotice
+        message={msg}
+        character={character}
+        activeUserName={activeUserName}
+      />
+    );
+  }
+
   return (
     <div
       className={`flex items-start gap-1.5 ${
@@ -406,8 +418,9 @@ const MessageRow = ({
               onPointerCancel={handleBubblePointerRelease}
               onContextMenu={handleBubbleContextMenu}
             >
-              <BubbleDecorationOverlay decoration={bubbleDecoration} isUser={isUser} />
+                          <BubbleDecorationOverlay decoration={bubbleDecoration} isUser={isUser} />
               {showSpecialEffect && <specialEffectRule.Effect />}
+              <SpiderEgg message={msg} />
 
               <ReactionPickerPopover
                 open={showReactionPicker}
