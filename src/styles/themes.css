@@ -21,6 +21,8 @@
   --ink-card-bg: linear-gradient(145deg, #242424 0%, #090909 100%);
   --ink-card-border: #373737;
   --ink-card-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+    --ink-a: #242424;
+  --ink-b: #090909;
 
   --text-main: #111111;
   --text-sub: #484848;
@@ -68,6 +70,8 @@
   --ink-card-bg: linear-gradient(145deg, #4c352a 0%, #251812 100%);
   --ink-card-border: #725847;
   --ink-card-shadow: 0 16px 34px rgba(45, 29, 20, 0.18);
+   --ink-a: #4c352a;
+  --ink-b: #251812;
 
   --text-main: #2d211c;
   --text-sub: #66554b;
@@ -111,6 +115,8 @@
   --ink-card-bg: linear-gradient(145deg, #f4f4f2 0%, #cfcfca 100%);
   --ink-card-border: #f5f5f3;
   --ink-card-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+    --ink-a: #f4f4f2;
+  --ink-b: #cfcfca;
 
   --text-main: #f5f5f3;
   --text-sub: #c7c7c4;
@@ -154,6 +160,8 @@
   --ink-card-bg: linear-gradient(145deg, #ead8f8 0%, #b885df 100%);
   --ink-card-border: #f4e5ff;
   --ink-card-shadow: 0 16px 34px rgba(8, 3, 14, 0.25);
+    --ink-a: #ead8f8;
+  --ink-b: #b885df;
 
   --text-main: #fbf5ff;
   --text-sub: #ddc5ef;
