@@ -10,8 +10,11 @@ import VoiceProfilePanel from '../../features/real-voice/components/VoiceProfile
 import RingtonePanel from '../../features/real-voice/components/RingtonePanel';
 import VoicemailPanel from '../../features/real-voice/components/VoicemailPanel';
 import { normalizeVoiceProfile } from '../../features/real-voice/realVoiceDefaults';
+
 import AvatarHistoryModal from './components/AvatarHistoryModal';
 import { recordAvatarHistory, deleteAvatarHistoryEntry } from './avatarHistoryService';
+import FandomCharacterPanel from './components/FandomCharacterPanel';
+import { normalizeFandomProfile } from './fandomCharacterPrompt';
 
 // 随内容自动变长，且超出最大高度显示滚动条的自适应文本框组件
 const AutoGrowingTextarea = ({
@@ -76,6 +79,7 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
     ringtone: characterData?.ringtone || null,
     voicemail: characterData?.voicemail || null,
+    fandom: normalizeFandomProfile(characterData?.fandom),
   });
 
   // 控制世界书与知识库手风琴折叠展开状态 (Key: entryId -> boolean)
@@ -312,7 +316,17 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
             onChange={(e) => setCharacter({ ...character, extraNotes: e.target.value })}
           />
         </div>
-      </GlassCard>
+            </GlassCard>
+
+      <FandomCharacterPanel
+        value={character.fandom}
+        onChange={(fandom) => {
+          setCharacter((previous) => ({
+            ...previous,
+            fandom,
+          }));
+        }}
+      />
 
       <VoiceProfilePanel
         value={character.voiceProfile}

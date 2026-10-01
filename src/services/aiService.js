@@ -37,7 +37,9 @@ import {
 } from '../apps/memoir/memoirService';
 import { recordChatAtCurrentPlace } from '../apps/location/placePatternService';
 import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDirective';
+
 import { getReactionLabel } from '../apps/messages/reactionLabels';
+import { buildFandomSystemPromptBlock } from '../apps/messages/fandomCharacterPrompt';
 import { getActiveCallAwarenessNote, hasAnyLiveCall } from './callService';
 
 import {
@@ -1182,7 +1184,7 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
 【你的设定 (Character Notes)】：
 - 角色姓名：${character.name}
 - 角色人设/简介：${character.bio || '无'}
-- 补充设定/偏好限制：${character.extraNotes || '无'}${innerWorldPasswordContext}
+- 补充设定/偏好限制：${character.extraNotes || '无'}${innerWorldPasswordContext}${buildFandomSystemPromptBlock(character)}
 
 【用户设定 (User Notes)】：
 - 用户称呼：${userName}
