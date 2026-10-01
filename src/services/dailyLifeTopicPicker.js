@@ -26,6 +26,7 @@ import db from '../db';
 import { getNpcsByChatId } from '../apps/snapshots/services/snapshotNpcService';
 import { searchLatestNews } from '../apps/newspaper/newspaperSearchService';
 import { ensureCharacterNewsKeyword } from './characterNewsKeywordService';
+import { ensureUserInterestKeyword } from './userInterestKeywordService';
 
 export const DAILY_LIFE_TOPICS = {
   NPC: 'npc',
@@ -173,6 +174,54 @@ export const describeDailyLifeTopic = ({ topic, material }) => {
  * mood 类别刻意返回空字符串，调用方看到空字符串就用回原来"不给
  * topicHint"的那条默认分支即可。
  */
+/**
+ * 角色主动分享"用户感兴趣的事"用的素材：跟 getNewsMaterial 是同一套资讯
+ * 抓取逻辑（同样复用 newspaper 的 Tavily Key + searchLatestNews 免 Key
+ * 兜底），区别是关键词来源不同——这里用的是从用户偏好记忆里提炼出来的
+ * 兴趣关键词，不是角色自己的职业/爱好关键词。这是独立于
+ * pickDailyLifeTopic 的另一路素材，调用方自己决定要不要用、多大概率用，
+ * 不占用上面 npc/news/mood/hobby 那个话题池的抽取名额。
+ *
+ * 拿不到关键词（攒的用户偏好记忆还不够、或 AI 判断不出稳定兴趣）或资讯
+ * 抓取失败时返回 null，调用方按"这次不分享"处理即可。
+ */
+export const getUserInterestMaterial = async (chatId) => {
+  try {
+    const interestKeyword = await ensureUserInterestKeyword(chatId);
+    if (!interestKeyword) return null;
+
+    const savedSettings = await db.settings.get('newspaper_settings');
+    const tavilyKey = savedSettings?.value?.tavilyKey || '';
+
+    const results = await searchLatestNews(interestKeyword, { tavilyKey });
+    if (!Array.isArray(results) || results.length === 0) return null;
+
+    const picked = results[Math.floor(Math.random() * results.length)];
+    if (!picked?.title) return null;
+
+    return {
+      keyword: interestKeyword,
+      title: picked.title,
+      snippet: picked.snippet || '',
+      source: picked.source || '',
+    };
+  } catch (error) {
+    console.warn('[dailyLifeTopicPicker] 拉取用户兴趣资讯素材失败：', error);
+    return null;
+  }
+};
+
+/**
+ * 把 getUserInterestMaterial() 的结果转成可以直接拼进 prompt 的中文描述。
+ * 按用户的要求，"点破记忆"和"含蓄带出"两种口吻都给模型留着，让它自己
+ * 挑一种更自然的方式说，不固定成同一句式、每次都一个腔调。
+ */
+export const describeUserInterestMaterial = (material) => {
+  if (!material) return '';
+
+  return `你记得用户对「${material.keyword}」感兴趣，刚好刷到一条相关资讯："${material.title}"${material.snippet ? `（${material.snippet}）` : ''}。可以挑一种更自然的方式带出来——比如直接说"我记得你喜欢${material.keyword}，刚看到..."这种点破记忆的说法，也可以不点破、直接顺着这个话题聊，两种都行，自己选一种更贴合当下语气的，用你的人设口吻说，不需要逐字复述资讯原文。`;
+};
+
 export const describeDailyLifeTopicAsHint = ({ topic, material }) => {
   if (topic === DAILY_LIFE_TOPICS.NPC && material) {
     return `和「${material.npcName}」有关的小事，TA 最近发的动态是"${material.postContent}"`;

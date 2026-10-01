@@ -47,6 +47,8 @@ import {
 import {
   pickDailyLifeTopic,
   describeDailyLifeTopic,
+  getUserInterestMaterial,
+  describeUserInterestMaterial,
 } from './dailyLifeTopicPicker';
 import { getActiveCallAwarenessNote, hasAnyLiveCall } from './callService';
 
@@ -1128,6 +1130,25 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
     }
   }
 
+  // 角色主动分享"用户感兴趣的事"：跟上面角色聊自己的生活是两件独立的事，
+  // 各自按自己的概率抽，不共用同一个注入位——所以一条回复理论上可能同时
+  // 命中两段，但各自概率都不高，实际撞一起的情况很少。
+  const USER_INTEREST_CHAT_INJECT_PROBABILITY = 0.2;
+  let userInterestBlock = '';
+
+  if (Math.random() < USER_INTEREST_CHAT_INJECT_PROBABILITY) {
+    try {
+      const interestMaterial = await getUserInterestMaterial(chatId);
+      const interestText = describeUserInterestMaterial(interestMaterial);
+
+      if (interestText) {
+        userInterestBlock = `\n【这次可以提一提用户感兴趣的事（不是每次都要用，只是这次恰好想到，不要刻意引导话题，顺着聊天自然带出来就好）】：\n${interestText}\n`;
+      }
+    } catch (error) {
+      console.warn('[buildChatSystemPrompt] 拉取用户兴趣话题素材失败：', error);
+    }
+  }
+
   // 语言学习模式：关闭时，或者角色回应语言/翻译语言没选全时，
   // 返回空字符串，不影响默认行为。
   const learningModePromptBlock = buildLearningModePromptBlock(chat);
@@ -1234,6 +1255,7 @@ ${todoText}
 ${diaryText}
 ${characterAnalysisPromptBlock}
 ${dailyLifeTopicBlock}
+${userInterestBlock}
 【陪伴表达准则】：
 - 维持细腻的浪漫感与陪伴温度，文风应具有呼吸感和留白空间。
 - 坚决杜绝生硬客服腔、机械化的模板套句与生硬说教。
