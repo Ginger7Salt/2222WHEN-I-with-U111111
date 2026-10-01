@@ -26,6 +26,7 @@ import { matchSpecialMessageEffect, RECENT_MESSAGE_EFFECT_WINDOW_MS } from './sp
 import { BubbleDecorationOverlay } from './bubbleDecorations';
 
 import TextCard from './cards/TextCard';
+import LearningModeTranslationToggle from '../learningMode/LearningModeTranslationToggle';
 import ImageCard from './cards/ImageCard';
 import VoiceCard from './cards/VoiceCard';
 import TransferCard from './cards/TransferCard';
@@ -417,6 +418,9 @@ const MessageRow = ({
                     <div className="mb-1 text-[10px] opacity-60">自动回复</div>
                   )}
                   <TextCard content={msg.content} />
+                  <LearningModeTranslationToggle
+                    translationText={msg.metadata?.translationText}
+                  />
                 </>
               )}
 

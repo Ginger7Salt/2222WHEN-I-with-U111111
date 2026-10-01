@@ -30,11 +30,26 @@ const getCurrentMessageContent = (message) => {
       return normalizeText(currentVersion);
     }
 
+    // 语言学习模式：这一版正文是外语原文时，优先用存在 metadata 里的
+    // 翻译文本去提炼记忆，避免外语原文拉低摘要质量。没有翻译（没开
+    // 学习模式）时这里就是 undefined，跟原来的行为完全一样。
+    const translationText = currentVersion?.metadata?.translationText;
+
+    if (translationText) {
+      return normalizeText(translationText);
+    }
+
     return normalizeText(
       currentVersion.content ||
       currentVersion.text ||
       currentVersion.message
     );
+  }
+
+  const translationText = message?.metadata?.translationText;
+
+  if (translationText) {
+    return normalizeText(translationText);
   }
 
   return normalizeText(message.content);

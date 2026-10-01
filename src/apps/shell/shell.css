@@ -22,7 +22,15 @@
 }
 
 .ts-scope button {
-  font: inherit;
+  /* 2026-10 修复：原来是 font: inherit，这个简写会把 font-size 也一起
+     重置成"继承父容器的字号"——而这条规则本身(.ts-scope button，class+
+     type)的优先级比 .ts-who/.ts-lnk/.ts-fl/.ts-hold 这些单 class 选择器
+     自己设的 font-size 更高，导致这些按钮上写的字号从来没真正生效过，
+     实际显示的是各自父容器算下来的继承字号。现在只重置真正需要统一的
+     几项，不再碰 font-size，让每个按钮类自己的字号能生效。 */
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: inherit;
   color: inherit;
   border: 0;
   background: none;
@@ -37,10 +45,24 @@
 /* ───────── 弥散光斑（只留两小团，静态） ───────── */
 .ts-root {
   position: relative;
+  /* 原来这里是 overflow:hidden，会把纵向溢出也一起裁掉；贝壳册条目多
+     的时候页面应该能正常向下滚动，所以只保留横向裁剪（挡住 .ts-stage
+     的负 margin 造成的横向溢出），纵向交给浏览器自己滚。 */
   overflow-x: hidden;
   border-radius: 0;
+  /* 2026-10 修复：光有 min-height 不够——.ts-root 本身不是 flex 容器，
+     .ts-screen 的高度就只由内容撑开，.ts-screen 内部 .ts-stage 的
+     flex:1 完全没有可分配的高度，会直接退化成它自己的 min-height:300px，
+     导致潮汐场景只占屏幕上方一小块、下面空出一截，没有真正铺到底部的
+     打捞按钮。现在把 .ts-root 也变成纵向 flex 容器，让 min-height:100dvh
+     这个高度能顺着 .ts-screen 的 flex:1（下面新加）一路传到 .ts-stage，
+     .ts-stage 才有真正可以撑满的空间。 */
   display: flex;
   flex-direction: column;
+  /* 跟 memory app 的 .memory-app 对齐：没有这个的话页面高度只看内容多少，
+     内容少时页面下方会露出底色。桌面端用 100vh，移动端浏览器地址栏会
+     动态伸缩，改用 100dvh 更准确（不支持 dvh 的浏览器会直接忽略这条，
+     退回上面的 100vh）。 */
   min-height: 100vh;
   min-height: 100dvh;
 }
@@ -60,8 +82,13 @@
   z-index: 5;
   display: flex;
   flex-direction: column;
+  /* 配合上面 .ts-root 的 flex 容器化：这一条才是真正把高度传给
+     .ts-stage 的关键，没有它 .ts-root 的 display:flex 本身也没用。 */
   flex: 1;
-  padding: 4px 24px 0;
+  /* 2026-10：顶部从 4px 改成 28px。原来返回/贝壳册这一排几乎贴着屏幕
+     顶边，没有呼吸感；这里不是安全区适配问题（没有刘海/状态栏遮挡的
+     场景），单纯是留白不够。 */
+  padding: 28px 24px 0;
 }
 
 /* folio / masthead */

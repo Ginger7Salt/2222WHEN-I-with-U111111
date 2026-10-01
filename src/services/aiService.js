@@ -40,6 +40,10 @@ import { extractOfflineInviteDirective } from '../apps/offline/offlineInviteDire
 
 import { getReactionLabel } from '../apps/messages/reactionLabels';
 import { buildFandomSystemPromptBlock } from '../apps/messages/fandomCharacterPrompt';
+import {
+  buildLearningModePromptBlock,
+  extractBubbleTranslation,
+} from '../apps/messages/learningMode/learningModePrompt';
 import { getActiveCallAwarenessNote, hasAnyLiveCall } from './callService';
 
 import {
@@ -265,10 +269,15 @@ export const parseAiResponseToMessages = async (text = '') => {
       .map((part) => part.trim())
       .filter(Boolean)
       .forEach((part) => {
+        // 语言学习模式关闭时，这里永远匹配不到标签，等价于原来的行为；
+        // 必须在 ||| 拆完之后逐条摘，翻译才能跟对它所属的那一条气泡。
+        const { content: cleanContent, translationText } =
+          extractBubbleTranslation(part);
+
         result.push({
           type: 'text',
-          content: part,
-          metadata: {}
+          content: cleanContent || part,
+          metadata: translationText ? { translationText } : {},
         });
       });
   };
@@ -1094,6 +1103,10 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
       customPrompt: chat.characterAnalysisPrompt,
     });
 
+  // 语言学习模式：关闭时，或者角色回应语言/翻译语言没选全时，
+  // 返回空字符串，不影响默认行为。
+  const learningModePromptBlock = buildLearningModePromptBlock(chat);
+
 
       // 优先使用当前聊天窗独占的用户资料；
   // 仅当该聊天窗没有填写时，才回退到角色级默认资料。
@@ -1218,6 +1231,7 @@ ${stickerInstruction}
 【不可逾越的输出格式终极规则（最高优先级）】：
 1. 卡片指令必须严格遵循上面 [] 的规定，括号内用 "|" 分割参数。不要杜撰任何未注册的卡片语法。
 2. 如果你想发送多条连续气泡消息，请使用 "|||" 将不同气泡隔开（例如：你好呀 ||| 今天过得怎么样？）。如果不需要分气泡，则直接连续输出正文，禁止随意堆砌 "|||"。
+${learningModePromptBlock}
 ${MEMOIR_NOTE_PROMPT}
 
 【稍后主动联系机制】

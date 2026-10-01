@@ -19,6 +19,7 @@ import ConfirmModal from '../../../components/ConfirmModal';
 import ColorSettingRow from './ColorSettingRow';
 import SavedInfoSection from './SavedInfoSection';
 import AwaySettingsSection from '../away/AwaySettingsSection';
+import LearningModeSettingsSection from '../learningMode/LearningModeSettingsSection';
 import db from '../../../db';
 import { CHAT_CONTROL_STYLE_OPTIONS } from '../chatControlStylePresets';
 import { compressImageFile } from '../../../utils/imageHelper';
@@ -788,6 +789,12 @@ const handleToggleLocation = async () => {
             ))}
           </div>
         </div>
+
+        {/* 语言学习模式（每个聊天窗单独设置） */}
+        <LearningModeSettingsSection
+          chat={chat}
+          onUpdated={onUpdatedUserPersona}
+        />
 
         {/* 自定义总提示词控制区 - 独立区块，宽度撑满 */}
         <div

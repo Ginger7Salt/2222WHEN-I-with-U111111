@@ -580,10 +580,10 @@ export const buildAppGridItems = ({
         className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
       >
         <div
-          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
           style={{ backgroundColor: 'var(--control-soft-bg)' }}
         >
-                                      <Shell className="h-6 w-6" />
+                   <Shell className="h-6 w-6" />
         </div>
 
         <div>
