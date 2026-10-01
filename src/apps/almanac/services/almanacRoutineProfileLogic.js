@@ -10,6 +10,29 @@
 export const MIN_DAYS = 7;
 export const MIN_MESSAGES = 20;
 
+// "更深一层的印象"（角色画像）用到的维度表、历史记录文案。真正的维度 id
+// 集合定义在 almanacCharacterPortraitLogic.js，这里按本文件"不 import
+// 任何东西"的约定重复一份，只用于展示文案，不参与判断逻辑。
+const PORTRAIT_DIMENSION_LIST = [
+  { id: 'personality', label: '性格倾向' },
+  { id: 'communication', label: '沟通风格' },
+  { id: 'preference', label: '喜好偏好' },
+  { id: 'emotion', label: '情绪模式' },
+];
+
+const PORTRAIT_DIMENSION_LABELS = PORTRAIT_DIMENSION_LIST.reduce((map, { id, label }) => {
+  map[id] = label;
+  return map;
+}, {});
+
+const PORTRAIT_HISTORY_KIND_LABELS = {
+  generated_summary: '写下了第一印象',
+  deepened_summary: '深化了印象',
+  split_into_dimensions: '拆成了这个维度',
+  deepened: '加深了这一条',
+  corrected: '修正了之前的判断',
+};
+
 // ---------------------------------------------
 // 作息类型表：id、名称、默认的"所以 TA 会这样对你"
 // ---------------------------------------------
@@ -599,6 +622,67 @@ export const resolveRoutineProfile = ({ stored = null, stats = null, schedules =
     ? profile.characterPortrait
     : null;
 
+  // "更深一层的印象"：需要 AI 读聊天内容才能写出来，默认关闭，用户自己开启。
+  // 这里兼容两种存储形状：旧版扁平的 { trait, reason }（没有 mode 字段，
+  // 当成 mode: 'summary' 来读），和这一轮的 { mode, summary, dimensions, history }。
+  // 真正的读写、AI 调用在 almanacCharacterPortraitService.js，这里只是
+  // 为了给页面展示和拼 prompt，按这个文件"不 import 任何东西"的约定
+  // 自己再读一遍，不从那边 import。
+  const isLegacyPortrait = rawPortrait && !rawPortrait.mode && typeof rawPortrait.trait === 'string';
+
+  const portraitMode = isLegacyPortrait
+    ? 'summary'
+    : rawPortrait?.mode === 'dimensions'
+      ? 'dimensions'
+      : 'summary';
+
+  const portraitSummary = isLegacyPortrait
+    ? rawPortrait.trait
+      ? {
+          text: rawPortrait.trait,
+          reason: typeof rawPortrait.reason === 'string' ? rawPortrait.reason : '',
+          updatedAt: rawPortrait.generatedAt || null,
+        }
+      : null
+    : rawPortrait?.summary?.text
+      ? {
+          text: rawPortrait.summary.text,
+          reason: typeof rawPortrait.summary.reason === 'string' ? rawPortrait.summary.reason : '',
+          updatedAt: rawPortrait.summary.updatedAt || null,
+        }
+      : null;
+
+  const portraitDimensions = portraitMode === 'dimensions'
+    ? PORTRAIT_DIMENSION_LIST.map(({ id, label }) => {
+        const found = Array.isArray(rawPortrait?.dimensions)
+          ? rawPortrait.dimensions.find((item) => item?.id === id)
+          : null;
+
+        return {
+          id,
+          label,
+          text: typeof found?.text === 'string' ? found.text : '',
+          updatedAt: found?.updatedAt || null,
+        };
+      })
+    : null;
+
+  const portraitHistory = Array.isArray(rawPortrait?.history)
+    ? rawPortrait.history
+        .slice()
+        .reverse()
+        .map((item) => ({
+          id: item.id,
+          at: item.at,
+          dimensionLabel: item.dimensionId ? PORTRAIT_DIMENSION_LABELS[item.dimensionId] || item.dimensionId : '总体印象',
+          kind: item.kind,
+          kindLabel: PORTRAIT_HISTORY_KIND_LABELS[item.kind] || '更新了',
+          from: item.from || '',
+          to: item.to || '',
+          note: item.note || '',
+        }))
+    : [];
+
   return {
     enabled: profile.enabled !== false,
     typeId: type ? type.id : null,
@@ -614,17 +698,21 @@ export const resolveRoutineProfile = ({ stored = null, stats = null, schedules =
     enoughMessages: (stats?.total || 0) >= MIN_MESSAGES,
     totalUserMessages: stats?.total || 0,
     peakHour: stats && stats.total ? stats.peakHour : null,
-    // "更深一层的印象"：需要 AI 读聊天内容才能写出来，默认关闭，用户自己开启。
     portraitEnabled: rawPortrait?.enabled === true,
-    portrait: rawPortrait?.trait
-      ? {
-          trait: rawPortrait.trait,
-          reason: typeof rawPortrait.reason === 'string' ? rawPortrait.reason : '',
-          status: rawPortrait.status || 'guess',
-          generatedAt: rawPortrait.generatedAt || null,
-          basedOnMessageCount: Number(rawPortrait.basedOnMessageCount) || 0,
-        }
+    portraitMode,
+    portrait: portraitMode === 'summary'
+      ? portraitSummary
+        ? {
+            ...portraitSummary,
+            generatedAt: rawPortrait.generatedAt || null,
+            basedOnMessageCount: Number(rawPortrait.basedOnMessageCount) || 0,
+          }
+        : null
       : null,
+    portraitDimensions,
+    portraitHistory,
+    portraitGeneratedAt: rawPortrait?.generatedAt || null,
+    portraitBasedOnMessageCount: Number(rawPortrait?.basedOnMessageCount) || 0,
   };
 };
 
@@ -648,7 +736,10 @@ export const buildRoutinePromptLines = (view) => {
     (item) => item.enabled !== false && item.status !== 'closed' && item.text
   );
 
-  const hasPortrait = Boolean(view.portraitEnabled && view.portrait?.trait);
+  const hasPortrait = Boolean(
+    view.portraitEnabled &&
+      (view.portrait?.text || (view.portraitDimensions || []).some((item) => item.text))
+  );
 
   if (!view.declaredNote && !hasType && !hasPortrait) return [];
 
@@ -675,11 +766,23 @@ export const buildRoutinePromptLines = (view) => {
     });
   }
 
-  if (view.portraitEnabled && view.portrait?.trait) {
+  if (hasPortrait) {
+    if (view.portraitMode === 'dimensions') {
+      lines.push('你（角色）自己对 user 的印象，按下面几个角度分别写下的：');
+      (view.portraitDimensions || [])
+        .filter((item) => item.text)
+        .forEach((item) => {
+          lines.push(`- ${item.label}：${item.text}`);
+        });
+    } else if (view.portrait?.text) {
+      lines.push(
+        `你（角色）自己对 user 的印象：${view.portrait.text}${
+          view.portrait.reason ? `（${view.portrait.reason}）` : ''
+        }`
+      );
+    }
+
     lines.push(
-      `你（角色）自己对 user 的印象：${view.portrait.trait}${
-        view.portrait.reason ? `（${view.portrait.reason}）` : ''
-      }`,
       '这份印象是你自己写下的，请自然地保持这份印象的口吻，不要说"我记录过你是……"这类话。'
     );
   }

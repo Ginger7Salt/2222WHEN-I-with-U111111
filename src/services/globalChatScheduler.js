@@ -30,6 +30,7 @@ import { runCallScheduler } from './callScheduler';
 import { runParallelOrbitScheduler } from './parallelOrbitScheduler';
 import { checkAndTriggerGlobalSnapshotPosts } from '../apps/snapshots/services/snapshotGlobalScheduler';
 import { checkAlmanacGreetings } from '../apps/almanac/services/almanacGreetingService';
+import { checkAlmanacPortraitAutoGeneration } from '../apps/almanac/services/almanacCharacterPortraitService';
 
 const BASE_TICK_MS = 3 * 60 * 1000;
 
@@ -38,6 +39,7 @@ const REGISTRATIONS = [
   { name: 'almanacGreeting', intervalMs: 3 * 60 * 1000, run: checkAlmanacGreetings },
   { name: 'call', intervalMs: 6 * 60 * 1000, run: runCallScheduler },
   { name: 'snapshotGlobal', intervalMs: 15 * 60 * 1000, run: checkAndTriggerGlobalSnapshotPosts },
+  { name: 'almanacPortrait', intervalMs: 60 * 60 * 1000, run: checkAlmanacPortraitAutoGeneration },
   { name: 'parallelOrbit', intervalMs: 60 * 60 * 1000, run: runParallelOrbitScheduler },
 ];
 
@@ -97,7 +99,7 @@ export const startGlobalChatScheduler = () => {
     void runDueSchedulers();
   }, BASE_TICK_MS);
 
-  console.log('[globalChatScheduler] 已启动，基准 tick 3 分钟，合并 rhythm/call/snapshotGlobal/almanacGreeting/parallelOrbit。');
+  console.log('[globalChatScheduler] 已启动，基准 tick 3 分钟，合并 rhythm/call/snapshotGlobal/almanacGreeting/almanacPortrait/parallelOrbit。');
 };
 
 export const stopGlobalChatScheduler = () => {
