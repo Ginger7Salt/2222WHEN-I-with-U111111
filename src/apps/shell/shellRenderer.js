@@ -7,6 +7,15 @@
 // transform，预览稿的原始实现就是这么做的——直接照搬字符串结构，才能
 // 保证拖进圈里开壳的那段视觉和手感跟预览稿完全一致。
 
+// 贝壳册一次性会并排渲染很多张卡片，每张都调用 shellMarkup —— 如果
+// 渐变/clipPath 的 id 是写死的字面量（tsGC0/tsGC1/tsFanClip0full...），
+// 同一稀有度的卡片会在同一页面里重复出现相同 id。重复 id 的 SVG defs
+// 在不同浏览器下的解析结果不一致（有的只认第一份、有的直接渲染失败），
+// 贝壳册里"同稀有度的贝壳图标显示不正常/不出图"的问题就是这么来的。
+// 所以这里给每次调用分配一个自增的实例号，拼进所有 id 里，保证全页面
+// 唯一。
+let shellMarkupUid = 0;
+
 const shellOutline = (cx, cy, r, scallops) => {
   const pts = [];
 
@@ -22,12 +31,17 @@ const shellOutline = (cx, cy, r, scallops) => {
 // part: 'full'（完整贝壳，贝壳册/静态展示用) | 'top'（壳盖，开壳动画旋转用）
 // | 'bottom'（铰链底座，开壳动画用）
 export function shellMarkup(tier, part = 'full') {
+  shellMarkupUid += 1;
+  const uid = shellMarkupUid;
+  const gradC0Id = `tsGC0-${uid}`;
+  const gradC1Id = `tsGC1-${uid}`;
+
   const cx = 60;
   const cy = 78;
   const r = 44;
   const sc = 7;
 
-  const fill0 = tier === 0 ? 'url(#tsGC0)' : 'url(#tsGC1)';
+  const fill0 = tier === 0 ? `url(#${gradC0Id})` : `url(#${gradC1Id})`;
   const edge = tier === 0 ? 'var(--bg-blob-3)' : 'var(--ink-card-border)';
   const ribClr = tier === 0 ? 'var(--bg-blob-1)' : 'var(--text-on-ink-muted)';
   const innerFill = tier === 0 ? 'var(--bg-surface-strong)' : 'var(--ink-b)';
@@ -61,11 +75,11 @@ export function shellMarkup(tier, part = 'full') {
 
   const hinge = `<ellipse cx="${cx}" cy="${cy + 4}" rx="14" ry="5" fill="${innerFill}" stroke="${edge}" stroke-width="1.2" opacity=".9"/>`;
 
-  const clipId = `tsFanClip${tier}${part}`;
+  const clipId = `tsFanClip-${uid}`;
   const defs = `<defs>
     <clipPath id="${clipId}"><path d="${outerPath}"/></clipPath>
-    <radialGradient id="tsGC0" cx="50%" cy="85%" r="70%"><stop offset="0%" stop-color="var(--bg-blob-2)"/><stop offset="100%" stop-color="var(--bg-blob-1)"/></radialGradient>
-    <radialGradient id="tsGC1" cx="50%" cy="85%" r="70%"><stop offset="0%" stop-color="var(--ink-a)"/><stop offset="100%" stop-color="var(--ink-b)"/></radialGradient>
+    <radialGradient id="${gradC0Id}" cx="50%" cy="85%" r="70%"><stop offset="0%" stop-color="var(--bg-blob-2)"/><stop offset="100%" stop-color="var(--bg-blob-1)"/></radialGradient>
+    <radialGradient id="${gradC1Id}" cx="50%" cy="85%" r="70%"><stop offset="0%" stop-color="var(--ink-a)"/><stop offset="100%" stop-color="var(--ink-b)"/></radialGradient>
   </defs>`;
 
   const shellBody = `<path d="${outerPath}" fill="${fill0}" stroke="${edge}" stroke-width="1.3"/>

@@ -833,10 +833,11 @@ const [hubBackground, setHubBackground] = useState('');
   const isMarginNotesApp =
     currentApp === 'margin-notes';
 
+  const isShellApp = currentApp === 'shell';
 
   const mainClassName = isInsideChatRoom
     ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
-    : isMarginNotesApp
+    : isMarginNotesApp || isShellApp
       ? 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] overflow-x-hidden'
       : 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6';
 
@@ -935,12 +936,12 @@ const [hubBackground, setHubBackground] = useState('');
         className={mainClassName}
         style={{
           paddingTop:
-            isInsideChatRoom || isMarginNotesApp
+                       isInsideChatRoom || isMarginNotesApp || isShellApp
               ? '0'
               : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
 
           paddingBottom:
-            isInsideChatRoom || isMarginNotesApp
+            isInsideChatRoom || isMarginNotesApp || isShellApp
               ? '0'
               : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
         }}
