@@ -34,11 +34,11 @@ import {
   Globe,
   Hourglass,
   ScrollText,
+  Shell,
 } from 'lucide-react';
 
 import GlassCard from '../../components/GlassCard';
 import AppTitle from './AppTitle';
-import ShellIcon from '../shell/ShellIcon';
 
 export const buildAppGridItems = ({
   onOpenApp,
@@ -583,7 +583,7 @@ export const buildAppGridItems = ({
           className="flex h-10 w-10 items-center justify-center rounded-2xl"
           style={{ backgroundColor: 'var(--control-soft-bg)' }}
         >
-                   <ShellIcon tier={0} className="h-6 w-6" />
+                                      <Shell className="h-6 w-6" />
         </div>
 
         <div>
