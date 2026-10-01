@@ -1,0 +1,480 @@
+/* src/apps/shell/shell.css
+ *
+ * 1:1 从视觉预览稿（tidal-shell-preview-v2.html）搬过来，只做了两件事：
+ * 1. 所有类名加 ts- 前缀、关键帧加 ts 前缀，避免跟别的 app 的全局 CSS
+ *    撞车（预览稿是独立 HTML 页面，可以用裸类名，正式项目不行）。
+ * 2. 去掉了预览稿里"手机外壳"（.phone 的圆角边框阴影）和右侧评审
+ *    控制面板（.panel 等），那两块只是 demo 页面本身的壳子，不是
+ *    产品视觉的一部分——真实 app 已经在 hub 的容器里，不需要再套一层
+ *    手机边框。
+ * 颜色、间距、动效时长、每一个 keyframe 的数值都原样保留，没有重新
+ * 设计，这样才能跟 user 已经看过并认可的预览稿保持一致。
+ */
+
+.ts-scope {
+  --serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", Georgia, serif;
+  --sans: Inter, "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  position: relative;
+  max-width: 430px;
+  margin: 0 auto;
+  font-family: var(--sans);
+  color: var(--text-main);
+}
+
+.ts-scope button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ts-scope select {
+  font: inherit;
+}
+
+/* ───────── 弥散光斑（只留两小团，静态） ───────── */
+.ts-root {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0;
+}
+.ts-haze {
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(46px);
+  pointer-events: none;
+  opacity: 0.55;
+}
+.ts-h1 { width: 210px; height: 210px; right: -70px; top: -50px; background: var(--bg-blob-1); }
+.ts-h2 { width: 230px; height: 170px; left: -80px; bottom: 90px; background: var(--bg-blob-2); }
+
+.ts-screen {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 24px 0;
+}
+
+/* folio / masthead */
+.ts-folio {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10.5px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ts-lnk {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: none;
+  color: var(--text-main);
+}
+.ts-lnk::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -2px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0.35);
+  transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.3, 1, 0.4, 1);
+}
+.ts-lnk:hover::after { transform: scaleX(1); }
+.ts-lnk em {
+  font-style: normal;
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  font-size: 10px;
+  letter-spacing: 0;
+  line-height: 18px;
+  text-align: center;
+}
+.ts-lnk em.ts-pop { animation: tsBpop 0.7s cubic-bezier(0.3, 1.6, 0.5, 1); }
+@keyframes tsBpop { 40% { transform: scale(1.6); } }
+
+.ts-mast h1 {
+  margin: 22px 0 10px;
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: 40px;
+  letter-spacing: 0.16em;
+  line-height: 1.05;
+}
+.ts-mrow { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.ts-lede {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 12.5px;
+  line-height: 1.75;
+  letter-spacing: 0.08em;
+  color: var(--text-sub);
+}
+.ts-who {
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-sub);
+  padding: 3px 0;
+  border-bottom: 1px solid var(--divider);
+  white-space: nowrap;
+  transition: border-color 0.3s, color 0.3s;
+}
+.ts-who:hover { color: var(--text-main); border-color: var(--text-main); }
+.ts-who b { font-weight: 500; color: var(--text-main); }
+
+/* ───────── stage ───────── */
+.ts-stage {
+  --lvl: 0;
+  position: relative;
+  flex: 1;
+  margin: 12px -24px 0;
+  min-height: 300px;
+  overflow: hidden;
+}
+.ts-ruler {
+  position: absolute; left: 24px; top: 14%; height: 48%; width: 16px;
+  background: repeating-linear-gradient(180deg, var(--text-muted) 0 1px, transparent 1px 10%);
+  opacity: 0.6;
+}
+.ts-ruler::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: var(--text-muted); }
+.ts-ruler i {
+  position: absolute; left: 0; width: 26px; height: 1px; background: var(--text-main);
+  bottom: calc(var(--lvl) * 100%);
+  transition: bottom 0.6s cubic-bezier(0.3, 1, 0.4, 1);
+}
+.ts-stage.ts-charging .ts-ruler i { transition: none; }
+.ts-ruler i::after {
+  content: "TIDE"; position: absolute; left: 32px; top: -6px;
+  font-size: 9px; letter-spacing: 0.3em; color: var(--text-main);
+}
+
+.ts-tide {
+  position: absolute; inset: 0;
+  transform: translateY(calc(var(--lvl) * -40px));
+  transition: transform 0.6s cubic-bezier(0.3, 1, 0.4, 1);
+}
+.ts-stage.ts-charging .ts-tide { transition: none; }
+.ts-sea {
+  position: absolute; left: 0; right: 0; top: 12%; height: 62%;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg-blob-2) 60%, transparent) 35%, color-mix(in srgb, var(--bg-blob-1) 32%, transparent) 75%, transparent);
+}
+.ts-wave {
+  position: absolute; left: 0; width: 200%; height: 64px; pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 35%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 35%, transparent 100%);
+}
+.ts-wave svg { display: block; width: 100%; height: 100%; }
+.ts-wave .ts-f { fill: var(--wf); }
+.ts-wave .ts-l { fill: none; stroke: var(--text-muted); stroke-width: 1; opacity: 0.5; vector-effect: non-scaling-stroke; }
+.ts-w1 { top: 10%; --wf: color-mix(in srgb, var(--bg-blob-2) 55%, transparent); animation: tsSlide 18s linear infinite; }
+.ts-w2 { top: 24%; --wf: color-mix(in srgb, var(--bg-blob-1) 26%, transparent); animation: tsSlide 13s linear infinite reverse; }
+.ts-w3 { top: 39%; --wf: color-mix(in srgb, var(--bg-blob-2) 70%, transparent); animation: tsSlide 9s linear infinite; }
+.ts-w4 { top: 53%; --wf: color-mix(in srgb, var(--bg-blob-1) 34%, transparent); animation: tsSlide 7s linear infinite reverse; }
+@keyframes tsSlide { to { transform: translateX(-50%); } }
+
+.ts-sand {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 42%; pointer-events: none;
+  background: linear-gradient(180deg, transparent, var(--bg-surface) 45%, transparent);
+}
+
+.ts-bub {
+  position: absolute; bottom: 32%; width: 7px; height: 7px; border-radius: 50%;
+  border: 1px solid var(--text-muted); opacity: 0;
+}
+.ts-stage.ts-charging .ts-bub { animation: tsBub 2s ease-in infinite; }
+.ts-bub:nth-of-type(1) { left: 20%; }
+.ts-bub:nth-of-type(2) { left: 34%; animation-delay: 0.5s !important; width: 5px; height: 5px; }
+.ts-bub:nth-of-type(3) { left: 48%; animation-delay: 1s !important; }
+.ts-bub:nth-of-type(4) { left: 62%; animation-delay: 0.3s !important; width: 5px; height: 5px; }
+.ts-bub:nth-of-type(5) { left: 75%; animation-delay: 1.3s !important; }
+.ts-bub:nth-of-type(6) { left: 86%; animation-delay: 0.8s !important; width: 4px; height: 4px; }
+@keyframes tsBub {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { opacity: 0.7; }
+  100% { transform: translateY(-120px) scale(1); opacity: 0; }
+}
+
+.ts-surge {
+  position: absolute; left: -10%; width: 120%; height: 80%; bottom: 0; z-index: 4;
+  pointer-events: none; transform: translateY(130%);
+}
+.ts-surge svg { width: 100%; height: 100%; display: block; }
+.ts-surge .ts-s { fill: color-mix(in srgb, var(--bg-main) 88%, transparent); }
+.ts-surge .ts-s2 { fill: color-mix(in srgb, var(--bg-blob-1) 40%, transparent); }
+.ts-surge .ts-e { fill: none; stroke: var(--text-muted); stroke-width: 1.5; }
+.ts-surge.ts-go { animation: tsSurge 2.8s ease-in-out forwards; }
+@keyframes tsSurge {
+  0% { transform: translateY(130%); }
+  42% { transform: translateY(4%); }
+  56% { transform: translateY(0); }
+  100% { transform: translateY(130%); }
+}
+
+/* ring：拾取圈，磁吸落点 */
+.ts-ring {
+  --p: 0;
+  position: absolute; left: 50%; top: 72%; width: 120px; height: 120px; margin: -60px 0 0 -60px;
+  border-radius: 50%; opacity: 0; pointer-events: none; z-index: 3;
+  transform: scale(calc(0.92 + var(--p) * 0.16));
+  transition: opacity 0.6s, transform 0.15s linear;
+}
+.ts-ring.ts-on { opacity: 1; }
+.ts-ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 1px solid var(--text-muted); }
+.ts-ring::after {
+  content: ""; position: absolute; inset: 16px; border-radius: 50%; border: 1px dashed var(--text-muted);
+  background: radial-gradient(circle, color-mix(in srgb, var(--bg-blob-1) calc(var(--p) * 80%), transparent), transparent 70%);
+  animation: tsSpin 40s linear infinite;
+}
+.ts-ring i { position: absolute; background: var(--text-muted); }
+.ts-ring i:nth-child(1), .ts-ring i:nth-child(2) { left: 50%; width: 1px; height: 14px; margin-left: -0.5px; }
+.ts-ring i:nth-child(1) { top: -7px; }
+.ts-ring i:nth-child(2) { bottom: -7px; }
+.ts-ring i:nth-child(3), .ts-ring i:nth-child(4) { top: 50%; height: 1px; width: 14px; margin-top: -0.5px; }
+.ts-ring i:nth-child(3) { left: -7px; }
+.ts-ring i:nth-child(4) { right: -7px; }
+@keyframes tsSpin { to { transform: rotate(360deg); } }
+
+/* shell */
+.ts-shell {
+  position: absolute; left: 50%; top: 40%; width: 112px; height: 93px; margin: -46px 0 0 -56px; z-index: 6;
+  outline: none; opacity: 0; pointer-events: none; touch-action: none; cursor: grab;
+  transform: translate(var(--x, 0px), var(--y, 0px));
+}
+.ts-shell.ts-show { opacity: 1; pointer-events: auto; }
+.ts-shell.ts-drag { cursor: grabbing; }
+.ts-shell.ts-spring { transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.ts-sh-a, .ts-sh-t, .ts-sh-b { position: absolute; inset: 0; }
+.ts-shell.ts-arrive .ts-sh-a { animation: tsArrive 1s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+@keyframes tsArrive { 0% { opacity: 0; transform: translateY(46px) scale(0.3); } 100% { opacity: 1; transform: none; } }
+.ts-sh-t { transform: rotate(var(--r, 0deg)); transition: transform 0.25s; }
+.ts-shell.ts-drag .ts-sh-t { transform: rotate(var(--r, 0deg)) scale(1.1); }
+.ts-sh-b { animation: tsBob 4.2s ease-in-out infinite; }
+.ts-shell.ts-drag .ts-sh-b { animation-play-state: paused; }
+@keyframes tsBob { 50% { transform: translateY(-7px) rotate(2deg); } }
+.ts-art { position: absolute; inset: 0; filter: drop-shadow(0 12px 12px rgba(0, 0, 0, 0.16)); }
+
+/* 稀有度预兆：1 级多一圈涟漪，2 级多星屑和细环 */
+.ts-omen { position: absolute; inset: -34px; pointer-events: none; display: none; }
+.ts-shell[data-look="1"] .ts-omen, .ts-shell[data-look="2"] .ts-omen { display: block; }
+.ts-omen .ts-rg {
+  position: absolute; inset: 14px; border-radius: 50%; border: 1px solid var(--text-muted);
+  opacity: 0; animation: tsRg 3s ease-out infinite;
+}
+.ts-omen .ts-rg:nth-child(2) { animation-delay: 1.5s; }
+@keyframes tsRg { 0% { transform: scale(0.7); opacity: 0.7; } 100% { transform: scale(1.25); opacity: 0; } }
+.ts-omen .ts-halo {
+  display: none; position: absolute; inset: 6px; border-radius: 50%; border: 1px dashed var(--star-color);
+  opacity: 0.8; animation: tsSpin 14s linear infinite;
+}
+.ts-shell[data-look="2"] .ts-halo { display: block; }
+.ts-omen .ts-st {
+  display: none; position: absolute; width: 5px; height: 5px; background: var(--star-color);
+  transform: rotate(45deg); animation: tsTw 2.4s ease-in-out infinite;
+}
+.ts-shell[data-look="2"] .ts-st { display: block; }
+.ts-omen .ts-st:nth-of-type(1) { left: 6%; top: 30%; }
+.ts-omen .ts-st:nth-of-type(2) { left: 90%; top: 22%; animation-delay: 0.6s; }
+.ts-omen .ts-st:nth-of-type(3) { left: 80%; top: 84%; animation-delay: 1.1s; }
+.ts-omen .ts-st:nth-of-type(4) { left: 14%; top: 80%; animation-delay: 1.6s; }
+@keyframes tsTw { 0%, 100% { opacity: 0; transform: rotate(45deg) scale(0.3); } 50% { opacity: 1; transform: rotate(45deg) scale(1.2); } }
+
+.ts-hint {
+  position: absolute; left: 0; right: 0; bottom: 2%; z-index: 5; text-align: center;
+  font-family: var(--serif); font-size: 12.5px; letter-spacing: 0.22em; color: var(--text-sub);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.ts-hint.ts-sw { opacity: 0; transform: translateY(4px); }
+
+/* opener：贝壳被开启 */
+.ts-opener {
+  position: absolute; width: 112px; height: 93px; margin: -46px 0 0 -56px; z-index: 7; pointer-events: none;
+  --glow: color-mix(in srgb, var(--bg-blob-1) 90%, transparent);
+  --pp-bg: var(--card-bg); --pp-ln: var(--card-border); --pp-ink: var(--divider);
+}
+.ts-opener[data-tier="1"], .ts-opener[data-tier="2"] { --pp-bg: var(--ink-a); --pp-ln: var(--ink-card-border); --pp-ink: var(--text-on-ink-muted); }
+.ts-opener svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ts-op-top { transform-origin: 50% 71%; }
+.ts-opener.ts-go { animation: tsOpGrow 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards; }
+@keyframes tsOpGrow { to { transform: scale(1.5) translateY(8px); } }
+.ts-opener.ts-go .ts-op-top { animation: tsLid 1.05s 0.35s cubic-bezier(0.3, 1.5, 0.5, 1) forwards; }
+@keyframes tsLid { to { transform: rotate(-44deg); } }
+.ts-op-glow {
+  position: absolute; left: 50%; top: 58%; width: 190px; height: 190px; margin: -95px 0 0 -95px;
+  border-radius: 50%; background: radial-gradient(circle, var(--glow) 0%, transparent 65%); opacity: 0;
+}
+.ts-opener.ts-go .ts-op-glow { animation: tsGlow 1.5s 0.4s ease-out forwards; }
+@keyframes tsGlow { 0% { opacity: 0; transform: scale(0.3); } 35% { opacity: 1; } 100% { opacity: 0; transform: scale(1.7); } }
+.ts-op-beam { position: absolute; left: 32%; width: 36%; bottom: 42%; height: 0; background: linear-gradient(0deg, var(--glow), transparent); opacity: 0; }
+.ts-opener.ts-go .ts-op-beam { animation: tsBeam 1.2s 0.5s ease-out forwards; }
+@keyframes tsBeam { 0% { height: 0; opacity: 0; } 35% { opacity: 0.9; } 100% { height: 160px; opacity: 0; } }
+.ts-op-paper {
+  position: absolute; left: 50%; top: 38%; width: 54px; height: 70px; margin-left: -27px; border-radius: 5px;
+  background: var(--pp-bg); border: 1px solid var(--pp-ln); opacity: 0;
+  background-image: repeating-linear-gradient(180deg, transparent 0 10px, var(--pp-ink) 10px 11px);
+  background-origin: content-box; padding: 12px 8px;
+}
+.ts-opener.ts-go .ts-op-paper { animation: tsPaper 1.1s 0.8s cubic-bezier(0.2, 0.9, 0.3, 1) forwards; }
+@keyframes tsPaper { 0% { opacity: 0; transform: translateY(6px) scale(0.5); } 40% { opacity: 1; } 100% { opacity: 1; transform: translateY(-78px) scale(1); } }
+.ts-op-rings i {
+  position: absolute; left: 50%; top: 58%; width: 90px; height: 90px; margin: -45px 0 0 -45px;
+  border-radius: 50%; border: 1px solid var(--text-muted); opacity: 0;
+}
+.ts-opener.ts-go .ts-op-rings i { animation: tsOprg 1.4s ease-out forwards; }
+.ts-opener.ts-go .ts-op-rings i:nth-child(1) { animation-delay: 0.55s; }
+.ts-opener.ts-go .ts-op-rings i:nth-child(2) { animation-delay: 0.8s; }
+@keyframes tsOprg { 0% { transform: scale(0.4); opacity: 0.8; } 100% { transform: scale(2.6); opacity: 0; } }
+.ts-op-stars i {
+  position: absolute; left: 50%; top: 58%; width: 5px; height: 5px; margin: -2.5px;
+  background: var(--star-color); opacity: 0;
+  transform: rotate(var(--a)) translateX(0) rotate(45deg);
+}
+.ts-opener.ts-go .ts-op-stars i { animation: tsOpst 1.3s 0.7s ease-out forwards; }
+@keyframes tsOpst {
+  0% { opacity: 0; transform: rotate(var(--a)) translateX(0) rotate(45deg); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--a)) translateX(92px) rotate(45deg) scale(0.4); }
+}
+.ts-opener.ts-out { opacity: 0; transition: opacity 0.5s; }
+
+/* dock：按住蓄潮 */
+.ts-dock { padding: 4px 0 26px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.ts-hw { --pr: 0; position: relative; width: 108px; height: 108px; display: grid; place-items: center; }
+.ts-hw::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(var(--text-main) calc(var(--pr) * 360deg), var(--divider) 0);
+  -webkit-mask: radial-gradient(circle, transparent 50px, #000 51px);
+  mask: radial-gradient(circle, transparent 50px, #000 51px);
+}
+.ts-hold {
+  position: relative; width: 90px; height: 90px; border-radius: 50%;
+  background: var(--accent-color); color: var(--accent-foreground);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  box-shadow: var(--ink-card-shadow);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1), opacity 0.4s;
+}
+.ts-hold b { font-family: var(--serif); font-weight: 400; font-size: 18px; letter-spacing: 0.3em; padding-left: 0.3em; }
+.ts-hold small { font-size: 8.5px; letter-spacing: 0.24em; opacity: 0.7; text-transform: uppercase; }
+.ts-hw.ts-charging .ts-hold { transform: scale(0.93); }
+.ts-hw.ts-full .ts-hold { animation: tsFull 0.7s ease-in-out infinite; }
+@keyframes tsFull { 50% { transform: scale(0.98); } }
+.ts-hold[disabled] { opacity: 0.3; cursor: default; }
+.ts-ticks { display: flex; gap: 6px; }
+.ts-ticks i { width: 2px; height: 12px; background: var(--divider); transition: background 0.5s; }
+.ts-ticks i.on { background: var(--text-main); }
+.ts-quota { font-size: 11px; letter-spacing: 0.2em; color: var(--text-muted); }
+
+/* 贝壳册 */
+.ts-col-no { font-family: var(--serif); font-weight: 300; font-size: 54px; line-height: 1; letter-spacing: 0.04em; color: var(--divider); }
+.ts-filters { display: flex; gap: 18px; margin: 16px 0 14px; border-bottom: 1px solid var(--divider); }
+.ts-fl {
+  position: relative; padding: 0 0 10px; font-size: 12px; letter-spacing: 0.2em; color: var(--text-muted);
+  transition: color 0.3s;
+}
+.ts-fl.ts-on { color: var(--text-main); }
+.ts-fl::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1.5px; background: var(--text-main);
+  transform: scaleX(0); transition: transform 0.4s cubic-bezier(0.3, 1, 0.4, 1);
+}
+.ts-fl.ts-on::after { transform: scaleX(1); }
+.ts-grid { margin: 0 -24px; padding: 4px 24px 40px; columns: 2; column-gap: 12px; }
+.ts-cc, .ts-card { --fg: var(--text-main); --fg2: var(--text-sub); --fg3: var(--text-muted); --ln: var(--divider); }
+.ts-cc[data-tier="1"], .ts-cc[data-tier="2"], .ts-card[data-tier="1"], .ts-card[data-tier="2"] {
+  --fg: var(--text-on-ink); --fg2: var(--text-on-ink-muted); --fg3: var(--text-on-ink-muted); --ln: var(--ink-card-border);
+}
+.ts-cc {
+  position: relative; break-inside: avoid; margin-bottom: 12px; padding: 14px; border-radius: 20px; cursor: pointer;
+  color: var(--fg); background: var(--card-bg-gradient); border: 1px solid var(--card-border); box-shadow: var(--card-shadow);
+  transition: transform 0.4s cubic-bezier(0.3, 1.3, 0.4, 1); animation: tsRise 0.6s both;
+}
+.ts-cc:hover { transform: translateY(-3px); }
+.ts-cc[data-tier="1"], .ts-cc[data-tier="2"] { background: var(--ink-card-bg); border-color: var(--ink-card-border); box-shadow: var(--ink-card-shadow); }
+.ts-cc[data-tier="2"]::after { content: ""; position: absolute; inset: 5px; border-radius: 15px; border: 1px solid var(--ln); opacity: 0.5; pointer-events: none; }
+@keyframes tsRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.ts-cc-top { display: flex; justify-content: space-between; align-items: flex-start; }
+.ts-cc-shell { width: 44px; height: 37px; }
+.ts-cc h3 { margin: 12px 0 2px; font-family: var(--serif); font-weight: 400; font-size: 17px; letter-spacing: 0.14em; }
+.ts-cc-id { margin: 0; font-size: 10.5px; letter-spacing: 0.14em; color: var(--fg3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ts-cc-ex {
+  margin: 8px 0 12px; font-family: var(--serif); font-size: 12px; line-height: 1.75; letter-spacing: 0.04em; color: var(--fg2);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ts-cc-ft { display: flex; justify-content: space-between; padding-top: 9px; border-top: 1px solid var(--ln); font-size: 10.5px; letter-spacing: 0.16em; color: var(--fg3); }
+
+.ts-pearls { display: inline-flex; gap: 5px; color: var(--fg); }
+.ts-pearls i { width: 8px; height: 8px; border-radius: 50%; border: 1px solid currentColor; opacity: 0.35; }
+.ts-pearls i.on { background: currentColor; opacity: 1; }
+
+/* 阅读卡 */
+.ts-sheet { position: fixed; inset: 0; z-index: 60; opacity: 0; pointer-events: none; transition: opacity 0.45s; }
+.ts-sheet.ts-open { opacity: 1; pointer-events: auto; }
+.ts-backdrop { position: absolute; inset: 0; background: var(--modal-overlay); transition: opacity 0.6s; }
+.ts-cardsheet {
+  position: absolute; left: 16px; right: 16px; top: 46px; bottom: 20px; border-radius: 30px; overflow: hidden;
+  display: flex; flex-direction: column; color: var(--fg); margin: 0 auto; max-width: 398px;
+  background: var(--card-bg-gradient); border: 1px solid var(--modal-border); box-shadow: var(--modal-shadow);
+  transform: translateY(40px) scale(0.96); opacity: 0;
+  transition: transform 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.1), opacity 0.6s;
+}
+.ts-cardsheet[data-tier="1"], .ts-cardsheet[data-tier="2"] { background: var(--ink-card-bg); border-color: var(--ink-card-border); }
+.ts-cardsheet[data-tier="2"]::before { content: ""; position: absolute; inset: 9px; border-radius: 22px; border: 1px solid var(--ln); opacity: 0.55; pointer-events: none; z-index: 1; }
+.ts-stars {
+  position: absolute; inset: 0; pointer-events: none; display: none;
+  background:
+    radial-gradient(circle at 16% 10%, var(--fg3) 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 84% 18%, var(--fg3) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 70% 62%, var(--fg3) 0 1.1px, transparent 1.7px),
+    radial-gradient(circle at 24% 74%, var(--fg3) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 90% 88%, var(--fg3) 0 1.2px, transparent 1.8px);
+  opacity: 0.7;
+}
+.ts-cardsheet[data-tier="2"] .ts-stars { display: block; }
+.ts-sheet.ts-open .ts-cardsheet { transform: none; opacity: 1; }
+.ts-sheet.ts-fly .ts-cardsheet { transform: translate(var(--fx), var(--fy)) scale(0.06); opacity: 0; transition: transform 0.8s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.8s; }
+.ts-sheet.ts-fly .ts-backdrop, .ts-sheet.ts-leave .ts-backdrop { opacity: 0; }
+.ts-sheet.ts-leave .ts-cardsheet { transform: translateY(60px) scale(0.95); opacity: 0; transition: transform 0.6s, opacity 0.5s; }
+.ts-card-in { position: relative; flex: 1; overflow: auto; padding: 26px 26px 12px; display: flex; flex-direction: column; }
+.ts-c-top { display: flex; justify-content: space-between; align-items: center; }
+.ts-c-no { font-size: 10.5px; letter-spacing: 0.3em; color: var(--fg3); text-transform: uppercase; }
+.ts-c-tags { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.ts-tag { padding: 4px 11px; border-radius: 999px; font-size: 11px; letter-spacing: 0.16em; border: 1px solid var(--ln); color: var(--fg2); }
+.ts-c-title { margin: 22px 0 8px; font-family: var(--serif); font-weight: 300; font-size: 34px; letter-spacing: 0.16em; }
+.ts-c-when { margin: 0; font-family: var(--serif); font-size: 12.5px; color: var(--fg2); letter-spacing: 0.1em; }
+.ts-c-rule { height: 1px; margin: 20px 0; background: var(--ln); transform-origin: left; animation: tsDraw 1s 0.7s both; }
+@keyframes tsDraw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.ts-c-body p { margin: 0 0 14px; font-family: var(--serif); font-size: 15px; line-height: 2.05; letter-spacing: 0.06em; color: var(--fg); white-space: pre-wrap; }
+.ts-c-sign { align-self: flex-end; margin: 6px 0 0; font-family: var(--serif); font-size: 13px; color: var(--fg2); letter-spacing: 0.12em; }
+.ts-c-note { margin: 20px 0 6px; font-size: 11px; letter-spacing: 0.14em; color: var(--fg3); }
+.ts-c-actions { position: relative; z-index: 2; padding: 14px 22px 22px; display: flex; gap: 10px; }
+.ts-btn { flex: 1; height: 48px; border-radius: 999px; font-size: 13.5px; letter-spacing: 0.3em; padding-left: 0.3em; transition: transform 0.3s cubic-bezier(0.3, 1.4, 0.5, 1); }
+.ts-btn.ts-pri { background: var(--fg); color: var(--bg-main); }
+.ts-cardsheet[data-tier="1"] .ts-btn.ts-pri, .ts-cardsheet[data-tier="2"] .ts-btn.ts-pri { background: var(--text-on-ink); color: var(--ink-b); }
+.ts-btn.ts-gh { border: 1px solid var(--ln); color: var(--fg2); }
+.ts-btn:active { transform: scale(0.95); }
+.ts-reveal { opacity: 0; animation: tsReveal 0.8s calc(var(--d, 0s) + 0.25s) cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes tsReveal { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.ts-toast {
+  position: fixed; top: 50px; left: 50%; transform: translate(-50%, -14px); z-index: 70;
+  padding: 9px 18px; border-radius: 999px; background: var(--card-bg); border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow); font-size: 12px; letter-spacing: 0.18em; opacity: 0; pointer-events: none;
+  transition: 0.5s; white-space: nowrap;
+}
+.ts-toast.ts-on { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ts-scope * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

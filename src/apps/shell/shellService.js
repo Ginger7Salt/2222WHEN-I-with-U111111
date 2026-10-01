@@ -45,11 +45,13 @@ const parseDrawResponse = (rawText) => {
 
     return {
       title: parsed.title || '未命名的潮汐',
+      when: parsed.when || '',
       content: parsed.content || cleaned,
     };
   } catch {
     return {
       title: '未命名的潮汐',
+      when: '',
       content: cleaned || '潮水卷走了这段文字，什么也没留下。',
     };
   }
@@ -78,18 +80,31 @@ export async function salvageShell({ characterId, chatId = null }) {
     form: draw.form,
   });
 
-  const result = await fetchAiCompletionWithTools({
-    systemPrompt: prompt,
-    messages: [{ role: 'user', content: '打捞。' }],
-    chatId: chatId || null,
-    characterId: character.id,
-  });
+  // 加一个本地超时兜底：aiService 的主备切换本身没有超时控制，网络卡住时
+  // fetch 可能永远不 resolve。这里单独给潮汐贝壳加超时（不改动共享的
+  // aiService.js），超时后明确抛错，而不是让 UI 卡在"打捞中"却什么都
+  // 不告诉用户。
+  const SALVAGE_TIMEOUT_MS = 45000;
+
+  const result = await Promise.race([
+    fetchAiCompletionWithTools({
+      systemPrompt: prompt,
+      messages: [{ role: 'user', content: '打捞。' }],
+      chatId: chatId || null,
+      characterId: character.id,
+    }),
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('打捞超时了，潮水好像卡住了，请检查网络或 API 设置后再试'));
+      }, SALVAGE_TIMEOUT_MS);
+    }),
+  ]);
 
   if (result?.error) {
     throw new Error(result.message || '打捞失败，潮水好像有点乱');
   }
 
-  const { title, content } = parseDrawResponse(result.content);
+  const { title, when, content } = parseDrawResponse(result.content);
 
   const now = Date.now();
   const payload = {
@@ -99,13 +114,14 @@ export async function salvageShell({ characterId, chatId = null }) {
     form: draw.form,
     tier: draw.tier,
     title,
+    when,
     content,
     createdAt: now,
   };
 
   const id = await db.shellCatches.add(payload);
 
-  return { id, ...payload };
+  return { id, ...payload, character };
 }
 
 // 贝壳册：全局一本，不分角色，最新的在最前面。
