@@ -209,9 +209,20 @@ export const extractScheduledMessageDirective = (
           return '';
         }
 
-        const parts = String(rawPayload)
+             const rawParts = String(rawPayload)
           .split('|')
           .map((part) => part.trim());
+
+        // 周期性标记：AI 想要"每隔 N 分钟/小时就提醒一次"时，在任意位置
+        // 加一段 recurring（不区分大小写），不需要额外写第二个数字——
+        // 复用这次的 delayMinutes 作为循环间隔。识别后从 parts 里摘掉，
+        // 不影响后面 declaredType/intent 的解析逻辑。
+        const isRecurring = rawParts.some(
+          (part) => part.toLowerCase() === 'recurring'
+        );
+        const parts = rawParts.filter(
+          (part) => part.toLowerCase() !== 'recurring'
+        );
 
         const declaredType = parts[0];
 
@@ -235,7 +246,13 @@ export const extractScheduledMessageDirective = (
             scheduleType === SCHEDULE_TYPES.REMINDER
               ? CANCEL_POLICIES.KEEP
               : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES,
-          intent: intent.slice(0, 240)
+                 intent: intent.slice(0, 240),
+          // 周期性只对 reminder 类型有意义（follow_up 本来就是"接续
+          // 对话"的一次性语义），不符合条件时静默忽略，不报错。
+          recurringIntervalMinutes:
+            isRecurring && scheduleType === SCHEDULE_TYPES.REMINDER
+              ? delayMinutes
+              : null
         };
 
         return '';

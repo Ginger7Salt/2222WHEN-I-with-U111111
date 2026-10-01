@@ -27,6 +27,7 @@ import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
 import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/companion/companionOfferService';
 import { BUBBLE_STYLE_PROMPT_NOTE, applyBubbleStyleDirective } from '../apps/messages/bubbleStyleDirective';
 import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
+import { CONFIRM_CARD_PROMPT_NOTE, applyConfirmCardDirective } from '../apps/messages/confirmCardDirective';
 import { getAvatarHistorySwitchNote, applyAvatarHistorySwitchDirective } from '../apps/messages/avatarHistoryDirective';
 import { WORK_KAOMOJI_PROMPT_NOTE, applyWorkKaomojiDirective } from '../apps/messages/work/workKaomojiDirective';
 import { applyMemoirNoteDirective, MEMOIR_NOTE_PROMPT } from '../apps/memoir/memoirNoteDirective';
@@ -1349,6 +1350,10 @@ ${MEMOIR_NOTE_PROMPT}
 
 [SCHEDULE_MESSAGE: 分钟数 | reminder | 简短提醒意图]
 
+如果用户要求的是"每隔 N 分钟/小时提醒我一次"这种周期性提醒（比如"每2小时提醒我喝水"），在 reminder 的基础上加一个 recurring 标记，发完这一次之后会自动用同样的间隔再排下一次，一直循环下去：
+
+[SCHEDULE_MESSAGE: 分钟数 | reminder | recurring | 简短提醒意图]
+
 如果是 follow_up，使用：
 
 [SCHEDULE_MESSAGE: 分钟数 | follow_up | 简短后续联系意图]
@@ -1364,6 +1369,8 @@ ${MEMOIR_NOTE_PROMPT}
 6. 意图只描述稍后联系的理由，不要提前写完整未来消息。
 7. 不得在可见正文中解释或提及该指令。
 8. 不得输出任何未注册的方括号指令。
+9. recurring 标记只对 reminder 有效，follow_up 不支持周期性，不要加 recurring。
+10. 用户要求"每隔 N 分钟/小时"而 N 超出 10-1440 分钟范围时（比如"每天"），按最接近且不超出范围的数值处理，或改用其他方式说明做不到，不要编一个超范围的数字。
 
 
 【线下邀约机制】
@@ -2326,6 +2333,11 @@ const workKaomojiNote = (!options.ignoreAway && chat.mode === 'work')
   ? WORK_KAOMOJI_PROMPT_NOTE
   : '';
 
+// 确认/选择/填写卡：通用消息类型，不限定聊天模式，也不设概率/冷却，
+// 跟气泡风格/背景切换一样属于"角色自己判断要不要用"的可选行为，只在
+// ignoreAway 时跟其它可选行为一起收起。
+const confirmCardNote = options.ignoreAway ? '' : CONFIRM_CARD_PROMPT_NOTE;
+
 const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   awayOfferNote ? `\n\n${awayOfferNote}` : ''
 }${
@@ -2338,6 +2350,8 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   avatarHistorySwitchNote ? `\n\n${avatarHistorySwitchNote}` : ''
 }${
   workKaomojiNote ? `\n\n${workKaomojiNote}` : ''
+}${
+  confirmCardNote ? `\n\n${confirmCardNote}` : ''
 }`;
 
 const historyContext = buildHistoryContext(
@@ -2500,6 +2514,13 @@ const { content: contentAfterWorkKaomoji } = await applyWorkKaomojiDirective({
   isWorkMode: chat.mode === 'work',
 });
 
+// 取出角色的 [CONFIRM_CARD: ...] 标签（一律从正文去掉）；格式正确时
+// 生成一张确认/选择/填写卡片消息，交给下面统一追加到 messageIds。
+const { content: contentAfterConfirmCard, cardMessage: confirmCardMessage } =
+  await applyConfirmCardDirective({
+    content: contentAfterWorkKaomoji,
+  });
+
 const mcpTrace = getMcpChatTraceSummary(
   mcpTraceSession,
 );
@@ -2511,7 +2532,7 @@ const {
   content: contentAfterMemoirNote,
   emotion: memoirEmotion,
   feeling: memoirFeeling,
-} = applyMemoirNoteDirective(contentAfterWorkKaomoji);
+} = applyMemoirNoteDirective(contentAfterConfirmCard);
 
 /**
  * 必须先处理真实声音隐藏区块，再解析普通消息。
@@ -2713,11 +2734,33 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
             metadata: {},
             timestamp: nowIso,
           }],
-          currentVersionIndex: 0,
+                 currentVersionIndex: 0,
           isRead: false,
           timestamp: nowIso,
         });
         messageIds.push(offerMessageId);
+      }
+
+      // 确认/选择/填写卡：角色这次确实用了这个指令，追加一张卡片消息。
+      if (confirmCardMessage) {
+        const confirmCardMessageId = await db.messages.add({
+          chatId,
+          characterId: character.id,
+          sender: 'character',
+          type: confirmCardMessage.type,
+          content: confirmCardMessage.content,
+          metadata: confirmCardMessage.metadata,
+          versions: [{
+            type: confirmCardMessage.type,
+            content: confirmCardMessage.content,
+            metadata: confirmCardMessage.metadata,
+            timestamp: nowIso,
+          }],
+          currentVersionIndex: 0,
+          isRead: false,
+          timestamp: nowIso,
+        });
+        messageIds.push(confirmCardMessageId);
       }
 
       try {
@@ -2758,7 +2801,8 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
   delayMinutes: scheduledMessage.delayMinutes,
   intent: scheduledMessage.intent,
   scheduleType: scheduledMessage.scheduleType,
-  cancelPolicy: scheduledMessage.cancelPolicy
+  cancelPolicy: scheduledMessage.cancelPolicy,
+  recurringIntervalMinutes: scheduledMessage.recurringIntervalMinutes
 });
 
         } catch (scheduleError) {

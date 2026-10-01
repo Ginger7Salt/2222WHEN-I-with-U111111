@@ -40,6 +40,7 @@ import PhotoCard from './cards/PhotoCard';
 import McpUsageTraceCard from './cards/McpUsageTraceCard';
 import ApiFallbackHint from './cards/ApiFallbackHint';
 import CompanionOfferCard from './cards/CompanionOfferCard';
+import ConfirmCard from './cards/ConfirmCard';
 
 import McdOrderCard from './cards/McdOrderCard';
 import AppleHealthCard from './cards/AppleHealthCard';
@@ -70,6 +71,7 @@ const MessageRow = ({
   onEnterOfflineScene,
   onToggleReaction,
   onOpenCompanionOffer,
+  onRespondToConfirmCard,
   onPokeAvatar,
   selectionMode,
   isSelected,
@@ -374,11 +376,16 @@ const MessageRow = ({
                             onEnterScene={onEnterOfflineScene}
               onRefresh={onResolvedInteraction}
             />
-          ) : msg.type === 'companion_offer' ? (
+                 ) : msg.type === 'companion_offer' ? (
             <CompanionOfferCard
               message={msg}
               chatId={msg.chatId}
               onAccept={() => onOpenCompanionOffer?.()}
+            />
+          ) : msg.type === 'confirm_card' ? (
+            <ConfirmCard
+              message={msg}
+              onRespond={(responseText) => onRespondToConfirmCard?.(msg, responseText)}
             />
           ) : msg.type === 'call' ? (
             <CallLogEntry

@@ -76,6 +76,7 @@ import WorkChatHeader from './work/WorkChatHeader';
 import WorkEmptyStage from './work/WorkEmptyStage';
 import WorkInlineGreeting from './work/WorkInlineGreeting';
 import WorkAssistantSettingsModal from './work/WorkAssistantSettingsModal';
+import WorkNotebook from './work/WorkNotebook';
 
 import { createInteractionMessage, createTruthOrDareMessage } from './interactions/interactionService';
 import DivinationSetupModal from './interactions/divination/DivinationSetupModal';
@@ -222,6 +223,7 @@ export const ChatRoom = ({
   const [showBubbleCustomizer, setShowBubbleCustomizer] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
   const [showScheduledArchive, setShowScheduledArchive] = useState(false);
+  const [showWorkNotebook, setShowWorkNotebook] = useState(false);
   const [showWorkAssistantSettings, setShowWorkAssistantSettings] = useState(false);
   const [showCallModeMenu, setShowCallModeMenu] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -621,6 +623,64 @@ forceScrollMessageIdRef.current = stickerMsgId;
 
     await loadChatData();
     triggerAiResponse(chat.id);
+  };
+
+  // 通用"确认/选择/填写卡"：用户点确认/选了选项/提交了表单之后，
+  // 把结果回填到卡片消息自己的 metadata（转入只读的"已回应"展示），
+  // 再照常发一条用户消息并触发角色回复，跟正常打字发消息走的是
+  // 同一条后续流程，只是这条消息的文字是从卡片操作里总结出来的。
+  const handleRespondToConfirmCard = async (cardMessage, responseText) => {
+    if (!chat?.id || !cardMessage?.id || !responseText) return;
+
+    try {
+      await db.messages.update(cardMessage.id, {
+        metadata: {
+          ...(cardMessage.metadata || {}),
+          respondedAt: new Date().toISOString(),
+          responseSummary: responseText,
+        },
+      });
+
+      const userAvatar = chat?.userAvatar || character?.userAvatar || '';
+      const userName = chat?.userName || character?.userName || '你';
+
+      const newMsg = {
+        chatId: chat.id,
+        characterId: chat.characterId,
+        sender: 'user',
+        type: 'text',
+        content: responseText,
+        metadata: {},
+        userAvatar,
+        userName,
+        isRead: true,
+        timestamp: new Date().toISOString(),
+      };
+
+      const replyMsgId = await db.messages.add(newMsg);
+
+      void recordAlmanacEvent({
+        chatId: chat.id,
+        characterId: chat.characterId,
+        eventType: ALMANAC_EVENT_TYPES.USER_MESSAGE,
+        timestamp: newMsg.timestamp,
+        metadata: {
+          source: 'confirm-card',
+          messageType: 'text',
+        },
+      });
+
+      await db.chats.update(chat.id, {
+        updatedAt: new Date().toISOString(),
+      });
+
+      forceScrollMessageIdRef.current = replyMsgId;
+
+      await loadChatData();
+      triggerAiResponse(chat.id);
+    } catch (error) {
+      console.error('[ChatRoom] 回应确认卡失败：', error);
+    }
   };
 
   const handleCreateInteraction = async (interactionType) => {
@@ -1802,7 +1862,7 @@ useLayoutEffect(() => {
           character={character}
           onBack={onBack}
           onOpenSettings={() => setShowChatSettings(true)}
-          onOpenNotebook={() => setShowScheduledArchive(true)}
+                   onOpenNotebook={() => setShowWorkNotebook(true)}
         />
       ) : (
       <header className="z-20 shrink-0 px-4 pb-1 pt-3">
@@ -2126,7 +2186,8 @@ useLayoutEffect(() => {
                    onResolvedInteraction={loadChatData}
                              onEnterOfflineScene={(sessionId) => setActiveOfflineSessionId(sessionId)}
           onToggleReaction={handleToggleReaction}
-          onOpenCompanionOffer={() => setShowCompanionPage(true)}
+                    onOpenCompanionOffer={() => setShowCompanionPage(true)}
+          onRespondToConfirmCard={handleRespondToConfirmCard}
           onPokeAvatar={handlePokeCharacter}
           selectionMode={selectionMode}
           selectedMessageIds={selectedMessageIds}
@@ -2669,11 +2730,19 @@ useLayoutEffect(() => {
   />
 )}
 
-      {showScheduledArchive && (
+          {showScheduledArchive && (
         <ScheduledMessageArchive
           chatId={chatId}
           character={character}
           onClose={() => setShowScheduledArchive(false)}
+        />
+      )}
+
+      {showWorkNotebook && (
+        <WorkNotebook
+          chatId={chatId}
+          character={character}
+          onClose={() => setShowWorkNotebook(false)}
         />
       )}
 
