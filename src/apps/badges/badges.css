@@ -1,0 +1,420 @@
+/* src/apps/badges/badges.css */
+/*
+  跟 hourglass.css / memory.css 一样的"撑满整页 + 内容居中限宽"结构，
+  全程读主题变量，四套主题下都要能看。
+*/
+
+.badge-app {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  padding: 1rem clamp(1rem, 4vw, 3rem) 4rem;
+  color: var(--text-main);
+}
+
+.badge-section {
+  width: min(100%, 720px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---------- 顶部导航 ---------- */
+
+.badge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3.2rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.badge-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-sub);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.badge-back-button:hover {
+  color: var(--text-main);
+  transform: translateX(-2px);
+}
+
+.badge-header-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+}
+
+.badge-kicker {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ---------- 标题区 ---------- */
+
+.badge-intro {
+  padding: clamp(2rem, 5vw, 3.2rem) 0 clamp(1.2rem, 3vw, 2rem);
+  border-bottom: 1px solid var(--divider);
+}
+
+.badge-eyebrow {
+  margin: 0 0 0.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.badge-intro h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.5rem, 4vw, 1.9rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.badge-subtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-sub);
+}
+
+/* ---------- 聊天窗口选择 ---------- */
+
+.badge-room-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 1.1rem 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.badge-room-info h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.badge-room-info p {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-sub);
+}
+
+.badge-chat-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.badge-chat-selector select {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--divider);
+  border-radius: 0.6rem;
+  background: var(--card-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.badge-refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--divider);
+  border-radius: 0.6rem;
+  background: var(--card-bg);
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.badge-refresh-button:hover:not(:disabled) {
+  color: var(--text-main);
+}
+
+.badge-refresh-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.badge-refreshing {
+  animation: badgeSpin 900ms linear infinite;
+}
+
+@keyframes badgeSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.badge-empty {
+  padding: 2.4rem 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* ---------- 单个赛季 ---------- */
+
+.badge-season {
+  padding: 1.4rem 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.badge-season-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.badge-season-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.badge-season-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.badge-season-archived-tag {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.badge-season--archived {
+  opacity: 0.85;
+}
+
+.badge-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.badge-condition {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--divider);
+  border-radius: 0.7rem;
+  background: var(--card-bg);
+}
+
+.badge-condition-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.badge-condition-desc {
+  font-size: 0.72rem;
+  color: var(--text-sub);
+}
+
+.badge-equip-error {
+  margin: 0 0 0.8rem;
+  font-size: 0.74rem;
+  color: var(--halloween-ember, #c23b4a);
+}
+
+/* ---------- 图标网格 ---------- */
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.6rem, 1fr));
+  gap: 0.7rem;
+}
+
+.badge-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.7rem 0.4rem 0.6rem;
+  border: 1px solid var(--divider);
+  border-radius: 0.9rem;
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.badge-tile:hover:not(:disabled) {
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+}
+
+.badge-tile--locked {
+  cursor: default;
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+
+.badge-tile--equipped {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.badge-tile-image-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  background: var(--control-soft-bg);
+}
+
+.badge-tile-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.badge-tile-title {
+  font-size: 0.68rem;
+  text-align: center;
+  color: var(--text-sub);
+}
+
+.badge-tile-wanted {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.4rem;
+  background: var(--accent-color);
+  color: var(--bg-main);
+  font-size: 0.56rem;
+  letter-spacing: 0.02em;
+}
+
+.badge-tile-equipped-tag {
+  font-size: 0.6rem;
+  color: var(--accent-color);
+}
+
+/* ---------- 解锁动画弹层 ---------- */
+
+.badge-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  background: rgba(0, 0, 0, 0.55);
+  animation: badgeFadeIn 240ms ease;
+}
+
+.badge-celebration-card {
+  position: relative;
+  width: min(100%, 320px);
+  padding: 2rem 1.4rem 1.6rem;
+  border-radius: 1.1rem;
+  background: var(--bg-main);
+  color: var(--text-main);
+  text-align: center;
+  overflow: hidden;
+  animation: badgeCelebrationPop 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.badge-celebration-glow {
+  position: absolute;
+  top: -40%;
+  left: 50%;
+  width: 14rem;
+  height: 14rem;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, var(--accent-color) 0%, transparent 70%);
+  opacity: 0.35;
+  filter: blur(30px);
+}
+
+.badge-celebration-icon {
+  position: relative;
+  color: var(--accent-color);
+  margin-bottom: 0.6rem;
+}
+
+.badge-celebration-card h3 {
+  position: relative;
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+
+.badge-celebration-card p {
+  position: relative;
+  margin: 0 0 1.1rem;
+  font-size: 0.8rem;
+  color: var(--text-sub);
+}
+
+.badge-celebration-card button {
+  position: relative;
+  padding: 0.5rem 1.4rem;
+  border: 0;
+  border-radius: 0.6rem;
+  background: var(--accent-color);
+  color: var(--bg-main);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+@keyframes badgeFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes badgeCelebrationPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-tile,
+  .badge-refreshing,
+  .badge-celebration,
+  .badge-celebration-card {
+    animation: none !important;
+    transition: none !important;
+  }
+}

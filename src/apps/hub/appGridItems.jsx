@@ -35,6 +35,7 @@ import {
   Hourglass,
   ScrollText,
   Shell,
+  Medal,
 } from 'lucide-react';
 
 import GlassCard from '../../components/GlassCard';
@@ -706,6 +707,35 @@ export const buildAppGridItems = ({
           <AppTitle en="Almanac" zh="岁时纪" mode={nameMode} />
           <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
             Seasonal Notes
+          </p>
+        </div>
+      </GlassCard>
+    ),
+  },
+
+  {
+    id: 'badges',
+    colSpan: 1,
+    content: (
+      <GlassCard
+        blur={false}
+        onClick={() => onOpenApp('badges')}
+        className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
+      >
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: 'var(--control-soft-bg)' }}
+        >
+          <Medal
+            className="h-5 w-5 opacity-90"
+            style={{ color: 'var(--text-main)' }}
+          />
+        </div>
+
+        <div>
+          <AppTitle en="Badges" zh="限定图标" mode={nameMode} />
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+            Monthly Exchange
           </p>
         </div>
       </GlassCard>

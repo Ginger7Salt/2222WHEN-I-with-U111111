@@ -4646,4 +4646,19 @@ db.version(71).stores({
 db.version(72).stores({
   shellCatches: '++id, characterId, chatId, tier, identity, form, createdAt, [characterId+createdAt]',
 });
+
+// ============================================================
+// v73：每月限定聊天成就图标——兑换/佩戴切片A。
+//
+// monthlyBadgeUnlocks：每个聊天窗口 × 每个赛季(seasonKey，形如 "2026-10")
+// 一行，记录这个赛季有没有解锁、靠哪个条件解锁、AI 自定条件的内容。
+// monthlyBadgeEquips：每个聊天窗口一行，记录现在戴着哪个图标——单独一张
+// 表是因为佩戴状态要跨赛季持续有效（上个月解锁的图标，这个月依然能戴），
+// 不能跟着某一行赛季记录一起"过期"。
+// ============================================================
+db.version(73).stores({
+  monthlyBadgeUnlocks: '++id, chatId, seasonKey, [chatId+seasonKey]',
+  monthlyBadgeEquips: '++id, chatId',
+});
+
 export default db;
