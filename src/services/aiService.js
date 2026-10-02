@@ -18,7 +18,7 @@ import {
 } from './memoryProvider';
 import { markCharacterInteraction } from '../apps/memory/memoryCharacterState';
 import { checkAbsenceEmotionSignal } from '../apps/memory/characterAbsenceService';
-import { maybeUpdateDiyArea } from '../apps/messages/diy/diyAreaService';
+import { maybeUpdateDiyArea, forceUpdateDiyArea, containsDiyAreaRequest } from '../apps/messages/diy/diyAreaService';
 import {
   generateCompanionProactiveDiary as generateStandaloneDiary} from '../apps/diaries/diaryGenerationService';
 
@@ -253,7 +253,7 @@ export const parseAiResponseToMessages = async (text = '') => {
 
   // 支持的 AI 卡片标签，加入 STICKER
  const pattern =
-  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK):\s*([^\]]+)\]/g;
+  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST):\s*([^\]]+)\]/g;
 
   // 一次性读取本地表情包库，建立「名称 -> URL」映射
   const allStickers = await db.stickers.toArray();
@@ -420,6 +420,8 @@ export const parseAiResponseToMessages = async (text = '') => {
       metadata: { direction: 'char_to_user' }
     });
   }
+    } else if (cardType === 'diyarea_request') {
+      // 静默信号标签：这里只负责把标签从正文里摘掉，不产出卡片。
     }
 
     lastIndex = pattern.lastIndex;
@@ -1313,6 +1315,7 @@ ${stickerInstruction}
 - 开通亲属额度卡：[KINSHIP: 额度数字 | 周期(如:每月) | 卡片寄语]
 - 发送本地表情包：[STICKER: 表情包名称]
 - 分享位置卡片：[LOCATION: 地点名称 | 一句附加感想(可选)]
+- 重新布置你的DIY小屋：[DIYAREA_REQUEST: 确认]（只有当用户在这次聊天里明确提出想让你换一下/重新收拾这个小屋的布置时才使用，不要自己随便用；用了之后你不需要、也不应该在正文里描述新布置具体是什么样子，小屋会单独自己更新）
 
 【不可逾越的输出格式终极规则（最高优先级）】：
 1. 卡片指令必须严格遵循上面 [] 的规定，括号内用 "|" 分割参数。不要杜撰任何未注册的卡片语法。
@@ -2913,12 +2916,18 @@ if (!result.error) {
   void scheduleMemoryProcessing(chatId);
 
   // 角色的DIY小屋：只挂在「用户发消息 -> 角色正常回复」这条主路径上
-  // （跟上面 checkAbsenceEmotionSignal 的取舍一致），内部自己做冷却
-  // 判断，大部分时候这一行什么都不会发生。同样是独立、不阻塞的后台
-  // 任务，失败了也只是「这次小屋没换成」，不影响正常聊天。
-  void maybeUpdateDiyArea({ chatId, character, apiConfig }).catch((error) => {
-    console.warn('[DIY] Character DIY area check skipped safely:', error);
-  });
+  // （跟上面 checkAbsenceEmotionSignal 的取舍一致）。如果这次回复里
+  // 带着用户主动要求换装时的静默标签，走强制换装（不看冷却、必须真的
+  // 换一次）；否则走原来的常规冷却判断，大部分时候什么都不会发生。
+  if (containsDiyAreaRequest(cleanedReplyContent)) {
+    void forceUpdateDiyArea({ chatId, character, apiConfig }).catch((error) => {
+      console.warn('[DIY] Forced DIY area update skipped safely:', error);
+    });
+  } else {
+    void maybeUpdateDiyArea({ chatId, character, apiConfig }).catch((error) => {
+      console.warn('[DIY] Character DIY area check skipped safely:', error);
+    });
+  }
 }
 
 

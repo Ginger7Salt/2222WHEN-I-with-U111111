@@ -64,7 +64,10 @@ const CharacterDiyPage = ({ chatId, character, onBack }) => {
     : '';
 
   return (
-    <div className="relative flex h-[100dvh] flex-col" style={{ background: 'var(--bg-main)' }}>
+        <div
+      className="character-diy-container fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden animate-fade-in-up"
+      style={{ background: 'var(--bg-main)' }}
+    >
       <div
         className="flex shrink-0 items-center gap-2 border-b px-4 py-3"
         style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}

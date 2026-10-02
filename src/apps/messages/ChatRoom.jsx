@@ -128,6 +128,7 @@ import { useChatCustomFont } from './hooks/useChatCustomFont';
 import useChatEntryCard from './hooks/useChatEntryCard';
 import { isValidHexColor, getReadableTextColor } from './utils/chatColors';
 import { getControlStyleRules } from './chatControlStylePresets';
+import { DECORATION_FIELDS, forceImportantDeclarations } from './chatButtonDecorations';
 
 import InnerWorldApp from '../innerworld/InnerWorldApp';
 
@@ -413,7 +414,11 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
   const respondBtnColor = isValidHexColor(chat?.respondBtnColor) ? chat.respondBtnColor : null;
   const topBtnColor = isValidHexColor(chat?.topBtnColor) ? chat.topBtnColor : null;
 
-  // 气泡文字颜色：气泡底色/形状仍然只能靠气泡 CSS（BubbleCustomizer）定制，
+  // 按钮贴图：用户自己写的CSS声明（不带selector），三个槏位对应
+  // 发送/回应/爪印更多入口三个按钮，跟上面的颜色是两套独立的维度。
+  const buttonDecorations = chat?.decorations || {};
+
+  // 气泡文字颜色
   // 但文字颜色以前只能跟着那份 CSS 里写的 color 走，没有快捷开关——这里补上，
   // 跟上面几个按钮颜色一样只接受 #rrggbb，用 !important 盖在气泡预设/自定义
   // CSS 之上（气泡预设的 memoizedStyle 渲染在最前面，这里的 chatColorStyle
@@ -518,6 +523,33 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
     return <style>{rules.join('\n')}</style>;
   }, [inputBarColor, sendBtnColor, respondBtnColor, topBtnColor, userBubbleTextColor, aiBubbleTextColor, inputTextColor]);
+
+  const decorationStyle = useMemo(() => {
+    const rules = [];
+    const scope = '.chat-room-container';
+
+    const selectorsByField = {
+      sendButton: ['.chat-send-btn'],
+      respondButton: ['.chat-respond-btn'],
+      topButton: ['.chat-top-toolbar button.rounded-full', '.chat-header-heart-button'],
+    };
+
+    DECORATION_FIELDS.forEach((field) => {
+      const raw = buttonDecorations[field];
+      if (!raw || !raw.trim()) return;
+
+      const declarations = forceImportantDeclarations(raw);
+      if (!declarations) return;
+
+      selectorsByField[field].forEach((selector) => {
+        rules.push(`${scope} ${selector} { ${declarations} }`);
+      });
+    });
+
+    if (rules.length === 0) return null;
+
+    return <style>{rules.join('\n')}</style>;
+  }, [buttonDecorations]);
 
   const loadChatData = useCallback(async () => {
     try {
@@ -1896,6 +1928,7 @@ useLayoutEffect(() => {
       {chatFontStyle}
       {controlStylePresetStyle}
       {chatColorStyle}
+      {decorationStyle}
 
       <CheckInNotice
         delivery={checkInDelivery}

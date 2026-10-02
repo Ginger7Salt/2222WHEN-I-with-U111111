@@ -129,56 +129,13 @@ const extractDiyContent = (rawText) => {
   return content || null;
 };
 
-// 跟在一次正常的「用户发消息 -> 角色回复」成功之后调用（只挂在这一条
-// 主路径上，重新生成/角色主动发起的消息不触发，跟 aiService.js 里
-// checkAbsenceEmotionSignal 的取舍是同一个道理，避免同一件事被反复
-// 判断）。整个函数是 fire-and-forget：调用方用 void + catch 包起来，
-// 这里面任何失败都只是「这次小屋没换成」，不应该影响正常聊天。
-export const maybeUpdateDiyArea = async ({ chatId, character, apiConfig }) => {
-  if (!chatId || !character) return;
-  if (!apiConfig?.baseUrl || !apiConfig?.apiKey) return;
-
-  const chat = await db.chats.get(chatId);
-  if (!chat) return;
-
-  const lastCheckAtMs = chat.diyAreaLastCheckAt
-    ? new Date(chat.diyAreaLastCheckAt).getTime()
-    : 0;
-
-  if (
-    Number.isFinite(lastCheckAtMs)
-    && lastCheckAtMs > 0
-    && Date.now() - lastCheckAtMs < DIY_AREA_COOLDOWN_MS
-  ) {
-    return;
-  }
-
-  // 不管这次最终有没有真的换，先把检查时间点占上——这样冷却窗口内
-  // 哪怕角色选择"这次不换"，也不会每条回复都重新触发一次 AI 调用。
-  await db.chats.update(chatId, {
-    diyAreaLastCheckAt: new Date().toISOString(),
-  });
-
-  const recentMessages = await db.messages
-    .where('[chatId+timestamp]')
-    .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
-    .reverse()
-    .limit(RECENT_HISTORY_LIMIT)
-    .toArray()
-    .then((rows) => rows.reverse());
-
-  const historyText = recentMessages
-    .filter((message) => message.type === 'text' && message.content)
-    .map((message) => `${message.sender === 'user' ? '用户' : character.name}: ${message.content}`)
-    .join('\n');
-
-  const prompt = buildJudgePrompt({
-    character,
-    currentContent: chat.diyAreaContent,
-    historyText,
-  });
-
+// 两条路径（常规冷却判断 / 用户主动点名要换）共用的「拿最近历史 + 发一次
+// 独立的 AI 调用 + 落库」逻辑，只有传进来的 prompt 不一样。跟文件开头的
+// 注释一样：这里直接对 apiConfig 发 fetch，不经过 aiService.js，避免
+// 循环 import。
+const runDiyGeneration = async ({ chatId, character, apiConfig, prompt }) => {
   let rawText = '';
+
   try {
     const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
 
@@ -229,4 +186,128 @@ export const maybeUpdateDiyArea = async ({ chatId, character, apiConfig }) => {
   await db.chats.update(chatId, { updatedAt: updatedAtIso });
 
   dispatchLocalMessageEvent(chatId);
+};
+
+const getRecentHistoryText = async (chatId, character) => {
+  const recentMessages = await db.messages
+    .where('[chatId+timestamp]')
+    .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
+    .reverse()
+    .limit(RECENT_HISTORY_LIMIT)
+    .toArray()
+    .then((rows) => rows.reverse());
+
+  return recentMessages
+    .filter((message) => message.type === 'text' && message.content)
+    .map((message) => `${message.sender === 'user' ? '用户' : character.name}: ${message.content}`)
+    .join('\n');
+};
+
+// 跟在一次正常的「用户发消息 -> 角色回复」成功之后调用（只挂在这一条
+// 主路径上，重新生成/角色主动发起的消息不触发，跟 aiService.js 里
+// checkAbsenceEmotionSignal 的取舍是同一个道理，避免同一件事被反复
+// 判断）。整个函数是 fire-and-forget：调用方用 void + catch 包起来，
+// 这里面任何失败都只是「这次小屋没换成」，不应该影响正常聊天。
+export const maybeUpdateDiyArea = async ({ chatId, character, apiConfig }) => {
+  if (!chatId || !character) return;
+  if (!apiConfig?.baseUrl || !apiConfig?.apiKey) return;
+
+  const chat = await db.chats.get(chatId);
+  if (!chat) return;
+
+  const lastCheckAtMs = chat.diyAreaLastCheckAt
+    ? new Date(chat.diyAreaLastCheckAt).getTime()
+    : 0;
+
+  if (
+    Number.isFinite(lastCheckAtMs)
+    && lastCheckAtMs > 0
+    && Date.now() - lastCheckAtMs < DIY_AREA_COOLDOWN_MS
+  ) {
+    return;
+  }
+
+  // 不管这次最终有没有真的换，先把检查时间点占上——这样冷却窗口内
+  // 哪怕角色选择"这次不换"，也不会每条回复都重新触发一次 AI 调用。
+  await db.chats.update(chatId, {
+    diyAreaLastCheckAt: new Date().toISOString(),
+  });
+
+  const historyText = await getRecentHistoryText(chatId, character);
+
+  const prompt = buildJudgePrompt({
+    character,
+    currentContent: chat.diyAreaContent,
+    historyText,
+  });
+
+  await runDiyGeneration({ chatId, character, apiConfig, prompt });
+};
+
+// aiService.js 解析 AI 原始回复文字时用这个判断：这次回复里有没有带
+// 用户主动要求换装时该带的那个静默信号标签。跟主回复的卡片标签共用
+// 同一套正则识别、同一次解析，但这里单独扫描原始文字——因为这个标签
+// 不产出任何可见卡片，解析结果里找不到它，只能直接查原始文字。
+export const containsDiyAreaRequest = (text) => (
+  /\[DIYAREA_REQUEST\s*:/i.test(String(text || ''))
+);
+
+const buildForcedJudgePrompt = ({ character, currentContent, historyText }) => `你正在扮演角色：${character.name}。
+
+角色设定：
+${character.bio || '无'}
+
+补充设定：
+${character.extraNotes || '无'}
+
+你拥有一个只属于你自己的"DIY小屋"——这是一个完全独立于聊天消息的小网页
+角落，用户可以随时点进去看，但它不是对话的一部分，你不是在"回复"用户，
+只是在布置自己的一小块地方（有点像在收拾自己房间，或者在个人主页上随手
+写点什么），所以可以带着"这到底是写给谁看的"那种暧昧真实感，不必是正式
+的、直接对用户说话的内容。
+
+这个小屋目前的样子：
+${currentContent || '（现在还是空的，什么都没有）'}
+
+最近的对话节选（仅供你参考自己最近的心情/状态和用户刚才提的要求，不需要
+在小屋里复述或提及这些对话内容）：
+${historyText || '（暂无）'}
+
+用户刚刚在聊天里明确提出，想让你重新布置一下这个小屋。这次不是你自己
+判断要不要换——必须真的给出一份新内容，不能保持原样、也不能什么都不做。
+
+把新内容整体包在 ${START_TAG} 和 ${END_TAG} 之间，内容只能是 HTML +
+内联 CSS（style 属性或 <style> 标签都可以），允许少量 <script> 做简单
+互动（比如一份可以点开的礼物、一张带点小动画的贺卡，每次不要是一样的内容，充分利用html、css和JavaScript制作出能给user的惊喜，也可以是展露你内心的小屋，可以放和你相关的内容，你的状态栏等等）。不要请求任何外部
+资源（图片/字体/脚本的外链），不要尝试跳出这个页面或读取页面之外的任何
+东西，不要用超大字号或铺满整个视口的定位——内容应该安安静静待在这个小
+屋自己的版面里。除了 ${START_TAG}${END_TAG} 之间的内容，不要输出任何
+别的文字。`;
+
+// 由 aiService.js 在解析到 [DIYAREA_REQUEST] 标签后调用，专门给「用户
+// 在聊天里明确说了想换DIY小物」这种情况用：不看冷却、不走"这次不想改"
+// 的 NO_UPDATE 分支，必须真的给出一份新内容。跟 maybeUpdateDiyArea
+// 共用同一个 diyAreaLastCheckAt 时间戳字段——用户刚主动换完之后，背景
+// 的常规判断也会重新进入冷却窗口，不会紧接着又触发一次。同样是
+// fire-and-forget，失败了只是「这次没换成」，不影响正常聊天。
+export const forceUpdateDiyArea = async ({ chatId, character, apiConfig }) => {
+  if (!chatId || !character) return;
+  if (!apiConfig?.baseUrl || !apiConfig?.apiKey) return;
+
+  const chat = await db.chats.get(chatId);
+  if (!chat) return;
+
+  await db.chats.update(chatId, {
+    diyAreaLastCheckAt: new Date().toISOString(),
+  });
+
+  const historyText = await getRecentHistoryText(chatId, character);
+
+  const prompt = buildForcedJudgePrompt({
+    character,
+    currentContent: chat.diyAreaContent,
+    historyText,
+  });
+
+  await runDiyGeneration({ chatId, character, apiConfig, prompt });
 };

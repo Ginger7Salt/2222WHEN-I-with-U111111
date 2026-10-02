@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import ConfirmModal from '../../../components/ConfirmModal';
 import ColorSettingRow from './ColorSettingRow';
+import ButtonDecorationRow from './ButtonDecorationRow';
+import { DECORATION_FIELDS, DECORATION_FIELD_LABELS } from '../chatButtonDecorations';
 import SavedInfoSection from './SavedInfoSection';
 import AwaySettingsSection from '../away/AwaySettingsSection';
 import LearningModeSettingsSection from '../learningMode/LearningModeSettingsSection';
@@ -220,10 +222,24 @@ export const ChatSettingsModal = ({
     const next = value || '';
 
     if (next === (chat?.[field] || '')) return;
-
     await db.chats.update(chat.id, { [field]: next });
 
     onUpdatedUserPersona?.({ [field]: next });
+  };
+
+  const handleCommitDecoration = async (field, value) => {
+    if (!chat?.id) return;
+
+    const next = value || '';
+    const currentDecorations = chat?.decorations || {};
+
+    if (next === (currentDecorations[field] || '')) return;
+
+    const nextDecorations = { ...currentDecorations, [field]: next };
+
+    await db.chats.update(chat.id, { decorations: nextDecorations });
+
+    onUpdatedUserPersona?.({ decorations: nextDecorations });
   };
 
   // 本聊天窗的"按钮外观"预设（默认 / 毛玻璃 / 黑玻璃……），跟上面的
@@ -1640,11 +1656,41 @@ const handleToggleLocation = async () => {
             onCommit={(value) => handleCommitChatColor('userBubbleTextColor', value)}
           />
 
-          <ColorSettingRow
+                   <ColorSettingRow
             label="对方气泡文字颜色"
             value={chat?.aiBubbleTextColor || ''}
             onCommit={(value) => handleCommitChatColor('aiBubbleTextColor', value)}
           />
+        </div>
+
+        {/* 发送/回应/爪印更多入口按钮的贴图装饰：自己写CSS，想贴图就用上传小助手 */}
+        <div
+          className="space-y-2.5 p-3 rounded-2xl border w-full"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)'
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold">
+              <Palette className="w-3.5 h-3.5" />
+              <span>按钮贴图</span>
+            </div>
+            <span className="font-mono text-[9px] opacity-45">BUTTON SKIN</span>
+          </div>
+
+          <p className="text-[10px] opacity-55 leading-relaxed">
+            跟上面的颜色是另一套维度：这里直接写CSS，图标和底色都会被你写的样式整体替换掉（点击范围和功能不变）。可以只改颜色/圆角/阴影，也可以点「上传贴图」把一张图压缩进去当背景，之后还能接着手动改其它属性。
+          </p>
+
+          {DECORATION_FIELDS.map((field) => (
+            <ButtonDecorationRow
+              key={field}
+              label={DECORATION_FIELD_LABELS[field]}
+              value={chat?.decorations?.[field] || ''}
+              onCommit={(value) => handleCommitDecoration(field, value)}
+            />
+          ))}
         </div>
 
         {/* 本窗按钮外观预设：默认 / 毛玻璃 / 黑玻璃…… */}
