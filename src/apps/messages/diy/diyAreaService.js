@@ -214,6 +214,15 @@ const runDiyGeneration = async ({ chatId, apiConfig, prompt }) => {
 
   const newContent = extractDiyContent(rawText);
   if (!newContent) {
+    // 这种情况之前是完全静默的：AI 调用本身成功了，但回的内容里没有
+    // 找到 [DIYAREA_START]/[DIYAREA_END] 这对标签（模型没按格式走，或者
+    // 背景检查里本来就允许的 NO_UPDATE）。加这条日志只是方便排查，不
+    // 改变任何行为——截断到前 200 字，避免真的生成了一大段 HTML 时控制台
+    // 被刷屏。
+    console.warn(
+      '[DIY] 角色DIY小屋的生成结果里没有找到有效标签，原始回复开头:',
+      String(rawText || '').slice(0, 200)
+    );
     return { status: 'no_update' };
   }
 
