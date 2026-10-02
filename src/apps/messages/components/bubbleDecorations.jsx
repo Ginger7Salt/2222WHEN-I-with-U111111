@@ -8,7 +8,7 @@
 // 图标直接用 lucide-react，不依赖 lucide-animated，静态展示轻量无多余开销。
 import React from 'react';
 import {
-  // 原有 7 款图标
+  // 原有经典图标
   Star,
   Moon,
   Ghost,
@@ -16,7 +16,7 @@ import {
   Snowflake,
   Flower2,
   Droplet,
-  // 新增 10 款图标（均为 lucide-react 稳定内置）
+  // 基础扩充图标
   Sparkles,
   PawPrint,
   Zap,
@@ -26,7 +26,32 @@ import {
   Ribbon,
   Gamepad2,
   Cloud,
-  Feather, // 替换 butterfly，feather(羽毛) 在 lucide 各版本兼容性极好且质感极佳
+  Feather,
+  // 新增：萌宠与生灵
+  Cat,
+  Dog,
+  Fish,
+  // 新增：甜蜜食刻
+  Candy,
+  Cookie,
+  Cherry,
+  // 新增：奇幻与冒险
+  Crown,
+  Gem,
+  Wand2,
+  Rocket,
+  Swords,
+  Dices,
+  // 新增：自然与光晕
+  Sun,
+  Flame,
+  Leaf,
+  Rainbow,
+  // 新增：灵感与日常
+  Lightbulb,
+  BookOpen,
+  PartyPopper,
+  Anchor,
 } from 'lucide-react';
 
 export const BUBBLE_DECORATIONS = {
@@ -79,7 +104,7 @@ export const BUBBLE_DECORATIONS = {
     color: '#7FD1D9',
   },
 
-  // ===== 2026 新增 10 套 =====
+  // ===== 现代轻灵 10 套 =====
   'sparkle-scatter': {
     id: 'sparkle-scatter',
     name: '星芒闪烁',
@@ -139,6 +164,136 @@ export const BUBBLE_DECORATIONS = {
     name: '棉花晴云',
     Icon: Cloud,
     color: '#93C5FD',
+  },
+
+  // ===== 萌宠灵动系列 =====
+  'cat-scatter': {
+    id: 'cat-scatter',
+    name: '猫耳漫步',
+    Icon: Cat,
+    color: '#FB923C',
+  },
+  'dog-scatter': {
+    id: 'dog-scatter',
+    name: '忠诚小狗',
+    Icon: Dog,
+    color: '#FBBF24',
+  },
+  'fish-scatter': {
+    id: 'fish-scatter',
+    name: '游弋金鱼',
+    Icon: Fish,
+    color: '#38BDF8',
+  },
+
+  // ===== 甜蜜食刻系列 =====
+  'candy-scatter': {
+    id: 'candy-scatter',
+    name: '缤纷糖果',
+    Icon: Candy,
+    color: '#F43F5E',
+  },
+  'cookie-scatter': {
+    id: 'cookie-scatter',
+    name: '香脆曲奇',
+    Icon: Cookie,
+    color: '#B45309',
+  },
+  'cherry-scatter': {
+    id: 'cherry-scatter',
+    name: '红樱缀枝',
+    Icon: Cherry,
+    color: '#E11D48',
+  },
+
+  // ===== 奇幻与冒险系列 =====
+  'wand-scatter': {
+    id: 'wand-scatter',
+    name: '魔法使者',
+    Icon: Wand2,
+    color: '#C084FC',
+  },
+  'crown-scatter': {
+    id: 'crown-scatter',
+    name: '璀璨王冠',
+    Icon: Crown,
+    color: '#EAB308',
+  },
+  'gem-scatter': {
+    id: 'gem-scatter',
+    name: '晶莹宝石',
+    Icon: Gem,
+    color: '#06B6D4',
+  },
+  'rocket-scatter': {
+    id: 'rocket-scatter',
+    name: '星际火箭',
+    Icon: Rocket,
+    color: '#EC4899',
+  },
+  'swords-scatter': {
+    id: 'swords-scatter',
+    name: '誓约之刃',
+    Icon: Swords,
+    color: '#818CF8',
+  },
+  'dice-scatter': {
+    id: 'dice-scatter',
+    name: '幸运骰子',
+    Icon: Dices,
+    color: '#A855F7',
+  },
+
+  // ===== 自然与光晕系列 =====
+  'sun-scatter': {
+    id: 'sun-scatter',
+    name: '朝阳初升',
+    Icon: Sun,
+    color: '#F59E0B',
+  },
+  'flame-scatter': {
+    id: 'flame-scatter',
+    name: '炽热微火',
+    Icon: Flame,
+    color: '#F97316',
+  },
+  'leaf-scatter': {
+    id: 'leaf-scatter',
+    name: '林间清风',
+    Icon: Leaf,
+    color: '#10B981',
+  },
+  'rainbow-scatter': {
+    id: 'rainbow-scatter',
+    name: '雨后晴霓',
+    Icon: Rainbow,
+    color: '#F472B6',
+  },
+
+  // ===== 灵感与日常系列 =====
+  'lightbulb-scatter': {
+    id: 'lightbulb-scatter',
+    name: '灵感微光',
+    Icon: Lightbulb,
+    color: '#FACC15',
+  },
+  'book-scatter': {
+    id: 'book-scatter',
+    name: '书卷墨香',
+    Icon: BookOpen,
+    color: '#8B5CF6',
+  },
+  'popper-scatter': {
+    id: 'popper-scatter',
+    name: '派对礼花',
+    Icon: PartyPopper,
+    color: '#FB7185',
+  },
+  'anchor-scatter': {
+    id: 'anchor-scatter',
+    name: '静水远航',
+    Icon: Anchor,
+    color: '#0284C7',
   },
 };
 
