@@ -196,12 +196,33 @@ const runDiyGeneration = async ({ chatId, apiConfig, prompt }) => {
       },
       body: JSON.stringify({
         model: apiConfig.model || 'gpt-3.5-turbo',
-        messages: [{ role: 'system', content: prompt }],
+        // 注意：这里必须带一条 role:'user' 的消息，不能只发一条
+        // role:'system'——有些 API 中转/网关会直接拒绝没有 user
+        // 消息的请求（返回 400）。真正的角色设定/要求仍然整段放在
+        // system 里，这条 user 消息只是满足"必须有一轮user"这个格式
+        // 要求，不改变实际指令内容。
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content: '请按照上面的设定和要求执行。' },
+        ],
       }),
     });
 
     if (!response.ok) {
-      console.warn('[DIY] 角色DIY小屋的生成调用返回非 2xx:', response.status);
+      let errorDetail = '';
+
+      try {
+        const errorData = await response.json();
+        errorDetail = errorData?.error?.message || errorData?.message || '';
+      } catch {
+        // 读不到详细错误体就算了，保留状态码。
+      }
+
+      console.warn(
+        '[DIY] 角色DIY小屋的生成调用返回非 2xx:',
+        response.status,
+        errorDetail
+      );
       return { status: 'error' };
     }
 
@@ -489,12 +510,21 @@ ${character.extraNotes || '无'}
       },
       body: JSON.stringify({
         model: apiConfig.model || 'gpt-3.5-turbo',
-        messages: [{ role: 'system', content: systemPrompt }],
+        // 跟 runDiyGeneration 一样：必须带一条 role:'user' 的消息，
+        // 避免被某些 API 中转/网关当成无效请求直接 400。
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: '请按照上面的要求执行。' },
+        ],
         temperature: 0.9,
       }),
     });
 
     if (!response.ok) {
+      console.warn(
+        '[DIY] DIY小屋拒绝理由生成调用返回非 2xx，用兜底文案顶上:',
+        response.status
+      );
       return FALLBACK_DIY_REJECT_REASONS;
     }
 
