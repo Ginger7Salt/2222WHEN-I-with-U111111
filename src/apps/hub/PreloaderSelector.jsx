@@ -4,12 +4,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ChevronDown,
   CircleDot,
+  Dices,
   Disc3,
   Flower2,
   Image,
   Layers3,
   LockKeyhole,
   Mail,
+  MoonStar,
   Sparkles
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
@@ -30,9 +32,10 @@ const ICON_MAP = {
   polaroid: Image,
   letter: Mail,
   pebble: Layers3,
-  rose: Flower2
+  rose: Flower2,
+  'halloween-dice': Dices,
+  'halloween-ritual': MoonStar
 };
-
 const readStoredAnimationId = () => {
   try {
     return window.localStorage.getItem(STARTUP_ANIMATION_STORAGE_KEY);

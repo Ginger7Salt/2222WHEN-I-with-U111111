@@ -8,6 +8,8 @@ import PolaroidLoader from './PolaroidLoader';
 import LetterLoader from './LetterLoader';
 import PebbleLoader from './PebbleLoader';
 import RoseLoader from './RoseLoader';
+import HalloweenDiceLoader from './HalloweenDiceLoader';
+import HalloweenRitualLoader from './HalloweenRitualLoader';
 import {
   getPreloaderQuote,
   getPreloaderQuoteSync,
@@ -59,6 +61,14 @@ const LOADER_MAP = {
   rose: {
     Component: RoseLoader,
     status: 'Tending a small rose'
+  },
+  'halloween-dice': {
+    Component: HalloweenDiceLoader,
+    status: 'Tumbling a cursed die'
+  },
+  'halloween-ritual': {
+    Component: HalloweenRitualLoader,
+    status: 'Waiting out an eclipse'
   }
 };
 export const Preloader = ({ onFinish }) => {

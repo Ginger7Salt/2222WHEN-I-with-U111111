@@ -47,6 +47,13 @@
 
 }
 
+/* 万圣节限定加载页专用的点缀色，不随主题切换，四套主题共用同一种"幽光"质感 */
+:root {
+  --halloween-ember: #ef3b4d;
+  --halloween-ember-soft: rgba(239, 59, 77, 0.45);
+  --halloween-ember-deep: #7a0019;
+}
+
 
 :root[data-theme="cream-latte"] {
   --bg-main: #fdfbf7;

@@ -1,5 +1,7 @@
 // src/config/startupAnimations.js
 
+import { isHalloweenSeasonActive } from '../apps/messages/interactions/halloween/halloweenSeason';
+
 export const STARTUP_ANIMATION_STORAGE_KEY = 'whenIWithU.preloaderType';
 export const STARTUP_ANIMATION_SETTING_KEY = 'preloaderConfig';
 
@@ -54,6 +56,24 @@ export const STARTUP_ANIMATIONS = [
     archiveDescription: 'A quiet homage to the fox and the rose',
     status: 'READY',
     isAvailable: true
+  },
+  {
+    id: 'halloween-dice',
+    title: 'Cursed Dice',
+    description: 'A six-faced relic tumbles through the dark before it will answer.',
+    archiveDescription: 'Returns automatically every October',
+    status: 'SEASONAL',
+    isAvailable: isHalloweenSeasonActive(),
+    seasonal: true
+  },
+  {
+    id: 'halloween-ritual',
+    title: 'Sealed Monolith',
+    description: 'A sealed obelisk waits out a slow eclipse before it will open.',
+    archiveDescription: 'Returns automatically every October',
+    status: 'SEASONAL',
+    isAvailable: isHalloweenSeasonActive(),
+    seasonal: true
   }
 ];
 
