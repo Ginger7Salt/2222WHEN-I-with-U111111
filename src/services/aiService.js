@@ -2545,8 +2545,9 @@ const { content: contentAfterWorkKaomoji } = await applyWorkKaomojiDirective({
   isWorkMode: chat.mode === 'work',
 });
 
-const { content: contentAfterMood } = await applyMoodBubbleDirective({
+const { content: contentAfterMood, moodMessage } = await applyMoodBubbleDirective({
   characterId: character.id,
+  characterName: character.name,
   content: contentAfterWorkKaomoji,
 });
 
@@ -2794,7 +2795,31 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
           isRead: false,
           timestamp: nowIso,
         });
-        messageIds.push(confirmCardMessageId);
+               messageIds.push(confirmCardMessageId);
+      }
+
+      // 头像心情气泡：角色这次确实带了 [MOOD: ...] 标签，除了气泡
+      // 本身，聊天记录里也追加一条 mood_update 提示消息留痕（出场
+      // 效果读 metadata.effect，由 MoodUpdateNotice.jsx 处理）。
+      if (moodMessage) {
+        const moodMessageId = await db.messages.add({
+          chatId,
+          characterId: character.id,
+          sender: 'character',
+          type: moodMessage.type,
+          content: moodMessage.content,
+          metadata: moodMessage.metadata,
+          versions: [{
+            type: moodMessage.type,
+            content: moodMessage.content,
+            metadata: moodMessage.metadata,
+            timestamp: nowIso,
+          }],
+          currentVersionIndex: 0,
+          isRead: false,
+          timestamp: nowIso,
+        });
+        messageIds.push(moodMessageId);
       }
 
       try {

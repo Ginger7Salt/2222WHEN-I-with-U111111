@@ -6,26 +6,27 @@
  * mood-bubble--show 类，重新播一次这段弹出动画，而不是做成常驻不动的
  * 静态小标签。
  *
- * 挂载点是聊天流里 MessageRow.jsx 那个 28px 小头像（不是 header 里
- * 那个大头像——之前挂在 header 上，但 header 收起/没展开时就看不到，
- * 这里改成跟着"当前最新一条角色消息"的头像走，具体哪条消息显示由
- * MessageList.jsx 的 lastCharacterMessageId 控制），尺寸和偏移跟着
- * 一起缩小了一圈。
+ * 2026-10 改版：挂载点从聊天流里 MessageRow.jsx 那个 28px 小头像搬回了
+ * ChatHeaderBar.jsx 展开卡片里那个带唱片环的大头像（4.6rem，见
+ * chat-header-avatar-stage），尺寸和偏移跟着放大了一圈。这个气泡现在
+ * 只在聊天窗 header 展开时才能看到——"心情变化的痕迹"这件事本身已经
+ * 挪去聊天记录里的 mood_update 系统提示（MoodUpdateNotice.jsx）常驻
+ * 留痕了，这里只负责"此刻的心情"这一个展示点，不用再强求随时可见。
  */
 
 .mood-bubble {
   position: absolute;
-  left: -0.2rem;
-  top: -0.6rem;
+  left: -0.3rem;
+  top: -0.9rem;
   z-index: 3;
-  max-width: 5rem;
-  padding: 0.1rem 0.42rem;
-  border-radius: 0.6rem 0.6rem 0.6rem 0.16rem;
+  max-width: 7rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 0.75rem 0.75rem 0.75rem 0.2rem;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
   color: var(--text-main);
-  font-size: 0.62rem;
+  font-size: 0.74rem;
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -46,10 +47,10 @@
 .mood-bubble::after {
   content: '';
   position: absolute;
-  left: 0.3rem;
-  bottom: -0.2rem;
-  width: 0.34rem;
-  height: 0.34rem;
+  left: 0.4rem;
+  bottom: -0.26rem;
+  width: 0.42rem;
+  height: 0.42rem;
   background: var(--card-bg);
   border-right: 1px solid var(--card-border);
   border-bottom: 1px solid var(--card-border);

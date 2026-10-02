@@ -4,10 +4,12 @@
 // [MOOD: ...] 标签写入，见 moodBubbleDirective.js），这里只负责展示和
 // "内容变化时重新弹一下"的过渡，没有气泡内容时什么都不渲染。
 //
-// 挂载在 MessageRow.jsx 里"当前最新一条角色消息"的头像旁边（由
-// MessageList.jsx 的 showMoodBubble 决定是不是这一条），不再挂在
-// ChatHeaderBar——header 收起/没展开的时候看不到，聊天流里的头像
-// 才是用户大部分时间真正在看的地方。
+// 2026-10 起挂载在 ChatHeaderBar.jsx 展开卡片里那个带唱片环的大头像
+// 旁边（chat-header-avatar-stage），只在 header 展开时可见——"心情
+// 变化的痕迹"已经由聊天记录里的 mood_update 系统提示
+// （MoodUpdateNotice.jsx）常驻留着了，这里不用再强求随时可见，之前
+// 挂在聊天流 MessageRow.jsx 的 28px 小头像上、跟着最新一条角色消息跳
+// 的那版已经整个移除。
 
 import React, { useEffect, useRef, useState } from 'react';
 

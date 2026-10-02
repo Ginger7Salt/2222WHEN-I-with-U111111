@@ -14,7 +14,7 @@ import {
 
 import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
 import ChatPokeNotice from '../interactions/ChatPokeNotice';
-import MoodBubble from '../mood/MoodBubble';
+import MoodUpdateNotice from '../mood/MoodUpdateNotice';
 import ChatDiyUpdateNotice from '../diy/ChatDiyUpdateNotice';
 import ProfileTraceCard from '../profile/ProfileTraceCard';
 import ChatTrickNotice from '../interactions/halloween/ChatTrickNotice';
@@ -85,7 +85,6 @@ const MessageRow = ({
   onRespondToConfirmCard,
   onPokeAvatar,
   onOpenProfileCard,
-  showMoodBubble,
   selectionMode,
   isSelected,
   onToggleSelected,
@@ -281,6 +280,13 @@ const MessageRow = ({
     return <ProfileTraceCard message={msg} />;
   }
 
+  // 心情更新后留在聊天记录里的痕迹：跟戳一戳/DIY换装同理，一条居中
+  // 系统提示行，纯公告，不可点击（气泡本身已经搬到 ChatHeaderBar 的
+  // 大头像旁边，见 MoodBubble.jsx 顶部注释）。
+  if (msg.type === 'mood_update') {
+    return <MoodUpdateNotice message={msg} />;
+  }
+
   return (
     <div
       className={`flex items-start gap-1.5 ${
@@ -383,10 +389,8 @@ const MessageRow = ({
                 }}
               >
                 {character?.name?.[0]}
-              </div>
+                       </div>
             )}
-
-            {showMoodBubble && <MoodBubble character={character} />}
           </div>
         ) : activeUserAvatar ? (
           <img
