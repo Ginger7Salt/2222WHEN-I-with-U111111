@@ -1,0 +1,447 @@
+/* src/apps/messages/profile/profileCard.css
+ *
+ * 资料卡（昵称/#标签/个性签名）的两套视觉：
+ *   .profile-card-*      长按头像打开的那张可翻面的"实体卡"
+ *   .profile-trace-*     每次AI更新后留在聊天流里的静态快照
+ *
+ * 故意用固定的黑白配色（不跟 --card-bg 等主题变量走）——这张卡要的
+ * 是"真的像一张证件"的质感，不随亮暗主题变化，跟预览图给用户确认过
+ * 的版本保持一致。
+ *
+ * 签名字体用 Liu Jian Mao Cao（行书/连笔感），不是西文手写体
+ * Sacramento——Sacramento 没有中文字形，中文签名套上它等于什么都
+ * 没套上，直接摆烂成默认字体，这正是最早预览"签名字体丑"的根源。
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Liu+Jian+Mao+Cao&family=Space+Mono:wght@400;700&display=swap');
+
+.profile-card-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(10, 10, 8, 0.52);
+  animation: profile-card-backdrop-in 0.22s ease-out;
+}
+
+@keyframes profile-card-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.profile-card-stage {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 380 / 240;
+  perspective: 1500px;
+  animation: profile-card-pop-in 0.32s cubic-bezier(0.22, 0.9, 0.3, 1.2);
+}
+
+@keyframes profile-card-pop-in {
+  from { opacity: 0; transform: scale(0.92) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.profile-card-close {
+  position: absolute;
+  right: 2px;
+  top: -40px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border: none;
+}
+
+.profile-card-flip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+.profile-card-flip.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.profile-card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #1c1c1a;
+  box-shadow:
+    0 24px 42px -10px rgba(10, 10, 8, 0.32),
+    0 2px 6px rgba(10, 10, 8, 0.14);
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-card-face-back {
+  transform: rotateY(180deg);
+}
+
+.profile-card-band {
+  height: 15.5%;
+  min-height: 38px;
+  background: #171716;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+
+.profile-card-band-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.profile-card-band-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  color: #171716;
+  flex-shrink: 0;
+}
+
+.profile-card-band-title {
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #f2f2f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-card-band-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #171716;
+  background: #ffffff;
+  padding: 3px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.profile-card-band-chip .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #171716;
+}
+
+.profile-card-body {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.profile-card-photo {
+  position: relative;
+  width: 29%;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: linear-gradient(150deg, #cfcfc9, #85857c);
+  border: 1px solid #1c1c1a;
+  overflow: hidden;
+}
+
+.profile-card-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-card-seal {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1.5px solid #171716;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #171716;
+}
+
+.profile-card-fields {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-card-k {
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #9a9a92;
+}
+
+.profile-card-name-row {
+  margin-bottom: 8px;
+}
+
+.profile-card-name {
+  margin-top: 1px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #171716;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-card-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+}
+
+.profile-card-meta-item .v {
+  margin-top: 1px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #171716;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-card-sig-strip {
+  margin: 10px 16px 0;
+  padding: 9px 0;
+  border-top: 1px dashed #c9c9c2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.profile-card-barcode-bars {
+  width: 76px;
+  height: 18px;
+  background: repeating-linear-gradient(
+    to right,
+    #171716 0px, #171716 1.4px, transparent 1.4px, transparent 2.8px,
+    #171716 2.8px, #171716 4.6px, transparent 4.6px, transparent 5.6px,
+    #171716 5.6px, #171716 6.4px, transparent 6.4px, transparent 8.2px,
+    #171716 8.2px, #171716 10.6px
+  );
+}
+
+.profile-card-sig-text-wrap {
+  text-align: right;
+  min-width: 0;
+}
+
+.profile-card-sig-text {
+  font-family: 'Liu Jian Mao Cao', cursive;
+  font-size: 22px;
+  color: #171716;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-card-sig-label {
+  margin-top: 1px;
+  font-size: 7px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #9a9a92;
+}
+
+.profile-card-stripe {
+  height: 13%;
+  min-height: 26px;
+  background: #171716;
+  flex-shrink: 0;
+}
+
+.profile-card-back-pad {
+  padding: 14px 16px 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.profile-card-terms {
+  font-size: 9.5px;
+  line-height: 1.5;
+  color: #5c5c55;
+  border-left: 2px solid #171716;
+  padding-left: 9px;
+}
+
+.profile-card-notes-row {
+  margin-top: 12px;
+  display: flex;
+  gap: 16px;
+  background: #f4f4f1;
+  border: 1px dashed #c9c9c2;
+  border-radius: 7px;
+  padding: 9px 12px;
+}
+
+.profile-card-note-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-card-note-block .v {
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #171716;
+  font-family: 'Space Mono', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-card-back-foot {
+  padding: 10px 16px 12px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 7.5px;
+  letter-spacing: 0.08em;
+  color: #9a9a92;
+  flex-shrink: 0;
+}
+
+.profile-card-flip-affordance {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f4f4f1;
+  border: 1px solid #c9c9c2;
+  color: #171716;
+}
+
+.profile-card-hint {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ============ 聊天流里的痕迹卡：静态快照，没有翻面/blur/3D ============ */
+
+.profile-trace-card {
+  background: #ffffff;
+  border: 1px solid #1c1c1a;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(10, 10, 8, 0.1);
+  max-width: 300px;
+}
+
+.profile-trace-band {
+  height: 24px;
+  background: #171716;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 11px;
+}
+
+.profile-trace-band span {
+  font-size: 7.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #f2f2f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-trace-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+}
+
+.profile-trace-body .name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #171716;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-trace-body .tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  color: #6b6b63;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-trace-sig {
+  margin-left: auto;
+  text-align: right;
+  min-width: 0;
+}
+
+.profile-trace-sig .sig {
+  font-family: 'Liu Jian Mao Cao', cursive;
+  font-size: 16px;
+  color: #171716;
+  line-height: 1.1;
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-trace-sig .meta {
+  margin-top: 1px;
+  font-size: 7.5px;
+  letter-spacing: 0.05em;
+  color: #9a9a92;
+  white-space: nowrap;
+}

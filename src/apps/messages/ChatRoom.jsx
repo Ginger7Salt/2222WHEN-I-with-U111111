@@ -217,6 +217,8 @@ const MemoirPage = lazy(() => import('../memoir/MemoirPage'));
 
 // 角色的DIY小屋，同样只有用户点开 🐾 更多入口里的入口才加载
 const CharacterDiyPage = lazy(() => import('./diy/CharacterDiyPage'));
+// 资料卡是个小浮层，不是整页，但同样没必要在首屏体积里常驻
+const ProfileCard = lazy(() => import('./profile/ProfileCard'));
 
 export const ChatRoom = ({
   chatId,
@@ -306,6 +308,10 @@ const [showTopMenu, setShowTopMenu] = useState(false);
 const [showCompanionPage, setShowCompanionPage] = useState(false);
   const [showMemoirPage, setShowMemoirPage] = useState(false);
   const [showCharacterDiy, setShowCharacterDiy] = useState(false);
+  // 长按头像打开的资料卡：浮层弹出，不是整页替换，所以不走上面
+// showMemoirPage/showCharacterDiy 那种"整个组件提前 return"的写法，
+// 就近跟 showChatSettings 这类弹层模态共用同一种条件渲染方式。
+const [showProfileCard, setShowProfileCard] = useState(false);
 
 // 顶部按钮行默认收起，只保留返回按钮；展开/收起统一由 ChatHeaderBar
 // 里那一颗爱心控制（同时带出这一整排按钮和下面的身份卡片）
@@ -2323,6 +2329,7 @@ useLayoutEffect(() => {
                     onOpenCompanionOffer={() => setShowCompanionPage(true)}
           onRespondToConfirmCard={handleRespondToConfirmCard}
           onPokeAvatar={handlePokeCharacter}
+          onOpenProfileCard={() => setShowProfileCard(true)}
           selectionMode={selectionMode}
           selectedMessageIds={selectedMessageIds}
           onToggleSelected={handleToggleMessageSelected}
@@ -2826,6 +2833,17 @@ useLayoutEffect(() => {
           </div>
         </div>
       </footer>
+
+      {showProfileCard && (
+  <Suspense fallback={null}>
+    <ProfileCard
+      open={showProfileCard}
+      onClose={() => setShowProfileCard(false)}
+      chatId={chat?.id}
+      character={character}
+    />
+  </Suspense>
+)}
 
       {showBubbleCustomizer && (
         <BubbleCustomizer

@@ -27,6 +27,7 @@ const MessageList = ({
   onOpenCompanionOffer,
   onRespondToConfirmCard,
   onPokeAvatar,
+  onOpenProfileCard,
   selectionMode,
   selectedMessageIds,
   onToggleSelected,
@@ -97,6 +98,7 @@ const MessageList = ({
                   onOpenCompanionOffer={onOpenCompanionOffer}
           onRespondToConfirmCard={onRespondToConfirmCard}
           onPokeAvatar={onPokeAvatar}
+          onOpenProfileCard={onOpenProfileCard}
           showMoodBubble={msg.id === lastCharacterMessageId}
           selectionMode={selectionMode}
           isSelected={selectedMessageIds ? selectedMessageIds.has(msg.id) : false}

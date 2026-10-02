@@ -98,6 +98,7 @@ import {
 } from '../apps/almanac/services/almanacPromptBuilder';
 
 import { getSharedWorldPromptBlock } from '../apps/shared-world/sharedWorldService';
+import { maybeUpdateProfileCard } from '../apps/messages/profile/profileCardService';
 
 
 
@@ -2919,7 +2920,7 @@ if (!result.error) {
   // （跟上面 checkAbsenceEmotionSignal 的取舍一致）。如果这次回复里
   // 带着用户主动要求换装时的静默标签，走强制换装（不看冷却、必须真的
   // 换一次）；否则走原来的常规冷却判断，大部分时候什么都不会发生。
-  if (containsDiyAreaRequest(cleanedReplyContent)) {
+   if (containsDiyAreaRequest(cleanedReplyContent)) {
     void forceUpdateDiyArea({ chatId, character, apiConfig }).catch((error) => {
       console.warn('[DIY] Forced DIY area update skipped safely:', error);
     });
@@ -2928,8 +2929,15 @@ if (!result.error) {
       console.warn('[DIY] Character DIY area check skipped safely:', error);
     });
   }
-}
 
+  // 资料卡（昵称/#标签/个性签名）：同样只挂在这条主路径上，同样是
+  // 独立、不阻塞的后台任务，跟DIY小屋完全同构，但没有用户主动触发的
+  // 强制路径——这张卡完全是角色自己的节奏，失败了也只是「这次没
+  // 更新」，不影响正常聊天。
+  void maybeUpdateProfileCard({ chatId, character, apiConfig }).catch((error) => {
+    console.warn('[ProfileCard] Character profile card check skipped safely:', error);
+  });
+}
 
   } catch (err) {
     console.error('Background AI task error:', err);

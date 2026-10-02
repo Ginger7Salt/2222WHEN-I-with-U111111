@@ -16,6 +16,7 @@ import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
 import ChatPokeNotice from '../interactions/ChatPokeNotice';
 import MoodBubble from '../mood/MoodBubble';
 import ChatDiyUpdateNotice from '../diy/ChatDiyUpdateNotice';
+import ProfileTraceCard from '../profile/ProfileTraceCard';
 import ChatTrickNotice from '../interactions/halloween/ChatTrickNotice';
 import SpiderEgg from '../interactions/halloween/SpiderEgg';
 import OfflineInviteCard from '../../offline/OfflineInviteCard';
@@ -59,6 +60,12 @@ import WeatherCard from './cards/WeatherCard';
 // 太长又会显得迟钝，420ms 是比较常见的手感。
 const REACTION_LONG_PRESS_MS = 420;
 
+// 长按头像打开资料卡，跟上面消息气泡的长按反应面板是同一个手感
+// 数值，但用在头像上——跟双击戳一戳（onDoubleClick，浏览器原生
+// 事件）完全不冲突：长按走的是 pointerdown 计时器，普通单击/双击
+// 根本不会撑到这个时长，不需要额外做"单击/双击"的时序区分。
+const AVATAR_LONG_PRESS_MS = 480;
+
 const MessageRow = ({
   msg,
   quoted,
@@ -77,6 +84,7 @@ const MessageRow = ({
   onOpenCompanionOffer,
   onRespondToConfirmCard,
   onPokeAvatar,
+  onOpenProfileCard,
   showMoodBubble,
   selectionMode,
   isSelected,
@@ -141,6 +149,33 @@ const MessageRow = ({
       window.clearTimeout(pokeWiggleTimerRef.current);
     }
   }, []);
+
+  // 长按头像打开资料卡。跟下面消息气泡的长按反应面板用的是同一套
+  // pointer 事件写法：按下开始计时，松手/移出就清掉，真正撑过
+  // AVATAR_LONG_PRESS_MS 才触发，避免普通点击也被当成长按。
+  const avatarPressTimerRef = useRef(null);
+
+  const clearAvatarPressTimer = useCallback(() => {
+    if (avatarPressTimerRef.current) {
+      window.clearTimeout(avatarPressTimerRef.current);
+      avatarPressTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => clearAvatarPressTimer(), [clearAvatarPressTimer]);
+
+  const handleAvatarPointerDown = useCallback(() => {
+    if (!onOpenProfileCard) return;
+
+    clearAvatarPressTimer();
+    avatarPressTimerRef.current = window.setTimeout(() => {
+      onOpenProfileCard();
+    }, AVATAR_LONG_PRESS_MS);
+  }, [onOpenProfileCard, clearAvatarPressTimer]);
+
+  const handleAvatarPointerRelease = useCallback(() => {
+    clearAvatarPressTimer();
+  }, [clearAvatarPressTimer]);
 
   // 长按消息气泡弹出反应选择面板：用 pointer 事件统一处理鼠标和
   // 触屏，按住超过 REACTION_LONG_PRESS_MS 才算长按，普通点击（比如
@@ -241,6 +276,11 @@ const MessageRow = ({
     return <ChatDiyUpdateNotice message={msg} />;
   }
 
+  // 资料卡更新后留下的痕迹：同样是独立渲染，不走头像+气泡布局。
+  if (msg.type === 'profile_update') {
+    return <ProfileTraceCard message={msg} />;
+  }
+
   return (
     <div
       className={`flex items-start gap-1.5 ${
@@ -318,6 +358,10 @@ const MessageRow = ({
                 src={character.avatar}
                 alt={character.name}
                 onDoubleClick={handleAvatarDoubleClick}
+                onPointerDown={handleAvatarPointerDown}
+                onPointerUp={handleAvatarPointerRelease}
+                onPointerLeave={handleAvatarPointerRelease}
+                onPointerCancel={handleAvatarPointerRelease}
                 className={`h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm ${
                   isPokingAvatar ? 'poke-avatar-wiggle' : ''
                 }`}
@@ -327,6 +371,10 @@ const MessageRow = ({
             ) : (
               <div
                 onDoubleClick={handleAvatarDoubleClick}
+                onPointerDown={handleAvatarPointerDown}
+                onPointerUp={handleAvatarPointerRelease}
+                onPointerLeave={handleAvatarPointerRelease}
+                onPointerCancel={handleAvatarPointerRelease}
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
                   isPokingAvatar ? 'poke-avatar-wiggle' : ''
                 }`}
