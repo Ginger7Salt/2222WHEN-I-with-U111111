@@ -28,6 +28,7 @@ import {
   BookHeart,
   Forward,
   Trash2,
+  Package,
 } from 'lucide-react';
 
 import {
@@ -217,6 +218,9 @@ const MemoirPage = lazy(() => import('../memoir/MemoirPage'));
 
 // 角色的DIY小屋，同样只有用户点开 🐾 更多入口里的入口才加载
 const CharacterDiyPage = lazy(() => import('./diy/CharacterDiyPage'));
+// 神秘快递页面，同样只有用户点开 🐾 更多入口里的入口、或者点了快递
+// 到达提示才加载
+const ParcelPage = lazy(() => import('./parcel/ParcelPage'));
 // 资料卡是个小浮层，不是整页，但同样没必要在首屏体积里常驻
 const ProfileCard = lazy(() => import('./profile/ProfileCard'));
 
@@ -308,6 +312,7 @@ const [showTopMenu, setShowTopMenu] = useState(false);
 const [showCompanionPage, setShowCompanionPage] = useState(false);
   const [showMemoirPage, setShowMemoirPage] = useState(false);
   const [showCharacterDiy, setShowCharacterDiy] = useState(false);
+  const [showParcelPage, setShowParcelPage] = useState(false);
   // 长按头像打开的资料卡：浮层弹出，不是整页替换，所以不走上面
 // showMemoirPage/showCharacterDiy 那种"整个组件提前 return"的写法，
 // 就近跟 showChatSettings 这类弹层模态共用同一种条件渲染方式。
@@ -1183,6 +1188,7 @@ void openChatAndMarkMessagesAsRead();
   showCompanionPage,
   showMemoirPage,
   showCharacterDiy,
+  showParcelPage,
   activeOfflineSessionId,
 ]);
 
@@ -1215,6 +1221,7 @@ void openChatAndMarkMessagesAsRead();
     showCompanionPage,
     showMemoirPage,
     showCharacterDiy,
+    showParcelPage,
     activeOfflineSessionId,
   ]);
 
@@ -1920,6 +1927,21 @@ useLayoutEffect(() => {
   );
 }
 
+  if (showParcelPage) {
+  return (
+    <Suspense fallback={null}>
+      <ParcelPage
+        chatId={chatId}
+        character={character}
+        onBack={() => {
+  hasScrolledToLatestRef.current = false;
+  setShowParcelPage(false);
+}}
+      />
+    </Suspense>
+  );
+}
+
 
 
   return (
@@ -2186,6 +2208,18 @@ useLayoutEffect(() => {
                         <Palette className="h-4 w-4" />
                         <span>角色的DIY</span>
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowParcelPage(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Package className="h-4 w-4" />
+                        <span>神秘快递</span>
+                      </button>
                     </div>
                   </>
                 )}
@@ -2327,6 +2361,7 @@ useLayoutEffect(() => {
                              onEnterOfflineScene={(sessionId) => setActiveOfflineSessionId(sessionId)}
           onToggleReaction={handleToggleReaction}
                     onOpenCompanionOffer={() => setShowCompanionPage(true)}
+          onOpenParcel={() => setShowParcelPage(true)}
           onRespondToConfirmCard={handleRespondToConfirmCard}
           onPokeAvatar={handlePokeCharacter}
           onOpenProfileCard={() => setShowProfileCard(true)}

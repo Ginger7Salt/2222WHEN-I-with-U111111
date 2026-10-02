@@ -16,6 +16,7 @@ import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
 import ChatPokeNotice from '../interactions/ChatPokeNotice';
 import MoodUpdateNotice from '../mood/MoodUpdateNotice';
 import ChatDiyUpdateNotice from '../diy/ChatDiyUpdateNotice';
+import ChatParcelArrivedNotice from '../parcel/ChatParcelArrivedNotice';
 import ProfileTraceCard from '../profile/ProfileTraceCard';
 import ChatTrickNotice from '../interactions/halloween/ChatTrickNotice';
 import SpiderEgg from '../interactions/halloween/SpiderEgg';
@@ -82,6 +83,7 @@ const MessageRow = ({
   onEnterOfflineScene,
   onToggleReaction,
   onOpenCompanionOffer,
+  onOpenParcel,
   onRespondToConfirmCard,
   onPokeAvatar,
   onOpenProfileCard,
@@ -273,6 +275,12 @@ const MessageRow = ({
   // 纯文字公告，不可点击跳转。
   if (msg.type === 'diy_update') {
     return <ChatDiyUpdateNotice message={msg} />;
+  }
+
+  // 快递到了之后的提示：跟DIY换装那条不一样，这条是可以点的——点进去
+  // 才能真正拆开看里面是什么。
+  if (msg.type === 'parcel_arrived') {
+    return <ChatParcelArrivedNotice message={msg} onOpenParcel={onOpenParcel} />;
   }
 
   // 资料卡更新后留下的痕迹：同样是独立渲染，不走头像+气泡布局。

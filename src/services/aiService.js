@@ -28,6 +28,14 @@ import {
   buildDiyPromptBlock,
 } from '../apps/messages/diy/diyAreaService';
 import {
+  startParcelPreparation,
+  checkAndDeliverParcel,
+  containsParcelStartRequest,
+  extractParcelNotes,
+  recordParcelNote,
+  buildParcelPromptBlock,
+} from '../apps/messages/parcel/parcelService';
+import {
   generateCompanionProactiveDiary as generateStandaloneDiary} from '../apps/diaries/diaryGenerationService';
 
 
@@ -262,7 +270,7 @@ export const parseAiResponseToMessages = async (text = '') => {
 
   // 支持的 AI 卡片标签，加入 STICKER
  const pattern =
-  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION):\s*([^\]]+)\]/g;
+  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION|PARCEL_START|PARCEL_NOTE):\s*([^\]]+)\]/g;
 
   // 一次性读取本地表情包库，建立「名称 -> URL」映射
   const allStickers = await db.stickers.toArray();
@@ -436,6 +444,11 @@ export const parseAiResponseToMessages = async (text = '') => {
     } else if (cardType === 'diyarea_inspiration') {
       // 同上：角色随手记的灵感，只摘掉，不产出卡片——实际内容由
       // extractDiyInspirations 在调用方那边单独扫描原始文字取出。
+    } else if (cardType === 'parcel_start') {
+      // 静默信号标签：角色决定要开始准备一份快递，只摘掉，不产出卡片。
+    } else if (cardType === 'parcel_note') {
+      // 同上：角色准备快递期间随手记的筹备笔记，只摘掉，不产出卡片——
+      // 实际内容由 extractParcelNotes 在调用方那边单独扫描原始文字取出。
     }
 
     lastIndex = pattern.lastIndex;
@@ -1186,6 +1199,11 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   // diyAutoDecorateEnabled 才会出现在提示词里。
   const diyPromptBlock = buildDiyPromptBlock(chat);
 
+  // 神秘快递：根据这个聊天当前的快递状态，只把真正用得上的那一个
+  // 标签（PARCEL_START 或 PARCEL_NOTE）介绍给角色，已经准备好等用户
+  // 拆的时候则完全不提——这件事已经做完了。
+  const parcelPromptBlock = buildParcelPromptBlock(chat);
+
 
       // 优先使用当前聊天窗独占的用户资料；
   // 仅当该聊天窗没有填写时，才回退到角色级默认资料。
@@ -1335,6 +1353,7 @@ ${stickerInstruction}
 - 分享位置卡片：[LOCATION: 地点名称 | 一句附加感想(可选)]
 - 重新布置你的DIY小屋：[DIYAREA_REQUEST: 确认]（只要用户在这次聊天里提出想让你换一下/重新收拾/重新设计这个小屋的布置，无论说法多随意、哪怕只是一句简短的口语化请求，都要使用这个标签——比如"DIY一下你的小屋""把小屋重新弄一下""换个风格布置小屋""你小屋能不能换个样子""去收拾一下你的房间"这些说法都算数，不要因为用户没有说得很正式、很完整就认为不算明确提出；但如果用户只是在闲聊小屋这个话题、没有真的要求你去改，就不要用。用了之后你不需要、也不应该在正文里描述新布置具体是什么样子，小屋会单独自己更新，你只需要像平时一样简短回应一下用户（比如说"好呀""我去弄弄"），不用假装自己正在做某个具体动作）
 ${diyPromptBlock}
+${parcelPromptBlock}
 
 【不可逾越的输出格式终极规则（最高优先级）】：
 1. 卡片指令必须严格遵循上面 [] 的规定，括号内用 "|" 分割参数。不要杜撰任何未注册的卡片语法。
@@ -2981,6 +3000,29 @@ if (!result.error) {
       console.warn('[DIY] Self-initiated DIY area update skipped safely:', error);
     });
   }
+
+  // 神秘快递：同样只挂在这条主路径上。筹备笔记标签始终独立判断（不管
+  // 这次有没有决定开始准备都要记，前提是这个聊天确实正处于
+  // 'preparing' 状态，由 recordParcelNote 自己把关）；决定开始准备的
+  // 标签单独处理；最后不管这次回复触发了什么，都顺带检查一下是不是
+  // 到了该送达的时候——这是唯一让快递真正"流动起来"的地方，不依赖
+  // 任何后台定时器。
+  const parcelNoteTexts = extractParcelNotes(cleanedReplyContent);
+  parcelNoteTexts.forEach((noteText) => {
+    void recordParcelNote({ chatId, text: noteText }).catch((error) => {
+      console.warn('[Parcel] Preparation note skipped safely:', error);
+    });
+  });
+
+  if (containsParcelStartRequest(cleanedReplyContent)) {
+    void startParcelPreparation({ chatId }).catch((error) => {
+      console.warn('[Parcel] Starting preparation skipped safely:', error);
+    });
+  }
+
+  void checkAndDeliverParcel({ chatId, character, apiConfig }).catch((error) => {
+    console.warn('[Parcel] Delivery check skipped safely:', error);
+  });
 
   // 资料卡（昵称/#标签/个性签名）：同样只挂在这条主路径上，同样是
   // 独立、不阻塞的后台任务，跟DIY小屋完全同构，但没有用户主动触发的

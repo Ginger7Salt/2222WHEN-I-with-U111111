@@ -25,6 +25,7 @@ const MessageList = ({
   onEnterOfflineScene,
   onToggleReaction,
   onOpenCompanionOffer,
+  onOpenParcel,
   onRespondToConfirmCard,
   onPokeAvatar,
   onOpenProfileCard,
@@ -79,6 +80,7 @@ const MessageList = ({
           onEnterOfflineScene={onEnterOfflineScene}
           onToggleReaction={onToggleReaction}
                   onOpenCompanionOffer={onOpenCompanionOffer}
+          onOpenParcel={onOpenParcel}
           onRespondToConfirmCard={onRespondToConfirmCard}
           onPokeAvatar={onPokeAvatar}
                    onOpenProfileCard={onOpenProfileCard}
