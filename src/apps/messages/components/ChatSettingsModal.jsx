@@ -78,6 +78,12 @@ export const ChatSettingsModal = ({
   const [rhythmEnabled, setRhythmEnabled] = useState(
     chat?.rhythmEnabled !== false
   );
+
+  // 角色是否可以自己主动重新布置DIY小屋（不限次数，由角色自己把握
+  // 节奏）。未设置时默认视为开启，跟 rhythmEnabled 同一个取舍。
+  const [diyAutoDecorateEnabled, setDiyAutoDecorateEnabled] = useState(
+    chat?.diyAutoDecorateEnabled !== false
+  );
   const [characterAnalysisPrompt, setCharacterAnalysisPrompt] = useState(
     chat?.characterAnalysisPrompt || ''
   );
@@ -481,6 +487,19 @@ const handleToggleLocation = async () => {
 
     if (onUpdatedUserPersona) {
       onUpdatedUserPersona({ rhythmEnabled: nextEnabled });
+    }
+  };
+
+  const handleToggleDiyAutoDecorate = async () => {
+    if (!chat?.id) return;
+
+    const nextEnabled = !diyAutoDecorateEnabled;
+    setDiyAutoDecorateEnabled(nextEnabled);
+
+    await db.chats.update(chat.id, { diyAutoDecorateEnabled: nextEnabled });
+
+    if (onUpdatedUserPersona) {
+      onUpdatedUserPersona({ diyAutoDecorateEnabled: nextEnabled });
     }
   };
 
@@ -1025,6 +1044,45 @@ const handleToggleLocation = async () => {
               style={{
                 background: 'var(--bg-main)',
                 transform: rhythmEnabled
+                  ? 'translateX(20px)'
+                  : 'translateX(0)'
+              }}
+            />
+          </button>
+        </div>
+
+        {/* 角色自主布置DIY小屋 */}
+        <div
+          className="flex items-center justify-between gap-4 rounded-2xl border p-3"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)',
+          }}
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-medium">角色自主布置DIY小屋</p>
+            <p className="mt-1 text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              开启后，{character?.name || '角色'} 可以自己决定什么时候重新布置TA的DIY小屋，不限次数。关闭后TA不会再自己动手，小屋只能靠你主动要求或者点按钮来换。
+            </p>
+          </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={diyAutoDecorateEnabled}
+            onClick={handleToggleDiyAutoDecorate}
+            className="relative h-5 w-10 shrink-0 overflow-hidden rounded-full transition-colors"
+            style={{
+              background: diyAutoDecorateEnabled
+                ? 'var(--accent-color)'
+                : 'var(--divider)'
+            }}
+          >
+            <span
+              className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition-transform"
+              style={{
+                background: 'var(--bg-main)',
+                transform: diyAutoDecorateEnabled
                   ? 'translateX(20px)'
                   : 'translateX(0)'
               }}

@@ -18,7 +18,15 @@ import {
 } from './memoryProvider';
 import { markCharacterInteraction } from '../apps/memory/memoryCharacterState';
 import { checkAbsenceEmotionSignal } from '../apps/memory/characterAbsenceService';
-import { maybeUpdateDiyArea, forceUpdateDiyArea, containsDiyAreaRequest } from '../apps/messages/diy/diyAreaService';
+import {
+  forceUpdateDiyArea,
+  selfUpdateDiyArea,
+  containsDiyAreaRequest,
+  containsDiySelfUpdateRequest,
+  extractDiyInspirations,
+  recordDiyInspiration,
+  buildDiyPromptBlock,
+} from '../apps/messages/diy/diyAreaService';
 import {
   generateCompanionProactiveDiary as generateStandaloneDiary} from '../apps/diaries/diaryGenerationService';
 
@@ -254,7 +262,7 @@ export const parseAiResponseToMessages = async (text = '') => {
 
   // 支持的 AI 卡片标签，加入 STICKER
  const pattern =
-  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST):\s*([^\]]+)\]/g;
+  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION):\s*([^\]]+)\]/g;
 
   // 一次性读取本地表情包库，建立「名称 -> URL」映射
   const allStickers = await db.stickers.toArray();
@@ -423,6 +431,11 @@ export const parseAiResponseToMessages = async (text = '') => {
   }
     } else if (cardType === 'diyarea_request') {
       // 静默信号标签：这里只负责把标签从正文里摘掉，不产出卡片。
+    } else if (cardType === 'diyarea_self_update') {
+      // 同上：角色自己想换小屋的信号标签，只摘掉，不产出卡片。
+    } else if (cardType === 'diyarea_inspiration') {
+      // 同上：角色随手记的灵感，只摘掉，不产出卡片——实际内容由
+      // extractDiyInspirations 在调用方那边单独扫描原始文字取出。
     }
 
     lastIndex = pattern.lastIndex;
@@ -1169,6 +1182,10 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   // 返回空字符串，不影响默认行为。
   const learningModePromptBlock = buildLearningModePromptBlock(chat);
 
+  // DIY小屋：灵感笔记标签始终开放；自主换装标签只有这个聊天开着
+  // diyAutoDecorateEnabled 才会出现在提示词里。
+  const diyPromptBlock = buildDiyPromptBlock(chat);
+
 
       // 优先使用当前聊天窗独占的用户资料；
   // 仅当该聊天窗没有填写时，才回退到角色级默认资料。
@@ -1317,6 +1334,7 @@ ${stickerInstruction}
 - 发送本地表情包：[STICKER: 表情包名称]
 - 分享位置卡片：[LOCATION: 地点名称 | 一句附加感想(可选)]
 - 重新布置你的DIY小屋：[DIYAREA_REQUEST: 确认]（只要用户在这次聊天里提出想让你换一下/重新收拾/重新设计这个小屋的布置，无论说法多随意、哪怕只是一句简短的口语化请求，都要使用这个标签——比如"DIY一下你的小屋""把小屋重新弄一下""换个风格布置小屋""你小屋能不能换个样子""去收拾一下你的房间"这些说法都算数，不要因为用户没有说得很正式、很完整就认为不算明确提出；但如果用户只是在闲聊小屋这个话题、没有真的要求你去改，就不要用。用了之后你不需要、也不应该在正文里描述新布置具体是什么样子，小屋会单独自己更新，你只需要像平时一样简短回应一下用户（比如说"好呀""我去弄弄"），不用假装自己正在做某个具体动作）
+${diyPromptBlock}
 
 【不可逾越的输出格式终极规则（最高优先级）】：
 1. 卡片指令必须严格遵循上面 [] 的规定，括号内用 "|" 分割参数。不要杜撰任何未注册的卡片语法。
@@ -2942,16 +2960,25 @@ if (!result.error) {
   void scheduleMemoryProcessing(chatId);
 
   // 角色的DIY小屋：只挂在「用户发消息 -> 角色正常回复」这条主路径上
-  // （跟上面 checkAbsenceEmotionSignal 的取舍一致）。如果这次回复里
-  // 带着用户主动要求换装时的静默标签，走强制换装（不看冷却、必须真的
-  // 换一次）；否则走原来的常规冷却判断，大部分时候什么都不会发生。
-   if (containsDiyAreaRequest(cleanedReplyContent)) {
+  // （跟上面 checkAbsenceEmotionSignal 的取舍一致）。灵感笔记标签
+  // 始终独立判断（不管这次有没有触发换装都要记）；换装标签二选一——
+  // 用户在聊天里明确要求的话优先走强制换装（不看冷却、必须真的换
+  // 一次），否则看看是不是角色自己想换（不限次数，受这个聊天的
+  // diyAutoDecorateEnabled 开关控制）。
+  const diyInspirationTexts = extractDiyInspirations(cleanedReplyContent);
+  diyInspirationTexts.forEach((inspirationText) => {
+    void recordDiyInspiration({ chatId, text: inspirationText }).catch((error) => {
+      console.warn('[DIY] Inspiration note skipped safely:', error);
+    });
+  });
+
+  if (containsDiyAreaRequest(cleanedReplyContent)) {
     void forceUpdateDiyArea({ chatId, character, apiConfig }).catch((error) => {
       console.warn('[DIY] Forced DIY area update skipped safely:', error);
     });
-  } else {
-    void maybeUpdateDiyArea({ chatId, character, apiConfig }).catch((error) => {
-      console.warn('[DIY] Character DIY area check skipped safely:', error);
+  } else if (containsDiySelfUpdateRequest(cleanedReplyContent)) {
+    void selfUpdateDiyArea({ chatId, character, apiConfig }).catch((error) => {
+      console.warn('[DIY] Self-initiated DIY area update skipped safely:', error);
     });
   }
 

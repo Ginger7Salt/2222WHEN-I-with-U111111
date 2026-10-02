@@ -10,6 +10,10 @@ import './diyRequest.css';
 // 不透明 origin，读不到父页面的 DOM/storage，也跳不出这个框——
 // 内容里的全屏定位、超大字号最多撑满这一个 iframe 的框，不会影响到
 // 整个 app，所以不需要再对标签做黑名单过滤。
+//
+// 这里故意不给 body 加默认内边距——DIY小屋的范围是整个版面，角色的
+// 生成内容应该能填满整个 iframe（包括贴边、铺满背景），需要留白的话
+// 交给角色自己的 CSS 决定，这层壳子不替它预留。
 const buildIframeDocument = (content) => `<!doctype html>
 <html>
 <head>
@@ -18,9 +22,10 @@ const buildIframeDocument = (content) => `<!doctype html>
 <style>
   html, body {
     margin: 0;
-    padding: 16px;
+    padding: 0;
     box-sizing: border-box;
     width: 100%;
+    height: 100%;
     min-height: 100%;
     background: transparent;
     font-family: system-ui, -apple-system, 'PingFang SC', sans-serif;
