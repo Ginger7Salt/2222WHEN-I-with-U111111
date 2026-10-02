@@ -31,7 +31,20 @@ const MessageList = ({
   selectedMessageIds,
   onToggleSelected,
   onEnterSelectionMode,
-}) => (
+}) => {
+  // 心情气泡只跟着"当前这一屏里最新那条角色消息"的头像出现一次——
+  // 它展示的是 character.moodBubble 这个实时字段，不是每条历史消息
+  // 自己的属性，所以不能让每一条角色消息的头像旁边都弹一个（那样
+  // 翻旧消息历史时会显得到处都在重复弹同一句话）。
+  let lastCharacterMessageId = null;
+  for (let i = visibleMessages.length - 1; i >= 0; i -= 1) {
+    if (visibleMessages[i]?.sender !== 'user') {
+      lastCharacterMessageId = visibleMessages[i].id;
+      break;
+    }
+  }
+
+  return (
   <div className="space-y-4 pb-2">
     {visibleMessages.length === 0 && (
       <div className="space-y-2 py-16 text-center opacity-40">
@@ -46,6 +59,11 @@ const MessageList = ({
         向上滚动加载更早的消息...
       </div>
     )}
+
+    {/*
+      心情气泡只跟着"当前这一屏里最新那条角色消息"的头像出现一次，
+      见上面 lastCharacterMessageId 的计算。
+    */}
 
       {visibleMessages.map((msg, index) => {
       const quoted = msg.quotedMessageId
@@ -79,6 +97,7 @@ const MessageList = ({
                   onOpenCompanionOffer={onOpenCompanionOffer}
           onRespondToConfirmCard={onRespondToConfirmCard}
           onPokeAvatar={onPokeAvatar}
+          showMoodBubble={msg.id === lastCharacterMessageId}
           selectionMode={selectionMode}
           isSelected={selectedMessageIds ? selectedMessageIds.has(msg.id) : false}
                   onToggleSelected={onToggleSelected}
@@ -87,6 +106,7 @@ const MessageList = ({
         </React.Fragment>
       );
     })}
+
 
     {isAiTyping && (
       <>
@@ -103,6 +123,7 @@ const MessageList = ({
       </>
     )}
   </div>
-);
+  );
+};
 
 export default React.memo(MessageList);

@@ -14,6 +14,7 @@ import {
 
 import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
 import ChatPokeNotice from '../interactions/ChatPokeNotice';
+import MoodBubble from '../mood/MoodBubble';
 import ChatDiyUpdateNotice from '../diy/ChatDiyUpdateNotice';
 import ChatTrickNotice from '../interactions/halloween/ChatTrickNotice';
 import SpiderEgg from '../interactions/halloween/SpiderEgg';
@@ -76,6 +77,7 @@ const MessageRow = ({
   onOpenCompanionOffer,
   onRespondToConfirmCard,
   onPokeAvatar,
+  showMoodBubble,
   selectionMode,
   isSelected,
   onToggleSelected,
@@ -310,30 +312,34 @@ const MessageRow = ({
         }`}
       >
         {!isUser ? (
-          character?.avatar ? (
-            <img
-              src={character.avatar}
-              alt={character.name}
-              onDoubleClick={handleAvatarDoubleClick}
-              className={`h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm ${
-                isPokingAvatar ? 'poke-avatar-wiggle' : ''
-              }`}
-              style={{
-                borderColor: 'var(--card-border)',
-              }} loading="lazy" decoding="async" />
-          ) : (
-            <div
-              onDoubleClick={handleAvatarDoubleClick}
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                isPokingAvatar ? 'poke-avatar-wiggle' : ''
-              }`}
-              style={{
-                background: 'var(--control-soft-bg)',
-              }}
-            >
-              {character?.name?.[0]}
-            </div>
-          )
+          <div className="relative shrink-0">
+            {character?.avatar ? (
+              <img
+                src={character.avatar}
+                alt={character.name}
+                onDoubleClick={handleAvatarDoubleClick}
+                className={`h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm ${
+                  isPokingAvatar ? 'poke-avatar-wiggle' : ''
+                }`}
+                style={{
+                  borderColor: 'var(--card-border)',
+                }} loading="lazy" decoding="async" />
+            ) : (
+              <div
+                onDoubleClick={handleAvatarDoubleClick}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                  isPokingAvatar ? 'poke-avatar-wiggle' : ''
+                }`}
+                style={{
+                  background: 'var(--control-soft-bg)',
+                }}
+              >
+                {character?.name?.[0]}
+              </div>
+            )}
+
+            {showMoodBubble && <MoodBubble character={character} />}
+          </div>
         ) : activeUserAvatar ? (
           <img
             src={activeUserAvatar}

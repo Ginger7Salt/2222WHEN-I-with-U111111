@@ -1,25 +1,31 @@
 /* src/apps/messages/mood/mood.css
  *
  * 头像心情气泡：角色自己决定要不要换、什么时候换（见
- * moodBubbleDirective.js 顶部注释），这里只管“内容变化时怎么过渡”——
+ * moodBubbleDirective.js 顶部注释），这里只管"内容变化时怎么过渡"——
  * 每次 character.moodBubble 变化，MoodBubble.jsx 会先移除再重新加上
  * mood-bubble--show 类，重新播一次这段弹出动画，而不是做成常驻不动的
  * 静态小标签。
+ *
+ * 挂载点是聊天流里 MessageRow.jsx 那个 28px 小头像（不是 header 里
+ * 那个大头像——之前挂在 header 上，但 header 收起/没展开时就看不到，
+ * 这里改成跟着"当前最新一条角色消息"的头像走，具体哪条消息显示由
+ * MessageList.jsx 的 lastCharacterMessageId 控制），尺寸和偏移跟着
+ * 一起缩小了一圈。
  */
 
 .mood-bubble {
   position: absolute;
-  left: 0.1rem;
-  top: -0.35rem;
+  left: -0.2rem;
+  top: -0.6rem;
   z-index: 3;
-  max-width: 6.4rem;
-  padding: 0.12rem 0.5rem;
-  border-radius: 0.7rem 0.7rem 0.7rem 0.18rem;
+  max-width: 5rem;
+  padding: 0.1rem 0.42rem;
+  border-radius: 0.6rem 0.6rem 0.6rem 0.16rem;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
   color: var(--text-main);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -40,10 +46,10 @@
 .mood-bubble::after {
   content: '';
   position: absolute;
-  left: 0.35rem;
-  bottom: -0.22rem;
-  width: 0.4rem;
-  height: 0.4rem;
+  left: 0.3rem;
+  bottom: -0.2rem;
+  width: 0.34rem;
+  height: 0.34rem;
   background: var(--card-bg);
   border-right: 1px solid var(--card-border);
   border-bottom: 1px solid var(--card-border);

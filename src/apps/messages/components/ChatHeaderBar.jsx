@@ -13,7 +13,6 @@ import {
 
 import { subscribeSummaryStatus } from '../../../services/aiService';
 import ChatHeaderWeatherAmbience from './ChatHeaderWeatherAmbience';
-import MoodBubble from '../mood/MoodBubble';
 
 export const ChatHeaderBar = ({
   character,
@@ -304,8 +303,6 @@ export const ChatHeaderBar = ({
                   borderColor: 'var(--card-bg)'
                 }}
               />
-
-              <MoodBubble character={character} />
             </div>
 
             {/* 中部：身份、姓名、状态 */}
