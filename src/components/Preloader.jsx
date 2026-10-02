@@ -64,11 +64,13 @@ const LOADER_MAP = {
   },
   'halloween-dice': {
     Component: HalloweenDiceLoader,
-    status: 'Tumbling a cursed die'
+    status: 'Tumbling a cursed die',
+    fullBleed: true
   },
   'halloween-ritual': {
     Component: HalloweenRitualLoader,
-    status: 'Waiting out an eclipse'
+    status: 'Waiting out an eclipse',
+    fullBleed: true
   }
 };
 export const Preloader = ({ onFinish }) => {
