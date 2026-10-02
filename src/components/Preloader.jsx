@@ -114,21 +114,25 @@ useEffect(() => {
 
   const activeLoader = LOADER_MAP[loaderType] || LOADER_MAP.astrology;
   const ActiveLoader = activeLoader.Component;
+  const isFullBleed = Boolean(activeLoader.fullBleed);
 
   return (
     <div
       onClick={() => onFinishRef.current?.()}
       className={`preloader fixed inset-0 z-50 flex min-h-screen flex-col items-center justify-center overflow-hidden p-6 text-center transition-opacity duration-700 select-none ${
+        isFullBleed ? 'preloader--fullbleed' : ''
+      } ${
         isFading ? 'pointer-events-none opacity-0' : 'opacity-100'
       }`}
       style={{
-        backgroundColor: 'var(--bg-main)',
-        color: 'var(--text-main)',
+        backgroundColor: isFullBleed ? '#07030a' : 'var(--bg-main)',
+        color: isFullBleed ? '#f3f1f4' : 'var(--text-main)',
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)'
       }}
     >
-      <div className="preloader__ambient-glow" aria-hidden="true" />
+      {/* 全屏限定版加载页自带背景，不需要主题色弥散光斑，避免两层背景互相打架 */}
+      {!isFullBleed && <div className="preloader__ambient-glow" aria-hidden="true" />}
 
       <div className="preloader__content relative z-10 flex w-full max-w-sm flex-col items-center">
         <div className="preloader__masthead">

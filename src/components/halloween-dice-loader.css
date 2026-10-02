@@ -1,75 +1,60 @@
 /* src/components/halloween-dice-loader.css */
+/* 全屏限定版：固定黑红配色，不读取 --bg-main / --text-main 等主题变量。 */
+
+.halloween-dice-loader__spacer {
+  width: 1px;
+  height: 17.2rem;
+}
 
 .halloween-dice-loader {
-  position: relative;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #07030a;
   display: grid;
-  width: min(100%, 23rem);
-  min-height: 22rem;
   place-items: center;
-  isolation: isolate;
-  perspective: 56rem;
-  perspective-origin: 50% 42%;
 }
 
-.halloween-dice-loader__halo {
+.halloween-dice-loader__grain {
   position: absolute;
-  z-index: -3;
-  top: 48%;
+  inset: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.halloween-dice-loader__glow {
+  position: absolute;
+  top: 50%;
   left: 50%;
-  width: 19rem;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  opacity: 0;
-  background: radial-gradient(
-    circle,
-    var(--halloween-ember-soft) 0%,
-    var(--bg-surface-strong) 45%,
-    var(--bg-main) 74%
-  );
-  filter: blur(1.6rem);
-  transform: translate(-50%, -50%) scale(0.55);
-  animation: halloweenDiceHaloArrive 2.6s 0.2s cubic-bezier(0.16, 1, 0.3, 1)
-    forwards;
-}
-
-.halloween-dice-loader__masthead {
-  position: absolute;
-  top: 0.4rem;
-  display: flex;
-  width: min(100%, 18rem);
-  justify-content: space-between;
-  color: var(--text-muted);
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  opacity: 0;
-  text-transform: uppercase;
-  transform: translateY(0.4rem);
-  animation: halloweenDiceCopyEnter 0.8s 0.15s ease-out forwards;
-}
-
-.halloween-dice-loader__masthead span:last-child {
-  color: var(--halloween-ember);
+  width: min(140vw, 1200px);
+  height: min(140vw, 1200px);
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(circle at 50% 50%, var(--halloween-ember-deep) 0%, transparent 45%),
+    radial-gradient(circle at 25% 70%, rgba(58, 4, 16, 0.6) 0%, transparent 55%);
+  filter: blur(90px);
+  animation: halloweenDiceGlowBreathe 9s ease-in-out infinite alternate;
 }
 
 .halloween-dice-loader__stage {
   position: relative;
-  width: 14rem;
-  height: 14rem;
-  margin-top: 1.4rem;
+  width: 20rem;
+  height: 20rem;
   display: grid;
   place-items: center;
+  perspective: 60rem;
+  perspective-origin: 50% 42%;
 }
 
 .halloween-dice-loader__shadow {
   position: absolute;
-  bottom: 2.4rem;
+  bottom: 4rem;
   width: 6rem;
-  height: 1.3rem;
+  height: 1.5rem;
   border-radius: 50%;
-  background: var(--dice-shadow-color);
+  background: rgba(0, 0, 0, 0.9);
   filter: blur(0.6rem);
-  opacity: 0.18;
+  opacity: 0.6;
   transform: scaleX(0.78);
   animation: halloweenDiceShadowSettle 3.4s cubic-bezier(0.2, 0.8, 0.2, 1)
     infinite;
@@ -83,8 +68,8 @@
 
 .halloween-dice-loader__cube {
   position: relative;
-  width: 6.2rem;
-  height: 6.2rem;
+  width: 6.6rem;
+  height: 6.6rem;
   transform-style: preserve-3d;
   animation: halloweenDiceSpin 3.4s cubic-bezier(0.2, 0.7, 0.24, 1) infinite;
 }
@@ -92,21 +77,17 @@
 .halloween-dice-loader__face {
   position: absolute;
   display: grid;
-  width: 6.2rem;
-  height: 6.2rem;
+  width: 6.6rem;
+  height: 6.6rem;
   place-items: center;
   overflow: hidden;
-  border: 1px solid var(--dice-face-edge);
-  border-radius: 1.1rem;
-  background: linear-gradient(
-    135deg,
-    var(--dice-face) 0%,
-    var(--bg-surface-strong) 100%
-  );
+  border: 1px solid rgba(239, 59, 77, 0.45);
+  border-radius: 1rem;
+  background: radial-gradient(circle at 35% 35%, #18080c 0%, #0c0204 80%, #030001 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -0.56rem 0.85rem rgba(0, 0, 0, 0.08),
-    0 0 1.1rem var(--halloween-ember-soft);
+    inset 0 0 1.1rem rgba(138, 0, 24, 0.55),
+    inset 0 0 0.25rem rgba(255, 255, 255, 0.18),
+    0 0 1rem rgba(239, 59, 77, 0.2);
   backface-visibility: hidden;
 }
 
@@ -115,8 +96,9 @@
   z-index: 1;
   width: 1.9rem;
   height: 1.9rem;
-  color: var(--dice-ink);
-  filter: drop-shadow(0 0 0.3rem var(--halloween-ember-soft));
+  color: #fff2f4;
+  filter: drop-shadow(0 0 0.35rem var(--halloween-ember))
+    drop-shadow(0 0 0.7rem var(--halloween-ember-deep));
 }
 
 .halloween-dice-loader__symbol svg {
@@ -125,27 +107,27 @@
 }
 
 .halloween-dice-loader__face--front {
-  transform: rotateY(0deg) translateZ(3.1rem);
+  transform: rotateY(0deg) translateZ(3.3rem);
 }
 
 .halloween-dice-loader__face--back {
-  transform: rotateY(180deg) translateZ(3.1rem);
+  transform: rotateY(180deg) translateZ(3.3rem);
 }
 
 .halloween-dice-loader__face--right {
-  transform: rotateY(90deg) translateZ(3.1rem);
+  transform: rotateY(90deg) translateZ(3.3rem);
 }
 
 .halloween-dice-loader__face--left {
-  transform: rotateY(-90deg) translateZ(3.1rem);
+  transform: rotateY(-90deg) translateZ(3.3rem);
 }
 
 .halloween-dice-loader__face--top {
-  transform: rotateX(90deg) translateZ(3.1rem);
+  transform: rotateX(90deg) translateZ(3.3rem);
 }
 
 .halloween-dice-loader__face--bottom {
-  transform: rotateX(-90deg) translateZ(3.1rem);
+  transform: rotateX(-90deg) translateZ(3.3rem);
 }
 
 .halloween-dice-loader__stars {
@@ -161,19 +143,20 @@
   width: var(--star-size);
   height: var(--star-size);
   border-radius: 50%;
-  background: var(--halloween-ember);
+  background: #f5f3f4;
   box-shadow:
-    0 0 0.45rem var(--halloween-ember),
-    0 0 1rem var(--halloween-ember-soft);
+    0 0 0.5rem var(--halloween-ember),
+    0 0 1rem var(--halloween-ember-deep);
   opacity: 0;
   transform: translate(-50%, -50%);
-  animation: halloweenDiceStarBurst 3.4s ease-out infinite;
+  animation: halloweenDiceStarBurst 3.6s cubic-bezier(0.15, 0.85, 0.35, 1)
+    infinite;
   animation-delay: var(--star-delay);
 }
 
 .halloween-dice-loader__star--cross {
-  width: 3px;
-  height: 3px;
+  width: 4px;
+  height: 4px;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -184,39 +167,53 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  background: var(--halloween-ember);
-  box-shadow: 0 0 0.4rem var(--halloween-ember-soft);
+  background: #ff4d63;
+  box-shadow: 0 0 0.5rem var(--halloween-ember);
   content: '';
   transform: translate(-50%, -50%);
 }
 
 .halloween-dice-loader__star--cross::before {
-  width: 0.9rem;
-  height: 1px;
+  width: 1rem;
+  height: 2px;
 }
 
 .halloween-dice-loader__star--cross::after {
-  width: 1px;
-  height: 0.9rem;
+  width: 2px;
+  height: 1rem;
 }
 
 .halloween-dice-loader__impact-ring {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 1.4rem;
+  width: 1.5rem;
   aspect-ratio: 1;
-  border: 1px solid var(--halloween-ember-soft);
+  border: 1.5px solid rgba(239, 59, 77, 0.5);
   border-radius: 50%;
+  box-shadow: 0 0 1.4rem rgba(239, 59, 77, 0.6), inset 0 0 0.9rem rgba(239, 59, 77, 0.4);
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.2);
-  animation: halloweenDiceImpactRing 3.4s ease-out infinite;
+  animation: halloweenDiceImpactRing 3.6s cubic-bezier(0.2, 0.8, 0.25, 1)
+    infinite;
+}
+
+@keyframes halloweenDiceGlowBreathe {
+  0% {
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1.14);
+    opacity: 0.95;
+  }
 }
 
 @keyframes halloweenDiceThrow {
   0% {
     opacity: 0;
-    transform: translate3d(-4rem, -8.1rem, 0) scale(0.72);
+    transform: translate3d(-4.2rem, -8.6rem, 0) scale(0.72);
   }
 
   11% {
@@ -224,11 +221,11 @@
   }
 
   42% {
-    transform: translate3d(1.05rem, 0.5rem, 0) scale(1.05);
+    transform: translate3d(1.1rem, 0.55rem, 0) scale(1.05);
   }
 
   50% {
-    transform: translate3d(0.6rem, -0.9rem, 0) scale(1.01);
+    transform: translate3d(0.65rem, -1rem, 0) scale(1.01);
   }
 
   59%,
@@ -239,7 +236,7 @@
 
   100% {
     opacity: 0;
-    transform: translate3d(1.1rem, 0.5rem, 0) scale(0.96);
+    transform: translate3d(1.15rem, 0.55rem, 0) scale(0.96);
   }
 }
 
@@ -269,18 +266,18 @@
   }
 
   39% {
-    opacity: 0.24;
+    opacity: 0.7;
     transform: scaleX(1.14);
   }
 
   51% {
-    opacity: 0.17;
+    opacity: 0.5;
     transform: scaleX(0.8);
   }
 
   60%,
   88% {
-    opacity: 0.18;
+    opacity: 0.55;
     transform: scaleX(0.88);
   }
 
@@ -291,108 +288,57 @@
 }
 
 @keyframes halloweenDiceStarBurst {
-  0%,
-  36% {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0);
   }
 
-  43% {
+  25% {
     opacity: 1;
     transform: translate(
-        calc(-50% + var(--star-x) * 0.25),
-        calc(-50% + var(--star-y) * 0.25)
+        calc(-50% + var(--star-x) * 0.4),
+        calc(-50% + var(--star-y) * 0.4)
       )
-      scale(1);
+      scale(1.3);
   }
 
-  58% {
-    opacity: 0;
+  75% {
+    opacity: 0.7;
+  }
+
+  100% {
     transform: translate(
         calc(-50% + var(--star-x)),
         calc(-50% + var(--star-y))
       )
-      scale(0.2);
-  }
-
-  100% {
+      scale(0);
     opacity: 0;
   }
 }
 
 @keyframes halloweenDiceImpactRing {
-  0%,
-  39% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.2);
-  }
-
-  43% {
-    opacity: 0.85;
-  }
-
-  61% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(8);
-  }
-
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes halloweenDiceHaloArrive {
   0% {
+    transform: scale(0.4);
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.55);
   }
 
-  55% {
-    opacity: 0.3;
+  35% {
+    opacity: 0.9;
   }
 
   100% {
-    opacity: 0.16;
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(2.4);
+    opacity: 0;
   }
-}
-
-@keyframes halloweenDiceCopyEnter {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.halloween-dice-loader__note {
-  position: absolute;
-  bottom: 0.3rem;
-  margin: 0;
-  color: var(--text-muted);
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 0.72rem;
-  font-style: italic;
-  letter-spacing: 0.02em;
-  opacity: 0;
-  transform: translateY(0.4rem);
-  animation: halloweenDiceCopyEnter 0.85s 2.55s ease-out forwards;
 }
 
 @media (max-width: 24rem) {
-  .halloween-dice-loader {
-    min-height: 20rem;
+  .halloween-dice-loader__spacer {
+    height: 15rem;
   }
 
   .halloween-dice-loader__stage {
-    transform: scale(0.88);
-  }
-
-  .halloween-dice-loader__halo {
-    width: 16rem;
-  }
-
-  .halloween-dice-loader__note {
-    bottom: 0;
+    transform: scale(0.82);
   }
 }
 
@@ -402,17 +348,6 @@
   .halloween-dice-loader *::after {
     animation: none !important;
     transition: none !important;
-  }
-
-  .halloween-dice-loader__halo {
-    opacity: 0.16;
-    transform: translate(-50%, -50%) scale(1);
-  }
-
-  .halloween-dice-loader__masthead,
-  .halloween-dice-loader__note {
-    opacity: 1;
-    transform: translateY(0);
   }
 
   .halloween-dice-loader__thrower {
@@ -425,12 +360,13 @@
   }
 
   .halloween-dice-loader__shadow {
-    opacity: 0.18;
+    opacity: 0.55;
     transform: scaleX(0.88);
   }
 
   .halloween-dice-loader__star,
-  .halloween-dice-loader__impact-ring {
-    opacity: 0;
+  .halloween-dice-loader__impact-ring,
+  .halloween-dice-loader__glow {
+    opacity: 0.6;
   }
 }

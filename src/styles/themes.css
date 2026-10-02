@@ -54,6 +54,21 @@
   --halloween-ember-deep: #7a0019;
 }
 
+/* 全屏限定版万圣节加载页：背景强制为固定黑红配色（见 Preloader.jsx 的
+   isFullBleed 内联背景色），这里只需把共享的标题/引言/状态文字颜色也
+   强制改成亮色，否则浅色主题下这几行字会用主题的深色文字，叠在黑底上看不清。 */
+.preloader--fullbleed .preloader__quote {
+  color: rgba(245, 240, 245, 0.72);
+}
+
+.preloader--fullbleed .preloader__status {
+  color: rgba(245, 240, 245, 0.55);
+}
+
+.preloader--fullbleed .preloader__masthead {
+  color: rgba(245, 240, 245, 0.6);
+}
+
 
 :root[data-theme="cream-latte"] {
   --bg-main: #fdfbf7;

@@ -1,60 +1,98 @@
 /* src/components/halloween-ritual-loader.css */
+/* 全屏限定版：固定黑红配色，不读取 --bg-main / --text-main 等主题变量。 */
+
+.halloween-ritual-loader__spacer {
+  width: 1px;
+  height: 17.2rem;
+}
 
 .halloween-ritual-loader {
-  position: relative;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #050203;
   display: grid;
-  width: min(100%, 23rem);
-  min-height: 22rem;
   place-items: center;
-  isolation: isolate;
+  font-family: Georgia, 'Times New Roman', serif;
 }
 
-.halloween-ritual-loader__halo {
+.halloween-ritual-loader__grain {
   position: absolute;
-  z-index: -3;
-  top: 46%;
+  inset: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.halloween-ritual-loader__glow {
+  position: absolute;
+  top: 50%;
   left: 50%;
-  width: 20rem;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  opacity: 0;
-  background: radial-gradient(
-    circle,
-    var(--halloween-ember-soft) 0%,
-    var(--bg-surface-strong) 42%,
-    var(--bg-main) 72%
-  );
-  filter: blur(1.7rem);
-  transform: translate(-50%, -50%) scale(0.6);
-  animation: halloweenRitualHaloArrive 2.8s 0.2s cubic-bezier(0.16, 1, 0.3, 1)
-    forwards;
+  width: min(120vw, 1000px);
+  height: min(120vw, 1000px);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, var(--halloween-ember-deep) 0%, transparent 60%);
+  filter: blur(100px);
+  animation: halloweenRitualGlowPulse 8s ease-in-out infinite alternate;
 }
 
-.halloween-ritual-loader__masthead {
+.halloween-ritual-loader__watermark {
   position: absolute;
-  top: 0.4rem;
-  display: flex;
-  width: min(100%, 18rem);
-  justify-content: space-between;
-  color: var(--text-muted);
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  opacity: 0;
-  text-transform: uppercase;
-  transform: translateY(0.4rem);
-  animation: halloweenRitualCopyEnter 0.8s 0.15s ease-out forwards;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 26vw;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.025);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
 }
 
-.halloween-ritual-loader__masthead span:last-child {
+.halloween-ritual-loader__frame {
+  position: absolute;
+  inset: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.halloween-ritual-loader__corner {
+  position: absolute;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: #4f3a40;
+  text-transform: uppercase;
+  line-height: 1.6;
+}
+
+.halloween-ritual-loader__corner-accent {
   color: var(--halloween-ember);
+}
+
+.halloween-ritual-loader__corner--tl {
+  top: 14px;
+  left: 20px;
+}
+
+.halloween-ritual-loader__corner--tr {
+  top: 14px;
+  right: 20px;
+  text-align: right;
+}
+
+.halloween-ritual-loader__corner--bl {
+  bottom: 14px;
+  left: 20px;
+}
+
+.halloween-ritual-loader__corner--br {
+  bottom: 14px;
+  right: 20px;
+  text-align: right;
 }
 
 .halloween-ritual-loader__stage {
   position: relative;
-  width: 14rem;
-  height: 14rem;
-  margin-top: 1.4rem;
+  width: 19rem;
+  height: 19rem;
   display: grid;
   place-items: center;
 }
@@ -70,53 +108,52 @@
 }
 
 .halloween-ritual-loader__ring--outer {
-  width: 15rem;
-  height: 15rem;
+  width: 18.5rem;
+  height: 18.5rem;
   animation: halloweenRitualSpin 26s linear infinite;
 }
 
 .halloween-ritual-loader__ring--outer text {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 7px;
-  letter-spacing: 0.22em;
-  fill: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  fill: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
 }
 
 .halloween-ritual-loader__ring--inner {
-  width: 11.5rem;
-  height: 11.5rem;
+  width: 15rem;
+  height: 15rem;
   animation: halloweenRitualSpin 18s linear infinite reverse;
 }
 
 .halloween-ritual-loader__ring--inner circle {
   fill: none;
-  stroke: var(--divider);
+  stroke: rgba(239, 59, 77, 0.3);
   stroke-width: 1;
-  stroke-dasharray: 3 7;
+  stroke-dasharray: 4 8;
 }
 
 .halloween-ritual-loader__monolith {
   position: relative;
-  width: 6.4rem;
-  height: 10.2rem;
+  width: 8rem;
+  height: 13rem;
   display: grid;
   place-items: center;
-  border: 1px solid var(--card-border);
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--card-bg) 72%, transparent);
-  backdrop-filter: blur(0.6rem);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.5rem;
+  background: rgba(10, 2, 4, 0.6);
+  backdrop-filter: blur(0.7rem);
   box-shadow:
-    0 1.4rem 2.6rem var(--card-shadow),
-    inset 0 0 1.1rem var(--halloween-ember-soft);
+    0 1.9rem 3.8rem rgba(0, 0, 0, 0.8),
+    inset 0 0 1.3rem rgba(239, 59, 77, 0.1);
   overflow: hidden;
-  animation: halloweenRitualLevitate 5.6s ease-in-out infinite;
+  animation: halloweenRitualLevitate 6s ease-in-out infinite;
 }
 
 .halloween-ritual-loader__eclipse {
   position: relative;
-  width: 2.7rem;
-  height: 2.7rem;
+  width: 4rem;
+  height: 4rem;
 }
 
 .halloween-ritual-loader__eclipse-sun {
@@ -124,17 +161,15 @@
   inset: 0;
   border-radius: 50%;
   background: var(--halloween-ember);
-  box-shadow:
-    0 0 1rem var(--halloween-ember),
-    0 0 2.2rem var(--halloween-ember-deep);
+  box-shadow: 0 0 1.6rem var(--halloween-ember), 0 0 3rem var(--halloween-ember-deep);
 }
 
 .halloween-ritual-loader__eclipse-moon {
   position: absolute;
-  inset: -0.06rem;
+  inset: -0.1rem;
   border-radius: 50%;
-  background: var(--bg-main);
-  animation: halloweenRitualEclipsePhase 7s ease-in-out infinite alternate;
+  background: #050203;
+  animation: halloweenRitualEclipsePhase 8s ease-in-out infinite alternate;
 }
 
 .halloween-ritual-loader__scanner {
@@ -144,54 +179,66 @@
   width: 100%;
   height: 2px;
   background: var(--halloween-ember);
-  box-shadow: 0 0 0.6rem var(--halloween-ember);
-  opacity: 0.55;
+  box-shadow: 0 0 0.9rem var(--halloween-ember);
+  opacity: 0.6;
   animation: halloweenRitualScanSweep 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 .halloween-ritual-loader__shard {
   position: absolute;
-  background: var(--text-main);
-  box-shadow: 0 0 0.5rem var(--halloween-ember-soft);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0.6rem var(--halloween-ember);
   opacity: 0;
   animation: halloweenRitualShardFloat 5s cubic-bezier(0.1, 0.8, 0.3, 1)
     infinite;
 }
 
 .halloween-ritual-loader__shard--1 {
-  width: 5px;
-  height: 8px;
+  width: 6px;
+  height: 10px;
   clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-  left: 24%;
-  top: 64%;
+  left: 22%;
+  top: 62%;
   animation-delay: 0.2s;
 }
 
 .halloween-ritual-loader__shard--2 {
-  width: 8px;
-  height: 12px;
+  width: 10px;
+  height: 15px;
   clip-path: polygon(0% 20%, 100% 0%, 80% 100%);
-  right: 26%;
+  right: 24%;
   top: 70%;
   animation-delay: 1.5s;
 }
 
 .halloween-ritual-loader__shard--3 {
-  width: 4px;
-  height: 9px;
+  width: 5px;
+  height: 11px;
   clip-path: polygon(50% 0%, 100% 50%, 0% 100%);
-  left: 44%;
-  top: 80%;
+  left: 42%;
+  top: 82%;
   animation-delay: 3s;
 }
 
 .halloween-ritual-loader__shard--4 {
-  width: 10px;
-  height: 7px;
+  width: 12px;
+  height: 8px;
   clip-path: polygon(0% 0%, 100% 50%, 30% 100%);
-  right: 38%;
-  top: 84%;
+  right: 36%;
+  top: 86%;
   animation-delay: 0.8s;
+}
+
+@keyframes halloweenRitualGlowPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.85);
+    opacity: 0.4;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1.12);
+    opacity: 0.85;
+  }
 }
 
 @keyframes halloweenRitualSpin {
@@ -211,7 +258,7 @@
   }
 
   50% {
-    transform: translateY(-0.6rem);
+    transform: translateY(-1.3rem);
   }
 }
 
@@ -235,20 +282,20 @@
 
 @keyframes halloweenRitualScanSweep {
   0% {
-    transform: translateY(-0.3rem);
+    transform: translateY(-0.6rem);
     opacity: 0;
   }
 
   10% {
-    opacity: 0.7;
+    opacity: 0.8;
   }
 
   90% {
-    opacity: 0.7;
+    opacity: 0.8;
   }
 
   100% {
-    transform: translateY(10.4rem);
+    transform: translateY(13.6rem);
     opacity: 0;
   }
 }
@@ -264,63 +311,22 @@
   }
 
   100% {
-    transform: translateY(-4.6rem) rotate(180deg) scale(1.4);
+    transform: translateY(-9.4rem) rotate(180deg) scale(1.5);
     opacity: 0;
   }
-}
-
-@keyframes halloweenRitualHaloArrive {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.6);
-  }
-
-  55% {
-    opacity: 0.3;
-  }
-
-  100% {
-    opacity: 0.16;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-@keyframes halloweenRitualCopyEnter {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.halloween-ritual-loader__note {
-  position: absolute;
-  bottom: 0.3rem;
-  margin: 0;
-  color: var(--text-muted);
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 0.72rem;
-  font-style: italic;
-  letter-spacing: 0.02em;
-  opacity: 0;
-  transform: translateY(0.4rem);
-  animation: halloweenRitualCopyEnter 0.85s 2.55s ease-out forwards;
 }
 
 @media (max-width: 24rem) {
-  .halloween-ritual-loader {
-    min-height: 20rem;
+  .halloween-ritual-loader__spacer {
+    height: 15rem;
   }
 
   .halloween-ritual-loader__stage {
-    transform: scale(0.86);
+    transform: scale(0.8);
   }
 
-  .halloween-ritual-loader__halo {
-    width: 17rem;
-  }
-
-  .halloween-ritual-loader__note {
-    bottom: 0;
+  .halloween-ritual-loader__watermark {
+    font-size: 34vw;
   }
 }
 
@@ -332,17 +338,6 @@
     transition: none !important;
   }
 
-  .halloween-ritual-loader__halo {
-    opacity: 0.16;
-    transform: translate(-50%, -50%) scale(1);
-  }
-
-  .halloween-ritual-loader__masthead,
-  .halloween-ritual-loader__note {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
   .halloween-ritual-loader__eclipse-moon {
     transform: translateX(0%);
   }
@@ -350,5 +345,9 @@
   .halloween-ritual-loader__scanner,
   .halloween-ritual-loader__shard {
     opacity: 0;
+  }
+
+  .halloween-ritual-loader__glow {
+    opacity: 0.6;
   }
 }

@@ -1,4 +1,10 @@
 // src/components/HalloweenDiceLoader.jsx
+//
+// 万圣节限定加载页（骰子版）。这是一个"全屏限定版"加载动画：不像其它
+// 加载页那样跟随主题色，而是固定的黑红配色全屏铺满（配合 Preloader.jsx
+// 里 isFullBleed 的背景色切换）。__spacer 保留一个和普通版加载页同样
+// 大小的占位空间，让上方的"品牌名/引言/状态文字"仍然保持原来的排版位置，
+// 真正的视觉效果则用 position:fixed 铺满整个视口，不受外层容器宽度限制。
 
 import React from 'react';
 import './halloween-dice-loader.css';
@@ -73,61 +79,60 @@ const diceFaces = [
 
 export const HalloweenDiceLoader = () => {
   return (
-    <section
-      className="halloween-dice-loader"
-      role="img"
-      aria-label="一枚万圣节诅咒骰子正在翻滚"
-    >
-      <div className="halloween-dice-loader__halo" aria-hidden="true" />
+    <>
+      {/* 在正常排版流里占位，让品牌名/引言/状态文字保持原来的垂直位置 */}
+      <div className="halloween-dice-loader__spacer" aria-hidden="true" />
 
-      <div className="halloween-dice-loader__masthead" aria-hidden="true">
-        <span>CURSED INVENTORY</span>
-        <span>NO. 07</span>
-      </div>
+      {/* 真正的全屏视觉效果，position:fixed 不受外层容器宽度限制 */}
+      <div
+        className="halloween-dice-loader"
+        role="img"
+        aria-label="一枚万圣节诅咒骰子正在全屏翻滚"
+        aria-hidden="true"
+      >
+        <div className="halloween-dice-loader__grain" />
+        <div className="halloween-dice-loader__glow" />
 
-      <div className="halloween-dice-loader__stage">
-        <div className="halloween-dice-loader__shadow" aria-hidden="true" />
+        <div className="halloween-dice-loader__stage">
+          <div className="halloween-dice-loader__shadow" />
 
-        <div className="halloween-dice-loader__stars" aria-hidden="true">
-          <span className="halloween-dice-loader__impact-ring" />
+          <div className="halloween-dice-loader__stars">
+            <span className="halloween-dice-loader__impact-ring" />
 
-          {stars.map((star, index) => (
-            <span
-              key={`${star.x}-${star.y}-${index}`}
-              className={`halloween-dice-loader__star ${
-                star.type === 'cross' ? 'halloween-dice-loader__star--cross' : ''
-              }`}
-              style={{
-                '--star-x': star.x,
-                '--star-y': star.y,
-                '--star-size': star.size,
-                '--star-delay': star.delay
-              }}
-            />
-          ))}
-        </div>
-
-        <div className="halloween-dice-loader__thrower" aria-hidden="true">
-          <div className="halloween-dice-loader__cube">
-            {diceFaces.map((face) => (
-              <div
-                key={face.className}
-                className={`halloween-dice-loader__face ${face.className}`}
-                title={face.label}
-              >
-                <span className="halloween-dice-loader__symbol">
-                  <DiceFaceIcon shape={face.shape} />
-                </span>
-              </div>
+            {stars.map((star, index) => (
+              <span
+                key={`${star.x}-${star.y}-${index}`}
+                className={`halloween-dice-loader__star ${
+                  star.type === 'cross' ? 'halloween-dice-loader__star--cross' : ''
+                }`}
+                style={{
+                  '--star-x': star.x,
+                  '--star-y': star.y,
+                  '--star-size': star.size,
+                  '--star-delay': star.delay
+                }}
+              />
             ))}
+          </div>
+
+          <div className="halloween-dice-loader__thrower">
+            <div className="halloween-dice-loader__cube">
+              {diceFaces.map((face) => (
+                <div
+                  key={face.className}
+                  className={`halloween-dice-loader__face ${face.className}`}
+                  title={face.label}
+                >
+                  <span className="halloween-dice-loader__symbol">
+                    <DiceFaceIcon shape={face.shape} />
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-
-      <p className="halloween-dice-loader__note" aria-hidden="true">
-        Six faces, one verdict for All Hallows.
-      </p>
-    </section>
+    </>
   );
 };
 
