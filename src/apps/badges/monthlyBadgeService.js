@@ -21,7 +21,12 @@
 
 import db from '../../db';
 import { getDateKey } from '../almanac/services/almanacService';
-import { getSeasonDefByKey, findBadgeInSeason, getSeasonKey } from './monthlyBadgeCatalog';
+import {
+  getSeasonDefByKey,
+  findBadgeInSeason,
+  getSeasonKey,
+  MONTHLY_BADGE_SEASONS,
+} from './monthlyBadgeCatalog';
 
 const toMs = (value) => {
   const ms = new Date(value).getTime();
@@ -49,9 +54,9 @@ const createSeasonUnlockRow = async (chatId, seasonKey) => {
   const created = {
     chatId,
     seasonKey,
-    unlocked: false,
+     unlocked: false,
     unlockedAt: null,
-    unlockedByConditionId: null,
+    unlockedConditionIds: [],
     unlockAnimationSeen: false,
     aiCondition: null,
     characterWantedBadgeId: null,
@@ -156,8 +161,8 @@ export const evaluateSeasonConditions = async ({ chatId, seasonKey, seasonDef, u
 };
 
 /**
- * 检查并（必要时）写入这个赛季的解锁状态。任意一个条件达成即可解锁整套图标。
- * 已经解锁过的赛季不会重复判定，直接返回已有状态。
+ * 检查并（必要时）写入这个赛季的解锁状态。三个条件必须全部达成才能解锁整套图标，
+ * 不是任意一个。已经解锁过的赛季不会重复判定，直接返回已有状态。
  */
 export const checkAndUnlockSeason = async (chatId, seasonKey) => {
   const seasonDef = getSeasonDefByKey(seasonKey);
@@ -170,9 +175,10 @@ export const checkAndUnlockSeason = async (chatId, seasonKey) => {
   }
 
   const conditionResults = await evaluateSeasonConditions({ chatId, seasonKey, seasonDef, unlockRow });
-  const metConditionId = Object.keys(conditionResults).find((id) => conditionResults[id]);
+  const allConditionIds = seasonDef.conditions.map((condition) => condition.id);
+  const allMet = allConditionIds.every((id) => conditionResults[id]);
 
-  if (!metConditionId) {
+  if (!allMet) {
     return { ...unlockRow, conditionResults, justUnlocked: false };
   }
 
@@ -181,7 +187,7 @@ export const checkAndUnlockSeason = async (chatId, seasonKey) => {
     ...unlockRow,
     unlocked: true,
     unlockedAt: nowIso,
-    unlockedByConditionId: metConditionId,
+    unlockedConditionIds: allConditionIds,
   };
 
   await db.monthlyBadgeUnlocks.put(updated);
@@ -272,22 +278,64 @@ export const getBadgeBoardForChat = async (chatId, activeSeasonKey) => {
         isCurrent,
         unlocked: Boolean(unlockRow?.unlocked),
         unlockedAt: unlockRow?.unlockedAt || null,
-        unlockedByConditionId: unlockRow?.unlockedByConditionId || null,
+        unlockedConditionIds: unlockRow?.unlockedConditionIds || [],
         unlockAnimationSeen: Boolean(unlockRow?.unlockAnimationSeen),
         aiCondition: unlockRow?.aiCondition || null,
         characterWantedBadgeId: unlockRow?.characterWantedBadgeId || null,
+        unlockRow,
       };
     })
     .filter(Boolean)
     .sort((a, b) => (a.seasonKey < b.seasonKey ? 1 : -1));
 
+  // 每个条件现在"达成了没有"，用来在兑换页逐条打勾——即使已经解锁，
+  // 也一起算出来，方便显示"全部已达成"。
+  await Promise.all(
+    seasons.map(async (season) => {
+      season.conditionResults = await evaluateSeasonConditions({
+        chatId,
+        seasonKey: season.seasonKey,
+        seasonDef: season.seasonDef,
+        unlockRow: season.unlockRow,
+      });
+      delete season.unlockRow;
+    })
+  );
+
   return { seasons, equippedBadgeId: equipRow?.badgeId || null };
 };
 
 /**
+ * 批量取出多个聊天窗口当前佩戴的图标（图标 id 全局唯一，跨赛季查找），
+ * 给会话列表那种"一次要展示一串聊天"的地方用，避免逐条聊天单独查询。
+ * 返回 Map：chatId -> { id, title, imageUrl, seasonKey } | undefined。
+ */
+export const getEquippedBadgesForChats = async (chatIds = []) => {
+  const ids = (chatIds || []).filter((id) => id !== null && id !== undefined);
+  const map = new Map();
+  if (ids.length === 0) return map;
+
+  const equipRows = await db.monthlyBadgeEquips.where('chatId').anyOf(ids).toArray();
+
+  equipRows.forEach((row) => {
+    if (!row?.badgeId) return;
+
+    for (const seasonDef of Object.values(MONTHLY_BADGE_SEASONS)) {
+      const badge = findBadgeInSeason(seasonDef, row.badgeId);
+      if (badge) {
+        map.set(row.chatId, { ...badge, seasonTitle: seasonDef.seasonTitle });
+        break;
+      }
+    }
+  });
+
+  return map;
+};
+
+/**
  * 给聊天主提示词用的一小段纯文本：角色现在戴着哪个图标、这个月
- * 想要哪一个、本月条件是什么——方便以后接进角色的人设提示词。
- * 这一步只是先把这个汇总函数准备好，还没有接入实际的聊天提示词拼装。
+ * 想要哪一个、本月条件有没有全部达成。由 aiService.js 的
+ * buildChatSystemPrompt 调用，拼进主提示词末尾的【限定图标】小节。
  */
 export const getMonthlyBadgeContextForPrompt = async (chatId) => {
   const activeSeasonKey = getSeasonKey();

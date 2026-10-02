@@ -72,6 +72,7 @@ import {
   describeUserInterestMaterial,
 } from './dailyLifeTopicPicker';
 import { getActiveCallAwarenessNote, hasAnyLiveCall } from './callService';
+import { getMonthlyBadgeContextForPrompt } from '../apps/badges/monthlyBadgeService';
 
 import {
   proposeOfflineSessionByCharacter,
@@ -1306,6 +1307,15 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   const activeCallNote = await getActiveCallAwarenessNote(chatId);
   const recentOfflineNote = await getRecentOfflineAwarenessNote(chatId);
 
+  // 每月限定聊天成就图标：失败就当没有这个信号，不影响主提示词其余部分。
+  let monthlyBadgeNote = '';
+  try {
+    const badgeContext = await getMonthlyBadgeContextForPrompt(chatId);
+    monthlyBadgeNote = badgeContext ? `\n\n【限定图标】\n${badgeContext}` : '';
+  } catch (error) {
+    console.warn('[buildChatSystemPrompt] 读取限定图标上下文失败：', error);
+  }
+
   // 共享世界：全局设定，拼在核心总提示词之后、角色设定之前
   const sharedWorldBlock = await getSharedWorldPromptBlock(character.id);
 
@@ -1438,7 +1448,7 @@ ${MEMOIR_NOTE_PROMPT}
 4. 不是每次回复都需要触发，只有在情境自然、符合角色性格与当前关系进展时才使用，绝大多数回复不应使用该指令。
 5. 该指令不会出现在用户可见的正文中。
 6. 用户是否同意这个时间由用户自行决定，你只负责提出邀约。
-${activeCallNote}${recentOfflineNote}
+${activeCallNote}${recentOfflineNote}${monthlyBadgeNote}
 
 `;
 };

@@ -207,6 +207,12 @@
   opacity: 0.85;
 }
 
+.badge-conditions-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 .badge-conditions {
   display: flex;
   flex-direction: column;
@@ -218,12 +224,45 @@
 
 .badge-condition {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  align-items: flex-start;
+  gap: 0.5rem;
   padding: 0.6rem 0.8rem;
   border: 1px solid var(--divider);
   border-radius: 0.7rem;
   background: var(--card-bg);
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.badge-condition--met {
+  border-color: var(--accent-color);
+  background: var(--control-soft-bg);
+}
+
+.badge-condition-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  border: 1px solid var(--divider);
+  border-radius: 50%;
+  font-size: 0.65rem;
+  color: var(--accent-color);
+}
+
+.badge-condition--met .badge-condition-check {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--bg-main);
+}
+
+.badge-condition-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
 }
 
 .badge-condition-title {

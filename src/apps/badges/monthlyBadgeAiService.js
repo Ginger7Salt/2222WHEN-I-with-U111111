@@ -64,7 +64,7 @@ const buildPrompt = ({ context, seasonDef }) => {
   return `你正在扮演角色「${character.name}」。人设背景：${character.bio || '普通人'}。${worldBookText}${extraNotesText}
 你对用户的称呼是「${userName}」。
 
-现在是「${seasonDef.seasonTitle}」季限定聊天成就图标开放的月份。除了已经定好的另外两个解锁条件（累计聊满 520 条消息 / 本月触发一次恶作剧），你还可以自己给${userName}定一个小小的要求，达成之后${userName}同样可以解锁整套图标。
+现在是「${seasonDef.seasonTitle}」季限定聊天成就图标开放的月份。除了已经定好的另外两个解锁条件（累计聊满 520 条消息 / 本月触发一次恶作剧），你还可以自己给${userName}定一个小小的要求——三个条件要一起全部达成，才能解锁整套图标，所以这个要求不用太难，是三个里的其中一个而已。
 
 你只能从下面这三种要求里选一种（不要自己编造新的要求类型）：
 ${templateLines}

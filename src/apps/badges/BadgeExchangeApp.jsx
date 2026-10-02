@@ -175,7 +175,7 @@ export const BadgeExchangeApp = ({ onBackHub }) => {
         <section className="badge-intro">
           <p className="badge-eyebrow">A CHANGING SET OF ICONS, EARNED TOGETHER</p>
           <h1>每月限定图标</h1>
-          <p className="badge-subtitle">达成这个月的任一条件，解锁整套图标，随时切换佩戴。</p>
+          <p className="badge-subtitle">达成这个月的全部条件，解锁整套图标，随时切换佩戴。</p>
         </section>
 
         <section className="badge-room-row">
@@ -264,7 +264,7 @@ const BadgeSeasonBoard = ({ board, activeSeasonKey, equipError, onEquip, archive
   const season = board.seasons.find((item) => item.seasonKey === activeSeasonKey);
   if (!season) return null;
 
-  const { seasonDef, unlocked, aiCondition, characterWantedBadgeId } = season;
+  const { seasonDef, unlocked, aiCondition, characterWantedBadgeId, conditionResults = {} } = season;
 
   return (
     <section className={`badge-season ${archived ? 'badge-season--archived' : ''}`}>
@@ -275,20 +275,34 @@ const BadgeSeasonBoard = ({ board, activeSeasonKey, equipError, onEquip, archive
       </div>
 
       {!unlocked && !archived && (
-        <ul className="badge-conditions">
-          {seasonDef.conditions.map((condition) => (
-            <li key={condition.id} className="badge-condition">
-              <span className="badge-condition-title">{condition.title}</span>
-              <span className="badge-condition-desc">
-                {condition.kind === 'ai'
-                  ? aiCondition?.title || '正在等待 TA 想一个要求…'
-                  : CONDITION_LABELS[condition.type]
-                    ? CONDITION_LABELS[condition.type](condition)
-                    : condition.description}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="badge-conditions-hint">下面 3 个条件要全部达成，才能解锁整套图标。</p>
+          <ul className="badge-conditions">
+            {seasonDef.conditions.map((condition) => {
+              const isMet = Boolean(conditionResults[condition.id]);
+              return (
+                <li
+                  key={condition.id}
+                  className={`badge-condition ${isMet ? 'badge-condition--met' : ''}`}
+                >
+                  <span className="badge-condition-check" aria-hidden="true">
+                    {isMet ? '✓' : ''}
+                  </span>
+                  <span className="badge-condition-body">
+                    <span className="badge-condition-title">{condition.title}</span>
+                    <span className="badge-condition-desc">
+                      {condition.kind === 'ai'
+                        ? aiCondition?.title || '正在等待 TA 想一个要求…'
+                        : CONDITION_LABELS[condition.type]
+                          ? CONDITION_LABELS[condition.type](condition)
+                          : condition.description}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       {equipError && <p className="badge-equip-error">{equipError}</p>}

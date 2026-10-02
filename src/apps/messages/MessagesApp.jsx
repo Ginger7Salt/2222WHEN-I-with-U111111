@@ -19,6 +19,7 @@ import db from '../../db';
 import { subscribeAiEvents } from '../../services/aiService';
 import { destroyChatWithMemories } from '../memory/memoryService';
 import { triggerGlobalToast } from '../../components/NotificationToast';
+import { getEquippedBadgesForChats } from '../badges/monthlyBadgeService';
 
 import ChatRoom from './ChatRoom';
 import CharacterLibrary from './CharacterLibrary';
@@ -35,6 +36,9 @@ const MAX_BROADCAST_TARGETS = 5;
 export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [chats, setChats] = useState([]);
   const [characters, setCharacters] = useState([]);
+  // chatId -> 当前佩戴的限定图标 { id, title, imageUrl, seasonTitle }，
+  // 显示在会话列表每一行头像的右下角。
+  const [badgeEquipMap, setBadgeEquipMap] = useState(() => new Map());
   const [view, setView] = useState('chats');
   const [activeChatId, setActiveChatId] = useState(null);
   const [editingChar, setEditingChar] = useState(null);
@@ -70,8 +74,17 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
       const chatList = await db.chats.orderBy('updatedAt').reverse().toArray();
       const charList = await db.characters.toArray();
 
-      setChats(Array.isArray(chatList) ? chatList : []);
+      const safeChatList = Array.isArray(chatList) ? chatList : [];
+
+      setChats(safeChatList);
       setCharacters(Array.isArray(charList) ? charList : []);
+
+      try {
+        const nextBadgeMap = await getEquippedBadgesForChats(safeChatList.map((item) => item.id));
+        setBadgeEquipMap(nextBadgeMap);
+      } catch (badgeError) {
+        console.error('[MessagesApp] 读取限定图标佩戴状态失败：', badgeError);
+      }
     } catch (err) {
       console.error('[MessagesApp] loadData failed safely:', err);
     }
@@ -423,22 +436,38 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                         )
                       )}
 
-                      {char?.avatar ? (
-                        <img
-                          src={char.avatar}
-                          alt={chatItem.title}
-                          className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0 shadow-sm" loading="lazy" decoding="async" />
-                      ) : (
-                        <div
-                          className="w-11 h-11 rounded-full flex items-center justify-center font-bold shrink-0 shadow-sm"
-                          style={{
-                            background: 'var(--control-soft-bg)',
-                            color: 'var(--text-main)',
-                          }}
-                        >
-                          {chatItem.title?.[0] || 'C'}
-                        </div>
-                      )}
+                      <div className="relative shrink-0">
+                        {char?.avatar ? (
+                          <img
+                            src={char.avatar}
+                            alt={chatItem.title}
+                            className="w-11 h-11 rounded-full object-cover border border-white/20 shadow-sm" loading="lazy" decoding="async" />
+                        ) : (
+                          <div
+                            className="w-11 h-11 rounded-full flex items-center justify-center font-bold shadow-sm"
+                            style={{
+                              background: 'var(--control-soft-bg)',
+                              color: 'var(--text-main)',
+                            }}
+                          >
+                            {chatItem.title?.[0] || 'C'}
+                          </div>
+                        )}
+
+                        {badgeEquipMap.get(chatItem.id) && (
+                          <img
+                            src={badgeEquipMap.get(chatItem.id).imageUrl}
+                            alt={badgeEquipMap.get(chatItem.id).title}
+                            title={badgeEquipMap.get(chatItem.id).title}
+                            loading="lazy"
+                            className="absolute -bottom-1 -right-1 w-[1.1rem] h-[1.1rem] rounded-full object-cover shadow-sm"
+                            style={{
+                              border: '1.5px solid var(--bg-main)',
+                              background: 'var(--card-bg)',
+                            }}
+                          />
+                        )}
+                      </div>
 
                       <div className="space-y-1 min-w-0 flex-1 pr-2">
                         <div className="flex items-center gap-2">
