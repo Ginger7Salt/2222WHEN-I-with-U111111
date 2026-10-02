@@ -58,12 +58,32 @@ const DIY_UPDATE_NOTICE_LINES = [
   '{name} 趁你不注意，把小屋重新收拾了一遍。',
 ];
 
-const pickNoticeText = (characterName) => {
-  const template = DIY_UPDATE_NOTICE_LINES[
-    Math.floor(Math.random() * DIY_UPDATE_NOTICE_LINES.length)
-  ];
+// 用户主动提出之后的三段提示：开始 / 成功 / 失败。跟后台自己悄悄换的
+// 那套安静文案不一样——用户是明确提过要求的，所以这次要让TA能看到
+// "确实在动"，而不是发完消息之后什么反馈都没有，不知道AI到底理没理。
+const DIY_FORCED_START_LINES = [
+  '{name} 听到了，正在重新收拾小屋……',
+  '{name} 说"好"，转身开始动手布置小屋了。',
+  '{name} 开始捣鼓小屋，看起来是认真的。',
+];
+
+const DIY_FORCED_SUCCESS_LINES = [
+  '{name} 照你说的，把小屋重新收拾好了。',
+  '{name} 弄完啦，小屋换了个新样子。',
+  '{name} 捣鼓完了，这次是特意为你改的。',
+];
+
+const DIY_FORCED_FAIL_LINES = [
+  '{name} 试了一下，这次没能把小屋改好，要不等会儿再让TA试试？',
+  '{name} 这次没弄成，小屋暂时还是原来的样子。',
+];
+
+const pickLine = (lines, characterName) => {
+  const template = lines[Math.floor(Math.random() * lines.length)];
   return template.replace('{name}', characterName || 'TA');
 };
+
+const pickNoticeText = (characterName) => pickLine(DIY_UPDATE_NOTICE_LINES, characterName);
 
 // 给 CharacterDiyPage.jsx 用：读出这个聊天当前的DIY内容。
 export const getDiyArea = async (chatId) => {
@@ -129,11 +149,39 @@ const extractDiyContent = (rawText) => {
   return content || null;
 };
 
+// 往聊天里插一条居中的 diy_update 提示（复用 ChatDiyUpdateNotice 的
+// 展示样式），开始/成功/失败三个时刻共用这一个函数，避免重复三遍同样
+// 的落库+派发逻辑。
+const postDiyNotice = async ({ chatId, character, text }) => {
+  const timestampIso = new Date().toISOString();
+
+  await db.messages.add({
+    chatId,
+    characterId: character.id,
+    sender: 'character',
+    type: 'diy_update',
+    content: text,
+    metadata: {},
+    isRead: true,
+    timestamp: timestampIso,
+  });
+
+  await db.chats.update(chatId, { updatedAt: timestampIso });
+
+  dispatchLocalMessageEvent(chatId);
+};
+
 // 两条路径（常规冷却判断 / 用户主动点名要换）共用的「拿最近历史 + 发一次
 // 独立的 AI 调用 + 落库」逻辑，只有传进来的 prompt 不一样。跟文件开头的
 // 注释一样：这里直接对 apiConfig 发 fetch，不经过 aiService.js，避免
 // 循环 import。
-const runDiyGeneration = async ({ chatId, character, apiConfig, prompt }) => {
+//
+// 只负责「生成 + 真的换了就落库新内容」，不在这里插聊天提示——开始/
+// 成功/失败具体要不要让用户看到、看到什么文案，后台静默检查和用户
+// 主动要求这两条路径的取舍完全不同，交给各自的调用方（maybeUpdateDiyArea
+// / forceUpdateDiyArea）决定。返回值是三种状态之一，方便调用方区分
+// "真的失败了"和"AI判断这次不想换"。
+const runDiyGeneration = async ({ chatId, apiConfig, prompt }) => {
   let rawText = '';
 
   try {
@@ -152,18 +200,21 @@ const runDiyGeneration = async ({ chatId, character, apiConfig, prompt }) => {
     });
 
     if (!response.ok) {
-      return;
+      console.warn('[DIY] 角色DIY小屋的生成调用返回非 2xx:', response.status);
+      return { status: 'error' };
     }
 
     const data = await response.json();
     rawText = data?.choices?.[0]?.message?.content || '';
   } catch (error) {
     console.warn('[DIY] 角色DIY小屋的判断/生成调用失败，跳过本次检查:', error);
-    return;
+    return { status: 'error' };
   }
 
   const newContent = extractDiyContent(rawText);
-  if (!newContent) return;
+  if (!newContent) {
+    return { status: 'no_update' };
+  }
 
   const updatedAtIso = new Date().toISOString();
 
@@ -172,20 +223,7 @@ const runDiyGeneration = async ({ chatId, character, apiConfig, prompt }) => {
     diyAreaUpdatedAt: updatedAtIso,
   });
 
-  await db.messages.add({
-    chatId,
-    characterId: character.id,
-    sender: 'character',
-    type: 'diy_update',
-    content: pickNoticeText(character.name),
-    metadata: {},
-    isRead: true,
-    timestamp: updatedAtIso,
-  });
-
-  await db.chats.update(chatId, { updatedAt: updatedAtIso });
-
-  dispatchLocalMessageEvent(chatId);
+  return { status: 'success', content: newContent };
 };
 
 const getRecentHistoryText = async (chatId, character) => {
@@ -241,7 +279,17 @@ export const maybeUpdateDiyArea = async ({ chatId, character, apiConfig }) => {
     historyText,
   });
 
-  await runDiyGeneration({ chatId, character, apiConfig, prompt });
+  const result = await runDiyGeneration({ chatId, apiConfig, prompt });
+
+  // 背景检查全程安静：换没换都不打断用户，只有真的换了才弹一下这条
+  // 旁白提示；"这次不想改"或者调用失败，用户感觉不到也不需要感觉到。
+  if (result.status === 'success') {
+    await postDiyNotice({
+      chatId,
+      character,
+      text: pickNoticeText(character.name),
+    });
+  }
 };
 
 // aiService.js 解析 AI 原始回复文字时用这个判断：这次回复里有没有带
@@ -284,12 +332,19 @@ ${historyText || '（暂无）'}
 屋自己的版面里。除了 ${START_TAG}${END_TAG} 之间的内容，不要输出任何
 别的文字。`;
 
+
 // 由 aiService.js 在解析到 [DIYAREA_REQUEST] 标签后调用，专门给「用户
 // 在聊天里明确说了想换DIY小物」这种情况用：不看冷却、不走"这次不想改"
 // 的 NO_UPDATE 分支，必须真的给出一份新内容。跟 maybeUpdateDiyArea
 // 共用同一个 diyAreaLastCheckAt 时间戳字段——用户刚主动换完之后，背景
-// 的常规判断也会重新进入冷却窗口，不会紧接着又触发一次。同样是
-// fire-and-forget，失败了只是「这次没换成」，不影响正常聊天。
+// 的常规判断也会重新进入冷却窗口，不会紧接着又触发一次。
+//
+// 跟后台静默检查不一样：用户是明确提过要求的，所以这里要让用户能看到
+// 过程——先插一条"开始收拾了"的提示，生成调用（经常要好几秒）期间
+// 用户不会以为AI压根没理这件事；结束之后无论真的换成了还是没弄成，
+// 都再插一条对应的提示，而不是像背景检查那样失败了就悄悄什么都不说。
+// 整体仍然是 fire-and-forget：调用方用 void + catch 包起来，这里面
+// 任何异常都不应该影响正常聊天。
 export const forceUpdateDiyArea = async ({ chatId, character, apiConfig }) => {
   if (!chatId || !character) return;
   if (!apiConfig?.baseUrl || !apiConfig?.apiKey) return;
@@ -301,6 +356,12 @@ export const forceUpdateDiyArea = async ({ chatId, character, apiConfig }) => {
     diyAreaLastCheckAt: new Date().toISOString(),
   });
 
+  await postDiyNotice({
+    chatId,
+    character,
+    text: pickLine(DIY_FORCED_START_LINES, character.name),
+  });
+
   const historyText = await getRecentHistoryText(chatId, character);
 
   const prompt = buildForcedJudgePrompt({
@@ -309,5 +370,11 @@ export const forceUpdateDiyArea = async ({ chatId, character, apiConfig }) => {
     historyText,
   });
 
-  await runDiyGeneration({ chatId, character, apiConfig, prompt });
+  const result = await runDiyGeneration({ chatId, apiConfig, prompt });
+
+  const noticeText = result.status === 'success'
+    ? pickLine(DIY_FORCED_SUCCESS_LINES, character.name)
+    : pickLine(DIY_FORCED_FAIL_LINES, character.name);
+
+  await postDiyNotice({ chatId, character, text: noticeText });
 };
