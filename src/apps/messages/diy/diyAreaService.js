@@ -95,6 +95,7 @@ export const getDiyArea = async (chatId) => {
   return {
     content: chat.diyAreaContent || '',
     updatedAt: chat.diyAreaUpdatedAt || null,
+    requestCooldownUntil: chat.diyRequestCooldownUntil || null,
   };
 };
 
@@ -377,4 +378,218 @@ export const forceUpdateDiyArea = async ({ chatId, character, apiConfig }) => {
     : pickLine(DIY_FORCED_FAIL_LINES, character.name);
 
   await postDiyNotice({ chatId, character, text: noticeText });
+};
+
+// ============================================================
+// DIY小屋页面里的"请TA重新布置"按钮
+//
+// 跟上面 forceUpdateDiyArea（聊天里自然语言提出 -> AI自己打
+// [DIYAREA_REQUEST] 标签 -> 必定成功，没有冷却）是完全独立的第二条
+// 请求通路，专门给DIY小屋页面自己的按钮用，规则不一样：
+//   - 每 3-5 小时（每次成功后随机取一个新的区间）只接受一次；
+//   - 有概率被角色拒绝——拒绝只是"这次不想弄"，不占用这次冷却，
+//     用户可以立刻再点一次重试；
+//   - 一旦真的接受，立刻生成新内容（不等下次打开小屋），调用方
+//     自己在等待期间展示进度条。
+// 两条通路各用各的字段（这条通路用 diyRequestCooldownUntil，后台
+// 常规检查用 diyAreaLastCheckAt），互不干扰、互不共用冷却——但本
+// 通路一旦成功，也会顺手把 diyAreaLastCheckAt 一起重置，避免刚
+// 手动换完新样子，后台常规检查紧接着又判断一次。
+// ============================================================
+
+const DIY_REQUEST_COOLDOWN_MIN_MS = 3 * 60 * 60 * 1000;
+const DIY_REQUEST_COOLDOWN_MAX_MS = 5 * 60 * 60 * 1000;
+
+// 请求被接受 vs 被拒绝的概率——可以后续再调，目前先定一个"大部分时候
+// 愿意、但不是每次都捧场"的量级。
+const DIY_REQUEST_REJECT_PROBABILITY = 0.3;
+
+const randomDiyRequestCooldownMs = () => (
+  DIY_REQUEST_COOLDOWN_MIN_MS
+  + Math.random() * (DIY_REQUEST_COOLDOWN_MAX_MS - DIY_REQUEST_COOLDOWN_MIN_MS)
+);
+
+const removeEmoji = (text = '') => String(text)
+  .replace(
+    /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,
+    ''
+  )
+  .trim();
+
+// 角色专属拒绝理由还没生成出来之前（或者生成失败时）的兜底文案，语气
+// 尽量中性，不绑定任何具体人设。
+const FALLBACK_DIY_REJECT_REASONS = [
+  '今天不太想换，过阵子再说吧。',
+  '手头上没什么灵感，这次先不弄了。',
+  '刚收拾过没多久，先让它这样放会儿。',
+  '不是不想弄，就是现在没那个心情。',
+];
+
+// 跟 pokeService.js 的 ensurePokeReplies 同一个做法：第一次用到的时候
+// 按角色 bio/extraNotes 让 AI 一次性生成 4-6 句，直接缓存进角色资料的
+// diyRejectReasons 字段（不是 Dexie 索引字段，不需要升级数据库版本），
+// 以后每次拒绝都直接从缓存里随机挑一条，不必每次被拒绝都单独调一次AI。
+export const ensureDiyRejectReasons = async (character) => {
+  if (!character) return FALLBACK_DIY_REJECT_REASONS;
+
+  const cached = Array.isArray(character.diyRejectReasons)
+    ? character.diyRejectReasons.filter(
+      (line) => typeof line === 'string' && line.trim()
+    )
+    : [];
+
+  if (cached.length >= 3) {
+    return cached;
+  }
+
+  try {
+    const apiSetting = await db.settings.get('apiConfig');
+    const apiConfig = apiSetting?.value || {};
+
+    if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+      return FALLBACK_DIY_REJECT_REASONS;
+    }
+
+    const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
+
+    const systemPrompt = `你正在扮演角色：${character.name}。
+
+角色设定：
+${character.bio || '无'}
+
+补充设定：
+${character.extraNotes || '无'}
+
+用户有时会在你的DIY小屋页面里主动提出，想让你重新布置一下这个小屋，但
+你不是每次都愿意配合——请给出 4 到 6 句，这个角色这次不想动手重新布置
+时，第一人称脱口而出的理由，语气要符合以上人设（可以是懒得动、刚弄过
+没多久、没心情、卖个关子之类，不需要全部一个调），只是单纯这次不想弄
+小屋，不是在生气或冷落用户本人。
+
+严格要求：
+- 只输出合法 JSON 数组，形如 ["...", "...", "..."]；
+- 每一句 6 到 20 个汉字之间；
+- 不使用 Emoji；
+- 不要输出 Markdown、代码块围栏、编号或任何多余说明，只输出这个 JSON 数组本身。`;
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiConfig.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: apiConfig.model || 'gpt-3.5-turbo',
+        messages: [{ role: 'system', content: systemPrompt }],
+        temperature: 0.9,
+      }),
+    });
+
+    if (!response.ok) {
+      return FALLBACK_DIY_REJECT_REASONS;
+    }
+
+    const data = await response.json();
+    const rawText = data?.choices?.[0]?.message?.content || '';
+
+    const cleaned = rawText
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+
+    const parsed = JSON.parse(cleaned);
+
+    const reasons = Array.isArray(parsed)
+      ? parsed
+        .map((line) => removeEmoji(line).slice(0, 30))
+        .filter(Boolean)
+        .slice(0, 6)
+      : [];
+
+    if (reasons.length < 3) {
+      return FALLBACK_DIY_REJECT_REASONS;
+    }
+
+    if (character.id) {
+      await db.characters.update(character.id, { diyRejectReasons: reasons });
+    }
+
+    return reasons;
+  } catch (error) {
+    console.warn(
+      '[DIY] DIY小屋拒绝理由生成失败，先用通用文案顶上。',
+      error
+    );
+
+    return FALLBACK_DIY_REJECT_REASONS;
+  }
+};
+
+// 给 CharacterDiyPage.jsx 的按钮用：点击时调用，返回值的 status 是
+// 'cooldown' / 'rejected' / 'success' / 'error' 之一，调用方据此决定
+// 界面上显示什么（倒计时提示 / 拒绝理由 / 新内容 / 失败提示）。
+export const requestDiyAreaUpdate = async ({ chatId, character }) => {
+  if (!chatId || !character) return { status: 'error' };
+
+  const chat = await db.chats.get(chatId);
+  if (!chat) return { status: 'error' };
+
+  const cooldownUntilMs = chat.diyRequestCooldownUntil
+    ? new Date(chat.diyRequestCooldownUntil).getTime()
+    : 0;
+
+  if (Number.isFinite(cooldownUntilMs) && cooldownUntilMs > Date.now()) {
+    return { status: 'cooldown', cooldownUntil: chat.diyRequestCooldownUntil };
+  }
+
+  const apiSetting = await db.settings.get('apiConfig');
+  const apiConfig = apiSetting?.value || {};
+
+  // API 没配置是环境问题，不是角色"不愿意"——放在拒绝概率判定之前，
+  // 这样没配置API的时候统一报 error，不会被误判成角色拒绝。
+  if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+    return { status: 'error' };
+  }
+
+  // 拒绝概率判定放在真正调用AI生成之前：被拒绝的话不需要真的生成新
+  // 内容，省一次API调用，也符合"拒绝=这次压根没认真对待这个请求"的
+  // 直觉。
+  if (Math.random() < DIY_REQUEST_REJECT_PROBABILITY) {
+    const reasons = await ensureDiyRejectReasons(character);
+    return { status: 'rejected', reason: pickLine(reasons, character.name) };
+  }
+
+  const historyText = await getRecentHistoryText(chatId, character);
+
+  const prompt = buildForcedJudgePrompt({
+    character,
+    currentContent: chat.diyAreaContent,
+    historyText,
+  });
+
+  const result = await runDiyGeneration({ chatId, apiConfig, prompt });
+
+  if (result.status !== 'success') {
+    // 生成失败是技术问题，不是角色"不愿意"，不占用冷却，让用户能
+    // 立刻再试一次。
+    return { status: 'error' };
+  }
+
+  const cooldownUntilIso = new Date(
+    Date.now() + randomDiyRequestCooldownMs()
+  ).toISOString();
+
+  await db.chats.update(chatId, {
+    diyRequestCooldownUntil: cooldownUntilIso,
+    // 顺手让后台常规检查（maybeUpdateDiyArea）也重新进入它自己的冷却，
+    // 避免刚手动换完新样子，常规检查紧接着又判断一次。
+    diyAreaLastCheckAt: new Date().toISOString(),
+  });
+
+  return {
+    status: 'success',
+    content: result.content,
+    cooldownUntil: cooldownUntilIso,
+  };
 };
