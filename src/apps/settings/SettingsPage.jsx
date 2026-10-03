@@ -29,6 +29,8 @@ import {
 import GlassCard from '../../components/GlassCard';
 
 import HubBackgroundSettings from '../../components/HubBackgroundSettings';
+import PwaIconSettings from '../../components/PwaIconSettings';
+import { applyPwaIcon } from '../../services/pwaIconService';
 import AppNameDisplaySettings from './AppNameDisplaySettings';
 import { APP_NAME_DISPLAY_EN } from '../hub/useAppNameDisplayMode';
 import HubHeaderLayoutSettings from './HubHeaderLayoutSettings';
@@ -107,6 +109,7 @@ const [draftShowTitle, setDraftShowTitle] = useState(showTitle);
 const [draftHubBackground, setDraftHubBackground] = useState(
   currentHubBackground || '',
 );
+const [draftPwaIcon, setDraftPwaIcon] = useState('');
 
 // 应用名称显示模式（英文 / 英文+中文），不经过 App.jsx 转发，
 // 直接读写 db.settings，首页滑块通过 useAppNameDisplayMode 订阅。
@@ -346,8 +349,12 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
           setDraftShowTitle(settingMap.showTitle);
         }
 
-               if (typeof settingMap.hubBackground === 'string') {
+ if (typeof settingMap.hubBackground === 'string') {
   setDraftHubBackground(settingMap.hubBackground);
+}
+
+        if (typeof settingMap.pwaIcon === 'string') {
+  setDraftPwaIcon(settingMap.pwaIcon);
 }
 
         if (typeof settingMap.appNameDisplayMode === 'string') {
@@ -791,9 +798,13 @@ const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
         await db.settings.bulkPut([
           { key: 'theme', value: draftTheme },
           { key: 'showTitle', value: draftShowTitle },
-                   {
+                 {
   key: 'hubBackground',
   value: draftHubBackground,
+},
+          {
+  key: 'pwaIcon',
+  value: draftPwaIcon,
 },
                   {
   key: 'appNameDisplayMode',
@@ -830,9 +841,11 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
         onToggleTitle();
       }
 
-          if (draftHubBackground !== (currentHubBackground || '')) {
+     if (draftHubBackground !== (currentHubBackground || '')) {
   onChangeHubBackground(draftHubBackground);
 }
+
+          void applyPwaIcon(draftPwaIcon);
 
             if (draftAppNameDisplayMode !== initialAppNameDisplayMode) {
   setInitialAppNameDisplayMode(draftAppNameDisplayMode);
@@ -1196,6 +1209,18 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
                <HubBackgroundSettings
           value={draftHubBackground}
           onChange={setDraftHubBackground}
+        />
+      </GlassCard>
+
+     <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <Palette className="h-4 w-4" />
+          <span>应用桌面图标</span>
+        </div>
+
+        <PwaIconSettings
+          value={draftPwaIcon}
+          onChange={setDraftPwaIcon}
         />
       </GlassCard>
 

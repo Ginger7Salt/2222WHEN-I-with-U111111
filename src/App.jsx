@@ -43,6 +43,7 @@ import {
 
 
 import soundService from './services/soundService';
+import { applyPwaIcon } from './services/pwaIconService';
 
 
 import {
@@ -678,6 +679,21 @@ const [hubBackground, setHubBackground] = useState('');
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const applyStoredPwaIcon = async () => {
+      try {
+        const setting = await db.settings.get('pwaIcon');
+        if (typeof setting?.value === 'string' && setting.value) {
+          await applyPwaIcon(setting.value);
+        }
+      } catch (error) {
+        console.warn('[App] 读取 PWA 图标设置失败:', error);
+      }
+    };
+
+    void applyStoredPwaIcon();
   }, []);
 
 
