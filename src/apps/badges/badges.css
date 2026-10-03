@@ -91,6 +91,38 @@
   color: var(--text-sub);
 }
 
+/* ---------- 顶部 Tab 切换（本月 / 往期 / 常规） ---------- */
+
+.badge-tabs {
+  display: flex;
+  gap: 0.4rem;
+  padding: 1rem 0 0;
+}
+
+.badge-tab {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--divider);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--text-sub);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.badge-tab:hover {
+  color: var(--text-main);
+  transform: translateY(-1px);
+}
+
+.badge-tab--active {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+
 /* ---------- 聊天窗口选择 ---------- */
 
 .badge-room-row {
@@ -174,8 +206,17 @@
 /* ---------- 单个赛季 ---------- */
 
 .badge-season {
-  padding: 1.4rem 0;
-  border-bottom: 1px solid var(--divider);
+  padding: 1.4rem 1.2rem;
+  margin: 1rem 0;
+  border: 1px solid var(--divider);
+  border-radius: 1.1rem;
+  background: var(--card-bg-gradient, var(--card-bg));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent-color) 10%, transparent) inset,
+    0 14px 34px rgba(0, 0, 0, 0.08);
+}
+
+.badge-season--current {
+  border-color: color-mix(in srgb, var(--accent-color) 45%, var(--divider));
 }
 
 .badge-season-header {
@@ -203,8 +244,31 @@
   color: var(--text-muted);
 }
 
+.bdl-effects-toggle {
+  margin-left: auto;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--divider);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+
+.bdl-effects-toggle:hover {
+  color: var(--text-main);
+  border-color: var(--accent-color);
+}
+
+.badge-archived-unlocked-at {
+  margin: -0.3rem 0 0.8rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 .badge-season--archived {
-  opacity: 0.85;
+  opacity: 0.88;
 }
 
 .badge-conditions-hint {
@@ -359,6 +423,167 @@
   color: var(--accent-color);
 }
 
+/* ---------- 常规徽章占位格子 ---------- */
+
+.badge-regular {
+  border-style: dashed;
+  background: var(--card-bg);
+  box-shadow: none;
+}
+
+.badge-grid--placeholder {
+  opacity: 0.9;
+}
+
+.badge-tile--placeholder {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.badge-tile--placeholder .badge-tile-image-wrap {
+  color: var(--text-muted);
+}
+
+/* ---------- 万圣节关卡小路（"跳舞的线"风格，仅本月限定用） ---------- */
+
+.bdl-outer {
+  position: relative;
+  width: 100%;
+  margin: 0.6rem 0 1.1rem;
+  overflow: hidden;
+}
+
+.bdl-stage {
+  position: relative;
+  transform-origin: top left;
+}
+
+.bdl-svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+.bdl-node,
+.bdl-node-lit,
+.bdl-vault,
+.bdl-vault-lit {
+  transition: opacity 220ms ease;
+}
+
+.has-effects .bdl-node-lit {
+  animation: bdlBreathe 2600ms ease-in-out infinite;
+}
+
+.has-effects .bdl-vault-lit {
+  animation: bdlBreathe 2200ms ease-in-out infinite;
+}
+
+.has-effects .bdl-track-lit {
+  animation: bdlTrackPulse 2800ms ease-in-out infinite;
+}
+
+.bdl-vault-sparkle {
+  animation: bdlSparkle 3200ms ease-in-out infinite;
+}
+
+@keyframes bdlBreathe {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.74;
+  }
+}
+
+@keyframes bdlTrackPulse {
+  0%, 100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes bdlSparkle {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.18);
+  }
+}
+
+/* 漂浮的蝙蝠 / 小幽灵，纯装饰，effects 关闭时整层都不渲染（见组件逻辑） */
+
+.bdl-sprites {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bdl-bat,
+.bdl-ghost {
+  position: absolute;
+  opacity: 0.55;
+}
+
+.bdl-bat-a {
+  top: 6%;
+  left: 18%;
+  animation: bdlBatFlyA 7.5s ease-in-out infinite;
+}
+
+.bdl-bat-b {
+  top: 46%;
+  left: 62%;
+  animation: bdlBatFlyB 6.2s ease-in-out infinite;
+}
+
+.bdl-ghost-a {
+  top: 58%;
+  left: 36%;
+  width: 14px;
+  height: 16px;
+  border-radius: 50% 50% 40% 40%;
+  background: color-mix(in srgb, var(--accent-color) 30%, transparent);
+  filter: blur(0.3px);
+  animation: bdlGhostBob 5s ease-in-out infinite;
+}
+
+@keyframes bdlBatFlyA {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(26px, 10px) rotate(-6deg);
+  }
+}
+
+@keyframes bdlBatFlyB {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(-22px, -8px) rotate(5deg);
+  }
+}
+
+@keyframes bdlGhostBob {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-9px);
+    opacity: 0.75;
+  }
+}
+
 /* ---------- 解锁动画弹层 ---------- */
 
 .badge-celebration {
@@ -452,7 +677,14 @@
   .badge-tile,
   .badge-refreshing,
   .badge-celebration,
-  .badge-celebration-card {
+  .badge-celebration-card,
+  .badge-tab,
+  .bdl-node-lit,
+  .bdl-vault-lit,
+  .bdl-track-lit,
+  .bdl-vault-sparkle,
+  .bdl-bat,
+  .bdl-ghost {
     animation: none !important;
     transition: none !important;
   }

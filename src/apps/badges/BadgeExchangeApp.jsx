@@ -28,11 +28,16 @@ import {
   markUnlockAnimationSeen,
 } from './monthlyBadgeService';
 import { ensureMonthlyAiCondition } from './monthlyBadgeAiService';
+import BadgeDancingLineBoard from './BadgeDancingLineBoard';
+import BadgeArchivedSeasonCard from './BadgeArchivedSeasonCard';
+import BadgeRegularPlaceholder from './BadgeRegularPlaceholder';
 import './badges.css';
 
-const CONDITION_LABELS = {
-  messages_total: (condition) => `累计消息满 ${condition.threshold} 条`,
-};
+const TABS = [
+  { id: 'current', label: '本月' },
+  { id: 'past', label: '往期' },
+  { id: 'regular', label: '常规' },
+];
 
 export const BadgeExchangeApp = ({ onBackHub }) => {
   const [chats, setChats] = useState([]);
@@ -43,6 +48,7 @@ export const BadgeExchangeApp = ({ onBackHub }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showUnlockCelebration, setShowUnlockCelebration] = useState(false);
   const [equipError, setEquipError] = useState('');
+  const [activeTab, setActiveTab] = useState('current');
 
   const activeSeason = useMemo(() => getActiveSeason(), []);
 
@@ -168,15 +174,30 @@ export const BadgeExchangeApp = ({ onBackHub }) => {
 
           <div className="badge-header-mark">
             <Medal size={14} strokeWidth={1.5} />
-            <span className="badge-kicker">MONTHLY BADGES</span>
+            <span className="badge-kicker">BADGES</span>
           </div>
         </header>
 
         <section className="badge-intro">
           <p className="badge-eyebrow">A CHANGING SET OF ICONS, EARNED TOGETHER</p>
-          <h1>每月限定图标</h1>
+          <h1>限定图标</h1>
           <p className="badge-subtitle">达成这个月的全部条件，解锁整套图标，随时切换佩戴。</p>
         </section>
+
+        <nav className="badge-tabs" role="tablist">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={`badge-tab ${activeTab === tab.id ? 'badge-tab--active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
 
         <section className="badge-room-row">
           <div className="badge-room-info">
@@ -217,30 +238,33 @@ export const BadgeExchangeApp = ({ onBackHub }) => {
           <section className="badge-empty">还没有可以兑换的聊天窗口。</section>
         ) : isLoading ? (
           <section className="badge-empty">正在读取兑换记录…</section>
+        ) : activeTab === 'regular' ? (
+          <BadgeRegularPlaceholder />
+        ) : activeTab === 'past' ? (
+          board.seasons.filter((season) => !season.isCurrent).length === 0 ? (
+            <section className="badge-empty">还没有往期徽章，这个月过去之后会出现在这里。</section>
+          ) : (
+            board.seasons
+              .filter((season) => !season.isCurrent)
+              .map((season) => (
+                <BadgeArchivedSeasonCard
+                  key={season.seasonKey}
+                  season={season}
+                  equippedBadgeId={board.equippedBadgeId}
+                  onEquip={handleEquip}
+                />
+              ))
+          )
         ) : !activeSeason ? (
           <section className="badge-empty">这个月还没有限定图标，下一个限定季节到了再来看看。</section>
         ) : (
-          <BadgeSeasonBoard
+          <BadgeDancingLineBoard
             board={board}
             activeSeasonKey={activeSeason.seasonKey}
             equipError={equipError}
             onEquip={handleEquip}
           />
         )}
-
-        {Boolean(activeSeason) &&
-          board.seasons
-            .filter((season) => !season.isCurrent)
-            .map((season) => (
-              <BadgeSeasonBoard
-                key={season.seasonKey}
-                board={board}
-                activeSeasonKey={season.seasonKey}
-                equipError=""
-                onEquip={handleEquip}
-                archived
-              />
-            ))}
       </div>
 
       {showUnlockCelebration && (
@@ -257,82 +281,6 @@ export const BadgeExchangeApp = ({ onBackHub }) => {
         </div>
       )}
     </main>
-  );
-};
-
-const BadgeSeasonBoard = ({ board, activeSeasonKey, equipError, onEquip, archived = false }) => {
-  const season = board.seasons.find((item) => item.seasonKey === activeSeasonKey);
-  if (!season) return null;
-
-  const { seasonDef, unlocked, aiCondition, characterWantedBadgeId, conditionResults = {} } = season;
-
-  return (
-    <section className={`badge-season ${archived ? 'badge-season--archived' : ''}`}>
-      <div className="badge-season-header">
-        <h3>{seasonDef.seasonTitle}</h3>
-        <span className="badge-season-key">{activeSeasonKey}</span>
-        {archived && <span className="badge-season-archived-tag">已结束，仅可佩戴</span>}
-      </div>
-
-      {!unlocked && !archived && (
-        <>
-          <p className="badge-conditions-hint">下面 3 个条件要全部达成，才能解锁整套图标。</p>
-          <ul className="badge-conditions">
-            {seasonDef.conditions.map((condition) => {
-              const isMet = Boolean(conditionResults[condition.id]);
-              return (
-                <li
-                  key={condition.id}
-                  className={`badge-condition ${isMet ? 'badge-condition--met' : ''}`}
-                >
-                  <span className="badge-condition-check" aria-hidden="true">
-                    {isMet ? '✓' : ''}
-                  </span>
-                  <span className="badge-condition-body">
-                    <span className="badge-condition-title">{condition.title}</span>
-                    <span className="badge-condition-desc">
-                      {condition.kind === 'ai'
-                        ? aiCondition?.title || '正在等待 TA 想一个要求…'
-                        : CONDITION_LABELS[condition.type]
-                          ? CONDITION_LABELS[condition.type](condition)
-                          : condition.description}
-                    </span>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-
-      {equipError && <p className="badge-equip-error">{equipError}</p>}
-
-      <div className="badge-grid">
-        {seasonDef.badges.map((badge) => {
-          const isEquipped = board.equippedBadgeId === badge.id;
-          const isWanted = characterWantedBadgeId === badge.id;
-          const isLocked = !unlocked;
-
-          return (
-            <button
-              type="button"
-              key={badge.id}
-              className={`badge-tile ${isLocked ? 'badge-tile--locked' : ''} ${isEquipped ? 'badge-tile--equipped' : ''}`}
-              onClick={() => !isLocked && onEquip(badge.id)}
-              disabled={isLocked}
-              title={badge.description}
-            >
-              {isWanted && <span className="badge-tile-wanted">TA 想要</span>}
-              <span className="badge-tile-image-wrap">
-                <img src={badge.imageUrl} alt={badge.title} loading="lazy" />
-              </span>
-              <span className="badge-tile-title">{badge.title}</span>
-              {isEquipped && <span className="badge-tile-equipped-tag">佩戴中</span>}
-            </button>
-          );
-        })}
-      </div>
-    </section>
   );
 };
 
