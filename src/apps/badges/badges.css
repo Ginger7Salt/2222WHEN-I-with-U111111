@@ -444,144 +444,521 @@
   color: var(--text-muted);
 }
 
-/* ---------- 万圣节关卡小路（"跳舞的线"风格，仅本月限定用） ---------- */
+/* ---------- 万圣节浮岛场景（新版，全场景 SVG） ---------- */
 
-.bdl-outer {
+/* 场景外容器：撑起缩放后的高度，防止塌陷 */
+.bdl-scene-wrap {
   position: relative;
   width: 100%;
-  margin: 0.6rem 0 1.1rem;
+  margin: 0 0 1rem;
   overflow: hidden;
+  border-radius: 1rem 1rem 0 0;
+  background: #0b0720; /* 兜底，避免 SVG 加载前露白 */
 }
 
+/* 场景 Stage（被 scale() 缩放的那一层） */
 .bdl-stage {
   position: relative;
   transform-origin: top left;
+  line-height: 0;
 }
 
-.bdl-svg {
-  position: relative;
-  z-index: 1;
-  display: block;
-}
-
-.bdl-node,
-.bdl-node-lit,
-.bdl-vault,
-.bdl-vault-lit {
-  transition: opacity 220ms ease;
-}
-
-.has-effects .bdl-node-lit {
-  animation: bdlBreathe 2600ms ease-in-out infinite;
-}
-
-.has-effects .bdl-vault-lit {
-  animation: bdlBreathe 2200ms ease-in-out infinite;
-}
-
-.has-effects .bdl-track-lit {
-  animation: bdlTrackPulse 2800ms ease-in-out infinite;
-}
-
-.bdl-vault-sparkle {
-  animation: bdlSparkle 3200ms ease-in-out infinite;
-}
-
-@keyframes bdlBreathe {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.74;
-  }
-}
-
-@keyframes bdlTrackPulse {
-  0%, 100% {
-    opacity: 0.85;
-  }
-  50% {
-    opacity: 0.45;
-  }
-}
-
-@keyframes bdlSparkle {
-  0%, 100% {
-    opacity: 0.5;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.9;
-    transform: scale(1.18);
-  }
-}
-
-/* 漂浮的蝙蝠 / 小幽灵，纯装饰，effects 关闭时整层都不渲染（见组件逻辑） */
-
-.bdl-sprites {
+/* 覆盖在场景上的 HUD（标题、进度圆点、光效按钮） */
+.bdl-hud-title {
   position: absolute;
-  inset: 0;
-  z-index: 0;
+  left: 16px;
+  top: 14px;
+  z-index: 2;
+  line-height: 1.15;
   pointer-events: none;
+}
+
+.bdl-hud-eyebrow {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: rgba(255, 226, 190, 0.72);
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.bdl-hud-h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow: 0 0 14px rgba(255, 138, 31, 0.5);
+}
+
+.bdl-hud-pill {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.2;
+  color: #f3e8ff;
+  background: rgba(11, 7, 32, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.bdl-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.bdl-dot {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.bdl-dot--on {
+  background: #ff8a1f;
+  box-shadow: 0 0 8px #ff8a1f;
+}
+
+.bdl-fx-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  z-index: 2;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.2;
+  color: #eadcff;
+  background: rgba(11, 7, 32, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color 180ms ease;
+}
+
+.bdl-fx-btn:hover {
+  border-color: #ff8a1f;
+}
+
+/* ---------- 场景下方：文案 + chips + 详情卡 ---------- */
+
+.bdl-body {
+  padding: 1rem 0 0.5rem;
+}
+
+.bdl-hint {
+  margin: 0 0 0.8rem;
+  font-size: 0.78rem;
+  color: var(--text-sub);
+}
+
+/* 节点快捷条（4 个按钮） */
+.bdl-chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 480px) {
+  .bdl-chips {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.bdl-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  background: var(--card-bg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.bdl-chip:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, #ff8a1f 60%, var(--divider));
+}
+
+.bdl-chip[aria-pressed="true"] {
+  border-color: #ff8a1f;
+  background: color-mix(in srgb, #ff8a1f 11%, var(--card-bg));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #ff8a1f 55%, transparent),
+    0 6px 18px color-mix(in srgb, #ff8a1f 20%, transparent);
+}
+
+.bdl-chip-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: #1a0f3a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.bdl-chip--on .bdl-chip-ico {
+  border-color: color-mix(in srgb, #ff8a1f 70%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, #ff8a1f 35%, transparent);
+}
+
+.bdl-chip-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bdl-chip-text b {
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bdl-chip-text span {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.bdl-chip--on .bdl-chip-text span {
+  color: color-mix(in srgb, #e0620f 80%, var(--text-main));
+}
+
+/* 详情卡 */
+.bdl-detail {
+  display: flex;
+  gap: 13px;
+  margin-top: 0;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, #ff8a1f 42%, var(--divider));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #ff8a1f 11%, var(--card-bg)),
+    var(--card-bg)
+  );
+  transition: border-color 180ms ease;
+}
+
+.bdl-detail--on {
+  border-color: color-mix(in srgb, #ff8a1f 65%, var(--divider));
+}
+
+.bdl-detail-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 40%, #3a2070, #150b2c);
+  border: 1px solid color-mix(in srgb, #ff8a1f 55%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, #ff8a1f 28%, transparent);
+}
+
+.bdl-detail-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.bdl-detail-body h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.bdl-detail-body p {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-sub);
+}
+
+.bdl-detail-note {
+  color: var(--text-muted) !important;
+  font-size: 11px !important;
+  margin-top: 5px !important;
+}
+
+.bdl-tag {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  border: 1px solid var(--divider);
+  color: var(--text-sub);
+}
+
+.bdl-tag--on {
+  border-color: #ff8a1f;
+  background: color-mix(in srgb, #ff8a1f 16%, transparent);
+  color: var(--text-main);
+}
+
+/* 消息进度条 */
+.bdl-prog {
+  margin-top: 10px;
+}
+
+.bdl-prog-track {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--control-soft-bg);
   overflow: hidden;
 }
 
-.bdl-bat,
-.bdl-ghost {
-  position: absolute;
-  opacity: 0.55;
+.bdl-prog-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #ffb347, #ff7a1a);
+  box-shadow: 0 0 10px rgba(255, 138, 31, 0.45);
+  transition: width 600ms ease;
 }
 
-.bdl-bat-a {
-  top: 6%;
-  left: 18%;
-  animation: bdlBatFlyA 7.5s ease-in-out infinite;
+.bdl-prog small {
+  display: block;
+  margin-top: 5px;
+  font-size: 10.5px;
+  color: var(--text-muted);
 }
 
-.bdl-bat-b {
-  top: 46%;
-  left: 62%;
-  animation: bdlBatFlyB 6.2s ease-in-out infinite;
+/* ---------- 图标区标题 & 佩戴栏 ---------- */
+
+.bdl-badge-section {
+  margin-top: 1.2rem;
 }
 
-.bdl-ghost-a {
-  top: 58%;
-  left: 36%;
-  width: 14px;
-  height: 16px;
-  border-radius: 50% 50% 40% 40%;
-  background: color-mix(in srgb, var(--accent-color) 30%, transparent);
-  filter: blur(0.3px);
-  animation: bdlGhostBob 5s ease-in-out infinite;
+.bdl-sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
 }
 
-@keyframes bdlBatFlyA {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  50% {
-    transform: translate(26px, 10px) rotate(-6deg);
-  }
+.bdl-sec-head h4 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
-@keyframes bdlBatFlyB {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  50% {
-    transform: translate(-22px, -8px) rotate(5deg);
-  }
+.bdl-sec-head small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
 }
 
-@keyframes bdlGhostBob {
-  0%, 100% {
-    transform: translateY(0);
-    opacity: 0.5;
-  }
-  50% {
-    transform: translateY(-9px);
-    opacity: 0.75;
-  }
+.bdl-equip-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  background: var(--control-soft-bg);
+  font-size: 0.76rem;
+  color: var(--text-sub);
+}
+
+.bdl-equip-thumb {
+  flex: none;
+  display: block;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle, #3a2070, #150b2c);
+  border: 1px solid var(--divider);
+}
+
+.bdl-equip-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bdl-equip-bar b {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.bdl-equip-bar button {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--divider);
+  background: var(--card-bg);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: var(--text-sub);
+  transition: border-color 180ms ease;
+}
+
+.bdl-equip-bar button:hover {
+  border-color: var(--accent-color);
+  color: var(--text-main);
+}
+
+/* ---------- SVG 场景动画类（由 .hw-fx 父级开关控制） ---------- */
+
+/* 星星闪烁 */
+.hw-fx .hw-twinkle {
+  animation: hwTwinkle 3.2s ease-in-out infinite;
+}
+
+/* 浮动 */
+.hw-fx .hw-bob {
+  animation: hwBob 3.4s ease-in-out infinite;
+}
+
+.hw-fx .hw-bob2 {
+  animation: hwBob 4.6s ease-in-out infinite reverse;
+}
+
+/* 符文环流动 */
+.hw-fx .hw-runes {
+  animation: hwDashflow 7s linear infinite;
+}
+
+/* 路径高亮流动（虚线段） */
+.hw-fx .hw-flow {
+  animation: hwDashflow 1.1s linear infinite;
+}
+
+/* 节点发光呼吸 */
+.hw-fx .hw-pulse {
+  animation: hwPulse 2.6s ease-in-out infinite;
+}
+
+/* 飘移（前景雾、云带） */
+.hw-fx .hw-drift {
+  animation: hwDrift 11s ease-in-out infinite;
+}
+
+.hw-fx .hw-drift2 {
+  animation: hwDrift 15s ease-in-out infinite reverse;
+}
+
+/* 旋转（灵魂方块外圈） */
+.hw-fx .hw-spin {
+  animation: hwSpin 6s linear infinite;
+}
+
+/* 轨道（灵魂光点绕行） */
+.hw-fx .hw-orbit {
+  animation: hwSpin 2.2s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* 蝙蝠翅膀拍打 */
+.hw-fx .hw-flap {
+  animation: hwFlap 0.26s ease-in-out infinite;
+}
+
+/* 蜡烛火焰闪烁 */
+.hw-fx .hw-flick {
+  animation: hwFlick 1.8s ease-in-out infinite;
+}
+
+/* 坩埚气泡上升 */
+.hw-fx .hw-rise {
+  animation: hwRise 2.2s ease-in infinite;
+}
+
+/* 宝箱光柱 */
+.hw-fx .hw-beam {
+  animation: hwBeam 3s ease-in-out infinite;
+}
+
+/* 星芒闪光 */
+.hw-fx .hw-spark {
+  animation: hwSparkle 2.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ── 关键帧 ── */
+
+@keyframes hwTwinkle {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+@keyframes hwBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes hwDashflow {
+  to { stroke-dashoffset: -16; }
+}
+
+@keyframes hwPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@keyframes hwDrift {
+  0%, 100% { transform: translateX(-10px); }
+  50% { transform: translateX(12px); }
+}
+
+@keyframes hwSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes hwFlap {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.3); }
+}
+
+@keyframes hwFlick {
+  0%, 100% { opacity: 1; }
+  30% { opacity: 0.78; }
+  60% { opacity: 0.94; }
+}
+
+@keyframes hwRise {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 0.95; }
+  100% { transform: translateY(-13px); opacity: 0; }
+}
+
+@keyframes hwBeam {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.92; }
+}
+
+@keyframes hwSparkle {
+  0%, 100% { opacity: 0; transform: scale(0.3); }
+  50% { opacity: 1; transform: scale(1); }
 }
 
 /* ---------- 解锁动画弹层 ---------- */
@@ -679,12 +1056,21 @@
   .badge-celebration,
   .badge-celebration-card,
   .badge-tab,
-  .bdl-node-lit,
-  .bdl-vault-lit,
-  .bdl-track-lit,
-  .bdl-vault-sparkle,
-  .bdl-bat,
-  .bdl-ghost {
+  .hw-twinkle,
+  .hw-bob,
+  .hw-bob2,
+  .hw-runes,
+  .hw-flow,
+  .hw-pulse,
+  .hw-drift,
+  .hw-drift2,
+  .hw-spin,
+  .hw-orbit,
+  .hw-flap,
+  .hw-flick,
+  .hw-rise,
+  .hw-beam,
+  .hw-spark {
     animation: none !important;
     transition: none !important;
   }

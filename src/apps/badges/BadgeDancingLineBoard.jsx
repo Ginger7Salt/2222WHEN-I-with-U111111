@@ -1,38 +1,33 @@
 // src/apps/badges/BadgeDancingLineBoard.jsx
 //
-// "本月限定" tab 的主视觉：一条会转弯的万圣节关卡小路（3 个条件节点 + 1 个终点宝箱），
-// 外加条件清单和图标网格。只负责当前这个还在进行中的赛季；已经结束的赛季用
-// BadgeArchivedSeasonCard，不会再画这条路（意义不大，徒增视觉噪音）。
+// "本月限定" tab 主视图：万圣节浮岛场景 + 节点快捷条 + 条件详情 + 图标网格。
+//
+// 逻辑改动摘要（相比旧版）：
+//   - 引入 HalloweenScene（全场景 SVG）替代原来的平面路径 + 散件 Marks
+//   - 新增 selectedNodeIdx state，控制灵魂方块位置 & 高亮详情卡
+//   - 把条件列表精简成"节点快捷条 + 详情卡"两层，不再用 <ul> 罗列
+//   - 图标网格保持不变（badge-tile / badge-tile--locked 等类名不动）
 
 import React, { useLayoutEffect, useRef, useState } from 'react';
 
-import {
-  BadgeAmbientSprites,
-  BadgeTrackDefs,
-  BadgeTrackPath,
-  NODE_POINT_INDEXES,
-  TRACK_STAGE_H,
-  TRACK_STAGE_W,
-  VaultMark,
-  getTrackPoints,
-  pickConditionMark,
-} from './badgeDancingLineArt';
+import { HalloweenScene, NodeIcon, TRACK_H, TRACK_W } from './badgeDancingLineArt';
 
-const CONDITION_LABELS = {
-  messages_total: (condition) => `累计消息满 ${condition.threshold} 条`,
-};
-
+/* ─────────────────────────────────────────────
+   常量
+───────────────────────────────────────────── */
 const EFFECTS_KEY = 'badge-dancingline-effects';
 
+const CONDITION_TYPES = ['pumpkin', 'tomb', 'crystal'];  // 对应 NodeIcon 的 type
+
+/* effects 偏好读取（localStorage + prefers-reduced-motion） */
 const readEffectsPreference = () => {
   try {
     const saved = window.localStorage.getItem(EFFECTS_KEY);
     if (saved === 'off') return false;
     if (saved === 'on') return true;
   } catch {
-    // 读不到就用默认值
+    // 读不到
   }
-
   try {
     return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   } catch {
@@ -40,161 +35,278 @@ const readEffectsPreference = () => {
   }
 };
 
+/* ─────────────────────────────────────────────
+   Hook：响应式缩放（同 Almanac 的 useStageScale）
+───────────────────────────────────────────── */
 const useStageScale = (ref) => {
   const [scale, setScale] = useState(1);
 
   useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return undefined;
+    const el = ref.current;
+    if (!el) return undefined;
 
-    const update = () => setScale(Math.min(1, Math.max(0.68, element.clientWidth / TRACK_STAGE_W)));
+    const update = () =>
+      setScale(Math.min(1, Math.max(0.56, el.clientWidth / TRACK_W)));
 
     update();
 
     if (typeof ResizeObserver === 'undefined') return undefined;
-
-    const observer = new ResizeObserver(update);
-    observer.observe(element);
-
-    return () => observer.disconnect();
+    const obs = new ResizeObserver(update);
+    obs.observe(el);
+    return () => obs.disconnect();
   }, [ref]);
 
   return scale;
 };
 
-let uidCounter = 0;
-const useUid = () => {
-  const ref = useRef(null);
-  if (!ref.current) {
-    uidCounter += 1;
-    ref.current = `bdl${uidCounter}`;
-  }
-  return ref.current;
-};
-
+/* ─────────────────────────────────────────────
+   BadgeDancingLineBoard
+   Props（与 BadgeExchangeApp 保持一致，不改外部接口）：
+     board             { seasons, equippedBadgeId }
+     activeSeasonKey   string
+     equipError        string
+     onEquip           (badgeId) => void
+───────────────────────────────────────────── */
 export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEquip }) => {
   const [effects, setEffects] = useState(readEffectsPreference);
+  const [selectedNodeIdx, setSelectedNodeIdx] = useState(0);
   const outerRef = useRef(null);
   const scale = useStageScale(outerRef);
-  const uid = useUid();
 
   const season = board.seasons.find((item) => item.seasonKey === activeSeasonKey);
   if (!season) return null;
 
   const { seasonDef, unlocked, aiCondition, characterWantedBadgeId, conditionResults = {} } = season;
-  const points = getTrackPoints();
+
+  /* lit[0-2]：三个条件；lit[3]：宝箱（全部点亮才开） */
+  const condMet = seasonDef.conditions.map(
+    (c) => Boolean(conditionResults[c.id])
+  );
+  const allMet = unlocked || condMet.every(Boolean);
+  const lit = [...condMet, allMet];
 
   const toggleEffects = () => {
     const next = !effects;
     setEffects(next);
-
     try {
       window.localStorage.setItem(EFFECTS_KEY, next ? 'on' : 'off');
     } catch {
-      // 存不了也不影响使用
+      // 存不了也没关系
     }
   };
 
+  /* ── 节点元数据 ── */
+  const NODE_KEYS = [...CONDITION_TYPES, 'vault'];
+
+  // 四个节点的文案；前三个来自 seasonDef.conditions，第四个固定
+  const nodeData = [
+    ...seasonDef.conditions.map((c, i) => ({
+      key: CONDITION_TYPES[i] || 'crystal',
+      short: c.title,
+      title: c.title,
+      desc: c.kind === 'ai'
+        ? (aiCondition?.description || aiCondition?.title || '正在等待 TA 想一个要求…')
+        : c.description,
+      note: c.kind === 'ai' ? '这个要求是 TA 在本月第一次打开时自己想的。' : null,
+      progress: c.type === 'messages_total'
+        ? { max: c.threshold, now: conditionResults[`__progress_${c.id}`] ?? null }
+        : null,
+      lit: condMet[i],
+    })),
+    {
+      key: 'vault',
+      short: '终点宝箱',
+      title: '终点宝箱',
+      desc: '三个节点全部点亮，宝箱就会打开，整套图标一次性全部解锁，随时切换佩戴。',
+      note: null,
+      progress: null,
+      lit: allMet,
+    },
+  ];
+
+  const selNode = nodeData[selectedNodeIdx];
+
   return (
     <section className="badge-season badge-season--current">
-      <div className="badge-season-header">
-        <h3>{seasonDef.seasonTitle}</h3>
-        <span className="badge-season-key">{activeSeasonKey}</span>
-
-        <button type="button" className="bdl-effects-toggle" onClick={toggleEffects} aria-pressed={effects}>
+      {/* ── 卡头 ── */}
+      <div className="bdl-scene-wrap" ref={outerRef} style={{ height: TRACK_H * scale }}>
+        {/* HUD 标题（叠在场景左上角） */}
+        <div className="bdl-hud-title" aria-hidden="true">
+          <small className="bdl-hud-eyebrow">HALLOWEEN / OCT</small>
+          <h3 className="bdl-hud-h3">{seasonDef.seasonTitle}</h3>
+        </div>
+        {/* 进度点（左下角） */}
+        <div className="bdl-hud-pill" aria-hidden="true">
+          <span className="bdl-dots">
+            {condMet.map((m, i) => (
+              <i key={i} className={m ? 'bdl-dot bdl-dot--on' : 'bdl-dot'} />
+            ))}
+          </span>
+          <span>{condMet.filter(Boolean).length} / {condMet.length} 已点亮</span>
+        </div>
+        {/* 光效切换（右下角） */}
+        <button
+          type="button"
+          className="bdl-fx-btn"
+          onClick={toggleEffects}
+          aria-pressed={effects}
+        >
           {effects ? '关闭光效' : '开启光效'}
         </button>
-      </div>
 
-      <p className="badge-conditions-hint">
-        {unlocked ? '整套图标已经解锁，藏宝箱已经打开。' : '沿着这条路，三个节点都点亮，终点的宝箱才会开。'}
-      </p>
-
-      <div className="bdl-outer" ref={outerRef} style={{ height: TRACK_STAGE_H * scale }}>
+        {/* 场景 SVG */}
         <div
-          className={effects ? 'bdl-stage has-effects' : 'bdl-stage'}
-          style={{ width: TRACK_STAGE_W, height: TRACK_STAGE_H, transform: `scale(${scale})` }}
+          className="bdl-stage"
+          style={{
+            width: TRACK_W,
+            height: TRACK_H,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+          }}
         >
-          <BadgeAmbientSprites effects={effects} />
-
-          <svg
-            width={TRACK_STAGE_W}
-            height={TRACK_STAGE_H}
-            viewBox={`0 0 ${TRACK_STAGE_W} ${TRACK_STAGE_H}`}
-            className="bdl-svg"
-            aria-hidden="true"
-          >
-            <BadgeTrackDefs uid={uid} />
-            <BadgeTrackPath points={points} allUnlocked={unlocked} uid={uid} effects={effects} />
-
-            {seasonDef.conditions.map((condition, index) => {
-              const pointIndex = NODE_POINT_INDEXES[index];
-              const point = points[pointIndex];
-              if (!point) return null;
-
-              const Mark = pickConditionMark(condition);
-              const isMet = Boolean(conditionResults[condition.id]);
-
-              return <Mark key={condition.id} x={point.x} y={point.y} lit={isMet} uid={uid} effects={effects} />;
-            })}
-
-            {(() => {
-              const vaultPoint = points[NODE_POINT_INDEXES[NODE_POINT_INDEXES.length - 1]];
-              return <VaultMark x={vaultPoint.x} y={vaultPoint.y} unlocked={unlocked} uid={uid} effects={effects} />;
-            })()}
-          </svg>
+          <HalloweenScene
+            lit={lit}
+            selectedIdx={selectedNodeIdx}
+            fxEnabled={effects}
+            onNodeClick={setSelectedNodeIdx}
+          />
         </div>
       </div>
 
-      <ul className="badge-conditions">
-        {seasonDef.conditions.map((condition) => {
-          const isMet = Boolean(conditionResults[condition.id]);
-          return (
-            <li key={condition.id} className={`badge-condition ${isMet ? 'badge-condition--met' : ''}`}>
-              <span className="badge-condition-check" aria-hidden="true">
-                {isMet ? '✓' : ''}
+      {/* ── 节点快捷条（chips）── */}
+      <div className="bdl-body">
+        <p className="bdl-hint">
+          {unlocked
+            ? '整套图标已经解锁，藏宝箱已经打开。'
+            : '沿着这条路，三个节点都点亮，终点的宝箱才会开。点击节点可以查看详情。'}
+        </p>
+
+        <div className="bdl-chips">
+          {nodeData.map((n, i) => (
+            <button
+              key={n.key}
+              type="button"
+              className={`bdl-chip ${n.lit ? 'bdl-chip--on' : ''}`}
+              aria-pressed={selectedNodeIdx === i}
+              onClick={() => setSelectedNodeIdx(i)}
+            >
+              <span className="bdl-chip-ico">
+                <NodeIcon type={n.key} on={n.lit} size={22} />
               </span>
-              <span className="badge-condition-body">
-                <span className="badge-condition-title">{condition.title}</span>
-                <span className="badge-condition-desc">
-                  {condition.kind === 'ai'
-                    ? aiCondition?.title || '正在等待 TA 想一个要求…'
-                    : CONDITION_LABELS[condition.type]
-                      ? CONDITION_LABELS[condition.type](condition)
-                      : condition.description}
+              <span className="bdl-chip-text">
+                <b>{n.short}</b>
+                <span>
+                  {i === 3
+                    ? (n.lit ? '已开启' : '未开启')
+                    : (n.lit ? '已点亮' : '未点亮')}
                 </span>
               </span>
-            </li>
-          );
-        })}
-      </ul>
-
-      {equipError && <p className="badge-equip-error">{equipError}</p>}
-
-      <div className="badge-grid">
-        {seasonDef.badges.map((badge) => {
-          const isEquipped = board.equippedBadgeId === badge.id;
-          const isWanted = characterWantedBadgeId === badge.id;
-          const isLocked = !unlocked;
-
-          return (
-            <button
-              type="button"
-              key={badge.id}
-              className={`badge-tile ${isLocked ? 'badge-tile--locked' : ''} ${isEquipped ? 'badge-tile--equipped' : ''}`}
-              onClick={() => !isLocked && onEquip(badge.id)}
-              disabled={isLocked}
-              title={badge.description}
-            >
-              {isWanted && <span className="badge-tile-wanted">TA 想要</span>}
-              <span className="badge-tile-image-wrap">
-                <img src={badge.imageUrl} alt={badge.title} loading="lazy" />
-              </span>
-              <span className="badge-tile-title">{badge.title}</span>
-              {isEquipped && <span className="badge-tile-equipped-tag">佩戴中</span>}
             </button>
+          ))}
+        </div>
+
+        {/* ── 详情卡 ── */}
+        <div
+          className={`bdl-detail ${selNode.lit ? 'bdl-detail--on' : ''}`}
+          key={selectedNodeIdx}
+        >
+          <span className="bdl-detail-icon">
+            <NodeIcon type={selNode.key} on={selNode.lit} size={28} />
+          </span>
+          <div className="bdl-detail-body">
+            <h4>{selNode.title}</h4>
+            <span className={`bdl-tag ${selNode.lit ? 'bdl-tag--on' : ''}`}>
+              {selectedNodeIdx === 3
+                ? (selNode.lit ? '宝箱已开' : '尚未开启')
+                : (selNode.lit ? '已点亮' : '未点亮')}
+            </span>
+            <p>{selNode.desc}</p>
+            {selNode.note && <p className="bdl-detail-note">{selNode.note}</p>}
+
+            {/* 消息进度条 */}
+            {selNode.progress && selNode.progress.now !== null && !selNode.lit && (
+              <div className="bdl-prog">
+                <div className="bdl-prog-track">
+                  <div
+                    className="bdl-prog-fill"
+                    style={{ width: `${Math.min(100, Math.round(selNode.progress.now / selNode.progress.max * 100))}%` }}
+                  />
+                </div>
+                <small>
+                  {selNode.progress.now} / {selNode.progress.max} 条
+                  （{Math.round(selNode.progress.now / selNode.progress.max * 100)}%）
+                </small>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 图标区 ── */}
+      <div className="bdl-badge-section">
+        <div className="bdl-sec-head">
+          <h4>本月图标</h4>
+          <small>{seasonDef.badges.length} 枚</small>
+          {unlocked && (
+            <span className="bdl-tag bdl-tag--on" style={{ marginLeft: 'auto' }}>
+              已解锁
+            </span>
+          )}
+        </div>
+
+        {board.equippedBadgeId && (() => {
+          const equippedBadge = seasonDef.badges.find((b) => b.id === board.equippedBadgeId);
+          if (!equippedBadge) return null;
+          return (
+            <div className="bdl-equip-bar">
+              <span className="bdl-equip-thumb">
+                <img src={equippedBadge.imageUrl} alt={equippedBadge.title} loading="lazy" />
+              </span>
+              <span>
+                佩戴中：<b>{equippedBadge.title}</b>
+              </span>
+              <button
+                type="button"
+                onClick={() => onEquip(board.equippedBadgeId)}
+                style={{ marginLeft: 'auto' }}
+              >
+                取下
+              </button>
+            </div>
           );
-        })}
+        })()}
+
+        {equipError && <p className="badge-equip-error">{equipError}</p>}
+
+        <div className="badge-grid">
+          {seasonDef.badges.map((badge) => {
+            const isEquipped = board.equippedBadgeId === badge.id;
+            const isWanted = characterWantedBadgeId === badge.id;
+            const isLocked = !unlocked;
+
+            return (
+              <button
+                type="button"
+                key={badge.id}
+                className={[
+                  'badge-tile',
+                  isLocked ? 'badge-tile--locked' : '',
+                  isEquipped ? 'badge-tile--equipped' : '',
+                ].join(' ').trim()}
+                onClick={() => !isLocked && onEquip(badge.id)}
+                disabled={isLocked}
+                title={badge.description}
+              >
+                {isWanted && <span className="badge-tile-wanted">TA 想要</span>}
+                <span className="badge-tile-image-wrap">
+                  <img src={badge.imageUrl} alt={badge.title} loading="lazy" />
+                </span>
+                <span className="badge-tile-title">{badge.title}</span>
+                {isEquipped && <span className="badge-tile-equipped-tag">佩戴中</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
