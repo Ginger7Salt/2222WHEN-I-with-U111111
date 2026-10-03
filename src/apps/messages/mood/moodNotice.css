@@ -1,0 +1,103 @@
+/* src/apps/messages/mood/moodNotice.css
+ *
+ * mood_update 系统提示自己的三种出场效果：FADE（默认，淡入+轻微上浮）、
+ * BOUNCE（放大振动回弹）、SPOTLIGHT（配合 MoodSpotlightOverlay.jsx 的
+ * 遮罩，提示条本身再加一圈柔光，强调"被聚焦"的感觉）。角色在
+ * [MOOD: 内容|效果] 标签里自己选，不选就是 FADE，见 moodBubbleDirective.js。
+ *
+ * 三段动画都是固定时长、非 infinite：类名一旦加上去，哪怕这条消息所在
+ * 的聊天流因为别的原因重渲染多少次也不会重播——跟
+ * specialMessageEffects.js 那套"新消息才播一次特效，翻旧记录不重播"的
+ * 约定是同一个思路，这里同样不需要额外的 ref 去防止重放。
+ */
+
+.mood-notice--fade {
+  animation: mood-notice-fade-in 0.45s ease;
+}
+
+@keyframes mood-notice-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  100% {
+    opacity: 0.75;
+    transform: translateY(0);
+  }
+}
+
+.mood-notice--bounce {
+  animation: mood-notice-bounce 0.6s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+@keyframes mood-notice-bounce {
+  0% {
+    transform: scale(0.4);
+  }
+  55% {
+    transform: scale(1.18);
+  }
+  80% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.mood-notice--spotlight-glow {
+  animation: mood-notice-glow 1.3s ease;
+}
+
+@keyframes mood-notice-glow {
+  0% {
+    box-shadow: none;
+  }
+  17% {
+    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.22),
+      0 0 22px 6px rgba(255, 214, 130, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.22),
+      0 0 22px 6px rgba(255, 214, 130, 0.45);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+/* 全屏聚光灯遮罩本身，见 MoodSpotlightOverlay.jsx。挖洞用的
+ * radial-gradient 是内联 style（洞的位置每次都要按目标元素实际位置
+ * 算），这里只负责遮罩整体的淡入停留淡出节奏。 */
+.mood-spotlight-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  animation: mood-spotlight-fade 1.3s ease forwards;
+}
+
+@keyframes mood-spotlight-fade {
+  0% {
+    opacity: 0;
+  }
+  17% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mood-notice--fade,
+  .mood-notice--bounce,
+  .mood-notice--spotlight-glow,
+  .mood-spotlight-overlay {
+    animation: none;
+  }
+}
