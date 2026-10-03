@@ -1,8 +1,10 @@
-/* 和好券面板。
-   颜色全部走 themes.css 现有 token，不新增固定色板；视觉语言这一轮改成
-   跟情绪急救盒/占卜小卡片一致的"杂志 + 弥散"风格——弥散光斑背景、
-   衬线标题字（复用 index.html 里已经加载过的 Noto Serif SC）、票据用
-   编辑排版的留白和分割线，而不是把文字一股脑堆在卡片里。 */
+/* 和好券面板 — 2026-10 magazine editorial 版本
+   颜色全部走 themes.css token，不新增固定色板。
+   视觉语言：杂志折页 + 弥散光斑 + 吐票机 + 朱砂盖章。 */
+
+/* =====================================================
+   OVERLAY & DIFFUSE BACKGROUND
+   ===================================================== */
 
 .coupon-overlay {
   position: fixed;
@@ -15,7 +17,6 @@
   overflow: hidden;
 }
 
-/* ---------------- 弥散光斑背景 ---------------- */
 .coupon-diffuse {
   position: fixed;
   inset: 0;
@@ -27,443 +28,698 @@
 .coupon-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(68px);
-  opacity: 0.45;
-  animation: coupon-drift 20s ease-in-out infinite alternate;
+  filter: blur(80px);
+  opacity: 0.38;
+  animation: coupon-drift 22s ease-in-out infinite alternate;
 }
 
 .coupon-orb--1 {
-  width: 340px;
-  height: 340px;
-  top: -10%;
-  right: -8%;
+  width: 400px;
+  height: 400px;
+  top: -15%;
+  right: -10%;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--accent-color) 50%, transparent) 0%,
-    transparent 72%
+    color-mix(in srgb, var(--accent-color) 55%, transparent) 0%,
+    transparent 70%
   );
   animation-duration: 18s;
 }
 
 .coupon-orb--2 {
-  width: 380px;
-  height: 380px;
-  bottom: -14%;
-  left: -12%;
+  width: 440px;
+  height: 440px;
+  bottom: -18%;
+  left: -14%;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--accent-color) 32%, transparent) 0%,
-    transparent 70%
+    color-mix(in srgb, var(--accent-color) 30%, transparent) 0%,
+    transparent 68%
   );
-  animation-duration: 24s;
-  animation-delay: -5s;
+  animation-duration: 26s;
+  animation-delay: -6s;
 }
 
 @keyframes coupon-drift {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(28px, -20px) scale(1.06); }
-  100% { transform: translate(-18px, 24px) scale(0.95); }
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(30px, -22px) scale(1.07); }
+  100% { transform: translate(-20px, 28px) scale(0.94); }
 }
 
-.coupon-header,
-.coupon-tabs,
-.coupon-body {
+/* =====================================================
+   SCROLL CONTAINER
+   ===================================================== */
+
+.coupon-scroll-root {
   position: relative;
   z-index: 2;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
-.coupon-header {
+/* =====================================================
+   MAGAZINE MODAL CARD (折页主体)
+   ===================================================== */
+
+.coupon-magazine-card {
+  position: relative;
+  margin: 16px 16px 32px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  box-shadow:
+    0 28px 60px -12px color-mix(in srgb, var(--text-main) 10%, transparent),
+    0 8px 22px -4px color-mix(in srgb, var(--text-main) 5%, transparent);
+  overflow: hidden;
+  padding: 28px 24px 24px;
+}
+
+/* 印刷对位十字标 (Crop Marks) */
+.coupon-crop {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  opacity: 0.28;
+}
+
+.coupon-crop::before,
+.coupon-crop::after {
+  content: "";
+  position: absolute;
+  background: var(--text-main);
+}
+
+.coupon-crop::before { top: 4px; left: 0; width: 10px; height: 1px; }
+.coupon-crop::after  { top: 0; left: 4px; width: 1px; height: 10px; }
+
+.coupon-crop--tl { top: 10px; left: 10px; }
+.coupon-crop--tr { top: 10px; right: 10px; }
+.coupon-crop--bl { bottom: 10px; left: 10px; }
+.coupon-crop--br { bottom: 10px; right: 10px; }
+
+/* =====================================================
+   MASTHEAD / 杂志报头
+   ===================================================== */
+
+.coupon-masthead {
+  border-bottom: 2px solid var(--text-main);
+  padding-bottom: 16px;
+  margin-bottom: 0;
+}
+
+.coupon-masthead-index {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  padding: 20px 20px 10px;
-  flex-shrink: 0;
-  backdrop-filter: blur(20px);
-}
-
-.coupon-header-eyebrow {
-  font-family: var(--ek-serif, "Noto Serif SC", serif);
-  font-size: 10px;
-  letter-spacing: 0.24em;
-  color: var(--accent-color);
-  margin-bottom: 4px;
-}
-
-.coupon-header-title {
-  font-family: var(--ek-serif, "Noto Serif SC", serif);
-  font-size: 19px;
+  align-items: center;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   font-weight: 700;
-}
-
-.coupon-header-sub {
-  font-size: 10px;
-  letter-spacing: 0.08em;
   color: var(--text-muted);
-  margin-top: 3px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-main) 12%, transparent);
+  padding-bottom: 6px;
 }
 
-.coupon-close-btn {
-  background: var(--control-soft-bg);
-  border: none;
+.coupon-masthead-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.coupon-masthead-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.coupon-masthead-cn {
+  font-family: "Noto Serif SC", "Songti SC", STSong, Georgia, serif;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  color: var(--text-main);
+}
+
+.coupon-masthead-latin {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  font-style: italic;
+  color: var(--text-sub);
+  margin-top: 4px;
+}
+
+.coupon-masthead-close {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  border: 1px solid color-mix(in srgb, var(--text-main) 18%, transparent);
+  background: transparent;
+  color: var(--text-main);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-sub);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.coupon-tabs {
-  display: flex;
-  gap: 8px;
-  padding: 4px 20px 14px;
-  flex-shrink: 0;
-}
-
-.coupon-tab-btn {
-  font-size: 12px;
-  padding: 7px 18px;
-  border-radius: 999px;
-  border: 1px solid var(--card-border);
-  background: var(--card-bg);
-  color: var(--text-sub);
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-bottom: 4px;
 }
 
-.coupon-tab-btn.is-active {
-  background: var(--accent-color);
-  color: var(--accent-foreground);
-  border-color: var(--accent-color);
+.coupon-masthead-close:hover {
+  background: var(--text-main);
+  color: var(--bg-main);
+  transform: rotate(90deg);
 }
 
-.coupon-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 6px 20px 32px;
-}
-
-.coupon-section-label {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  margin-bottom: 10px;
-}
-
-/* ---------------- 写一张 ---------------- */
-.coupon-template-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.coupon-template-chip {
-  font-size: 12px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--card-border);
-  background: var(--card-bg);
-  color: var(--text-sub);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.coupon-template-chip.is-selected {
-  border-color: var(--accent-color);
-  color: var(--accent-color);
-  background: color-mix(in srgb, var(--accent-color) 12%, var(--card-bg));
-}
-
-.coupon-free-text {
-  width: 100%;
-  min-height: 88px;
-  border-radius: 16px;
-  border: 1px solid var(--card-border);
-  background: var(--card-bg);
-  color: var(--text-main);
-  padding: 12px 14px;
-  font-size: 13px;
-  line-height: 1.6;
-  font-family: inherit;
-  resize: vertical;
-}
-
-.coupon-free-text:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
-
-.coupon-send-btn {
-  margin-top: 14px;
-  width: 100%;
-  background: var(--accent-color);
-  color: var(--accent-foreground);
-  border: none;
-  padding: 12px;
-  border-radius: 14px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
-}
-
-.coupon-send-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.coupon-sent-notice {
+.coupon-masthead-recipient {
   margin-top: 10px;
   font-size: 11px;
-  line-height: 1.6;
-  color: var(--accent-color);
-  text-align: center;
-  animation: coupon-notice-in 0.35s ease;
+  color: var(--text-sub);
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: "Noto Serif SC", serif;
 }
 
-@keyframes coupon-notice-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+.coupon-masthead-recipient strong {
+  color: var(--text-main);
+  font-weight: 700;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-main) 25%, transparent);
+  padding-bottom: 1px;
 }
 
-/* 小票机预览：票面是整个"写一张"里排版最讲究的地方——衬线标题、
-   圆孔撕口线、编辑排版式的页脚信息行 */
-.coupon-machine {
-  margin-top: 22px;
-  background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+/* =====================================================
+   TAB SWITCHER
+   ===================================================== */
+
+.coupon-nav-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 18px 0 22px;
   border: 1px solid var(--card-border);
-  border-radius: 22px;
-  padding: 20px 16px 26px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
+  border-radius: 9px;
+  padding: 3px;
+  background: color-mix(in srgb, var(--text-main) 4%, transparent);
 }
 
-.coupon-machine-label {
-  font-size: 9px;
-  letter-spacing: 0.22em;
+.coupon-mag-tab {
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 7px;
+  transition: all 0.22s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.coupon-mag-tab.is-active {
+  background: var(--bg-surface, var(--card-bg));
+  color: var(--text-main);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text-main) 8%, transparent);
+}
+
+/* =====================================================
+   TAB PANE ANIMATION
+   ===================================================== */
+
+.coupon-pane {
+  animation: coupon-pane-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes coupon-pane-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* =====================================================
+   ISSUE TAB — 写一张
+   ===================================================== */
+
+.coupon-edition-label {
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 700;
   color: var(--text-muted);
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.coupon-slit {
-  width: 68%;
-  height: 7px;
-  background: var(--control-soft-bg);
-  border-radius: 4px;
-  margin: 0 auto 10px;
-  box-shadow: 0 2px 0 color-mix(in srgb, var(--text-muted) 16%, transparent) inset;
+.coupon-edition-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--text-main) 12%, transparent);
 }
 
-.coupon-ticket {
-  width: 88%;
-  margin: 0 auto;
-  background: var(--bg-surface);
+.coupon-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.coupon-editorial-chip {
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 10px;
-  padding: 18px 16px 18px;
-  box-shadow: 0 18px 34px -16px color-mix(in srgb, var(--accent-color) 34%, transparent);
-  transition:
-    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.45s ease;
+  color: var(--text-sub);
+  font-size: 12px;
+  font-family: "Noto Serif SC", serif;
+  padding: 6px 14px;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.coupon-ticket.is-hidden {
-  transform: translateY(26px) scale(0.92);
-  opacity: 0;
+.coupon-editorial-chip:hover {
+  border-color: var(--text-main);
+  color: var(--text-main);
+  transform: translateY(-1px);
 }
 
-/* 停留展示完之后的"飞走"收尾动效：往右上方飘走并模糊淡出，暗示被
-   寄进了聊天里，而不是直接瞬间消失/弹去券夹。 */
-.coupon-ticket.is-flying {
-  animation: coupon-ticket-fly 0.56s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+.coupon-editorial-chip.is-active {
+  background: var(--text-main);
+  color: var(--bg-main);
+  border-color: var(--text-main);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--text-main) 20%, transparent);
+}
+
+.coupon-editorial-textarea {
+  width: 100%;
+  min-height: 86px;
+  padding: 13px 15px;
+  background: color-mix(in srgb, var(--card-bg) 80%, var(--bg-main));
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  color: var(--text-main);
+  font-family: "Noto Serif SC", serif;
+  font-size: 13px;
+  line-height: 1.65;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.coupon-editorial-textarea:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 12%, transparent);
+}
+
+.coupon-editorial-textarea::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.coupon-submit-btn {
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px;
+  background: var(--text-main);
+  color: var(--bg-main);
+  border: none;
+  border-radius: 9px;
+  font-family: "Noto Serif SC", serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.coupon-submit-btn:disabled {
+  background: color-mix(in srgb, var(--text-main) 22%, var(--card-bg));
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.coupon-submit-btn:not(:disabled):hover {
+  opacity: 0.88;
+  box-shadow: 0 8px 20px -4px color-mix(in srgb, var(--text-main) 28%, transparent);
+  transform: translateY(-1px);
+}
+
+.coupon-sent-whisper {
+  margin-top: 12px;
+  padding: 9px 14px;
+  background: color-mix(in srgb, var(--accent-color) 8%, var(--card-bg));
+  border-left: 2px solid var(--accent-color);
+  border-radius: 0 8px 8px 0;
+  font-size: 11px;
+  color: var(--text-sub);
+  font-family: "Noto Serif SC", serif;
+  line-height: 1.65;
+  animation: coupon-pane-in 0.3s ease;
+}
+
+/* =====================================================
+   PRINTING PRESS MECHANISM (吐票机)
+   ===================================================== */
+
+.coupon-press-area {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  min-height: 190px;
+}
+
+.coupon-press-badge {
+  font-size: 8px;
+  letter-spacing: 0.3em;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.coupon-press-slit {
+  position: relative;
+  width: 88%;
+  height: 7px;
+  background: color-mix(in srgb, var(--text-main) 18%, var(--card-bg));
+  border-radius: 6px;
+  box-shadow:
+    inset 0 2px 4px color-mix(in srgb, var(--text-main) 25%, transparent),
+    0 1px 0 color-mix(in srgb, var(--bg-main) 60%, transparent);
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.coupon-press-slit::after {
+  content: "";
+  position: absolute;
+  inset: 2px 10px;
+  background: var(--bg-main);
+  border-radius: 3px;
+  opacity: 0.85;
+}
+
+/* =====================================================
+   PAPER TICKET (票面)
+   ===================================================== */
+
+.coupon-paper-ticket {
+  position: absolute;
+  top: 14px;
+  width: 84%;
+  background: var(--bg-surface, var(--card-bg));
+  border: 1px solid color-mix(in srgb, var(--text-main) 14%, transparent);
+  border-radius: 8px;
+  padding: 16px 18px;
+  box-shadow:
+    0 18px 32px -8px color-mix(in srgb, var(--text-main) 18%, transparent),
+    0 4px 10px -2px color-mix(in srgb, var(--text-main) 7%, transparent);
+  z-index: 5;
+  transform-origin: top center;
+  /* 双侧圆孔 */
+  mask-image:
+    radial-gradient(circle at 0px 76px, transparent 8px, black 8.5px),
+    radial-gradient(circle at 100% 76px, transparent 8px, black 8.5px);
+  -webkit-mask-image:
+    radial-gradient(circle at 0px 76px, transparent 8px, black 8.5px),
+    radial-gradient(circle at 100% 76px, transparent 8px, black 8.5px);
+}
+
+.coupon-paper-ticket.is-hidden {
+  display: none;
+}
+
+.coupon-paper-ticket.is-printing {
+  display: block;
+  animation: coupon-ticket-slide 0.82s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.coupon-paper-ticket.is-flying {
+  display: block;
+  animation: coupon-ticket-fly 0.56s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+}
+
+@keyframes coupon-ticket-slide {
+  0% {
+    transform: translateY(-80px) scale(0.94);
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    clip-path: inset(0 0 0% 0);
+  }
 }
 
 @keyframes coupon-ticket-fly {
   0% {
+    transform: translateY(0) scale(1) rotate(0deg);
     opacity: 1;
-    transform: translate(0, 0) scale(1) rotate(0deg);
-    filter: blur(0);
+    filter: blur(0px);
+  }
+  30% {
+    transform: translateY(-14px) scale(1.03) rotate(-2deg);
   }
   100% {
+    transform: translateY(-160px) translateX(70px) rotate(13deg) scale(0.82);
     opacity: 0;
-    transform: translate(60px, -90px) scale(0.6) rotate(10deg);
-    filter: blur(3px);
+    filter: blur(5px);
   }
 }
 
-.coupon-ticket-label {
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  color: var(--accent-color);
-  text-align: left;
-}
-
-.coupon-ticket-title {
-  font-family: var(--ek-serif, "Noto Serif SC", serif);
-  font-size: 18px;
-  font-weight: 700;
-  margin: 6px 0 10px;
-  text-align: left;
-}
-
-.coupon-ticket-perforation,
-.coupon-card-perforation {
-  position: relative;
-  height: 1px;
-  margin: 10px 0;
-  background-image: radial-gradient(
-    circle,
-    var(--card-border) 1.3px,
-    transparent 1.6px
-  );
-  background-size: 9px 1px;
-  background-repeat: repeat-x;
-  background-position: left center;
-  border: none;
-}
-
-.coupon-ticket-note {
-  font-size: 12px;
-  color: var(--text-sub);
-  line-height: 1.7;
-  text-align: left;
-}
-
-.coupon-ticket-foot {
+/* 票面内部排版 */
+.coupon-ticket-eyebrow {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  font-weight: 700;
   color: var(--text-muted);
-  margin-top: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-main) 10%, transparent);
+  padding-bottom: 5px;
+  text-transform: uppercase;
 }
 
-/* ---------------- 券夹 ---------------- */
-.coupon-wallet-hint {
-  font-size: 11px;
-  line-height: 1.7;
-  color: var(--text-muted);
-  margin-bottom: 14px;
-}
-
-.coupon-wallet-stats {
-  display: flex;
-  gap: 18px;
-  margin-bottom: 16px;
-}
-
-.coupon-stat {
-  font-size: 10px;
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-}
-
-.coupon-stat b {
-  display: block;
-  font-family: var(--ek-serif, "Noto Serif SC", serif);
+.coupon-ticket-heading {
+  font-family: "Noto Serif SC", serif;
   font-size: 18px;
-  color: var(--accent-color);
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 9px 0 5px;
+  letter-spacing: 0.02em;
 }
 
-.coupon-wallet-grid {
+.coupon-ticket-perforation {
+  height: 1px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--text-main) 22%, transparent);
+  margin: 11px -18px;
+}
+
+.coupon-ticket-body {
+  font-family: "Noto Serif SC", serif;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-sub);
+  min-height: 30px;
+  padding-top: 4px;
+}
+
+.coupon-ticket-colophon {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 13px;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.coupon-barcode {
+  height: 16px;
+  opacity: 0.6;
+}
+
+/* =====================================================
+   ARCHIVE TAB — 券夹
+   ===================================================== */
+
+.coupon-wallet-preface {
+  font-family: "Noto Serif SC", serif;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text-sub);
+  padding-bottom: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-main) 10%, transparent);
+}
+
+.coupon-tally-bar {
   display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 16px 0 20px;
+}
+
+.coupon-tally-item {
+  background: color-mix(in srgb, var(--text-main) 4%, var(--card-bg));
+  border: 1px solid var(--card-border);
+  border-radius: 9px;
+  padding: 9px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.coupon-tally-title {
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.coupon-tally-count {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1;
+}
+
+/* 档案卡列表 */
+.coupon-archive-list {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
-.coupon-card-item {
+/* 单张档案卡 */
+.coupon-archive-card {
   position: relative;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 18px;
-  padding: 16px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  animation: coupon-card-in 0.35s ease;
+  border-radius: 13px;
+  padding: 16px 17px;
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--text-main) 4%, transparent);
+  transition: all 0.22s ease;
+  overflow: hidden;
+  animation: coupon-card-in 0.3s ease;
 }
 
-.coupon-card-item.is-redeemed {
-  opacity: 0.55;
+.coupon-archive-card:hover {
+  box-shadow: 0 7px 22px color-mix(in srgb, var(--text-main) 8%, transparent);
+  border-color: color-mix(in srgb, var(--text-main) 28%, transparent);
+}
+
+.coupon-archive-card.is-redeemed {
+  opacity: 0.58;
 }
 
 @keyframes coupon-card-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.coupon-card-tag {
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: var(--accent-color);
+.coupon-archive-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
 }
 
-.coupon-card-title {
-  font-family: var(--ek-serif, "Noto Serif SC", serif);
+.coupon-archive-title {
+  font-family: "Noto Serif SC", serif;
   font-size: 16px;
   font-weight: 700;
-  margin: 4px 0 6px;
+  color: var(--text-main);
+  margin-bottom: 5px;
+  letter-spacing: 0.01em;
 }
 
-.coupon-card-note {
+.coupon-archive-note {
+  font-family: "Noto Serif SC", serif;
   font-size: 12px;
+  line-height: 1.58;
   color: var(--text-sub);
-  line-height: 1.6;
-  min-height: 2.2em;
+  margin-bottom: 12px;
 }
 
-.coupon-card-foot {
+.coupon-archive-footer {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-top: 10px;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--text-main) 8%, transparent);
 }
 
-.coupon-status-pill {
-  font-size: 10px;
-  padding: 2px 9px;
-  border-radius: 999px;
+.coupon-archive-status {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 3px 9px;
+  border-radius: 5px;
+  text-transform: uppercase;
 }
 
-.coupon-status-pill.pending {
+.coupon-archive-status.pending {
   background: color-mix(in srgb, var(--accent-color) 14%, var(--card-bg));
   color: var(--accent-color);
 }
 
-.coupon-status-pill.redeemed {
-  background: var(--control-soft-bg);
+.coupon-archive-status.redeemed {
+  background: transparent;
   color: var(--text-muted);
+  border: 1px solid var(--card-border);
 }
 
-.coupon-card-redeem-btn {
-  margin-top: 12px;
-  width: 100%;
+.coupon-archive-redeem-btn {
+  background: var(--text-main);
+  color: var(--bg-main);
+  border: none;
+  padding: 6px 13px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "Noto Serif SC", serif;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: var(--accent-color);
-  color: var(--accent-foreground);
-  border: none;
-  padding: 9px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
+  gap: 5px;
+  transition: all 0.2s ease;
+  letter-spacing: 0.04em;
 }
 
-.coupon-card-redeem-btn:hover {
-  opacity: 0.88;
+.coupon-archive-redeem-btn:hover {
+  opacity: 0.85;
+  transform: scale(1.02);
 }
 
-.coupon-stamp-overlay {
+/* =====================================================
+   RUBBER STAMP (朱砂印章)
+   ===================================================== */
+
+.coupon-stamp-layer {
   position: absolute;
   inset: 0;
   display: flex;
@@ -471,36 +727,44 @@
   justify-content: center;
   pointer-events: none;
   opacity: 0;
-  border-radius: 18px;
+  transform: scale(2.8) rotate(-25deg);
+  border-radius: 13px;
 }
 
-.coupon-stamp-overlay.show {
-  background: color-mix(in srgb, var(--card-bg) 55%, transparent);
-  animation: coupon-stamp-in 0.5s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+.coupon-stamp-layer.is-active {
+  animation: coupon-stamp-slam 0.44s cubic-bezier(0.15, 1.25, 0.3, 1) forwards;
 }
 
-@keyframes coupon-stamp-in {
-  0% { opacity: 0; transform: scale(2) rotate(-16deg); }
-  60% { opacity: 1; transform: scale(0.95) rotate(-10deg); }
-  100% { opacity: 1; transform: scale(1) rotate(-10deg); }
+@keyframes coupon-stamp-slam {
+  0%  { opacity: 0;    transform: scale(2.6) rotate(-26deg); }
+  65% { opacity: 1;    transform: scale(0.92) rotate(-9deg); }
+  100%{ opacity: 0.95; transform: scale(1) rotate(-11deg); }
 }
 
-.coupon-stamp-mark {
-  border: 3px double var(--accent-color);
+.coupon-stamp-seal {
+  border: 2px dashed var(--accent-color);
   color: var(--accent-color);
-  font-weight: 800;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  padding: 5px 14px;
-  border-radius: 6px;
-  transform: rotate(-10deg);
-  background: color-mix(in srgb, var(--card-bg) 70%, transparent);
+  padding: 5px 16px;
+  border-radius: 5px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--card-bg) 72%, transparent);
+  box-shadow: 0 0 0 2px var(--accent-color);
 }
 
-.coupon-empty {
+/* =====================================================
+   EMPTY STATE
+   ===================================================== */
+
+.coupon-archive-empty {
+  padding: 42px 16px;
   text-align: center;
-  padding: 48px 18px;
+  font-family: "Noto Serif SC", serif;
   color: var(--text-muted);
   font-size: 13px;
+  letter-spacing: 0.04em;
   line-height: 1.7;
 }
