@@ -9,8 +9,11 @@
 //
 // 方向用消息自己的 sender 字段区分：
 // - sender === 'user'：用户发给角色的券。角色是持有方。角色自己知道自己
-//   手上有几张（countPendingUserCoupons，喂进系统提示词），但由谁、怎么
-//   触发"兑现"是下一轮要做的事，这一版不碰。
+//   手上有几张（countPendingUserCoupons，喂进系统提示词）；角色决定
+//   兑现时，在回复里带 [COUPON_REDEEM: 标题 | 内容] 标签，检测逻辑在
+//   containsCouponRedeemRequest/extractCouponRedeemTitle，实际改状态
+//   在 redeemPendingUserCoupon，调用方是 aiService.js（跟 DIY小屋的
+//   换装标签同一套模式——静默标签，不产出卡片，只触发副作用）。
 // - sender === 'character'：角色发给用户的券（角色在线回复里自己带
 //   [COUPON: 标题 | 内容] 标签生成，解析逻辑在 aiService.js，没有变）。
 //   用户是持有方，兑现入口在聊天气泡本身（CouponCard.jsx）。
@@ -87,8 +90,9 @@ export const countPendingUserCoupons = async (chatId) => {
   return rows.length;
 };
 
-// 兑现一张券（目前只有角色发给用户的券能走这条路径——用户自己发的券，
-// 兑现发起权在角色那边，这一版的 UI 本来就不会给用户发的券显示兑现按钮）。
+// 兑现一张券（用户按按钮触发——目前只有角色发给用户的券能走这条路径，
+// 用户自己发的券，兑现发起权在角色那边，这一版的 UI 本来就不会给用户
+// 发的券显示兑现按钮）。
 export const redeemCoupon = async (item) => {
   if (!item || item.source !== 'message') return;
 
@@ -102,4 +106,69 @@ export const redeemCoupon = async (item) => {
       redeemedAt: new Date().toISOString(),
     },
   });
+};
+
+// 角色自己决定兑现一张用户送的券（[COUPON_REDEEM] 标签触发）。
+// 按标题匹配这个聊天里最早的一张还没兑现的用户送出的券；AI 复述的标题
+// 可能跟原文不完全一致（大小写/首尾空格/轻微转述），所以：
+// 1. 先尝试精确匹配（忽略大小写和首尾空格）；
+// 2. 找不到就退回"最早那张还没兑现的"，避免因为用词对不上而静默失败——
+//    角色说了"我要兑现这张券"，体验上应该真的兑现一张,而不是什么都不做。
+// 找到就把消息 metadata 标成 redeemed 并返回这条消息（调用方用它来确认
+// 兑现成功、取标题等）；一张都没有就返回 null。
+export const redeemPendingUserCoupon = async ({ chatId, title }) => {
+  if (!chatId) return null;
+
+  const pendingRows = await db.messages
+    .where('chatId')
+    .equals(chatId)
+    .filter((message) =>
+      message.type === 'coupon' &&
+      message.sender === 'user' &&
+      (message.metadata?.status || 'pending') === 'pending'
+    )
+    .toArray();
+
+  if (pendingRows.length === 0) return null;
+
+  pendingRows.sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  const cleanTitle = String(title || '').trim().toLowerCase();
+
+  const target =
+    (cleanTitle &&
+      pendingRows.find(
+        (message) =>
+          String(message.metadata?.title || '').trim().toLowerCase() === cleanTitle
+      )) ||
+    pendingRows[0];
+
+  await db.messages.update(target.id, {
+    metadata: {
+      ...(target.metadata || {}),
+      status: 'redeemed',
+      redeemedAt: new Date().toISOString(),
+      redeemedBy: 'character',
+    },
+  });
+
+  return { ...target, metadata: { ...(target.metadata || {}), status: 'redeemed' } };
+};
+// aiService.js 解析 AI 原始回复文字时用这个判断：这次回复里有没有带
+// 角色决定兑现用户送的券时该带的那个静默信号标签。跟 DIY小屋的
+// containsDiyAreaRequest 同一个用法——标签不产出可见卡片，解析结果里
+// 找不到它，只能直接查原始文字。
+export const containsCouponRedeemRequest = (text) => (
+  /\[COUPON_REDEEM\s*:/i.test(String(text || ''))
+);
+
+// 从原始回复文字里把 [COUPON_REDEEM: 标题 | 内容] 的标题部分摘出来，
+// 给 redeemPendingUserCoupon 用来匹配具体是哪一张券。一次回复理论上
+// 只会兑现一张，所以只取第一个匹配；内容(第二段)目前不需要额外用——
+// 角色会在标签之外的正文里自己说明"打算怎么兑现"，不需要再单独存一份。
+export const extractCouponRedeemTitle = (text) => {
+  const match = /\[COUPON_REDEEM\s*:\s*([^\]|]+)/i.exec(String(text || ''));
+  return match ? match[1].trim() : '';
 };

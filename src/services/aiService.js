@@ -116,7 +116,12 @@ import {
 
 import { getSharedWorldPromptBlock } from '../apps/shared-world/sharedWorldService';
 import { maybeUpdateProfileCard } from '../apps/messages/profile/profileCardService';
-import { countPendingUserCoupons } from '../apps/messages/coupon/couponService';
+import {
+  countPendingUserCoupons,
+  containsCouponRedeemRequest,
+  extractCouponRedeemTitle,
+  redeemPendingUserCoupon,
+} from '../apps/messages/coupon/couponService';
 
 
 
@@ -272,7 +277,7 @@ export const parseAiResponseToMessages = async (text = '') => {
 
   // 支持的 AI 卡片标签，加入 STICKER
  const pattern =
-  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION|PARCEL_START|PARCEL_NOTE|COUPON):\s*([^\]]+)\]/g;
+  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION|PARCEL_START|PARCEL_NOTE|COUPON|COUPON_REDEEM):\s*([^\]]+)\]/g;
   // 一次性读取本地表情包库，建立「名称 -> URL」映射
   const allStickers = await db.stickers.toArray();
 
@@ -450,6 +455,11 @@ export const parseAiResponseToMessages = async (text = '') => {
       metadata: { direction: 'char_to_user' }
     });
   }
+    } else if (cardType === 'coupon_redeem') {
+      // 静默信号标签：角色决定兑现一张用户送的券，这里只负责把标签从
+      // 正文里摘掉，不产出卡片——实际兑现（找到对应的券消息、改状态）
+      // 由 redeemPendingUserCoupon 在调用方那边单独处理，跟 DIY小屋的
+      // 换装标签是同一套模式。
     } else if (cardType === 'diyarea_request') {
       // 静默信号标签：这里只负责把标签从正文里摘掉，不产出卡片。
     } else if (cardType === 'diyarea_self_update') {
@@ -1217,16 +1227,16 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   // 拆的时候则完全不提——这件事已经做完了。
   const parcelPromptBlock = buildParcelPromptBlock(chat);
 
-  // 和好券：用户发给角色的券，角色是持有方，这里只负责让角色"知道"自己
-  // 手上还攥着几张没兑现的——具体什么时候兑现、怎么兑现是另一件事（还没
-  // 做），这一版先不出现任何兑现标签，只是单纯告知数量，不强制角色必须
-  // 做什么。数量为 0 时完全不提这件事。
+  // 和好券：用户发给角色的券，角色是持有方，这里让角色"知道"自己手上
+  // 还攥着几张没兑现的，并且可以自己决定什么时候用 [COUPON_REDEEM] 兑现
+  // 其中一张——兑现标签只在有未兑现的券时才出现在提示词里，数量为 0 时
+  // 完全不提这件事（既不提数量，也不提兑现标签，避免角色凭空编造）。
   let couponPromptBlock = '';
   try {
     const pendingUserCouponCount = await countPendingUserCoupons(chatId);
 
     if (pendingUserCouponCount > 0) {
-      couponPromptBlock = `\n【你手上还攥着用户给你的和好券】：用户一共送过你 ${pendingUserCouponCount} 张还没兑现的和好券（具体是什么内容，去看聊天记录里对应的消息）。这只是让你知道自己手上有这些券，不代表你现在必须做什么，正常聊天就好。\n`;
+      couponPromptBlock = `\n【你手上还攥着用户给你的和好券】：用户一共送过你 ${pendingUserCouponCount} 张还没兑现的和好券（具体是什么内容，去看聊天记录里对应的消息）。你可以自己判断合适的时机主动兑现其中一张——比如用户刚好提到了跟某张券相关的事，或者你单纯想为用户做点什么。兑现时，在回复正文里用这个标签：[COUPON_REDEEM: 券标题 | 你打算怎么兑现/现在要做的事]（标题要跟那张券原本的标题对上，这样系统才能找到是哪一张；没有冷却限制，但不要一次兑现好几张，也不要每次都兑现，正常聊天就好，不强制你现在必须做什么）。用了这个标签之后，不需要再额外描述"券已经变成已兑现状态"这种系统性的话，正常地把你打算做的事说出来就行，就像真的在为用户做这件事一样。\n`;
     }
   } catch (error) {
     console.warn('[buildChatSystemPrompt] 统计用户送出的和好券数量失败：', error);
@@ -3061,6 +3071,18 @@ if (!result.error) {
   void checkAndDeliverParcel({ chatId, character, apiConfig }).catch((error) => {
     console.warn('[Parcel] Delivery check skipped safely:', error);
   });
+
+  // 和好券：角色自己决定兑现一张用户送的券。同样只挂在这条主路径上，
+  // 同样是独立、不阻塞的后台任务，跟DIY小屋的强制换装标签同一套模式——
+  // 标签不产出卡片，副作用（找到对应券、改成 redeemed）在这里触发，
+  // 聊天气泡里那张券的卡片会在下一次 Dexie 实时查询刷新时自己显示
+  // "已兑现"，不需要额外再发一条消息。
+  if (containsCouponRedeemRequest(cleanedReplyContent)) {
+    const redeemTitle = extractCouponRedeemTitle(cleanedReplyContent);
+    void redeemPendingUserCoupon({ chatId, title: redeemTitle }).catch((error) => {
+      console.warn('[Coupon] Character-initiated redeem skipped safely:', error);
+    });
+  }
 
   // 资料卡（昵称/#标签/个性签名）：同样只挂在这条主路径上，同样是
   // 独立、不阻塞的后台任务，跟DIY小屋完全同构，但没有用户主动触发的

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Ticket, Check } from 'lucide-react';
 import { redeemCoupon } from '../../coupon/couponService';
 
@@ -10,8 +10,20 @@ export const CouponCard = ({ metadata, messageId, isUser = false }) => {
   const [status, setStatus] = useState(metadata?.status || 'pending');
   const [isStamping, setIsStamping] = useState(false);
 
+  // 用户发的券现在可能被角色自己在后台兑现（[COUPON_REDEEM] 标签），
+  // 不是靠这张卡片自己的按钮——那次更新只会体现在 Dexie 的实时查询
+  // 重新推下来的 metadata 里，不会重新挂载这个组件，所以本地 status
+  // 需要跟着外部 metadata 同步，否则用户要刷新页面才能看到变化。
+  useEffect(() => {
+    setStatus(metadata?.status || 'pending');
+  }, [metadata?.status]);
+
   const title = metadata?.title || '和好券';
   const note = metadata?.note || '';
+  // redeemedBy: 'character' 表示这是用户发出的券，由角色自己决定兑现
+  // （[COUPON_REDEEM] 标签），不是用户按按钮触发的——两者共用同一套
+  // status 字段，这里只是展示文案上区分一下。
+  const redeemedByCharacter = metadata?.redeemedBy === 'character';
 
   const handleRedeem = () => {
     if (status !== 'pending' || !messageId) return;
@@ -74,6 +86,9 @@ export const CouponCard = ({ metadata, messageId, isUser = false }) => {
         <div className="py-3">
           <h4 className="mb-1 text-base font-bold tracking-tight">{title}</h4>
           <p className="text-xs leading-relaxed opacity-80">{note}</p>
+          {isUser && status === 'redeemed' && redeemedByCharacter && (
+            <p className="mt-2 text-[11px] opacity-60">TA 兑现了这张券</p>
+          )}
         </div>
 
         {!isUser && status === 'pending' && (
