@@ -4661,4 +4661,10 @@ db.version(73).stores({
   monthlyBadgeEquips: '++id, chatId',
 });
 
+// v74：和好券（情侣兑换券）。只存用户发出的券，角色主动发的券走普通
+// chat message（type: 'coupon'），不占这张表——见 couponService.js 注释。
+db.version(74).stores({
+  coupons: '++id, chatId, status, createdAt',
+});
+
 export default db;

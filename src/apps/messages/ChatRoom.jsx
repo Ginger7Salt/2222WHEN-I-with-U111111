@@ -81,6 +81,7 @@ import WorkNotebook from './work/WorkNotebook';
 
 import { createInteractionMessage, createTruthOrDareMessage } from './interactions/interactionService';
 import DivinationSetupModal from './interactions/divination/DivinationSetupModal';
+import CouponWalletPanel from './coupon/CouponWalletPanel';
 import { createDivinationMessage } from './interactions/divination/divinationService';
 import {
   createPokeMessage,
@@ -253,6 +254,7 @@ export const ChatRoom = ({
   const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
     const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
   const loadedMessageCountRef = useRef(INITIAL_VISIBLE_MESSAGE_COUNT);
+  const [showCouponWallet, setShowCouponWallet] = useState(false);
 
   /*
    * 当前尚未持久化到 messages.metadata 的实时 MCP 调用轨迹。
@@ -2683,11 +2685,15 @@ useLayoutEffect(() => {
                 }
 
               if (type === 'interaction_divination') {
-                  // 先收起键盘，避免和面板弹出的时机互相打架
-                  inputRef.current?.blur();
-                  setShowDivinationModal(true);
-                  return;
-                }
+  inputRef.current?.blur();
+  setShowDivinationSetup(true);
+  return;
+}
+if (type === 'interaction_coupon') {
+  inputRef.current?.blur();
+  setShowCouponWallet(true);
+  return;
+}
 
                       if (type === 'interaction_poke') {
                   void handlePokeCharacter('full');
@@ -2978,6 +2984,13 @@ useLayoutEffect(() => {
         onClose={() => setShowDivinationModal(false)}
         onSubmit={handleCreateDivination}
       />
+
+      <CouponWalletPanel
+  isOpen={showCouponWallet}
+  onClose={() => setShowCouponWallet(false)}
+  chatId={chat?.id}
+  character={character}
+/>
 
       {showOrderModal && (
         <Suspense fallback={null}>

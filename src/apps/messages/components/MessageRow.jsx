@@ -40,6 +40,7 @@ import ArticleCard from './cards/ArticleCard';
 import GiftCard from './cards/GiftCard';
 import FoodDeliveryCard from './cards/FoodDeliveryCard';
 import KinshipCard from './cards/KinshipCard';
+import CouponCard from './cards/CouponCard';
 import OrderRequestCard from './cards/OrderRequestCard';
 import StickerCard from './cards/StickerCard';
 import PhotoCard from './cards/PhotoCard';
@@ -567,12 +568,12 @@ const MessageRow = ({
                 />
               )}
 
-              {msg.type === 'kinship' && (
-                <KinshipCard
-                  metadata={msg.metadata}
-                  isUser={isUser}
-                />
-              )}
+{msg.type === 'kinship' && (
+  <KinshipCard metadata={msg.metadata} />
+)}
+{msg.type === 'coupon' && (
+  <CouponCard metadata={msg.metadata} messageId={msg.id} isUser={isUser} />
+)}
 
               
               {msg.type === 'order_request' && (

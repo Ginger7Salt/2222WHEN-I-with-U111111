@@ -127,6 +127,7 @@ const EphemeraApp = lazyWithRetry(() => import('./apps/ephemera/EphemeraApp'), '
 
 const AskBoxApp = lazyWithRetry(() => import('./apps/askbox/AskBoxApp'), 'AskBoxApp');
 const ShellApp = lazyWithRetry(() => import('./apps/shell/ShellApp'), 'ShellApp');
+const EmotionKitApp = lazyWithRetry(() => import('./apps/emotionkit/EmotionKitApp'), 'EmotionKitApp');
 const ManualApp = lazyWithRetry(() => import('./apps/manual/ManualApp'), 'ManualApp');
 const MemoryApp = lazyWithRetry(() => import('./apps/memory/MemoryApp'), 'MemoryApp');
 const NewspaperApp = lazyWithRetry(() => import('./apps/newspaper/NewspaperApp'), 'NewspaperApp');
@@ -211,6 +212,7 @@ const REGISTERED_APPS = [
   'ephemera',
   'askbox',
   'shell',
+  'emotionkit',
   'rhythm',
   'almanac',
   'shared-world',
@@ -835,11 +837,12 @@ const [hubBackground, setHubBackground] = useState('');
   const isMarginNotesApp =
     currentApp === 'margin-notes';
 
-  const isShellApp = currentApp === 'shell';
+ const isShellApp = currentApp === 'shell';
+const isEmotionKitApp = currentApp === 'emotionkit';
 
   const mainClassName = isInsideChatRoom
     ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
-    : isMarginNotesApp || isShellApp
+    : isMarginNotesApp || isShellApp || isEmotionKitApp
       ? 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] overflow-x-hidden'
       : 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6';
 
@@ -1221,6 +1224,15 @@ const [hubBackground, setHubBackground] = useState('');
             </React.Suspense>
           </ErrorBoundary>
         )}
+
+        {currentApp === 'emotionkit' && (
+  <ErrorBoundary>
+    <React.Suspense fallback={<AppLoadingFallback />}>
+      <EmotionKitApp onBackHub={() => openApp('hub')} />
+    </React.Suspense>
+  </ErrorBoundary>
+)}
+
 
         {currentApp === 'rhythm' && (
           <ErrorBoundary>

@@ -271,8 +271,7 @@ export const parseAiResponseToMessages = async (text = '') => {
 
   // 支持的 AI 卡片标签，加入 STICKER
  const pattern =
-  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION|PARCEL_START|PARCEL_NOTE):\s*([^\]]+)\]/g;
-
+  /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION|PARCEL_START|PARCEL_NOTE|COUPON):\s*([^\]]+)\]/g;
   // 一次性读取本地表情包库，建立「名称 -> URL」映射
   const allStickers = await db.stickers.toArray();
 
@@ -393,6 +392,18 @@ export const parseAiResponseToMessages = async (text = '') => {
       amount: (parts[0] || '5200').trim(),
       cycle: (parts[1] || '月度额度').trim(),
       quote: (parts[2] || '拿去随便刷，我的就是你的。').trim()
+    }
+  });
+} else if (cardType === 'coupon') {
+  const parts = rawPayload.split('|');
+  result.push({
+    type: 'coupon',
+    content: (parts[0] || '和好券').trim(),
+    metadata: {
+      title: (parts[0] || '和好券').trim(),
+      note: (parts[1] || '兑换一次专属的好意。').trim(),
+      status: 'pending',
+      redeemedAt: null,
     }
   });
 } else if (cardType === 'location') {
@@ -1361,6 +1372,7 @@ ${stickerInstruction}
 - 开通亲属额度卡：[KINSHIP: 额度数字 | 周期(如:每月) | 卡片寄语]
 - 发送本地表情包：[STICKER: 表情包名称]
 - 分享位置卡片：[LOCATION: 地点名称 | 一句附加感想(可选)]
+- 主动送用户一张和好券/心意兑换券：[COUPON: 券名称 | 可以兑换的具体内容]（没有冷却限制，你自己判断合适的时机）
 - 重新布置你的DIY小屋：[DIYAREA_REQUEST: 确认]（只要用户在这次聊天里提出想让你换一下/重新收拾/重新设计这个小屋的布置，无论说法多随意、哪怕只是一句简短的口语化请求，都要使用这个标签——比如"DIY一下你的小屋""把小屋重新弄一下""换个风格布置小屋""你小屋能不能换个样子""去收拾一下你的房间"这些说法都算数，不要因为用户没有说得很正式、很完整就认为不算明确提出；但如果用户只是在闲聊小屋这个话题、没有真的要求你去改，就不要用。用了之后你不需要、也不应该在正文里描述新布置具体是什么样子，小屋会单独自己更新，你只需要像平时一样简短回应一下用户（比如说"好呀""我去弄弄"），不用假装自己正在做某个具体动作）
 ${diyPromptBlock}
 ${parcelPromptBlock}

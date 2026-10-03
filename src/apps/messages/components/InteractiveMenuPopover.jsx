@@ -13,6 +13,7 @@ import {
   Hand,
   Scroll,
   HelpCircle,
+  Ticket,
     Flame,
   Moon,
   Ghost,
@@ -295,8 +296,17 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
     <Moon className="h-3.5 w-3.5" />
     <span>占卜</span>
   </button>
-</div>
 
+  <button
+    type="button"
+    onClick={() => handleAction('interaction_coupon')}
+    className="mt-1 flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
+    style={{ backgroundColor: 'var(--control-soft-bg)' }}
+  >
+    <Ticket className="h-3.5 w-3.5" />
+    <span>和好券</span>
+  </button>
+</div>
         </div>
       )}
     </div>
