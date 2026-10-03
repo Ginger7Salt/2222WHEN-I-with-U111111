@@ -1,42 +1,38 @@
 // 和好券：数据读写。
 //
-// 两个方向分别存在两个地方，查看时合并成一个列表：
-// - 用户发给角色的券：存在新建的 coupons 表里（这是用户在券夹面板里
-//   主动创建的，不是聊天消息，不需要在聊天记录里留痕）。
-// - 角色主动发给用户的券：角色在在线回复里自己决定带上
-//   [COUPON: 标题 | 内容] 标签（跟戳一戳一样的"AI 自己判断时机"的
-//   写法，不另开后台定时器），aiService.js 现有的标签解析器已经把它
-//   解析成一条普通的 chatId 下的 messages 记录（type: 'coupon'）——
-//   这条消息本身就是这张券的唯一数据来源，不再额外写一份进 coupons
-//   表。兑现状态直接存在这条消息自己的 metadata 里。
+// 2026-10 改版：两个方向统一存成真正的聊天消息（db.messages，type: 'coupon'），
+// 不再区分"表里的券"和"消息里的券"两套来源——用户发出的券之前只写进一张
+// 看不见的 coupons 表，聊天记录里完全找不到，这正是这一轮要改掉的问题。
+// 现在用户发券也会变成一条 sender:'user' 的真消息，直接出现在聊天记录里
+// （写入逻辑在 ChatRoom.jsx 的 handleSendCoupon，跟发表情包/点单请求是
+// 同一套写法）。
 //
-// 10 天自动清理（COUPON_AUTO_CLEAN_DAYS）只物理删除 coupons 表里已兑现
-// 的行；角色发的券是聊天消息，不会被删除——只是超过这个天数后不再算进
-// 券夹的"未兑现/已兑现"统计里，这是跟"不能删除真实聊天记录"这个项目
-// 一贯原则做的取舍，没有单独跟用户确认这一点，做完之后需要跟用户说明。
+// 方向用消息自己的 sender 字段区分：
+// - sender === 'user'：用户发给角色的券。角色是持有方。角色自己知道自己
+//   手上有几张（countPendingUserCoupons，喂进系统提示词），但由谁、怎么
+//   触发"兑现"是下一轮要做的事，这一版不碰。
+// - sender === 'character'：角色发给用户的券（角色在线回复里自己带
+//   [COUPON: 标题 | 内容] 标签生成，解析逻辑在 aiService.js，没有变）。
+//   用户是持有方，兑现入口在聊天气泡本身（CouponCard.jsx）。
+//
+// 券夹（CouponWalletPanel 的"券夹"标签页）这一轮跟用户确认过：只展示角色
+// 发给用户的券——用户自己发的券已经是聊天记录的一部分，不需要在券夹里
+// 重复列一遍。
+//
+// 旧版 coupons 表（上一版用来存用户发出的券）这一版不再写入，也不再在券夹
+// 里读取展示；表本身不删，数据库结构没有变化，符合这个项目"能不动 schema
+// 就不动"的一贯原则。
 
 import db from '../../../db';
 import { COUPON_AUTO_CLEAN_DAYS } from './couponTypes';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const normalizeTableCoupon = (row) => ({
-  source: 'table',
-  id: row.id,
-  chatId: row.chatId,
-  fromRole: 'user',
-  title: row.title || '自定义券',
-  note: row.note || '',
-  status: row.status || 'pending',
-  createdAt: row.createdAt,
-  redeemedAt: row.redeemedAt || null,
-});
-
 const normalizeMessageCoupon = (message) => ({
   source: 'message',
   id: message.id,
   chatId: message.chatId,
-  fromRole: 'character',
+  fromRole: message.sender === 'user' ? 'user' : 'character',
   title: message.metadata?.title || '和好券',
   note: message.metadata?.note || '',
   status: message.metadata?.status || 'pending',
@@ -44,94 +40,66 @@ const normalizeMessageCoupon = (message) => ({
   redeemedAt: message.metadata?.redeemedAt || null,
 });
 
+// 已兑现超过 10 天的券，不再计入券夹列表/统计——聊天消息本身不会被删除，
+// 这只影响券夹这个"展示层"，不碰真实聊天记录。
 const isStaleRedeemed = (item) => {
   if (item.status !== 'redeemed' || !item.redeemedAt) return false;
   return Date.now() - new Date(item.redeemedAt).getTime() > COUPON_AUTO_CLEAN_DAYS * DAY_MS;
 };
 
-// 创建一张用户发出的券（混合模式：模板名 + 自由文本，两者都允许为空
-// 其一，但不能都为空）。
-export const createCoupon = async ({ chatId, title, note }) => {
-  if (!chatId) return null;
-
-  const cleanTitle = (title || '自定义券').trim();
-  const cleanNote = (note || '').trim();
-
-  const id = await db.coupons.add({
-    chatId,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-    title: cleanTitle,
-    note: cleanNote,
-    redeemedAt: null,
-  });
-
-  return id;
-};
-
-// 列出某个聊天窗口下，双方所有的券（已过期清理的已兑现项不返回）。
+// 券夹列表：只取角色发给用户的券。
 export const listCouponsForChat = async (chatId) => {
   if (!chatId) return [];
 
-  const [tableRows, messageRows] = await Promise.all([
-    db.coupons.where('chatId').equals(chatId).toArray(),
-    db.messages
-      .where('chatId')
-      .equals(chatId)
-      .filter((message) => message.type === 'coupon')
-      .toArray(),
-  ]);
+  const messageRows = await db.messages
+    .where('chatId')
+    .equals(chatId)
+    .filter((message) => message.type === 'coupon' && message.sender === 'character')
+    .toArray();
 
-  const merged = [
-    ...tableRows.map(normalizeTableCoupon),
-    ...messageRows.map(normalizeMessageCoupon),
-  ].filter((item) => !isStaleRedeemed(item));
+  const list = messageRows
+    .map(normalizeMessageCoupon)
+    .filter((item) => !isStaleRedeemed(item));
 
-  merged.sort(
+  list.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  return merged;
+  return list;
 };
 
-// 兑现一张券（两种来源分别更新各自的存储位置）。
-export const redeemCoupon = async (item) => {
-  if (!item) return;
+// 角色手里攥着几张用户给的、还没兑现的券——喂给系统提示词用，让角色"知道"
+// 自己手上有多少张可以兑现。具体什么时候、怎么兑现是下一轮要做的事，这里
+// 只负责数量感知。
+export const countPendingUserCoupons = async (chatId) => {
+  if (!chatId) return 0;
 
-  const redeemedAt = new Date().toISOString();
-
-  if (item.source === 'table') {
-    await db.coupons.update(item.id, { status: 'redeemed', redeemedAt });
-    return;
-  }
-
-  if (item.source === 'message') {
-    const message = await db.messages.get(item.id);
-    if (!message) return;
-
-    await db.messages.update(item.id, {
-      metadata: {
-        ...(message.metadata || {}),
-        status: 'redeemed',
-        redeemedAt,
-      },
-    });
-  }
-};
-
-// 物理清理超过 10 天的已兑现用户券（只清理 coupons 表，不触碰聊天消息）。
-export const cleanupExpiredCoupons = async (chatId) => {
-  if (!chatId) return;
-
-  const cutoff = Date.now() - COUPON_AUTO_CLEAN_DAYS * DAY_MS;
-
-  const staleRows = await db.coupons
+  const rows = await db.messages
     .where('chatId')
     .equals(chatId)
-    .filter((row) => row.status === 'redeemed' && row.redeemedAt && new Date(row.redeemedAt).getTime() < cutoff)
+    .filter((message) =>
+      message.type === 'coupon' &&
+      message.sender === 'user' &&
+      (message.metadata?.status || 'pending') === 'pending'
+    )
     .toArray();
 
-  if (staleRows.length === 0) return;
+  return rows.length;
+};
 
-  await db.coupons.bulkDelete(staleRows.map((row) => row.id));
+// 兑现一张券（目前只有角色发给用户的券能走这条路径——用户自己发的券，
+// 兑现发起权在角色那边，这一版的 UI 本来就不会给用户发的券显示兑现按钮）。
+export const redeemCoupon = async (item) => {
+  if (!item || item.source !== 'message') return;
+
+  const message = await db.messages.get(item.id);
+  if (!message) return;
+
+  await db.messages.update(item.id, {
+    metadata: {
+      ...(message.metadata || {}),
+      status: 'redeemed',
+      redeemedAt: new Date().toISOString(),
+    },
+  });
 };

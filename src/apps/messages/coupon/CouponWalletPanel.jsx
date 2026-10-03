@@ -1,26 +1,33 @@
 // 和好券面板：从聊天室的互动菜单里打开，两个标签——写一张（模板 +
-// 自由文本混合，发出去后小票机会"打印"出来）、券夹（双方所有券的
-// 列表，点未兑现的券可以兑现，播放一个盖章动效）。
+// 自由文本混合，发出去后小票机会"打印"出来，完整展示一段时间再"飞走"）、
+// 券夹（角色发给用户的券的列表，点未兑现的券可以兑现，播放一个盖章动效）。
 //
-// 打开时顺手跑一次 10 天自动清理（只影响用户自己发出、已兑现超过
-// 10 天的券，不碰聊天消息——见 couponService.js 顶部注释）。
+// 2026-10 改版：
+// - 写一张发出去之后，不再只写进看不见的 coupons 表，而是通过
+//   onSendCoupon（ChatRoom.jsx 的 handleSendCoupon）写成一条真正的
+//   sender:'user' 聊天消息，直接出现在聊天记录里。
+// - 券夹只展示角色发给用户的券——用户自己发的券已经是聊天记录的一部分，
+//   发送成功后这里不再自动跳转去券夹（那里本来就看不到刚发的这张）。
+// - 票面打印出来之后停留的时间从 650ms 延长到约 2.2s，再做一个"飞走"的
+//   收尾动效，而不是发出去就立刻弹走。
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
-import {
-  cleanupExpiredCoupons,
-  createCoupon,
-  listCouponsForChat,
-  redeemCoupon,
-} from './couponService';
+import React, { useEffect, useState } from 'react';
+import { X, Check } from 'lucide-react';
+import { listCouponsForChat, redeemCoupon } from './couponService';
 import { COUPON_TEMPLATES } from './couponTypes';
 import './coupon.css';
 
-export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
+const TICKET_HOLD_MS = 2200;
+const TICKET_FLY_MS = 560;
+
+export const CouponWalletPanel = ({ isOpen, onClose, chatId, character, onSendCoupon }) => {
   const [activeTab, setActiveTab] = useState('create');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [freeText, setFreeText] = useState('');
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewFlying, setPreviewFlying] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [sentNotice, setSentNotice] = useState(false);
   const [coupons, setCoupons] = useState([]);
   const [stampingId, setStampingId] = useState(null);
 
@@ -36,8 +43,10 @@ export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
     setSelectedTemplate(null);
     setFreeText('');
     setPreviewVisible(false);
+    setPreviewFlying(false);
+    setSentNotice(false);
 
-    void cleanupExpiredCoupons(chatId).then(reload);
+    void reload();
   }, [isOpen, chatId]);
 
   if (!isOpen) return null;
@@ -46,7 +55,7 @@ export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
   const previewNote = freeText.trim()
     || (selectedTemplate ? `兑换一次${selectedTemplate.replace('券', '')}时间。` : '');
 
-  const canSend = Boolean(selectedTemplate || freeText.trim());
+  const canSend = Boolean(selectedTemplate || freeText.trim()) && !isSending;
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -54,17 +63,25 @@ export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
     const title = selectedTemplate || '自定义券';
     const note = freeText.trim() || `兑换一次${title.replace('券', '')}时间。`;
 
+    setIsSending(true);
+    setSentNotice(false);
+    setPreviewFlying(false);
     setPreviewVisible(true);
 
-    await createCoupon({ chatId, title, note });
+    await onSendCoupon?.({ title, note });
 
-    window.setTimeout(async () => {
-      setPreviewVisible(false);
-      setSelectedTemplate(null);
-      setFreeText('');
-      await reload();
-      setActiveTab('wallet');
-    }, 650);
+    window.setTimeout(() => {
+      setPreviewFlying(true);
+
+      window.setTimeout(() => {
+        setPreviewVisible(false);
+        setPreviewFlying(false);
+        setSelectedTemplate(null);
+        setFreeText('');
+        setIsSending(false);
+        setSentNotice(true);
+      }, TICKET_FLY_MS);
+    }, TICKET_HOLD_MS);
   };
 
   const handleRedeem = async (item) => {
@@ -84,8 +101,14 @@ export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
 
   return (
     <div className="coupon-overlay">
+      <div className="coupon-diffuse">
+        <div className="coupon-orb coupon-orb--1" />
+        <div className="coupon-orb coupon-orb--2" />
+      </div>
+
       <div className="coupon-header">
         <div>
+          <div className="coupon-header-eyebrow">MAKE-UP TICKET</div>
           <div className="coupon-header-title">和好券</div>
           <div className="coupon-header-sub">
             你和 {character?.name || '对方'} 的兑换券
@@ -117,6 +140,8 @@ export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
       <div className="coupon-body">
         {activeTab === 'create' && (
           <div>
+            <div className="coupon-section-label">挑一个模板，或者自己写</div>
+
             <div className="coupon-template-row">
               {COUPON_TEMPLATES.map((template) => (
                 <button
@@ -145,14 +170,22 @@ export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
               disabled={!canSend}
               onClick={handleSend}
             >
-              发出这张券
+              {isSending ? '正在送出…' : '发出这张券'}
             </button>
+
+            {sentNotice && (
+              <div className="coupon-sent-notice">
+                已经送到 {character?.name || '对方'} 的聊天气泡里啦，关掉面板就能看到。
+              </div>
+            )}
 
             <div className="coupon-machine">
               <div className="coupon-machine-label">PRINTING SLOT</div>
               <div className="coupon-slit" />
-              <div className={`coupon-ticket ${previewVisible ? '' : 'is-hidden'}`}>
-                <div className="coupon-ticket-label">{previewTitle || '等待填写'}</div>
+              <div
+                className={`coupon-ticket ${previewVisible ? '' : 'is-hidden'} ${previewFlying ? 'is-flying' : ''}`}
+              >
+                <div className="coupon-ticket-label">TO {character?.name || '对方'}</div>
                 <div className="coupon-ticket-title">{previewTitle || '新的一张券'}</div>
                 <div className="coupon-ticket-perforation" />
                 <div className="coupon-ticket-note">
@@ -160,7 +193,7 @@ export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
                 </div>
                 <div className="coupon-ticket-foot">
                   <span>{new Date().toLocaleDateString('zh-CN')}</span>
-                  <span>TO {character?.name || '对方'}</span>
+                  <span>HANDMADE</span>
                 </div>
               </div>
             </div>
@@ -169,6 +202,11 @@ export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
 
         {activeTab === 'wallet' && (
           <div>
+            <div className="coupon-wallet-hint">
+              这里只收 {character?.name || '对方'} 发给你的券——你自己发出的券，
+              在和 TA 的聊天记录里就能看到。
+            </div>
+
             <div className="coupon-wallet-stats">
               <div className="coupon-stat">
                 未兑现
@@ -193,14 +231,13 @@ export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
                     <div
                       key={key}
                       className={`coupon-card-item ${item.status === 'redeemed' ? 'is-redeemed' : ''}`}
-                      onClick={() => handleRedeem(item)}
                     >
                       <div className={`coupon-stamp-overlay ${stampingId === key ? 'show' : ''}`}>
                         <div className="coupon-stamp-mark">已兑现</div>
                       </div>
 
                       <div className="coupon-card-tag">
-                        {item.fromRole === 'character' ? `${character?.name || 'TA'} 发出` : '你发出'}
+                        {character?.name || 'TA'} 发出
                         {' · '}
                         {new Date(item.createdAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}
                       </div>
@@ -213,12 +250,23 @@ export const CouponWalletPanel = ({ isOpen, onClose, chatId, character }) => {
                         </span>
                         <span>NO. {String(item.id).padStart(4, '0')}</span>
                       </div>
+
+                      {item.status === 'pending' && (
+                        <button
+                          type="button"
+                          className="coupon-card-redeem-btn"
+                          onClick={() => handleRedeem(item)}
+                        >
+                          <Check size={12} strokeWidth={2} />
+                          兑现这张券
+                        </button>
+                      )}
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="coupon-empty">还没有券，去"写一张"发第一张吧。</div>
+              <div className="coupon-empty">还没有券，等 {character?.name || '对方'} 发一张给你吧。</div>
             )}
           </div>
         )}

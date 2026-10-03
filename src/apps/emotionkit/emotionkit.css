@@ -1,19 +1,36 @@
-/* 情绪急救盒：颜色全部走 themes.css 现有 token（--bg-main/--card-bg/
-   --accent-color/--text-main/--text-sub/--text-muted/--card-border/
-   --control-soft-bg/--divider），不新增固定色板——跟潮汐贝壳当时的
-   要求一致。弥散光斑用 --accent-color 做 color-mix，所以四套主题下
-   颜色会自动跟着换，不会出现白红反光板上的固定胭脂红。 */
+/* 情绪急救盒。
+   颜色基本盘仍然走 themes.css 的 token（--bg-main/--card-bg/--accent-color/
+   --text-main/--text-sub/--text-muted/--card-border/--control-soft-bg/
+   --bg-surface），弥散光斑继续用 --accent-color 做 color-mix，跟着四套
+   主题换色。
+
+   2026-10 改版新增一个例外：急救盒本体（.emotionkit-box 这一块）按用户
+   这一轮的明确要求加了一组固定的"医疗红" token（--ek-red / --ek-red-dark /
+   --ek-red-soft），不随主题变化——用户希望盒子本身"看起来真的像一个急救
+   箱"，红十字这种视觉联想本来就不应该被主题色稀释掉。弥散背景、文字、卡片
+   依然遵循主题 token，只有盒子这一个局部是刻意的固定色例外。
+
+   标题字体用 index.html 里已经全局加载过的 Noto Serif SC（给 memory 等
+   页面标题用的同一份衬线字体，这里直接复用，不再新增字体请求）；正文保持
+   系统无衬线字体。明确不使用任何手写体——用户之前否决过一次。 */
 
 .emotionkit-app {
   position: relative;
-  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-main);
   color: var(--text-main);
   overflow-x: hidden;
+
+  --ek-red: #e0483c;
+  --ek-red-dark: #b5362c;
+  --ek-red-soft: color-mix(in srgb, var(--ek-red) 14%, var(--card-bg));
+  --ek-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", Georgia, serif;
 }
 
-/* ---------------- 弥散光斑背景（用户要求加回来的"弥散感"） ---------------- */
+/* ---------------- 弥散光斑背景 ---------------- */
 .emotionkit-diffuse {
   position: fixed;
   inset: 0;
@@ -77,12 +94,24 @@
   100% { transform: translate(-22px, 28px) scale(0.94); }
 }
 
+/* ---------------- 整页布局：flex 纵向链路，解决"没占满屏幕"的问题
+   ---------------- */
+/* 跟潮汐贝壳 .ts-root/.ts-screen/.ts-stage 的修复是同一个道理：光有
+   min-height:100dvh 只能保证外层容器够高，内容本身如果比屏幕矮，下面
+   还是会空出一截。这里把 .emotionkit-app 和 .emotionkit-layout 都变成
+   纵向 flex 容器，再让 .emotionkit-stage / .emotionkit-empty 吃掉剩余
+   空间并居中，这样急救盒不管内容多少，视觉上都会撑满并居中在整个屏幕
+   里，而不是贴着顶部、下面露一截背景色。 */
 .emotionkit-layout {
   position: relative;
   z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 20px 18px 56px;
+  padding: 20px 18px calc(28px + env(safe-area-inset-bottom, 0px));
 }
 
 .emotionkit-topline {
@@ -90,6 +119,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  flex: 0 0 auto;
 }
 
 .emotionkit-back-button {
@@ -105,14 +135,16 @@
 }
 
 .emotionkit-edition {
+  font-family: var(--ek-serif);
   font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
-/* ---------------- 角色索引（横向滚动，参照传石的巢穴索引样式） ---------------- */
+/* ---------------- 角色索引 ---------------- */
 .emotionkit-character-strip {
+  flex: 0 0 auto;
   display: flex;
   gap: 8px;
   overflow-x: auto;
@@ -160,40 +192,57 @@
 }
 
 .emotionkit-empty {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-muted);
-}
-
-/* ---------------- 导言 + 盒子舞台 ---------------- */
-.emotionkit-stage {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 28px;
-  margin-top: 22px;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.emotionkit-empty h3 {
+  font-family: var(--ek-serif);
+  font-weight: 400;
+  margin-top: 14px;
+}
+
+/* ---------------- 导言 + 盒子舞台：flex:1 居中撑满剩余空间
+   ---------------- */
+.emotionkit-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 10px 0 6px;
 }
 
 .emotionkit-statement-tag {
   font-size: 11px;
-  letter-spacing: 0.16em;
-  color: var(--accent-color);
+  letter-spacing: 0.2em;
+  color: var(--ek-red);
   text-align: center;
+  font-weight: 600;
 }
 
 .emotionkit-statement-quote {
-  font-size: 20px;
-  line-height: 1.4;
+  font-family: var(--ek-serif);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.5;
   text-align: center;
   max-width: 420px;
 }
 
 .emotionkit-statement-desc {
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.75;
   color: var(--text-sub);
   text-align: center;
-  max-width: 420px;
+  max-width: 400px;
 }
 
 .emotionkit-pool-status {
@@ -203,7 +252,7 @@
 }
 
 .emotionkit-pool-status b {
-  color: var(--accent-color);
+  color: var(--ek-red);
 }
 
 .emotionkit-regen-btn {
@@ -219,8 +268,8 @@
 }
 
 .emotionkit-regen-btn:hover {
-  border-color: var(--accent-color);
-  color: var(--accent-color);
+  border-color: var(--ek-red);
+  color: var(--ek-red);
 }
 
 .emotionkit-regen-btn:disabled {
@@ -228,52 +277,141 @@
   cursor: default;
 }
 
-/* 单一抽取触发盒 */
+/* ================== 急救盒本体：真的长得像一个医药箱 ================== */
 .emotionkit-box-wrap {
   touch-action: none;
+  position: relative;
+  padding-top: 18px; /* 给提手留出悬在盒子上方的空间 */
 }
 
 .emotionkit-box {
   position: relative;
-  width: min(300px, 80vw);
-  aspect-ratio: 1 / 1;
-  background: var(--card-bg-gradient, var(--card-bg));
+  width: min(300px, 78vw);
+  aspect-ratio: 1 / 0.98;
+  background: linear-gradient(
+    180deg,
+    var(--ek-red-soft) 0%,
+    var(--ek-red-soft) 34%,
+    var(--card-bg) 34%,
+    var(--card-bg) 100%
+  );
   border: 1px solid var(--card-border);
-  border-radius: 32px;
-  box-shadow: 0 26px 54px -18px color-mix(in srgb, var(--accent-color) 30%, transparent);
+  border-radius: 26px;
+  box-shadow:
+    0 30px 60px -20px color-mix(in srgb, var(--ek-red) 38%, transparent),
+    0 2px 0 0 color-mix(in srgb, var(--ek-red) 16%, transparent) inset;
   cursor: pointer;
   user-select: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
+  overflow: hidden;
 }
 
 .emotionkit-box:active {
-  box-shadow: 0 14px 30px -12px color-mix(in srgb, var(--accent-color) 30%, transparent);
+  box-shadow:
+    0 16px 32px -16px color-mix(in srgb, var(--ek-red) 38%, transparent),
+    0 2px 0 0 color-mix(in srgb, var(--ek-red) 16%, transparent) inset;
+  transform: scale(0.99);
 }
 
-.emotionkit-box-cross {
+/* 箱体提手：悬在盒子顶部外沿，暗示这是一个可以拎起来的医药箱 */
+.emotionkit-box-handle {
   position: absolute;
-  top: 18px;
-  right: 18px;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent-color) 14%, var(--card-bg));
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 86px;
+  height: 22px;
+  border-radius: 999px 999px 0 0;
+  border: 1px solid var(--card-border);
+  border-bottom: none;
+  background: var(--ek-red-soft);
+  box-shadow: 0 -2px 6px -2px color-mix(in srgb, var(--ek-red) 25%, transparent);
+  z-index: 3;
+}
+
+.emotionkit-box-handle::after {
+  content: '';
+  position: absolute;
+  inset: 5px 10px 0;
+  border-radius: 999px 999px 0 0;
+  border: 1px solid color-mix(in srgb, var(--ek-red) 35%, transparent);
+  border-bottom: none;
+}
+
+/* 盒盖区域：占上面 34%，中央放一个白底红十字徽章 */
+.emotionkit-box-lid {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 34%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent-color);
+  border-bottom: 1px dashed color-mix(in srgb, var(--ek-red) 38%, transparent);
+}
+
+.emotionkit-box-cross-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 2px solid var(--ek-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--ek-red) 50%, transparent);
+}
+
+.emotionkit-cross-mark {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.emotionkit-cross-mark::before,
+.emotionkit-cross-mark::after {
+  content: '';
+  position: absolute;
+  background: var(--ek-red);
+  border-radius: 2px;
+}
+
+.emotionkit-cross-mark::before {
+  top: 0;
+  left: 40%;
+  width: 20%;
+  height: 100%;
+}
+
+.emotionkit-cross-mark::after {
+  top: 40%;
+  left: 0;
+  width: 100%;
+  height: 20%;
+}
+
+/* 盒体区域：占剩下的 66%，放抽取槽 + CTA */
+.emotionkit-box-body {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 20px 20px;
 }
 
 .emotionkit-box-slot {
-  width: 110px;
-  height: 40px;
-  border-radius: 14px;
+  width: 112px;
+  height: 36px;
+  border-radius: 12px;
   border: 1px dashed var(--card-border);
-  background: color-mix(in srgb, var(--accent-color) 8%, transparent);
+  background: color-mix(in srgb, var(--ek-red) 6%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -283,8 +421,10 @@
 }
 
 .emotionkit-box-cta {
+  font-family: var(--ek-serif);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
+  color: var(--text-main);
 }
 
 .emotionkit-box-sub {
@@ -292,30 +432,42 @@
   color: var(--text-muted);
 }
 
+/* 抽出的纸条：带折痕的小纸片，从盒盖缝里被抽出来 */
 .emotionkit-box .emotionkit-slip-ghost {
   position: absolute;
-  bottom: 18%;
-  width: 70%;
-  height: 28px;
-  border-radius: 8px;
+  top: 30%;
+  width: 64%;
+  height: 30px;
+  border-radius: 6px;
   background: var(--bg-surface);
   border: 1px solid var(--card-border);
-  box-shadow: 0 10px 18px -8px color-mix(in srgb, var(--accent-color) 30%, transparent);
+  box-shadow: 0 10px 18px -8px color-mix(in srgb, var(--ek-red) 35%, transparent);
   opacity: 0;
   pointer-events: none;
+  z-index: 4;
+}
+
+.emotionkit-box .emotionkit-slip-ghost::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: color-mix(in srgb, var(--text-muted) 40%, transparent);
 }
 
 .emotionkit-box.is-drawing .emotionkit-slip-ghost {
-  animation: emotionkit-pull-slip 0.6s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+  animation: emotionkit-pull-slip 0.62s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
 }
 
 @keyframes emotionkit-pull-slip {
-  0% { opacity: 0; transform: translateY(0) scale(0.9); }
-  35% { opacity: 1; transform: translateY(-36px) scale(1); }
-  100% { opacity: 0; transform: translateY(-140px) scale(1.05); }
+  0% { opacity: 0; transform: translateY(10px) rotate(0deg) scale(0.88); }
+  40% { opacity: 1; transform: translateY(-30px) rotate(-3deg) scale(1); }
+  100% { opacity: 0; transform: translateY(-160px) rotate(2deg) scale(1.08); }
 }
 
-/* ---------------- 处方弹窗 ---------------- */
+/* ---------------- 处方弹窗：纸条"打开"的效果 ---------------- */
 .emotionkit-modal {
   position: fixed;
   inset: 0;
@@ -340,22 +492,41 @@
   width: min(400px, 100%);
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 26px;
-  padding: 34px 26px;
+  border-radius: 22px;
+  padding: 36px 26px 30px;
   text-align: center;
-  box-shadow: 0 36px 80px -22px color-mix(in srgb, var(--accent-color) 30%, transparent);
-  transform: scale(0.92) translateY(20px);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 36px 80px -22px color-mix(in srgb, var(--ek-red) 32%, transparent);
+  transform-origin: top center;
+  opacity: 0;
+  transform: scaleY(0.12) scaleX(0.92) translateY(-6px);
 }
 
+/* 纸条被"打开"：从一条压扁的折痕状态，像展开一封信一样立起来，
+   而不是单纯缩放淡入——这是这一轮用户明确要求的"打开效果"。 */
 .emotionkit-modal.is-active .emotionkit-card {
-  transform: scale(1) translateY(0);
+  animation: emotionkit-unfold 0.62s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes emotionkit-unfold {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.12) scaleX(0.92) translateY(-6px);
+  }
+  55% {
+    opacity: 1;
+    transform: scaleY(1.04) scaleX(1.01) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1) scaleX(1) translateY(0);
+  }
 }
 
 .emotionkit-card-tag {
   font-size: 10px;
-  letter-spacing: 0.2em;
-  color: var(--accent-color);
+  letter-spacing: 0.22em;
+  color: var(--ek-red);
+  font-weight: 600;
 }
 
 .emotionkit-card-time {
@@ -367,7 +538,7 @@
 .emotionkit-visual-slot {
   width: 108px;
   height: 108px;
-  margin: 16px auto 22px;
+  margin: 18px auto 22px;
   position: relative;
   display: flex;
   align-items: center;
@@ -446,23 +617,24 @@
 }
 
 .emotionkit-card-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  font-family: var(--ek-serif);
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: 10px;
 }
 
 .emotionkit-card-text {
   font-size: 14px;
-  line-height: 1.75;
+  line-height: 1.8;
   color: var(--text-sub);
-  margin-bottom: 24px;
+  margin-bottom: 26px;
 }
 
 .emotionkit-close-btn {
-  background: var(--accent-color);
-  color: var(--accent-foreground);
+  background: var(--ek-red);
+  color: #fff;
   border: none;
-  padding: 11px 28px;
+  padding: 11px 30px;
   border-radius: 999px;
   font-size: 12px;
   letter-spacing: 0.08em;

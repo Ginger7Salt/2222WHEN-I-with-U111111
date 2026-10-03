@@ -1,34 +1,105 @@
-/* 和好券面板：颜色全部走 themes.css 现有 token，不新增固定色板。 */
+/* 和好券面板。
+   颜色全部走 themes.css 现有 token，不新增固定色板；视觉语言这一轮改成
+   跟情绪急救盒/占卜小卡片一致的"杂志 + 弥散"风格——弥散光斑背景、
+   衬线标题字（复用 index.html 里已经加载过的 Noto Serif SC）、票据用
+   编辑排版的留白和分割线，而不是把文字一股脑堆在卡片里。 */
 
 .coupon-overlay {
   position: fixed;
   inset: 0;
   z-index: 70;
-  background: color-mix(in srgb, var(--bg-main) 85%, transparent);
-  backdrop-filter: blur(18px);
+  background: var(--bg-main);
   display: flex;
   flex-direction: column;
   color: var(--text-main);
+  overflow: hidden;
+}
+
+/* ---------------- 弥散光斑背景 ---------------- */
+.coupon-diffuse {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.coupon-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(68px);
+  opacity: 0.45;
+  animation: coupon-drift 20s ease-in-out infinite alternate;
+}
+
+.coupon-orb--1 {
+  width: 340px;
+  height: 340px;
+  top: -10%;
+  right: -8%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent-color) 50%, transparent) 0%,
+    transparent 72%
+  );
+  animation-duration: 18s;
+}
+
+.coupon-orb--2 {
+  width: 380px;
+  height: 380px;
+  bottom: -14%;
+  left: -12%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent-color) 32%, transparent) 0%,
+    transparent 70%
+  );
+  animation-duration: 24s;
+  animation-delay: -5s;
+}
+
+@keyframes coupon-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(28px, -20px) scale(1.06); }
+  100% { transform: translate(-18px, 24px) scale(0.95); }
+}
+
+.coupon-header,
+.coupon-tabs,
+.coupon-body {
+  position: relative;
+  z-index: 2;
 }
 
 .coupon-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 16px 18px 10px;
+  padding: 20px 20px 10px;
   flex-shrink: 0;
+  backdrop-filter: blur(20px);
+}
+
+.coupon-header-eyebrow {
+  font-family: var(--ek-serif, "Noto Serif SC", serif);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: var(--accent-color);
+  margin-bottom: 4px;
 }
 
 .coupon-header-title {
-  font-size: 15px;
+  font-family: var(--ek-serif, "Noto Serif SC", serif);
+  font-size: 19px;
   font-weight: 700;
 }
 
 .coupon-header-sub {
   font-size: 10px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .coupon-close-btn {
@@ -42,21 +113,22 @@
   justify-content: center;
   color: var(--text-sub);
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .coupon-tabs {
   display: flex;
   gap: 8px;
-  padding: 4px 18px 12px;
+  padding: 4px 20px 14px;
   flex-shrink: 0;
 }
 
 .coupon-tab-btn {
   font-size: 12px;
-  padding: 7px 16px;
+  padding: 7px 18px;
   border-radius: 999px;
   border: 1px solid var(--card-border);
-  background: transparent;
+  background: var(--card-bg);
   color: var(--text-sub);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -71,7 +143,14 @@
 .coupon-body {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 18px 28px;
+  padding: 6px 20px 32px;
+}
+
+.coupon-section-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
 }
 
 /* ---------------- 写一张 ---------------- */
@@ -79,7 +158,7 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .coupon-template-chip {
@@ -101,13 +180,14 @@
 
 .coupon-free-text {
   width: 100%;
-  min-height: 84px;
-  border-radius: 14px;
+  min-height: 88px;
+  border-radius: 16px;
   border: 1px solid var(--card-border);
   background: var(--card-bg);
   color: var(--text-main);
-  padding: 10px 12px;
+  padding: 12px 14px;
   font-size: 13px;
+  line-height: 1.6;
   font-family: inherit;
   resize: vertical;
 }
@@ -118,16 +198,16 @@
 }
 
 .coupon-send-btn {
-  margin-top: 12px;
+  margin-top: 14px;
   width: 100%;
   background: var(--accent-color);
   color: var(--accent-foreground);
   border: none;
-  padding: 11px;
+  padding: 12px;
   border-radius: 14px;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   cursor: pointer;
   transition: opacity 0.2s ease;
 }
@@ -137,121 +217,177 @@
   cursor: default;
 }
 
-/* 小票机预览 */
+.coupon-sent-notice {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--accent-color);
+  text-align: center;
+  animation: coupon-notice-in 0.35s ease;
+}
+
+@keyframes coupon-notice-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 小票机预览：票面是整个"写一张"里排版最讲究的地方——衬线标题、
+   圆孔撕口线、编辑排版式的页脚信息行 */
 .coupon-machine {
-  margin-top: 18px;
-  background: var(--card-bg);
+  margin-top: 22px;
+  background: color-mix(in srgb, var(--card-bg) 92%, transparent);
   border: 1px solid var(--card-border);
-  border-radius: 20px;
-  padding: 18px 14px 22px;
+  border-radius: 22px;
+  padding: 20px 16px 26px;
   text-align: center;
   position: relative;
   overflow: hidden;
 }
 
 .coupon-machine-label {
-  font-size: 10px;
-  letter-spacing: 0.16em;
+  font-size: 9px;
+  letter-spacing: 0.22em;
   color: var(--text-muted);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .coupon-slit {
-  width: 70%;
-  height: 8px;
+  width: 68%;
+  height: 7px;
   background: var(--control-soft-bg);
   border-radius: 4px;
-  margin: 0 auto 6px;
+  margin: 0 auto 10px;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--text-muted) 16%, transparent) inset;
 }
 
 .coupon-ticket {
-  width: 86%;
+  width: 88%;
   margin: 0 auto;
   background: var(--bg-surface);
   border: 1px solid var(--card-border);
-  border-radius: 4px;
-  padding: 14px 12px 16px;
-  box-shadow: 0 14px 26px -12px color-mix(in srgb, var(--accent-color) 30%, transparent);
-  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+  border-radius: 10px;
+  padding: 18px 16px 18px;
+  box-shadow: 0 18px 34px -16px color-mix(in srgb, var(--accent-color) 34%, transparent);
+  transition:
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.45s ease;
 }
 
 .coupon-ticket.is-hidden {
-  transform: translateY(32px) scale(0.9);
+  transform: translateY(26px) scale(0.92);
   opacity: 0;
+}
+
+/* 停留展示完之后的"飞走"收尾动效：往右上方飘走并模糊淡出，暗示被
+   寄进了聊天里，而不是直接瞬间消失/弹去券夹。 */
+.coupon-ticket.is-flying {
+  animation: coupon-ticket-fly 0.56s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+
+@keyframes coupon-ticket-fly {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(60px, -90px) scale(0.6) rotate(10deg);
+    filter: blur(3px);
+  }
 }
 
 .coupon-ticket-label {
   font-size: 9px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   color: var(--accent-color);
+  text-align: left;
 }
 
 .coupon-ticket-title {
-  font-size: 16px;
+  font-family: var(--ek-serif, "Noto Serif SC", serif);
+  font-size: 18px;
   font-weight: 700;
-  margin: 4px 0 6px;
+  margin: 6px 0 10px;
+  text-align: left;
 }
 
-.coupon-ticket-perforation {
-  border-top: 1px dashed var(--card-border);
-  margin: 8px 0;
+.coupon-ticket-perforation,
+.coupon-card-perforation {
+  position: relative;
+  height: 1px;
+  margin: 10px 0;
+  background-image: radial-gradient(
+    circle,
+    var(--card-border) 1.3px,
+    transparent 1.6px
+  );
+  background-size: 9px 1px;
+  background-repeat: repeat-x;
+  background-position: left center;
+  border: none;
 }
 
 .coupon-ticket-note {
   font-size: 12px;
   color: var(--text-sub);
-  line-height: 1.6;
+  line-height: 1.7;
+  text-align: left;
 }
 
 .coupon-ticket-foot {
   display: flex;
   justify-content: space-between;
   font-size: 10px;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 /* ---------------- 券夹 ---------------- */
+.coupon-wallet-hint {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
 .coupon-wallet-stats {
   display: flex;
-  gap: 16px;
-  margin-bottom: 14px;
+  gap: 18px;
+  margin-bottom: 16px;
 }
 
 .coupon-stat {
   font-size: 10px;
   color: var(--text-muted);
+  letter-spacing: 0.04em;
 }
 
 .coupon-stat b {
   display: block;
-  font-size: 16px;
+  font-family: var(--ek-serif, "Noto Serif SC", serif);
+  font-size: 18px;
   color: var(--accent-color);
 }
 
 .coupon-wallet-grid {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .coupon-card-item {
   position: relative;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 16px;
-  padding: 14px;
-  cursor: pointer;
+  border-radius: 18px;
+  padding: 16px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   animation: coupon-card-in 0.35s ease;
 }
 
-.coupon-card-item:hover {
-  transform: translateY(-2px);
-}
-
 .coupon-card-item.is-redeemed {
   opacity: 0.55;
-  cursor: default;
 }
 
 @keyframes coupon-card-in {
@@ -266,20 +402,16 @@
 }
 
 .coupon-card-title {
-  font-size: 15px;
+  font-family: var(--ek-serif, "Noto Serif SC", serif);
+  font-size: 16px;
   font-weight: 700;
-  margin: 3px 0 5px;
-}
-
-.coupon-card-perforation {
-  border-top: 1px dashed var(--card-border);
-  margin: 6px 0;
+  margin: 4px 0 6px;
 }
 
 .coupon-card-note {
   font-size: 12px;
   color: var(--text-sub);
-  line-height: 1.55;
+  line-height: 1.6;
   min-height: 2.2em;
 }
 
@@ -287,14 +419,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 10px;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
 }
 
 .coupon-status-pill {
   font-size: 10px;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 999px;
 }
 
@@ -308,6 +441,28 @@
   color: var(--text-muted);
 }
 
+.coupon-card-redeem-btn {
+  margin-top: 12px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  border: none;
+  padding: 9px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.coupon-card-redeem-btn:hover {
+  opacity: 0.88;
+}
+
 .coupon-stamp-overlay {
   position: absolute;
   inset: 0;
@@ -316,9 +471,11 @@
   justify-content: center;
   pointer-events: none;
   opacity: 0;
+  border-radius: 18px;
 }
 
 .coupon-stamp-overlay.show {
+  background: color-mix(in srgb, var(--card-bg) 55%, transparent);
   animation: coupon-stamp-in 0.5s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
 }
 
@@ -342,7 +499,8 @@
 
 .coupon-empty {
   text-align: center;
-  padding: 44px 18px;
+  padding: 48px 18px;
   color: var(--text-muted);
   font-size: 13px;
+  line-height: 1.7;
 }

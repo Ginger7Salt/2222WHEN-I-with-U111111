@@ -116,6 +116,7 @@ import {
 
 import { getSharedWorldPromptBlock } from '../apps/shared-world/sharedWorldService';
 import { maybeUpdateProfileCard } from '../apps/messages/profile/profileCardService';
+import { countPendingUserCoupons } from '../apps/messages/coupon/couponService';
 
 
 
@@ -1216,6 +1217,20 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   // 拆的时候则完全不提——这件事已经做完了。
   const parcelPromptBlock = buildParcelPromptBlock(chat);
 
+  // 和好券：用户发给角色的券，角色是持有方，这里只负责让角色"知道"自己
+  // 手上还攥着几张没兑现的——具体什么时候兑现、怎么兑现是另一件事（还没
+  // 做），这一版先不出现任何兑现标签，只是单纯告知数量，不强制角色必须
+  // 做什么。数量为 0 时完全不提这件事。
+  let couponPromptBlock = '';
+  try {
+    const pendingUserCouponCount = await countPendingUserCoupons(chatId);
+
+    if (pendingUserCouponCount > 0) {
+      couponPromptBlock = `\n【你手上还攥着用户给你的和好券】：用户一共送过你 ${pendingUserCouponCount} 张还没兑现的和好券（具体是什么内容，去看聊天记录里对应的消息）。这只是让你知道自己手上有这些券，不代表你现在必须做什么，正常聊天就好。\n`;
+    }
+  } catch (error) {
+    console.warn('[buildChatSystemPrompt] 统计用户送出的和好券数量失败：', error);
+  }
 
       // 优先使用当前聊天窗独占的用户资料；
   // 仅当该聊天窗没有填写时，才回退到角色级默认资料。
@@ -1376,6 +1391,7 @@ ${stickerInstruction}
 - 重新布置你的DIY小屋：[DIYAREA_REQUEST: 确认]（只要用户在这次聊天里提出想让你换一下/重新收拾/重新设计这个小屋的布置，无论说法多随意、哪怕只是一句简短的口语化请求，都要使用这个标签——比如"DIY一下你的小屋""把小屋重新弄一下""换个风格布置小屋""你小屋能不能换个样子""去收拾一下你的房间"这些说法都算数，不要因为用户没有说得很正式、很完整就认为不算明确提出；但如果用户只是在闲聊小屋这个话题、没有真的要求你去改，就不要用。用了之后你不需要、也不应该在正文里描述新布置具体是什么样子，小屋会单独自己更新，你只需要像平时一样简短回应一下用户（比如说"好呀""我去弄弄"），不用假装自己正在做某个具体动作）
 ${diyPromptBlock}
 ${parcelPromptBlock}
+${couponPromptBlock}
 
 【不可逾越的输出格式终极规则（最高优先级）】：
 1. 卡片指令必须严格遵循上面 [] 的规定，括号内用 "|" 分割参数。不要杜撰任何未注册的卡片语法。

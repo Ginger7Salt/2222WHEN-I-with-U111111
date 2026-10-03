@@ -647,6 +647,59 @@ forceScrollMessageIdRef.current = stickerMsgId;
     triggerAiResponse(chat.id);
   };
 
+  // 发送一张"和好券"给角色：2026-10 改版，不再只写进看不见的 coupons 表，
+  // 而是跟表情包/点单请求一样写成一条真正的 sender:'user' 消息，直接出现
+  // 在聊天记录里（券夹面板只展示角色发给用户的券，自己发的券在这里就能
+  // 看到）。发完之后触发一次角色回复，让角色能自然地收到/回应这张券——
+  // 角色自己决定什么时候真正"兑现"它是下一轮要做的事，这里先不碰。
+  const handleSendCoupon = async ({ title, note }) => {
+    if (!chat?.id) return null;
+
+    const cleanTitle = (title || '自定义券').trim() || '自定义券';
+    const cleanNote = (note || '').trim();
+
+    const newMsg = {
+      chatId: chat.id,
+      characterId: chat.characterId,
+      sender: 'user',
+      type: 'coupon',
+      content: cleanTitle,
+      metadata: {
+        title: cleanTitle,
+        note: cleanNote,
+        status: 'pending',
+        redeemedAt: null,
+      },
+      isRead: true,
+      timestamp: new Date().toISOString(),
+    };
+
+    const couponMsgId = await db.messages.add(newMsg);
+    newMsg.id = couponMsgId;
+
+    void recordAlmanacEvent({
+      chatId: chat.id,
+      characterId: chat.characterId,
+      eventType: ALMANAC_EVENT_TYPES.USER_MESSAGE,
+      timestamp: newMsg.timestamp,
+      metadata: {
+        source: 'chat-room',
+        messageType: 'coupon',
+      },
+    });
+
+    await db.chats.update(chat.id, {
+      updatedAt: Date.now(),
+    });
+
+    forceScrollMessageIdRef.current = couponMsgId;
+
+    await loadChatData();
+    triggerAiResponse(chat.id);
+
+    return couponMsgId;
+  };
+
     // 发送"点单请求"：写入一条消息，然后让角色回应（角色会通过 MCP 去办理）
   const handleSendOrderRequest = async ({ content, metadata }) => {
     if (!chat?.id) return;
@@ -2990,6 +3043,7 @@ if (type === 'interaction_coupon') {
   onClose={() => setShowCouponWallet(false)}
   chatId={chat?.id}
   character={character}
+  onSendCoupon={handleSendCoupon}
 />
 
       {showOrderModal && (

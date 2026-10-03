@@ -228,15 +228,22 @@ export default function EmotionKitApp({ onBackHub }) {
                     role="button"
                     tabIndex={0}
                   >
-                    <div className="emotionkit-box-cross">
-                      <Heart size={16} strokeWidth={1.8} />
+                    <div className="emotionkit-box-handle" />
+
+                    <div className="emotionkit-box-lid">
+                      <div className="emotionkit-box-cross-badge">
+                        <div className="emotionkit-cross-mark" />
+                      </div>
                     </div>
-                    <div className="emotionkit-slip-ghost" />
-                    <div className="emotionkit-box-slot">TAP TO DRAW</div>
-                    <div className="emotionkit-box-cta">
-                      {isLoading ? '生成中…' : '抽一张'}
+
+                    <div className="emotionkit-box-body">
+                      <div className="emotionkit-slip-ghost" />
+                      <div className="emotionkit-box-slot">TAP TO DRAW</div>
+                      <div className="emotionkit-box-cta">
+                        {isLoading ? '生成中…' : '抽一张'}
+                      </div>
+                      <div className="emotionkit-box-sub">轻触盒子 · 按住可倾斜</div>
                     </div>
-                    <div className="emotionkit-box-sub">轻触盒子 / 按住可倾斜</div>
                   </div>
                 </div>
 
