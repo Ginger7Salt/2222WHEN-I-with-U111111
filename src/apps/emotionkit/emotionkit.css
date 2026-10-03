@@ -277,9 +277,124 @@
   cursor: default;
 }
 
+/* ================== 悬浮舞台：盒子 + 周围漂浮的"例子" ==================
+   盒子不再是贴在背景上的一个方块，而是舞台正中央"浮"在空中的一个物体：
+   下面有一片跟着呼吸的阴影，四周散落着缩小版的处方视觉元素（呼吸环/
+   信封印章/双线圆章/拍立得），各自独立漂浮、互不同步，营造一点立体空间
+   感。盒子本身的拖拽旋转在 JS 里直接操作 .emotionkit-box 的 transform，
+   跟这里的 idle 浮动动画（作用在 .emotionkit-box-float 上）是两层互不
+   冲突的变换。 */
+.emotionkit-box-scene {
+  position: relative;
+  width: 100%;
+  min-height: 380px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1100px;
+}
+
+.emotionkit-orbit {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+  filter: saturate(0.9);
+  pointer-events: none;
+}
+
+.emotionkit-orbit > * {
+  transform: scale(0.46);
+}
+
+.emotionkit-orbit--1 {
+  top: 2%;
+  left: 2%;
+  animation: emotionkit-orbit-float-a 7.5s ease-in-out infinite;
+}
+
+.emotionkit-orbit--2 {
+  top: -2%;
+  right: 4%;
+  animation: emotionkit-orbit-float-b 8.5s ease-in-out infinite;
+  animation-delay: -2.4s;
+}
+
+.emotionkit-orbit--3 {
+  bottom: 8%;
+  left: -2%;
+  animation: emotionkit-orbit-float-c 9s ease-in-out infinite;
+  animation-delay: -4.8s;
+}
+
+.emotionkit-orbit--4 {
+  bottom: 2%;
+  right: 0%;
+  animation: emotionkit-orbit-float-d 8s ease-in-out infinite;
+  animation-delay: -1.2s;
+}
+
+@keyframes emotionkit-orbit-float-a {
+  0%, 100% { transform: translate(0, 0) rotate(-4deg); }
+  50% { transform: translate(6px, -14px) rotate(3deg); }
+}
+
+@keyframes emotionkit-orbit-float-b {
+  0%, 100% { transform: translate(0, 0) rotate(5deg); }
+  50% { transform: translate(-8px, 12px) rotate(-3deg); }
+}
+
+@keyframes emotionkit-orbit-float-c {
+  0%, 100% { transform: translate(0, 0) rotate(-3deg); }
+  50% { transform: translate(10px, 10px) rotate(4deg); }
+}
+
+@keyframes emotionkit-orbit-float-d {
+  0%, 100% { transform: translate(0, 0) rotate(4deg); }
+  50% { transform: translate(-6px, -10px) rotate(-5deg); }
+}
+
+/* 盒子本体：外层负责整体上下漂浮（idle bob），阴影反向呼吸；
+   内层 .emotionkit-box-wrap/.emotionkit-box 负责拖拽旋转，两层变换
+   分别作用在不同元素上，不会互相覆盖。 */
+.emotionkit-box-float {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: emotionkit-box-bob 5.5s ease-in-out infinite;
+}
+
+@keyframes emotionkit-box-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+.emotionkit-box-shadow {
+  width: min(220px, 56vw);
+  height: 22px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    color-mix(in srgb, var(--ek-red) 32%, transparent) 0%,
+    transparent 72%
+  );
+  filter: blur(4px);
+  animation: emotionkit-box-shadow-breathe 5.5s ease-in-out infinite;
+}
+
+@keyframes emotionkit-box-shadow-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(0.72); opacity: 0.3; }
+}
+
 /* ================== 急救盒本体：真的长得像一个医药箱 ================== */
 .emotionkit-box-wrap {
-  touch-action: none;
+  touch-action: pan-y;
   position: relative;
   padding-top: 18px; /* 给提手留出悬在盒子上方的空间 */
 }
@@ -300,7 +415,7 @@
   box-shadow:
     0 30px 60px -20px color-mix(in srgb, var(--ek-red) 38%, transparent),
     0 2px 0 0 color-mix(in srgb, var(--ek-red) 16%, transparent) inset;
-  cursor: pointer;
+  cursor: grab;
   user-select: none;
   display: flex;
   flex-direction: column;
@@ -309,10 +424,10 @@
 }
 
 .emotionkit-box:active {
+  cursor: grabbing;
   box-shadow:
     0 16px 32px -16px color-mix(in srgb, var(--ek-red) 38%, transparent),
     0 2px 0 0 color-mix(in srgb, var(--ek-red) 16%, transparent) inset;
-  transform: scale(0.99);
 }
 
 /* 箱体提手：悬在盒子顶部外沿，暗示这是一个可以拎起来的医药箱 */

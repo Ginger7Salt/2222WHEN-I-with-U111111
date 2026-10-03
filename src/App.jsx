@@ -842,9 +842,18 @@ const isEmotionKitApp = currentApp === 'emotionkit';
 
   const mainClassName = isInsideChatRoom
     ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
-    : isMarginNotesApp || isShellApp || isEmotionKitApp
-      ? 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] overflow-x-hidden'
-      : 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6';
+    // 情绪急救盒这一条是真正的"框架级"例外：不像 shell/margin-notes 那样
+    // 还是关在 420px 的手机宽度车道里（只是车道内部自己撑满），这里直接
+    // 不给 <main> 套 mx-auto/max-w-[420px]，让它吃到页面真实的全宽——
+    // 盒子要有"悬浮在整个屏幕空间里"的感觉，车道越宽，悬浮感才越对。
+    // emotionkit.css 自己的 .emotionkit-layout 仍然有 max-width:720px 把
+    // 正文内容限制在舒适的阅读宽度，背景（弥散光斑/盒子舞台）才是真正铺
+    // 满的那一层。
+    : isEmotionKitApp
+      ? 'relative z-10 w-full min-h-[100dvh] overflow-x-hidden'
+      : isMarginNotesApp || isShellApp
+        ? 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] overflow-x-hidden'
+        : 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6';
 
   return (
     <ErrorBoundary>

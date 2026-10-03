@@ -128,32 +128,56 @@ export default function EmotionKitApp({ onBackHub }) {
     }, 420);
   };
 
+  // 盒子的手势改成"左右拖拽=旋转，松手回正；原地点一下=抽取"，取代原来
+  // 鼠标悬停跟随倾斜的写法——用户这一轮明确要的是"可以被左右滑动产生
+  // 旋转的效果，点击盒子会抽取一张"，鼠标 hover 跟手指划动是两种不同的
+  // 交互意图，不能用同一套逻辑覆盖。拖拽过程中直接改 DOM 的 transform
+  // （不进 React state），松手之后才用 CSS transition 把角度弹回 0，
+  // 这样整个拖拽阶段没有一次 re-render，跟手感不卡顿。
+  const dragStateRef = useRef({ startX: 0, dragging: false, moved: false });
+
+  const handlePointerDown = (event) => {
+    const box = boxRef.current;
+    if (!box) return;
+
+    dragStateRef.current = { startX: event.clientX, dragging: true, moved: false };
+    box.style.transition = 'none';
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
   const handlePointerMove = (event) => {
     const box = boxRef.current;
-    if (!box) return;
+    const state = dragStateRef.current;
+    if (!box || !state.dragging) return;
 
-    const rect = box.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = ((y - centerY) / centerY) * -6;
-    const rotateY = ((x - centerX) / centerX) * 6;
+    const deltaX = event.clientX - state.startX;
+    if (Math.abs(deltaX) > 5) state.moved = true;
 
-    box.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+    const rotateY = Math.max(-42, Math.min(42, deltaX * 0.35));
+    box.style.transform = `perspective(1000px) rotateY(${rotateY}deg)`;
   };
 
-  const handlePointerLeave = () => {
+  const handlePointerUp = () => {
     const box = boxRef.current;
+    const state = dragStateRef.current;
     if (!box) return;
 
-    box.style.transition = 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
-    box.style.transform = 'perspective(900px) rotateX(0) rotateY(0)';
+    box.style.transition = 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
+    box.style.transform = 'perspective(1000px) rotateY(0deg)';
+
+    const wasDrag = state.moved;
+    dragStateRef.current = { startX: 0, dragging: false, moved: false };
+
+    if (!wasDrag) {
+      handleDraw();
+    }
   };
 
-  const handlePointerEnter = () => {
-    const box = boxRef.current;
-    if (box) box.style.transition = 'none';
+  const handleBoxKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleDraw();
+    }
   };
 
   const category = drawnResult ? EMOTION_KIT_CATEGORIES[drawnResult.categoryId] : null;
@@ -215,35 +239,60 @@ export default function EmotionKitApp({ onBackHub }) {
                   </p>
                 </div>
 
-                <div
-                  className="emotionkit-box-wrap"
-                  onPointerMove={handlePointerMove}
-                  onPointerLeave={handlePointerLeave}
-                  onPointerEnter={handlePointerEnter}
-                >
-                  <div
-                    ref={boxRef}
-                    className="emotionkit-box"
-                    onClick={handleDraw}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className="emotionkit-box-handle" />
+                <div className="emotionkit-box-scene">
+                  {/* 悬浮在盒子周围的"例子"：复用处方弹窗同一套视觉元素
+                      （呼吸环/信封印章/双线圆章/拍立得），缩小、半透明、
+                      各自独立漂浮，暗示盒子里装的是这几类东西，同时
+                      让整个舞台有"漂浮在空间里"的立体感，而不是一个
+                      孤零零贴在背景上的方块。 */}
+                  <div className="emotionkit-orbit emotionkit-orbit--1" aria-hidden="true">
+                    {visualFor('breath')}
+                  </div>
+                  <div className="emotionkit-orbit emotionkit-orbit--2" aria-hidden="true">
+                    {visualFor('letter')}
+                  </div>
+                  <div className="emotionkit-orbit emotionkit-orbit--3" aria-hidden="true">
+                    {visualFor('stamp')}
+                  </div>
+                  <div className="emotionkit-orbit emotionkit-orbit--4" aria-hidden="true">
+                    {visualFor('polaroid')}
+                  </div>
 
-                    <div className="emotionkit-box-lid">
-                      <div className="emotionkit-box-cross-badge">
-                        <div className="emotionkit-cross-mark" />
+                  <div className="emotionkit-box-float">
+                    <div
+                      className="emotionkit-box-wrap"
+                      onPointerDown={handlePointerDown}
+                      onPointerMove={handlePointerMove}
+                      onPointerUp={handlePointerUp}
+                      onPointerCancel={handlePointerUp}
+                    >
+                      <div
+                        ref={boxRef}
+                        className="emotionkit-box"
+                        onKeyDown={handleBoxKeyDown}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <div className="emotionkit-box-handle" />
+
+                        <div className="emotionkit-box-lid">
+                          <div className="emotionkit-box-cross-badge">
+                            <div className="emotionkit-cross-mark" />
+                          </div>
+                        </div>
+
+                        <div className="emotionkit-box-body">
+                          <div className="emotionkit-slip-ghost" />
+                          <div className="emotionkit-box-slot">TAP TO DRAW</div>
+                          <div className="emotionkit-box-cta">
+                            {isLoading ? '生成中…' : '抽一张'}
+                          </div>
+                          <div className="emotionkit-box-sub">轻触抽取 · 左右滑动可以转一转</div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="emotionkit-box-body">
-                      <div className="emotionkit-slip-ghost" />
-                      <div className="emotionkit-box-slot">TAP TO DRAW</div>
-                      <div className="emotionkit-box-cta">
-                        {isLoading ? '生成中…' : '抽一张'}
-                      </div>
-                      <div className="emotionkit-box-sub">轻触盒子 · 按住可倾斜</div>
-                    </div>
+                    <div className="emotionkit-box-shadow" />
                   </div>
                 </div>
 
