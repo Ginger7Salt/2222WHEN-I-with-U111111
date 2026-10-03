@@ -1,37 +1,37 @@
-/* 情绪急救盒。
-   颜色基本盘仍然走 themes.css 的 token（--bg-main/--card-bg/--accent-color/
-   --text-main/--text-sub/--text-muted/--card-border/--control-soft-bg/
-   --bg-surface），弥散光斑继续用 --accent-color 做 color-mix，跟着四套
-   主题换色。
+/* 情绪急救盒 — 3D Angled Model Edition
+   颜色基本盘走 themes.css 的 token（--bg-main / --card-bg / --accent-color /
+   --text-main / --text-sub / --text-muted / --card-border / --bg-surface）。
+   盒体本身用固定医疗红 --ek-red，不跟主题换色；其余全部遵循 token。
+   明确不使用任何手写字体；弹窗不再用"纸张展开"keyframe，改为平移+缩放渐入。 */
 
-   2026-10 改版新增一个例外：急救盒本体（.emotionkit-box 这一块）按用户
-   这一轮的明确要求加了一组固定的"医疗红" token（--ek-red / --ek-red-dark /
-   --ek-red-soft），不随主题变化——用户希望盒子本身"看起来真的像一个急救
-   箱"，红十字这种视觉联想本来就不应该被主题色稀释掉。弥散背景、文字、卡片
-   依然遵循主题 token，只有盒子这一个局部是刻意的固定色例外。
-
-   标题字体用 index.html 里已经全局加载过的 Noto Serif SC（给 memory 等
-   页面标题用的同一份衬线字体，这里直接复用，不再新增字体请求）；正文保持
-   系统无衬线字体。明确不使用任何手写体——用户之前否决过一次。 */
-
+/* ================================================================
+   根节点：position:fixed 保证内容不会撑出视口导致页面底色透出
+   ================================================================ */
 .emotionkit-app {
-  position: relative;
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
   background: var(--bg-main);
   color: var(--text-main);
-  overflow-x: hidden;
 
   --ek-red: #e0483c;
   --ek-red-dark: #b5362c;
-  --ek-red-soft: color-mix(in srgb, var(--ek-red) 14%, var(--card-bg));
-  --ek-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", Georgia, serif;
+  --ek-red-soft: color-mix(in srgb, var(--ek-red) 12%, var(--card-bg));
+  --ek-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
+
+  /* 盒体尺寸常量（方便整体缩放） */
+  --bw: 190px;   /* box width  */
+  --bh: 120px;   /* box height */
+  --bd: 130px;   /* box depth  */
 }
 
-/* ---------------- 弥散光斑背景 ---------------- */
-.emotionkit-diffuse {
+/* ================================================================
+   弥散光斑背景
+   ================================================================ */
+.ek-diffuse {
   position: fixed;
   inset: 0;
   pointer-events: none;
@@ -39,724 +39,819 @@
   overflow: hidden;
 }
 
-.emotionkit-orb {
+.ek-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.5;
-  animation: emotionkit-drift 20s ease-in-out infinite alternate;
+  filter: blur(90px);
+  animation: ek-drift 20s ease-in-out infinite alternate;
 }
 
-.emotionkit-orb--1 {
-  width: 360px;
-  height: 360px;
-  top: -8%;
-  right: -6%;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--accent-color) 55%, transparent) 0%,
-    transparent 72%
-  );
-  animation-duration: 16s;
+.ek-orb--1 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-color) 28%, transparent) 0%, transparent 70%);
+  top: -140px;
+  left: 5%;
+  opacity: 0.7;
 }
 
-.emotionkit-orb--2 {
+.ek-orb--2 {
   width: 420px;
   height: 420px;
-  bottom: -12%;
-  left: -10%;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--accent-color) 35%, transparent) 0%,
-    transparent 70%
-  );
-  animation-duration: 22s;
-  animation-delay: -6s;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-color) 18%, transparent) 0%, transparent 70%);
+  bottom: -100px;
+  right: 0;
+  opacity: 0.5;
+  animation-duration: 24s;
+  animation-direction: alternate-reverse;
 }
 
-.emotionkit-orb--3 {
-  width: 260px;
-  height: 260px;
-  top: 42%;
-  left: 48%;
-  opacity: 0.3;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--accent-color) 45%, transparent) 0%,
-    transparent 70%
-  );
-  animation-duration: 18s;
+@keyframes ek-drift {
+  0%   { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.15) translate(20px, -18px); }
 }
 
-@keyframes emotionkit-drift {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(34px, -24px) scale(1.08); }
-  100% { transform: translate(-22px, 28px) scale(0.94); }
-}
-
-/* ---------------- 整页布局：flex 纵向链路，解决"没占满屏幕"的问题
-   ---------------- */
-/* 跟潮汐贝壳 .ts-root/.ts-screen/.ts-stage 的修复是同一个道理：光有
-   min-height:100dvh 只能保证外层容器够高，内容本身如果比屏幕矮，下面
-   还是会空出一截。这里把 .emotionkit-app 和 .emotionkit-layout 都变成
-   纵向 flex 容器，再让 .emotionkit-stage / .emotionkit-empty 吃掉剩余
-   空间并居中，这样急救盒不管内容多少，视觉上都会撑满并居中在整个屏幕
-   里，而不是贴着顶部、下面露一截背景色。 */
-.emotionkit-layout {
+/* ================================================================
+   布局骨架
+   ================================================================ */
+.ek-layout {
   position: relative;
-  z-index: 2;
+  z-index: 10;
   flex: 1;
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 720px;
+  max-width: 480px;
   margin: 0 auto;
-  padding: 20px 18px calc(28px + env(safe-area-inset-bottom, 0px));
+  padding: 0 0 32px;
 }
 
-.emotionkit-topline {
+/* ================================================================
+   顶部导航
+   ================================================================ */
+.ek-topline {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  flex: 0 0 auto;
+  align-items: center;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--card-border);
 }
 
-.emotionkit-back-button {
+.ek-back-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  color: var(--text-sub);
   background: transparent;
-  border: none;
+  border: 1px solid var(--card-border);
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-sub);
   cursor: pointer;
-  padding: 6px 2px;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+.ek-back-btn:hover {
+  background: var(--text-main);
+  color: var(--bg-main);
+  border-color: var(--text-main);
 }
 
-.emotionkit-edition {
-  font-family: var(--ek-serif);
-  font-size: 10px;
-  letter-spacing: 0.18em;
+.ek-edition-tag {
+  font-size: 9.5px;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
-/* ---------------- 角色索引 ---------------- */
-.emotionkit-character-strip {
-  flex: 0 0 auto;
+/* ================================================================
+   角色选择条
+   ================================================================ */
+.ek-char-strip {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 14px 2px 6px;
-  -webkit-overflow-scrolling: touch;
+  padding: 14px 20px 0;
+  scrollbar-width: none;
 }
+.ek-char-strip::-webkit-scrollbar { display: none; }
 
-.emotionkit-character-chip {
-  flex: 0 0 auto;
+.ek-char-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px 6px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--card-border);
+  gap: 7px;
+  padding: 5px 12px 5px 6px;
+  border-radius: 100px;
   background: var(--card-bg);
-  color: var(--text-sub);
+  border: 1px solid var(--card-border);
   font-size: 12px;
+  font-family: var(--ek-serif);
+  color: var(--text-sub);
   cursor: pointer;
-  transition: all 0.2s ease;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.ek-char-chip.is-active {
+  background: var(--text-main);
+  color: var(--bg-main);
+  border-color: var(--text-main);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--text-main) 25%, transparent);
 }
 
-.emotionkit-character-chip.is-active {
-  border-color: var(--accent-color);
-  color: var(--text-main);
-  background: color-mix(in srgb, var(--accent-color) 12%, var(--card-bg));
-}
-
-.emotionkit-character-chip__avatar {
+.ek-char-chip__avatar {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  overflow: hidden;
-  background: var(--control-soft-bg);
+  background: var(--control-soft-bg, var(--bg-surface));
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  overflow: hidden;
+  font-size: 10px;
 }
-
-.emotionkit-character-chip__avatar img {
+.ek-char-chip__avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.emotionkit-empty {
+/* ================================================================
+   主舞台
+   ================================================================ */
+.ek-stage {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  padding: 24px 20px 0;
+  gap: 0;
+}
+
+/* ================================================================
+   标语区
+   ================================================================ */
+.ek-statement {
   text-align: center;
-  padding: 40px 20px;
+  margin-bottom: 20px;
+}
+
+.ek-statement-eyebrow {
+  display: inline-block;
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  font-weight: 700;
   color: var(--text-muted);
+  margin-bottom: 8px;
 }
 
-.emotionkit-empty h3 {
+.ek-statement-headline {
   font-family: var(--ek-serif);
-  font-weight: 400;
-  margin-top: 14px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  margin-bottom: 8px;
 }
 
-/* ---------------- 导言 + 盒子舞台：flex:1 居中撑满剩余空间
-   ---------------- */
-.emotionkit-stage {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 30px;
-  padding: 10px 0 6px;
-}
-
-.emotionkit-statement-tag {
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  color: var(--ek-red);
-  text-align: center;
-  font-weight: 600;
-}
-
-.emotionkit-statement-quote {
-  font-family: var(--ek-serif);
-  font-weight: 400;
-  font-size: 22px;
-  line-height: 1.5;
-  text-align: center;
-  max-width: 420px;
-}
-
-.emotionkit-statement-desc {
-  font-size: 13px;
-  line-height: 1.75;
-  color: var(--text-sub);
-  text-align: center;
-  max-width: 400px;
-}
-
-.emotionkit-pool-status {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-
-.emotionkit-pool-status b {
-  color: var(--ek-red);
-}
-
-.emotionkit-regen-btn {
-  background: transparent;
-  border: 1px solid var(--card-border);
-  color: var(--text-sub);
+.ek-statement-sub {
   font-size: 12px;
-  letter-spacing: 0.05em;
-  padding: 8px 16px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  color: var(--text-muted);
+  line-height: 1.65;
+  max-width: 360px;
+  margin: 0 auto;
 }
 
-.emotionkit-regen-btn:hover {
-  border-color: var(--ek-red);
-  color: var(--ek-red);
-}
-
-.emotionkit-regen-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* ================== 悬浮舞台：盒子 + 周围漂浮的"例子" ==================
-   盒子不再是贴在背景上的一个方块，而是舞台正中央"浮"在空中的一个物体：
-   下面有一片跟着呼吸的阴影，四周散落着缩小版的处方视觉元素（呼吸环/
-   信封印章/双线圆章/拍立得），各自独立漂浮、互不同步，营造一点立体空间
-   感。盒子本身的拖拽旋转在 JS 里直接操作 .emotionkit-box 的 transform，
-   跟这里的 idle 浮动动画（作用在 .emotionkit-box-float 上）是两层互不
-   冲突的变换。 */
-.emotionkit-box-scene {
+/* ================================================================
+   3D 场景视口
+   ================================================================ */
+.ek-scene {
   position: relative;
   width: 100%;
-  min-height: 380px;
+  height: 300px;
   display: flex;
   align-items: center;
   justify-content: center;
   perspective: 1100px;
-}
-
-.emotionkit-orbit {
-  position: absolute;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.6;
-  filter: saturate(0.9);
-  pointer-events: none;
-}
-
-.emotionkit-orbit > * {
-  transform: scale(0.46);
-}
-
-.emotionkit-orbit--1 {
-  top: 2%;
-  left: 2%;
-  animation: emotionkit-orbit-float-a 7.5s ease-in-out infinite;
-}
-
-.emotionkit-orbit--2 {
-  top: -2%;
-  right: 4%;
-  animation: emotionkit-orbit-float-b 8.5s ease-in-out infinite;
-  animation-delay: -2.4s;
-}
-
-.emotionkit-orbit--3 {
-  bottom: 8%;
-  left: -2%;
-  animation: emotionkit-orbit-float-c 9s ease-in-out infinite;
-  animation-delay: -4.8s;
-}
-
-.emotionkit-orbit--4 {
-  bottom: 2%;
-  right: 0%;
-  animation: emotionkit-orbit-float-d 8s ease-in-out infinite;
-  animation-delay: -1.2s;
-}
-
-@keyframes emotionkit-orbit-float-a {
-  0%, 100% { transform: translate(0, 0) rotate(-4deg); }
-  50% { transform: translate(6px, -14px) rotate(3deg); }
-}
-
-@keyframes emotionkit-orbit-float-b {
-  0%, 100% { transform: translate(0, 0) rotate(5deg); }
-  50% { transform: translate(-8px, 12px) rotate(-3deg); }
-}
-
-@keyframes emotionkit-orbit-float-c {
-  0%, 100% { transform: translate(0, 0) rotate(-3deg); }
-  50% { transform: translate(10px, 10px) rotate(4deg); }
-}
-
-@keyframes emotionkit-orbit-float-d {
-  0%, 100% { transform: translate(0, 0) rotate(4deg); }
-  50% { transform: translate(-6px, -10px) rotate(-5deg); }
-}
-
-/* 盒子本体：外层负责整体上下漂浮（idle bob），阴影反向呼吸；
-   内层 .emotionkit-box-wrap/.emotionkit-box 负责拖拽旋转，两层变换
-   分别作用在不同元素上，不会互相覆盖。 */
-.emotionkit-box-float {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  animation: emotionkit-box-bob 5.5s ease-in-out infinite;
-}
-
-@keyframes emotionkit-box-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
-}
-
-.emotionkit-box-shadow {
-  width: min(220px, 56vw);
-  height: 22px;
-  margin-top: 6px;
-  border-radius: 50%;
-  background: radial-gradient(
-    ellipse,
-    color-mix(in srgb, var(--ek-red) 32%, transparent) 0%,
-    transparent 72%
-  );
-  filter: blur(4px);
-  animation: emotionkit-box-shadow-breathe 5.5s ease-in-out infinite;
-}
-
-@keyframes emotionkit-box-shadow-breathe {
-  0%, 100% { transform: scale(1); opacity: 0.55; }
-  50% { transform: scale(0.72); opacity: 0.3; }
-}
-
-/* ================== 急救盒本体：真的长得像一个医药箱 ================== */
-.emotionkit-box-wrap {
+  perspective-origin: 50% 38%;
   touch-action: pan-y;
-  position: relative;
-  padding-top: 18px; /* 给提手留出悬在盒子上方的空间 */
-}
-
-.emotionkit-box {
-  position: relative;
-  width: min(300px, 78vw);
-  aspect-ratio: 1 / 0.98;
-  background: linear-gradient(
-    180deg,
-    var(--ek-red-soft) 0%,
-    var(--ek-red-soft) 34%,
-    var(--card-bg) 34%,
-    var(--card-bg) 100%
-  );
-  border: 1px solid var(--card-border);
-  border-radius: 26px;
-  box-shadow:
-    0 30px 60px -20px color-mix(in srgb, var(--ek-red) 38%, transparent),
-    0 2px 0 0 color-mix(in srgb, var(--ek-red) 16%, transparent) inset;
   cursor: grab;
-  user-select: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  overflow: hidden;
+  margin-bottom: 16px;
 }
+.ek-scene:active { cursor: grabbing; }
 
-.emotionkit-box:active {
-  cursor: grabbing;
-  box-shadow:
-    0 16px 32px -16px color-mix(in srgb, var(--ek-red) 38%, transparent),
-    0 2px 0 0 color-mix(in srgb, var(--ek-red) 16%, transparent) inset;
-}
-
-/* 箱体提手：悬在盒子顶部外沿，暗示这是一个可以拎起来的医药箱 */
-.emotionkit-box-handle {
+/* ================================================================
+   卫星浮标
+   ================================================================ */
+.ek-satellite {
   position: absolute;
-  top: -16px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 86px;
-  height: 22px;
-  border-radius: 999px 999px 0 0;
+  pointer-events: none;
+  z-index: 5;
+  background: color-mix(in srgb, var(--card-bg) 90%, transparent);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid var(--card-border);
-  border-bottom: none;
-  background: var(--ek-red-soft);
-  box-shadow: 0 -2px 6px -2px color-mix(in srgb, var(--ek-red) 25%, transparent);
-  z-index: 3;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px -6px color-mix(in srgb, var(--text-main) 8%, transparent);
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--ek-serif);
+  font-size: 11px;
+  color: var(--text-sub);
+  animation: ek-sat-float 6s ease-in-out infinite alternate;
 }
 
-.emotionkit-box-handle::after {
-  content: '';
-  position: absolute;
-  inset: 5px 10px 0;
-  border-radius: 999px 999px 0 0;
-  border: 1px solid color-mix(in srgb, var(--ek-red) 35%, transparent);
-  border-bottom: none;
+.ek-satellite--1 { top: 14px;  left: 12px;  animation-duration: 5.6s; }
+.ek-satellite--2 { top: 22px;  right: 10px; animation-duration: 6.4s; animation-delay: -1.2s; }
+.ek-satellite--3 { bottom: 40px; left: 14px;  animation-duration: 5.8s; animation-delay: -2.5s; }
+.ek-satellite--4 { bottom: 24px; right: 10px; animation-duration: 6.8s; animation-delay: -3.8s; }
+
+@keyframes ek-sat-float {
+  0%   { transform: translateY(0) rotate(0deg); }
+  50%  { transform: translateY(-10px) rotate(2deg); }
+  100% { transform: translateY(8px) rotate(-1.5deg); }
 }
 
-/* 盒盖区域：占上面 34%，中央放一个白底红十字徽章 */
-.emotionkit-box-lid {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  height: 34%;
+.ek-sat-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--bg-surface, var(--control-soft-bg));
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px dashed color-mix(in srgb, var(--ek-red) 38%, transparent);
+  color: var(--text-main);
+  font-size: 8.5px;
+  font-weight: 700;
 }
 
-.emotionkit-box-cross-badge {
-  width: 46px;
-  height: 46px;
+.ek-breath-pulse {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: var(--bg-surface);
-  border: 2px solid var(--ek-red);
+  border: 1.5px solid currentColor;
+  animation: ek-pulse-mini 3s infinite;
+}
+@keyframes ek-pulse-mini {
+  0%, 100% { transform: scale(0.85); opacity: 0.6; }
+  50%       { transform: scale(1.15); opacity: 1; }
+}
+
+/* ================================================================
+   物理悬浮升降层
+   ================================================================ */
+.ek-rig-float {
+  position: relative;
+  transform-style: preserve-3d;
+  animation: ek-levitate 5.2s ease-in-out infinite alternate;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--ek-red) 50%, transparent);
 }
 
-.emotionkit-cross-mark {
-  position: relative;
-  width: 20px;
-  height: 20px;
+@keyframes ek-levitate {
+  0%   { transform: translateY(8px); }
+  100% { transform: translateY(-16px); }
 }
 
-.emotionkit-cross-mark::before,
-.emotionkit-cross-mark::after {
-  content: '';
+/* ================================================================
+   地面投影
+   ================================================================ */
+.ek-ground-shadow {
   position: absolute;
-  background: var(--ek-red);
-  border-radius: 2px;
+  width: 220px;
+  height: 160px;
+  background: radial-gradient(ellipse at center,
+    color-mix(in srgb, var(--text-main) 22%, transparent) 0%,
+    color-mix(in srgb, var(--text-main) 6%, transparent) 50%,
+    transparent 75%);
+  border-radius: 50%;
+  filter: blur(14px);
+  transform: rotateX(90deg) translateZ(-110px);
+  pointer-events: none;
+  animation: ek-shadow-breath 5.2s ease-in-out infinite alternate;
+}
+@keyframes ek-shadow-breath {
+  0%   { transform: rotateX(90deg) translateZ(-110px) scale(1.08); opacity: 0.8; }
+  100% { transform: rotateX(90deg) translateZ(-110px) scale(0.88); opacity: 0.45; filter: blur(18px); }
 }
 
-.emotionkit-cross-mark::before {
-  top: 0;
-  left: 40%;
-  width: 20%;
-  height: 100%;
-}
-
-.emotionkit-cross-mark::after {
-  top: 40%;
-  left: 0;
-  width: 100%;
-  height: 20%;
-}
-
-/* 盒体区域：占剩下的 66%，放抽取槽 + CTA */
-.emotionkit-box-body {
+/* ================================================================
+   3D 盒体核心：六面体
+   ================================================================ */
+.ek-box-mesh {
   position: relative;
-  z-index: 2;
-  flex: 1;
-  width: 100%;
+  width: var(--bw);
+  height: var(--bh);
+  transform-style: preserve-3d;
+  transform: rotateX(-18deg) rotateY(-28deg);
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+
+.ek-box-mesh:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 4px;
+}
+
+/* 抽卡冲击动画 */
+.ek-box-mesh.is-ejecting {
+  animation: ek-box-punch 0.48s cubic-bezier(0.18, 1.25, 0.4, 1);
+}
+@keyframes ek-box-punch {
+  0%   { transform: rotateX(-18deg) rotateY(var(--cur-y, -28deg)) scale3d(1, 1, 1); }
+  35%  { transform: rotateX(-14deg) rotateY(var(--cur-y, -28deg)) translateY(18px) scale3d(0.96, 0.9, 0.96); }
+  70%  { transform: rotateX(-20deg) rotateY(var(--cur-y, -28deg)) translateY(-8px) scale3d(1.02, 1.04, 1.02); }
+  100% { transform: rotateX(-18deg) rotateY(var(--cur-y, -28deg)) scale3d(1, 1, 1); }
+}
+
+/* 六面公共样式 */
+.ek-face {
+  position: absolute;
+  box-sizing: border-box;
+  backface-visibility: visible;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+}
+
+/* --- 面 1：正面 --- */
+.ek-face--front {
+  width: var(--bw);
+  height: var(--bh);
+  transform: translateZ(65px);
+  background: linear-gradient(150deg, var(--card-bg) 0%, color-mix(in srgb, var(--card-bg) 80%, var(--bg-main)) 100%);
+  border-radius: 10px;
+  box-shadow:
+    inset 1px 1px 2px rgba(255, 255, 255, 0.9),
+    inset -1px -1px 3px rgba(0, 0, 0, 0.05);
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 8px 20px 20px;
-}
-
-.emotionkit-box-slot {
-  width: 112px;
-  height: 36px;
-  border-radius: 12px;
-  border: 1px dashed var(--card-border);
-  background: color-mix(in srgb, var(--ek-red) 6%, transparent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  color: var(--text-muted);
-}
-
-.emotionkit-box-cta {
-  font-family: var(--ek-serif);
-  font-weight: 700;
-  font-size: 16px;
+  justify-content: space-between;
   color: var(--text-main);
 }
 
-.emotionkit-box-sub {
-  font-size: 11px;
+.ek-front-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ek-relief-cross-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  font-weight: 700;
   color: var(--text-muted);
 }
 
-/* 抽出的纸条：带折痕的小纸片，从盒盖缝里被抽出来 */
-.emotionkit-box .emotionkit-slip-ghost {
+.ek-relief-cross {
+  width: 13px;
+  height: 13px;
+  position: relative;
+  flex-shrink: 0;
+}
+.ek-relief-cross::before,
+.ek-relief-cross::after {
+  content: "";
   position: absolute;
-  top: 30%;
-  width: 64%;
-  height: 30px;
-  border-radius: 6px;
-  background: var(--bg-surface);
+  background: var(--ek-red);
+  border-radius: 1px;
+}
+.ek-relief-cross::before { top: 4.5px; left: 0;    width: 13px; height: 4px; }
+.ek-relief-cross::after  { top: 0;    left: 4.5px; width: 4px;  height: 13px; }
+
+.ek-issue-no {
+  font-size: 8px;
+  font-family: monospace;
+  color: var(--text-muted);
+}
+
+.ek-front-title {
+  font-family: var(--ek-serif);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text-main);
+  line-height: 1.1;
+  margin-top: 4px;
+}
+
+.ek-front-sub {
+  font-family: var(--ek-serif);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.ek-front-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-top: 1px dashed var(--card-border);
+  padding-top: 6px;
+  font-size: 8px;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+}
+
+/* --- 面 2：顶盖 --- */
+.ek-face--top {
+  width: var(--bw);
+  height: var(--bd); /* depth = 130 */
+  top: -5px; /* (bh - bd) / 2 = (120-130)/2 */
+  transform: rotateX(90deg) translateZ(60px);
+  background: linear-gradient(to bottom,
+    var(--card-bg) 0%,
+    color-mix(in srgb, var(--card-bg) 70%, var(--bg-main)) 100%);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 3px rgba(255, 255, 255, 0.9),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  gap: 8px;
+}
+
+.ek-top-groove {
+  width: 85%;
+  height: 1px;
+  background: var(--card-border);
+}
+
+/* 顶盖出卡槽 */
+.ek-eject-slot {
+  position: relative;
+  width: 130px;
+  height: 8px;
+  background: color-mix(in srgb, var(--text-main) 88%, transparent);
+  border-radius: 5px;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.ek-slip-tip {
+  position: absolute;
+  bottom: 2px;
+  width: 106px;
+  height: 11px;
+  background: color-mix(in srgb, var(--card-bg) 98%, transparent);
   border: 1px solid var(--card-border);
-  box-shadow: 0 10px 18px -8px color-mix(in srgb, var(--ek-red) 35%, transparent);
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.ek-top-handle {
+  width: 50px;
+  height: 5px;
+  background: color-mix(in srgb, var(--text-muted) 40%, transparent);
+  border-radius: 3px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.ek-top-hint {
+  font-size: 7.5px;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* --- 面 3：右侧（背光暗调） --- */
+.ek-face--right {
+  width: var(--bd); /* 130 */
+  height: var(--bh);
+  left: 30px; /* (190-130)/2 */
+  transform: rotateY(90deg) translateZ(95px);
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--bg-main) 60%, var(--card-bg)) 0%,
+    color-mix(in srgb, var(--bg-main) 72%, var(--card-bg)) 100%);
+  border-radius: 10px;
+  box-shadow:
+    inset 1px 0 2px rgba(255, 255, 255, 0.3),
+    inset -1px 0 3px rgba(0, 0, 0, 0.12);
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--text-muted);
+}
+
+.ek-side-brand {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 7.5px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.ek-side-barcode {
+  width: 56px;
+  height: 17px;
+  opacity: 0.4;
+}
+
+/* --- 面 4：左侧 --- */
+.ek-face--left {
+  width: var(--bd);
+  height: var(--bh);
+  left: 30px;
+  transform: rotateY(-90deg) translateZ(95px);
+  background: linear-gradient(to left,
+    color-mix(in srgb, var(--card-bg) 88%, var(--bg-main)) 0%,
+    color-mix(in srgb, var(--card-bg) 70%, var(--bg-main)) 100%);
+  border-radius: 10px;
+}
+
+/* --- 面 5：背面 --- */
+.ek-face--back {
+  width: var(--bw);
+  height: var(--bh);
+  transform: rotateY(180deg) translateZ(65px);
+  background: color-mix(in srgb, var(--bg-main) 60%, var(--card-bg));
+  border-radius: 10px;
+}
+
+/* --- 面 6：底面 --- */
+.ek-face--bottom {
+  width: var(--bw);
+  height: var(--bd);
+  top: -5px;
+  transform: rotateX(-90deg) translateZ(60px);
+  background: color-mix(in srgb, var(--bg-main) 80%, var(--text-muted));
+  border-radius: 10px;
+}
+
+/* ================================================================
+   抽卡弹射纸条动效
+   ================================================================ */
+.ek-paper-rocket {
+  position: absolute;
+  top: 0;
+  left: 30px;
+  width: 130px;
+  height: 82px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 7px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+  transform-style: preserve-3d;
   opacity: 0;
   pointer-events: none;
-  z-index: 4;
+  z-index: 50;
+}
+.ek-paper-rocket.shoot-up {
+  animation: ek-paper-shoot 0.65s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+@keyframes ek-paper-shoot {
+  0%   { opacity: 0; transform: translateY(20px) translateZ(0) rotateX(80deg) scale(0.6); }
+  40%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-160px) translateZ(80px) rotateX(15deg) scale(1.15); }
 }
 
-.emotionkit-box .emotionkit-slip-ghost::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 8%;
-  right: 8%;
-  height: 1px;
-  background: color-mix(in srgb, var(--text-muted) 40%, transparent);
+/* ================================================================
+   底部状态区
+   ================================================================ */
+.ek-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding-bottom: 4px;
 }
 
-.emotionkit-box.is-drawing .emotionkit-slip-ghost {
-  animation: emotionkit-pull-slip 0.62s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+.ek-pool-tag {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.ek-pool-tag b {
+  color: var(--text-main);
+  font-weight: 700;
 }
 
-@keyframes emotionkit-pull-slip {
-  0% { opacity: 0; transform: translateY(10px) rotate(0deg) scale(0.88); }
-  40% { opacity: 1; transform: translateY(-30px) rotate(-3deg) scale(1); }
-  100% { opacity: 0; transform: translateY(-160px) rotate(2deg) scale(1.08); }
+.ek-regen-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: color 0.2s;
+  font-weight: 500;
+  padding: 4px 0;
 }
+.ek-regen-btn:hover:not(:disabled) { color: var(--text-main); }
+.ek-regen-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* ---------------- 处方弹窗：纸条"打开"的效果 ---------------- */
-.emotionkit-modal {
+/* ================================================================
+   空状态
+   ================================================================ */
+.ek-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.ek-empty h3 {
+  font-size: 15px;
+  font-family: var(--ek-serif);
+  color: var(--text-main);
+  font-weight: 600;
+}
+.ek-empty p { font-size: 13px; line-height: 1.6; }
+
+/* ================================================================
+   抽取结果弹窗
+   ================================================================ */
+.ek-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  background: color-mix(in srgb, var(--bg-main) 70%, transparent);
-  backdrop-filter: blur(20px);
+  padding: 24px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-.emotionkit-modal.is-active {
+.ek-modal-backdrop.is-active {
   opacity: 1;
   pointer-events: auto;
 }
 
-.emotionkit-card {
-  width: min(400px, 100%);
+.ek-paper-note {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
   background: var(--card-bg);
+  border-radius: 16px;
   border: 1px solid var(--card-border);
-  border-radius: 22px;
-  padding: 36px 26px 30px;
-  text-align: center;
-  box-shadow: 0 36px 80px -22px color-mix(in srgb, var(--ek-red) 32%, transparent);
-  transform-origin: top center;
-  opacity: 0;
-  transform: scaleY(0.12) scaleX(0.92) translateY(-6px);
+  box-shadow:
+    0 30px 60px -10px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  padding: 28px 26px 22px;
+  transform: translateY(40px) scale(0.92);
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ek-modal-backdrop.is-active .ek-paper-note {
+  transform: translateY(0) scale(1);
 }
 
-/* 纸条被"打开"：从一条压扁的折痕状态，像展开一封信一样立起来，
-   而不是单纯缩放淡入——这是这一轮用户明确要求的"打开效果"。 */
-.emotionkit-modal.is-active .emotionkit-card {
-  animation: emotionkit-unfold 0.62s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+.ek-note-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 10px;
+  margin-bottom: 18px;
 }
 
-@keyframes emotionkit-unfold {
-  0% {
-    opacity: 0;
-    transform: scaleY(0.12) scaleX(0.92) translateY(-6px);
-  }
-  55% {
-    opacity: 1;
-    transform: scaleY(1.04) scaleX(1.01) translateY(0);
-  }
-  100% {
-    opacity: 1;
-    transform: scaleY(1) scaleX(1) translateY(0);
-  }
-}
-
-.emotionkit-card-tag {
+.ek-note-tag {
   font-size: 10px;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
   color: var(--ek-red);
-  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--ek-red) 28%, transparent);
+  padding: 3px 8px;
+  border-radius: 4px;
 }
 
-.emotionkit-card-time {
+.ek-note-time {
   font-size: 10px;
   color: var(--text-muted);
-  margin-top: 4px;
 }
 
-.emotionkit-visual-slot {
-  width: 108px;
-  height: 108px;
-  margin: 18px auto 22px;
-  position: relative;
+/* 弹窗里的视觉图示区 */
+.ek-note-visual {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
+/* 复用旧的视觉元素类名（breathe ring / letter seal / stamp / polaroid） */
 .emotionkit-breath-ring {
-  position: absolute;
-  inset: 0;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--accent-color) 25%, transparent) 0%,
-    transparent 70%
-  );
-  animation: emotionkit-breathe 7s ease-in-out infinite;
+  border: 2px solid var(--accent-color);
+  animation: ek-breath-ring 4s ease-in-out infinite;
+}
+@keyframes ek-breath-ring {
+  0%, 100% { transform: scale(0.88); opacity: 0.6; }
+  50%       { transform: scale(1.1);  opacity: 1; }
 }
 
 .emotionkit-breath-core {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.emotionkit-letter-seal {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--accent-color);
-  color: var(--accent-foreground);
+  border: 2px solid var(--card-border);
+  background: var(--bg-surface, var(--control-soft-bg));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-sub);
+}
+
+.emotionkit-stamp-seal {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid var(--text-main);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  z-index: 2;
+  letter-spacing: 0.14em;
+  color: var(--text-main);
 }
 
-@keyframes emotionkit-breathe {
-  0%, 100% { transform: scale(0.85); opacity: 0.4; }
-  50% { transform: scale(1.5); opacity: 0.9; }
-}
-
-.emotionkit-letter-seal,
-.emotionkit-stamp-seal,
 .emotionkit-polaroid {
+  width: 48px;
+  height: 52px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.emotionkit-letter-seal {
-  width: 78px;
-  height: 78px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--accent-color) 12%, var(--card-bg));
-  border: 2px solid var(--accent-color);
-  color: var(--accent-color);
-}
-
-.emotionkit-stamp-seal {
-  width: 86px;
-  height: 86px;
-  border: 3px double var(--accent-color);
-  border-radius: 50%;
-  color: var(--accent-color);
-  transform: rotate(-8deg);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-}
-
-.emotionkit-polaroid {
-  width: 104px;
-  height: 84px;
-  background: var(--bg-surface);
-  border: 1px solid var(--card-border);
-  border-radius: 6px;
-  color: var(--accent-color);
-  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--accent-color) 30%, transparent);
-}
-
-.emotionkit-card-title {
-  font-family: var(--ek-serif);
-  font-size: 19px;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.emotionkit-card-text {
-  font-size: 14px;
-  line-height: 1.8;
   color: var(--text-sub);
-  margin-bottom: 26px;
+  padding-bottom: 8px;
 }
 
-.emotionkit-close-btn {
-  background: var(--ek-red);
-  color: #fff;
+.ek-note-title {
+  font-family: var(--ek-serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-main);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.ek-note-content {
+  font-family: var(--ek-serif);
+  font-size: 14px;
+  line-height: 1.72;
+  color: var(--text-sub);
+  background: var(--bg-surface, var(--control-soft-bg, var(--bg-main)));
+  border: 1px dashed var(--card-border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 20px;
+  text-align: justify;
+}
+
+.ek-note-accept-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--text-main);
+  color: var(--bg-main);
   border: none;
-  padding: 11px 30px;
-  border-radius: 999px;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  border-radius: 8px;
+  font-family: var(--ek-serif);
+  font-size: 13.5px;
+  letter-spacing: 0.1em;
+  font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.18s;
 }
-
-.emotionkit-close-btn:hover {
-  opacity: 0.85;
-}
+.ek-note-accept-btn:hover { opacity: 0.85; }
