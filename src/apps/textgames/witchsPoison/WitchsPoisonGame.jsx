@@ -21,6 +21,23 @@
 // 对局状态只放在 React state 里，不落库——中途退出/刷新就是放弃这一局。
 // userSecretCup 全程只存在这个组件的 state 里，不发给AI、不落库展示，
 // 只有这局结束后才作为战绩的一部分写进 textGameMatches。
+//
+// 互动对话（2026-10 新增）：每一轮轮到谁点杯子，谁就可以顺带说一句话
+// ——可以是暗示，也可以是故意下的烟雾弹，用来误导对方接下来的选择。
+// 用户这边是一个可选的文字输入框（userMessageDraft），点杯子的同时把
+// 当前草稿一起带上；角色这边复用原本就有的AI"理由"字段，只是现在明确
+// 当成"说给用户听的一句话"，而且会先把用户上一轮说的话喂给它（见
+// witchsPoisonAiService.js 的 userMessage 参数），让角色可以顺势回应
+// 或者将计就计。turnLog 里每一条现在除了 side/cup，还可能带一个
+// message 字段，渲染时统一显示；round结束时整条 turnLog 会传给
+// recordWitchsPoisonRound，压缩成一句过程摘要一起写进 contextNote。
+//
+// 拟物化改版（2026-10）：杯子换成3D翻转的"药瓶"——轮流点杯子阶段，
+// 点开一个还没点过的瓶子，安全就翻面露出小猫贴图，撞上对方的毒就翻面
+// 露出毒药贴图（下面两个常量，以后要换图只改这两行）。同一个编号的瓶子
+// 用户和角色可能分别点过，翻面状态取"任意一方点过"就算翻开，背面下方
+// 会标出是谁点的；结束揭晓时，没被撞上的那一方秘密瓶另外叠一圈虚线紫
+// 环标出来（不影响它本身是否已经翻开过）。
 
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -38,6 +55,9 @@ import {
 } from './witchsPoisonAiService';
 import '../textGameShared.css';
 import './witchsPoison.css';
+
+const SAFE_ICON_URL = 'https://u2.fukit.cn/QM187W6RW';
+const POISON_ICON_URL = 'https://u2.fukit.cn/o2mTZlwSK';
 
 const BackIcon = () => (
   <svg
@@ -67,6 +87,20 @@ const AvatarBubble = ({ character, className }) => {
 
 const CUP_NUMBERS = Array.from({ length: CUP_COUNT }, (_, i) => i + 1);
 
+// 药瓶正面的拟物外观（瓶塞+瓶颈+瓶身+紫色药液+编号），藏毒阶段的普通
+// 按钮和轮流点杯阶段的翻转卡片正面共用这一份标记。
+const FlaskFront = ({ number }) => (
+  <div className="tgwp-flask">
+    <div className="tgwp-flask-stopper" />
+    <div className="tgwp-flask-neck" />
+    <div className="tgwp-flask-body">
+      <div className="tgwp-flask-liquid" />
+    </div>
+    <div className="tgwp-flask-shine" />
+    <div className="tgwp-flask-num">{number}</div>
+  </div>
+);
+
 const PHASE = {
   PICK_CHARACTER: 'pick-character',
   STAKE_SETUP: 'stake-setup',
@@ -94,8 +128,10 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
   const [characterSecretCup, setCharacterSecretCup] = useState(null);
   const [userTriedCups, setUserTriedCups] = useState([]);
   const [characterTriedCups, setCharacterTriedCups] = useState([]);
-  const [turnLog, setTurnLog] = useState([]); // [{side, cup, reason}]
+  const [turnLog, setTurnLog] = useState([]); // [{side, cup, message}]
   const [isWaitingAi, setIsWaitingAi] = useState(false);
+  const [userMessageDraft, setUserMessageDraft] = useState('');
+  const [lastUserMessage, setLastUserMessage] = useState(''); // 喂给TA下一次选杯子的AI调用，用过就清空
 
   const [poisonedSide, setPoisonedSide] = useState(null); // 'user' | 'character'
   const [hitCup, setHitCup] = useState(null);
@@ -143,6 +179,8 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
     setCharacterTriedCups([]);
     setTurnLog([]);
     setIsWaitingAi(false);
+    setUserMessageDraft('');
+    setLastUserMessage('');
     setPoisonedSide(null);
     setHitCup(null);
     setReactionLine('');
@@ -188,14 +226,19 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
       hitCup: finalHitCup,
       turnsTaken: finalTurnsTaken,
       stakeNote,
+      turnLog,
     });
     await refreshStats(selectedCharacter.id);
   };
 
-  // 用户这一轮点一个自己还没点过的杯子，赌它不是角色藏毒的那一杯。
+  // 用户这一轮点一个自己还没点过的杯子，赌它不是角色藏毒的那一杯；点的
+  // 同时把当前输入框里的草稿话（暗示/烟雾弹，选填）一起带上。
   const handleUserTurn = async (cupNumber) => {
     if (phase !== PHASE.ROUND || currentTurn !== 'user') return;
     if (userTriedCups.includes(cupNumber)) return;
+
+    const message = userMessageDraft.trim();
+    setUserMessageDraft('');
 
     const nextTried = [...userTriedCups, cupNumber];
     setUserTriedCups(nextTried);
@@ -210,7 +253,8 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
       return;
     }
 
-    setTurnLog((prev) => [...prev, { side: 'user', cup: cupNumber }]);
+    setTurnLog((prev) => [...prev, { side: 'user', cup: cupNumber, message }]);
+    setLastUserMessage(message);
     setCurrentTurn('character');
   };
 
@@ -226,9 +270,11 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
       character: selectedCharacter,
       availableCups,
       stakeNote,
+      userMessage: lastUserMessage,
     });
 
     setIsWaitingAi(false);
+    setLastUserMessage(''); // 这句话已经喂给TA了，不重复带到下一轮
     if (cupNumber === null) return; // 理论上不会发生（9个杯子不可能被提前点完）
 
     const nextTried = [...characterTriedCups, cupNumber];
@@ -244,7 +290,7 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
       return;
     }
 
-    setTurnLog((prev) => [...prev, { side: 'character', cup: cupNumber, reason }]);
+    setTurnLog((prev) => [...prev, { side: 'character', cup: cupNumber, message: reason }]);
     setCurrentTurn('user');
   };
 
@@ -359,6 +405,8 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
           <BackIcon />
         </button>
 
+        <div className="tgwp-eyebrow">The Witch&rsquo;s Poison</div>
+
         <div className="tgh-shared-head">
           <AvatarBubble character={selectedCharacter} className="tgh-shared-head-avatar" />
           <div>
@@ -377,7 +425,7 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
               className="tgwp-cup"
               onClick={() => handleHideCup(cupNumber)}
             >
-              {cupNumber}
+              <FlaskFront number={cupNumber} />
             </button>
           ))}
         </div>
@@ -387,22 +435,40 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
 
   const revealed = phase === PHASE.RESULT;
 
+  // 轮流点杯阶段的翻转药瓶：安全就翻面露出小猫贴图，撞上对方的毒就
+  // 翻面露出毒药贴图；结束揭晓时，没被撞上的那一方秘密瓶额外叠一圈
+  // 虚线紫环（撞上的那一瓶已经是最重的强调，不需要再叠一层）。
   const renderCup = (cupNumber) => {
-    const isUserSecret = revealed && cupNumber === userSecretCup;
-    const isCharacterSecret = revealed && cupNumber === characterSecretCup;
+    const triedByUser = userTriedCups.includes(cupNumber);
+    const triedByCharacter = characterTriedCups.includes(cupNumber);
     const isHit = revealed && cupNumber === hitCup;
+    const isFlipped = triedByUser || triedByCharacter;
+    const isSecretMarker =
+      revealed &&
+      cupNumber !== hitCup &&
+      (cupNumber === userSecretCup || cupNumber === characterSecretCup);
+
+    const canUserClickNow = !revealed && currentTurn === 'user' && !triedByUser;
+
+    let backTag = '';
+    if (isHit) {
+      backTag = '中毒';
+    } else if (isFlipped) {
+      const triers = [];
+      if (triedByUser) triers.push('你');
+      if (triedByCharacter) triers.push(selectedCharacter?.name || 'TA');
+      backTag = triers.length ? `${triers.join('·')}点过 安全` : '';
+    }
 
     const classNames = [
-      'tgwp-cup',
-      isHit ? 'tgwp-cup-hit' : '',
-      isUserSecret && !isHit ? 'tgwp-cup-user-secret' : '',
-      isCharacterSecret && !isHit ? 'tgwp-cup-character-secret' : '',
+      'tgwp-vial-wrap',
+      isFlipped ? 'is-flipped' : '',
+      isHit ? 'is-hit' : isFlipped ? 'is-safe' : '',
+      isSecretMarker ? 'is-secret-marker' : '',
+      !canUserClickNow ? 'is-disabled' : '',
     ]
       .filter(Boolean)
       .join(' ');
-
-    const canUserClickNow =
-      !revealed && currentTurn === 'user' && !userTriedCups.includes(cupNumber);
 
     return (
       <button
@@ -411,8 +477,19 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
         className={classNames}
         onClick={() => canUserClickNow && handleUserTurn(cupNumber)}
         disabled={!canUserClickNow}
+        aria-label={`${cupNumber}号瓶`}
       >
-        {cupNumber}
+        <div className="tgwp-vial-inner">
+          <div className="tgwp-vial-face">
+            <FlaskFront number={cupNumber} />
+          </div>
+          <div className="tgwp-vial-back">
+            {isFlipped && (
+              <img src={isHit ? POISON_ICON_URL : SAFE_ICON_URL} alt={isHit ? '中毒' : '安全'} />
+            )}
+            {backTag && <span className="tgwp-vial-back-tag">{backTag}</span>}
+          </div>
+        </div>
       </button>
     );
   };
@@ -422,6 +499,8 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
       <button type="button" className="tgh-back-btn-light" aria-label="返回" onClick={handleBackToPicker}>
         <BackIcon />
       </button>
+
+      <div className="tgwp-eyebrow">The Witch&rsquo;s Poison</div>
 
       <div className="tgh-shared-head">
         <AvatarBubble character={selectedCharacter} className="tgh-shared-head-avatar" />
@@ -438,6 +517,42 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
       )}
 
       <div className="tgwp-cup-grid">{CUP_NUMBERS.map(renderCup)}</div>
+
+      {!revealed &&
+        turnLog.length > 0 &&
+        turnLog[turnLog.length - 1].message && (
+          <div className="tgwp-latest-bubble">
+            <div className="tgwp-bubble-avatar">
+              {turnLog[turnLog.length - 1].side === 'character'
+                ? (selectedCharacter?.name || 'TA').trim().charAt(0) || 'TA'
+                : '你'}
+            </div>
+            <div className="tgwp-bubble-col">
+              <span className="tgwp-bubble-label">
+                {turnLog[turnLog.length - 1].side === 'character'
+                  ? `${selectedCharacter?.name || 'TA'} 刚才说`
+                  : '你刚才说'}
+              </span>
+              <div className="tgwp-bubble">{turnLog[turnLog.length - 1].message}</div>
+            </div>
+          </div>
+        )}
+
+      {!revealed && (
+        <div className="tgh-shared-field tgwp-message-field">
+          <label>想说句话吗？可以是暗示，也可以是故意下的烟雾弹（选填）</label>
+          <div className="tgh-shared-input-row">
+            <input
+              type="text"
+              className="tgh-shared-input"
+              placeholder="比如：千万别点3号……"
+              value={userMessageDraft}
+              maxLength={60}
+              onChange={(event) => setUserMessageDraft(event.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
       {!revealed && currentTurn === 'character' && (
         <div className="tgh-shared-actions">
@@ -459,20 +574,20 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
               <span className="tgwp-log-side">
                 {item.side === 'user' ? '你' : selectedCharacter?.name || 'TA'}点了{item.cup}号，安全
               </span>
-              {item.reason && <span className="tgwp-log-reason">"{item.reason}"</span>}
+              {item.message && <span className="tgwp-log-reason">"{item.message}"</span>}
             </div>
           ))}
         </div>
       )}
 
       {revealed && (
-        <div className="tgh-shared-result-banner">
+        <div className="tgh-shared-result-banner tgwp-result-banner">
           <h3>{poisonedSide === 'user' ? '你中毒了' : 'TA中毒了'}</h3>
           <p>
             你藏在{userSecretCup}号，TA藏在{characterSecretCup}号，第{turnLog.length + 1}轮在
             {hitCup}号撞上了。
           </p>
-          {reactionLine && <p>"{reactionLine}"</p>}
+          {reactionLine && <p className="tgwp-result-reaction">"{reactionLine}"</p>}
           {stakeNote && <p>说好的赌注："{stakeNote}"</p>}
           <p>这一局的结果已经让TA知道了，下次聊天可能会提起。</p>
         </div>

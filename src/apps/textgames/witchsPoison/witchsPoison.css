@@ -1,16 +1,46 @@
 /* ============================================================
-   女巫的毒药——跟文字游戏大厅同一套黑白弥散质感，颜色变量复用 .tgh-app，
-   选角色/赌注输入/结果横幅/操作按钮/战绩行走 textGameShared.css 的
-   公共样式，这里只补9个杯子的网格、杯子状态高亮，以及轮次记录列表。
+   女巫的毒药——专属视觉层，2026-10 拟物化改版。
 
-   2026-10 规则改版后的类名（替换掉第一版"一方藏一方猜"用的
-   tgwp-cup-poisoned / tgwp-cup-guessed / tgwp-cup-hidden-marker）：
-   - .tgwp-cup-hit            结束时，真正撞上的那一杯
-   - .tgwp-cup-user-secret    结束时，用户藏毒的那一杯（没被撞上时）
-   - .tgwp-cup-character-secret 结束时，角色藏毒的那一杯（没被撞上时）
-   - .tgwp-log / .tgwp-log-row / .tgwp-log-side / .tgwp-log-reason
-     轮次记录（谁点了几号、安全，以及角色的那一句理由）
+   颜色底子仍然复用文字游戏大厅的 --tgh-paper / --tgh-ink 等（见
+   textGameHall.css，跟 textGameShared.css 一样的黑白弥散质感），这里
+   只在它上面叠一层这个游戏专属的"女巫紫"强调色（--tgwp-* 变量，只在
+   这个文件里定义、只给这一个游戏用），用在：选中/中毒的发光、角色这一
+   侧的气泡、秘密杯的虚线描边。没有引入新的深色/浅色主题切换——这一整
+   套跟大厅一样是固定底色，不跟随 App.jsx 的 data-theme。
+
+   视觉改动（替换掉第一版"方形卡片+文字"的杯子）：
+   - .tgwp-vial-wrap / .tgwp-vial-inner / .tgwp-vial-face / .tgwp-vial-back
+     3D翻转的"药瓶"——正面是瓶身+瓶塞的拟物形状，背面点击揭晓后贴图
+     （安全=小猫贴图，中毒=毒药贴图，图片URL见 WitchsPoisonGame.jsx 顶部
+     的 SAFE_ICON_URL / POISON_ICON_URL 常量，以后要换图只改那两行）。
+   - .tgwp-bubble-* 系列：说句话/TA的理由现在用聊天气泡样式，而不是纯
+     文字行；轮次历史仍然保留一份更紧凑的 .tgwp-log 列表（否则9轮下来
+     全用大气泡会把页面拉得很长）。
+   - .tgwp-eyebrow：页面顶部一行哥特花体小标——这个游戏唯一用哥特体
+     的地方，节制地用在一处而不是满页都是（哥特花体不支持中文，中文
+     标题还是走 --tgh-font-display）。
    ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&display=swap');
+
+:root {
+  --tgwp-purple: #7c4fc9;
+  --tgwp-purple-deep: #4a2a73;
+  --tgwp-purple-pale: #efe7fb;
+  --tgwp-purple-glow: rgba(124, 79, 201, 0.4);
+  --tgwp-poison-glow: rgba(124, 79, 201, 0.5);
+  --tgwp-font-gothic: 'UnifrakturMaguntia', 'Cormorant Garamond', serif;
+}
+
+/* ===== 顶部哥特花体小标 ===== */
+.tgwp-eyebrow {
+  text-align: center;
+  font-family: var(--tgwp-font-gothic);
+  font-size: 20px;
+  color: var(--tgwp-purple);
+  letter-spacing: 0.03em;
+  margin: 10px 0 0;
+}
 
 .tgwp-hint {
   margin-top: 16px;
@@ -19,28 +49,29 @@
   color: var(--tgh-ink-faint);
 }
 
+/* ===== 杯子/药瓶网格 ===== */
 .tgwp-cup-grid {
   margin: 18px auto 0;
   width: min(320px, 100%);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 
+.tgwp-message-field {
+  width: min(320px, 100%);
+  margin: 16px auto 0;
+}
+
+/* ===== 藏毒阶段：普通瓶子按钮（没有翻面，纯选择） ===== */
 .tgwp-cup {
-  aspect-ratio: 1;
-  border-radius: 16px;
-  border: 1px solid var(--tgh-hairline);
-  background: var(--tgh-paper-card);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--tgh-font-display);
-  font-weight: 700;
-  font-size: 20px;
-  color: var(--tgh-ink);
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  border: none;
+  background: transparent;
+  padding: 0;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+  position: relative;
 }
 
 .tgwp-cup:disabled {
@@ -48,29 +79,241 @@
   opacity: 0.55;
 }
 
-.tgwp-cup:not(:disabled):hover {
-  background: var(--tgh-paper);
-  transform: translateY(-1px);
+/* ===== 拟物药瓶：瓶身+瓶塞，正反两面共用的形状 ===== */
+.tgwp-flask {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
-/* 结束揭晓时，真正撞上的那一杯——最重的视觉强调 */
-.tgwp-cup-hit {
+.tgwp-flask-stopper {
+  position: absolute;
+  top: 2%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34%;
+  height: 16%;
+  background: linear-gradient(180deg, #8a7a68 0%, #5e4f40 100%);
+  border-radius: 4px 4px 2px 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+}
+
+.tgwp-flask-neck {
+  position: absolute;
+  top: 14%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24%;
+  height: 16%;
+  background: linear-gradient(180deg, #e9e6e0 0%, #d2ccc1 100%);
+  border: 1px solid var(--tgh-hairline);
+  border-bottom: none;
+  z-index: 1;
+}
+
+.tgwp-flask-body {
+  position: absolute;
+  top: 26%;
+  left: 8%;
+  right: 8%;
+  bottom: 4%;
+  background: linear-gradient(155deg, #faf9f6 0%, #e3ded5 55%, #cfc7ba 100%);
+  border: 1px solid var(--tgh-hairline);
+  border-radius: 20% 20% 42% 42% / 16% 16% 50% 50%;
+  box-shadow:
+    inset -6px -8px 14px rgba(0, 0, 0, 0.08),
+    inset 4px 6px 10px rgba(255, 255, 255, 0.5),
+    0 4px 10px rgba(18, 18, 18, 0.1);
+  overflow: hidden;
+}
+
+.tgwp-flask-liquid {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 8%;
+  height: 46%;
+  background: linear-gradient(180deg, var(--tgwp-purple) 0%, var(--tgwp-purple-deep) 100%);
+  border-radius: 0 0 36% 36% / 0 0 60% 60%;
+  opacity: 0.85;
+}
+
+.tgwp-flask-shine {
+  position: absolute;
+  top: 10%;
+  left: 18%;
+  width: 14%;
+  height: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  filter: blur(2.5px);
+  z-index: 1;
+}
+
+.tgwp-flask-num {
+  position: absolute;
+  bottom: 10%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 2;
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--tgh-ink);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+
+.tgwp-cup:not(:disabled):hover .tgwp-flask-body {
+  box-shadow:
+    inset -6px -8px 14px rgba(0, 0, 0, 0.08),
+    inset 4px 6px 10px rgba(255, 255, 255, 0.5),
+    0 8px 18px rgba(124, 79, 201, 0.22);
+}
+
+/* ===== 轮流点杯阶段：3D 翻转药瓶 ===== */
+.tgwp-vial-wrap {
+  aspect-ratio: 3 / 4;
+  perspective: 700px;
+  cursor: pointer;
+}
+
+.tgwp-vial-wrap.is-disabled {
+  cursor: default;
+}
+
+.tgwp-vial-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+}
+
+.tgwp-vial-wrap.is-flipped .tgwp-vial-inner {
+  transform: rotateY(180deg);
+}
+
+.tgwp-vial-face,
+.tgwp-vial-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+
+.tgwp-vial-back {
+  transform: rotateY(180deg);
+  border-radius: 16px;
+  background: var(--tgh-paper-card);
+  border: 1px solid var(--tgh-hairline);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.tgwp-vial-back img {
+  width: 56%;
+  height: 56%;
+  object-fit: contain;
+}
+
+.tgwp-vial-back-tag {
+  font-size: 9.5px;
+  color: var(--tgh-ink-faint);
+  letter-spacing: 0.02em;
+}
+
+/* 安全：淡淡的紫色光晕，猫咪贴图 */
+.tgwp-vial-wrap.is-safe .tgwp-vial-back {
+  box-shadow: 0 0 0 1px var(--tgh-hairline), 0 0 16px var(--tgwp-purple-glow);
+}
+
+/* 中毒：撞上的那一瓶——最重的强调，深紫光晕 */
+.tgwp-vial-wrap.is-hit .tgwp-vial-back {
   background: var(--tgh-ink);
-  color: #fff;
-  opacity: 1;
   border-color: var(--tgh-ink);
+  box-shadow: 0 0 24px var(--tgwp-poison-glow);
 }
 
-/* 结束揭晓时，用户/角色各自藏毒的那一杯（没被撞上时，弱一档的标记） */
-.tgwp-cup-user-secret,
-.tgwp-cup-character-secret {
-  border: 2px dashed var(--tgh-ink-soft);
-  opacity: 1;
+.tgwp-vial-wrap.is-hit .tgwp-vial-back-tag {
+  color: rgba(255, 255, 255, 0.65);
 }
 
-/* ===== 轮次记录 ===== */
+/* 结束揭晓时，没被撞上的那一方秘密杯——虚线紫环标出，不改变已有的
+   翻面状态（可能还是正面，也可能之前已经被安全翻开过） */
+.tgwp-vial-wrap.is-secret-marker .tgwp-vial-face,
+.tgwp-vial-wrap.is-secret-marker .tgwp-vial-back {
+  outline: 2px dashed var(--tgwp-purple);
+  outline-offset: 2px;
+  border-radius: 16px;
+}
+
+@media (max-width: 380px) {
+  .tgwp-cup-grid {
+    gap: 8px;
+  }
+}
+
+/* ===== 说话气泡：轮到谁，谁刚说的那句话单独拎出来放大显示 ===== */
+.tgwp-latest-bubble {
+  margin: 16px auto 0;
+  width: min(320px, 100%);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tgwp-bubble-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--tgwp-purple-deep);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.tgwp-bubble-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tgwp-bubble-label {
+  font-size: 10px;
+  color: var(--tgh-ink-faint);
+  letter-spacing: 0.02em;
+}
+
+.tgwp-bubble {
+  padding: 8px 13px;
+  border-radius: 14px;
+  border-bottom-left-radius: 4px;
+  background: var(--tgwp-purple-deep);
+  color: #fff;
+  font-size: 12.5px;
+  line-height: 1.5;
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* ===== 紧凑版轮次记录（完整历史，保留但不占太多空间） ===== */
 .tgwp-log {
-  margin: 18px auto 0;
+  margin: 16px auto 0;
   width: min(320px, 100%);
   display: flex;
   flex-direction: column;
@@ -93,13 +336,19 @@
 }
 
 .tgwp-log-reason {
-  color: var(--tgh-ink-faint);
+  color: var(--tgwp-purple);
   font-family: var(--tgh-font-script);
   font-style: italic;
 }
 
-@media (max-width: 380px) {
-  .tgwp-cup-grid {
-    gap: 8px;
-  }
+/* ===== 结果横幅：紫色魔法光晕替代原本纯黑渐变 ===== */
+.tgwp-result-banner {
+  background: linear-gradient(160deg, var(--tgwp-purple-deep) 0%, #1c1026 100%);
+  box-shadow: 0 16px 36px var(--tgwp-purple-glow);
+}
+
+.tgwp-result-banner .tgwp-result-reaction {
+  font-family: var(--tgh-font-script);
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.85);
 }

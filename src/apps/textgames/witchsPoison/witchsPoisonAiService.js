@@ -27,11 +27,18 @@ export const pickCharacterSecretCup = () => randomCupNumber();
 // 角色这一轮该点哪个杯子——只能从"角色自己还没点过的杯子"里选一个，
 // 没有任何关于用户藏在哪一杯的信息，纯粹是带了人设语气的直觉赌注。
 // availableCups 是角色自己还没点过的杯子编号数组（调用方算好传进来）。
+//
+// userMessage（2026-10 新增，可选）：用户在TA这一轮点杯子之前，自己
+// 点杯子/等待时顺便说的一句话——可能是认真的提示，也可能是故意下的
+// 烟雾弹，角色自己判断要不要信。角色返回的"理由"现在明确当成"说给
+// 用户听的一句话"，而不只是内心独白——可以顺势回应用户那句话，也可以
+// 自己主动放一句暗示或误导，增加对局本身的互动感。
 export const requestCharacterCupPick = async ({
   chatId,
   character,
   availableCups,
   stakeNote,
+  userMessage,
 }) => {
   const fallbackPick = () =>
     availableCups[Math.floor(Math.random() * availableCups.length)];
@@ -46,17 +53,20 @@ export const requestCharacterCupPick = async ({
 
     const { apiConfig } = context;
     const stakeLine = stakeNote ? `这把的赌注是："${stakeNote}"，中毒了是要认账的。` : '';
+    const userMessageLine = userMessage?.trim()
+      ? `用户刚才对你说了一句话："${userMessage.trim()}"——这可能是真心的提示，也可能是故意说反话骗你上钩，你自己判断要不要信，可以在自己这句话里顺势回应。`
+      : '';
 
     const systemPrompt = `你正在扮演角色：${character?.name || 'TA'}。
 
 角色设定：
 ${character?.bio || '无'}
 
-你正在和用户玩"女巫的毒药"：你和用户各自偷偷藏了一杯毒药，轮流点还没点过的杯子，赌它不是对方藏毒的那一杯——谁先点中对方藏的那一杯，谁就中毒。你完全不知道用户把毒藏在哪一杯，只能凭直觉赌一把。${stakeLine}
+你正在和用户玩"女巫的毒药"：你和用户各自偷偷藏了一杯毒药，轮流点还没点过的杯子，赌它不是对方藏毒的那一杯——谁先点中对方藏的那一杯，谁就中毒。你完全不知道用户把毒藏在哪一杯，只能凭直觉赌一把。${stakeLine}${userMessageLine}
 
 你现在还没点过的杯子编号是：${availableCups.join('、')}。
 
-请从这些编号里选一个作为你这一轮要点的杯子，并用一句话说说你选它的理由（可以是性格化的直觉、玩笑或小迷信，不需要有逻辑依据）。
+请从这些编号里选一个作为你这一轮要点的杯子，并说一句话给用户听——可以是你选它的直觉/玩笑/小迷信，也可以是主动抛给用户的暗示或误导（故意说自己很怕某个编号、或者假装很有把握，都可以），不需要有逻辑依据，目的是让对局更像在互相试探。
 
 严格按下面格式输出，不要有其他内容：
 编号：<数字>
