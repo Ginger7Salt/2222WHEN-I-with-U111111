@@ -4667,4 +4667,30 @@ db.version(74).stores({
   coupons: '++id, chatId, status, createdAt',
 });
 
+// ============================================================
+// v75：异地任务挑战（情侣任务打卡板）切片A —— 数据模型 + 面板外壳。
+//
+// 跟DIY小屋一样挂在"这个聊天"（chatId）上，不是挂在角色身上。三张表，
+// 具体字段形状和取舍见 challengeService.js 顶部的详细注释，这里只记
+// 迁移本身要注意的点：
+//
+//   - challengeBoards：每个聊天一行，装饰性内容（拍立得画廊/歌单/
+//     情书便签），只建 chatId 索引，不需要别的。
+//   - challengePresets：情侣问卷/情侣任务模板库，全局共享（不挂
+//     chatId），建 type 索引方便按"问卷"/"任务"分开取。内置种子数据
+//     不在这次迁移里塞——交给 challengeService.js 的
+//     ensurePresetsSeeded() 在第一次真正被用到时惰性写入，保持这个
+//     文件对 apps/ 目录零依赖的既有约定（这张表为空就代表还没播过种，
+//     不需要额外的"是否已播种"标记字段）。
+//   - challengeTasks：真正的任务卡，一条一行（照抄 rpMessages 的做法，
+//     不用数组字段），[chatId+status] 复合索引方便面板按"待完成/
+//     已完成"筛选同一个聊天下的任务。
+// ============================================================
+db.version(75).stores({
+  challengeBoards: '++id, chatId',
+  challengePresets: '++id, type, isBuiltin, createdAt',
+  challengeTasks:
+    '++id, chatId, status, assignedBy, sourceType, sourcePresetId, createdAt, [chatId+status]',
+});
+
 export default db;

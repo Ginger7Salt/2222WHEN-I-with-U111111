@@ -29,6 +29,7 @@ import {
   Forward,
   Trash2,
   Package,
+  Stamp,
 } from 'lucide-react';
 
 import {
@@ -219,6 +220,7 @@ const MemoirPage = lazy(() => import('../memoir/MemoirPage'));
 
 // 角色的DIY小屋，同样只有用户点开 🐾 更多入口里的入口才加载
 const CharacterDiyPage = lazy(() => import('./diy/CharacterDiyPage'));
+const ChallengeBoardPage = lazy(() => import('../challenges/ChallengeBoardPage'));
 // 神秘快递页面，同样只有用户点开 🐾 更多入口里的入口、或者点了快递
 // 到达提示才加载
 const ParcelPage = lazy(() => import('./parcel/ParcelPage'));
@@ -315,6 +317,7 @@ const [showCompanionPage, setShowCompanionPage] = useState(false);
   const [showMemoirPage, setShowMemoirPage] = useState(false);
   const [showCharacterDiy, setShowCharacterDiy] = useState(false);
   const [showParcelPage, setShowParcelPage] = useState(false);
+  const [showChallengeBoard, setShowChallengeBoard] = useState(false);
   // 长按头像打开的资料卡：浮层弹出，不是整页替换，所以不走上面
 // showMemoirPage/showCharacterDiy 那种"整个组件提前 return"的写法，
 // 就近跟 showChatSettings 这类弹层模态共用同一种条件渲染方式。
@@ -1244,6 +1247,7 @@ void openChatAndMarkMessagesAsRead();
   showMemoirPage,
   showCharacterDiy,
   showParcelPage,
+  showChallengeBoard,
   activeOfflineSessionId,
 ]);
 
@@ -1997,6 +2001,21 @@ useLayoutEffect(() => {
   );
 }
 
+  if (showChallengeBoard) {
+  return (
+    <Suspense fallback={null}>
+      <ChallengeBoardPage
+        chatId={chatId}
+        character={character}
+        onBack={() => {
+  hasScrolledToLatestRef.current = false;
+  setShowChallengeBoard(false);
+}}
+      />
+    </Suspense>
+  );
+}
+
 
 
   return (
@@ -2272,8 +2291,20 @@ useLayoutEffect(() => {
                         }}
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
                       >
-                        <Package className="h-4 w-4" />
+                                               <Package className="h-4 w-4" />
                         <span>神秘快递</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowChallengeBoard(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Stamp className="h-4 w-4" />
+                        <span>异地任务挑战</span>
                       </button>
                     </div>
                   </>

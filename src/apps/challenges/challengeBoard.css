@@ -1,0 +1,650 @@
+/* ============================================================
+   异地任务挑战（情侣任务打卡板）—— 杂志风整页样式。
+   用户提供的视觉参考是一整份"100 Romantic Challenges"杂志跨页，这里
+   按参考图原样复刻排版/配色，只是把裸 HTML 换成了 React 组件、给所有
+   类名加 cb- 前缀并嵌套在 .challenge-board-page 下面，避免跟 app 里
+   其他页面的类名撞车。配色是参考图自带的酒红/腮红纸质色板，故意不跟
+   app 的亮暗主题变量挂钩——这是"一整本独立杂志"的质感，不随app换肤。
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Noto+Serif+SC:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+.challenge-board-page {
+  --cb-bg-warm: #f7f5f0;
+  --cb-paper-card: #fdfdfb;
+  --cb-paper-polaroid: #ffffff;
+  --cb-ink-primary: #181618;
+  --cb-ink-secondary: #4a464c;
+  --cb-ink-muted: #8d8790;
+  --cb-wine-red: #851c23;
+  --cb-wine-soft: #be3942;
+  --cb-blush-rose: #f4dcd9;
+  --cb-blush-deep: #ea9a93;
+  --cb-amber-tape: rgba(235, 205, 155, 0.45);
+  --cb-hairline: rgba(133, 28, 35, 0.12);
+  --cb-font-script: 'Alex Brush', cursive;
+  --cb-font-serif-en: 'Cormorant Garamond', Georgia, serif;
+  --cb-font-serif-cn: 'Noto Serif SC', STSong, serif;
+  --cb-font-sans: 'Space Grotesk', sans-serif;
+
+  background: var(--cb-bg-warm);
+  color: var(--cb-ink-primary);
+  font-family: var(--cb-font-sans);
+}
+
+.challenge-board-page * {
+  box-sizing: border-box;
+}
+
+.cb-scroll-area {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 64px;
+}
+
+.cb-paper-film-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.042;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+.cb-diffuse-stage {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.cb-diffuse-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(110px);
+  opacity: 0.75;
+  animation: cbFloatDiffuse 20s ease-in-out infinite alternate;
+}
+
+.cb-orb-rose {
+  width: 580px;
+  height: 580px;
+  background: radial-gradient(circle, rgba(234, 154, 147, 0.45) 0%, rgba(244, 220, 217, 0.2) 50%, transparent 75%);
+  top: -120px;
+  right: 5%;
+}
+
+.cb-orb-wine {
+  width: 480px;
+  height: 480px;
+  background: radial-gradient(circle, rgba(133, 28, 35, 0.18) 0%, rgba(190, 57, 66, 0.08) 55%, transparent 75%);
+  bottom: 50px;
+  left: 0%;
+  animation-duration: 24s;
+  animation-direction: alternate-reverse;
+}
+
+.cb-orb-amber {
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, rgba(245, 230, 205, 0.6) 0%, transparent 70%);
+  top: 35%;
+  left: 20%;
+}
+
+@keyframes cbFloatDiffuse {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-30px, 35px) scale(1.12); }
+}
+
+.cb-magazine-page {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 820px;
+  background: var(--cb-paper-card);
+  border: 1px solid rgba(133, 28, 35, 0.15);
+  border-radius: 28px;
+  box-shadow: 0 40px 90px -25px rgba(60, 25, 30, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.9);
+  padding: 28px 18px 36px;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .cb-magazine-page {
+    padding: 40px 42px 50px;
+  }
+}
+
+.cb-magazine-inner-frame {
+  border: 1px solid var(--cb-wine-red);
+  border-radius: 20px;
+  padding: 24px 16px;
+  position: relative;
+  background: #ffffff;
+}
+
+@media (min-width: 640px) {
+  .cb-magazine-inner-frame {
+    padding: 32px 30px;
+  }
+}
+
+/* ---------------- 报头 ---------------- */
+
+.cb-masthead {
+  text-align: center;
+  position: relative;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--cb-hairline);
+}
+
+.cb-masthead-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  font-family: var(--cb-font-serif-en);
+  letter-spacing: 0.2em;
+  color: var(--cb-wine-red);
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  gap: 6px;
+}
+
+.cb-masthead-title-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 8px 0;
+}
+
+.cb-title-script {
+  font-family: var(--cb-font-script);
+  font-size: 44px;
+  line-height: 0.9;
+  color: var(--cb-wine-red);
+  transform: rotate(-3deg);
+  display: inline-block;
+  text-shadow: 0 4px 12px rgba(133, 28, 35, 0.15);
+}
+
+@media (min-width: 640px) {
+  .cb-title-script {
+    font-size: 64px;
+  }
+}
+
+.cb-title-editorial {
+  font-family: var(--cb-font-serif-en);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: var(--cb-ink-secondary);
+  text-transform: uppercase;
+  margin-top: -4px;
+}
+
+@media (min-width: 640px) {
+  .cb-title-editorial {
+    font-size: 26px;
+  }
+}
+
+.cb-masthead-sub-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 4px 14px;
+  background: var(--cb-blush-rose);
+  border-radius: 100px;
+  font-size: 10.5px;
+  color: var(--cb-wine-red);
+  font-family: var(--cb-font-serif-cn);
+  letter-spacing: 0.06em;
+}
+
+/* ---------------- 拍立得画廊 ---------------- */
+
+.cb-polaroid-gallery {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 32px 0 24px;
+  position: relative;
+}
+
+.cb-polaroid-frame {
+  background: var(--cb-paper-polaroid);
+  padding: 10px 10px 22px;
+  border: 1px solid rgba(133, 28, 35, 0.16);
+  box-shadow: 0 16px 35px -10px rgba(45, 20, 25, 0.14);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  flex: 1 1 150px;
+  max-width: 200px;
+}
+
+.cb-polaroid-tilt-left { transform: rotate(-3.5deg); }
+.cb-polaroid-tilt-center { transform: translateY(-8px) rotate(1.5deg); z-index: 5; }
+.cb-polaroid-tilt-right { transform: rotate(3deg); }
+
+.cb-polaroid-image-box {
+  width: 100%;
+  height: 150px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--cb-blush-rose);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cb-polaroid-upload-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--cb-font-serif-en);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--cb-wine-red);
+  opacity: 0.65;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.cb-polaroid-caption-input {
+  margin-top: 10px;
+  width: 100%;
+  border: none;
+  border-bottom: 1px dashed var(--cb-hairline);
+  background: transparent;
+  font-family: var(--cb-font-serif-cn);
+  font-size: 11px;
+  color: var(--cb-ink-secondary);
+  text-align: center;
+  font-weight: 500;
+  padding: 2px 0;
+}
+
+.cb-polaroid-caption-input:focus {
+  outline: none;
+  border-bottom-color: var(--cb-wine-soft);
+}
+
+/* ---------------- 下半部左右两栏 ---------------- */
+
+.cb-dual-deck-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-top: 32px;
+  align-items: start;
+}
+
+@media (min-width: 768px) {
+  .cb-dual-deck-row {
+    grid-template-columns: 270px 1fr;
+  }
+}
+
+/* ---------------- 歌单 ---------------- */
+
+.cb-playlist-card {
+  background: #fbfaf7;
+  border: 1px solid var(--cb-hairline);
+  border-radius: 16px;
+  padding: 18px 16px;
+  box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.8);
+}
+
+.cb-playlist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cb-wine-red);
+  font-family: var(--cb-font-serif-en);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--cb-hairline);
+}
+
+.cb-track-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cb-track-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(133, 28, 35, 0.08);
+  border-left: 3px solid var(--cb-wine-red);
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cb-track-item:hover {
+  background: #fff8f8;
+  border-color: var(--cb-wine-soft);
+  transform: translateX(2px);
+}
+
+.cb-track-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cb-track-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--cb-ink-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cb-track-artist {
+  font-size: 9.5px;
+  color: var(--cb-ink-muted);
+  font-family: var(--cb-font-serif-en);
+  font-style: italic;
+}
+
+.cb-track-remove-btn {
+  flex-shrink: 0;
+  opacity: 0.4;
+  background: none;
+  border: none;
+  color: var(--cb-ink-muted);
+}
+
+.cb-track-remove-btn:hover { opacity: 0.9; color: var(--cb-wine-red); }
+
+.cb-add-track-row {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cb-add-track-row input {
+  font-size: 11px;
+  padding: 6px 8px;
+  border: 1px solid var(--cb-hairline);
+  border-radius: 6px;
+  font-family: var(--cb-font-sans);
+  background: #ffffff;
+  color: var(--cb-ink-primary);
+}
+
+.cb-add-track-row input:focus {
+  outline: none;
+  border-color: var(--cb-wine-soft);
+}
+
+/* ---------------- 情书便签 ---------------- */
+
+.cb-love-memo-note {
+  margin-top: 16px;
+  background: var(--cb-wine-red);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 24px -6px rgba(133, 28, 35, 0.35);
+  position: relative;
+}
+
+.cb-memo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  font-family: var(--cb-font-sans);
+}
+
+.cb-memo-body {
+  font-family: var(--cb-font-serif-cn);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: #fcebeb;
+  background: transparent;
+  border: none;
+  resize: vertical;
+  width: 100%;
+  min-height: 48px;
+}
+
+.cb-memo-body::placeholder { color: rgba(252, 235, 235, 0.55); }
+.cb-memo-body:focus { outline: none; }
+
+.cb-memo-save-btn {
+  margin-top: 8px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #fcebeb;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 100px;
+  padding: 3px 12px;
+}
+
+/* ---------------- 挑战打卡板 ---------------- */
+
+.cb-challenge-panel {
+  background: #ffffff;
+  border: 1px solid var(--cb-hairline);
+  border-radius: 16px;
+  padding: 18px 16px;
+}
+
+.cb-challenge-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--cb-wine-red);
+  gap: 8px;
+}
+
+.cb-challenge-title-group h3 {
+  font-family: var(--cb-font-serif-cn);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cb-wine-red);
+  letter-spacing: 0.02em;
+}
+
+.cb-challenge-title-group span {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--cb-ink-muted);
+  text-transform: uppercase;
+  font-family: var(--cb-font-serif-en);
+}
+
+.cb-progress-pill {
+  font-family: var(--cb-font-serif-en);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cb-wine-red);
+  background: var(--cb-blush-rose);
+  padding: 3px 10px;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+
+.cb-add-task-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--cb-wine-red);
+  border-radius: 100px;
+  padding: 6px 14px;
+  margin-bottom: 14px;
+}
+
+.cb-section-label {
+  font-family: var(--cb-font-serif-en);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cb-wine-soft);
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--cb-hairline);
+}
+
+.cb-section-label:first-child { margin-top: 0; }
+
+.cb-challenge-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cb-challenge-card {
+  position: relative;
+  background: #fdfdfb;
+  border: 1px solid var(--cb-hairline);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.cb-challenge-card.is-completed { background: #faf8f5; }
+
+.cb-challenge-info-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cb-challenge-num {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: var(--cb-wine-soft);
+  font-family: var(--cb-font-serif-en);
+}
+
+.cb-challenge-text {
+  font-family: var(--cb-font-serif-cn);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cb-ink-primary);
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+}
+
+.cb-challenge-meta {
+  font-size: 9px;
+  color: var(--cb-ink-muted);
+  font-family: var(--cb-font-sans);
+}
+
+.cb-stamp-badge {
+  flex-shrink: 0;
+  position: relative;
+  padding: 5px 10px;
+  border: 1.5px solid var(--cb-wine-red);
+  border-radius: 6px;
+  font-family: var(--cb-font-serif-en);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--cb-wine-red);
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.9);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cb-stamp-badge.is-waiting {
+  border-color: var(--cb-hairline);
+  color: var(--cb-ink-muted);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-family: var(--cb-font-serif-cn);
+}
+
+.cb-challenge-card.is-completed .cb-stamp-badge {
+  background: var(--cb-wine-red);
+  color: #ffffff;
+  transform: rotate(-6deg) scale(1.05);
+  box-shadow: 0 4px 10px rgba(133, 28, 35, 0.3);
+  animation: cbStampDropSlam 0.42s cubic-bezier(0.15, 1.25, 0.3, 1);
+}
+
+@keyframes cbStampDropSlam {
+  0% { transform: scale(2.2) rotate(-24deg); opacity: 0; }
+  70% { transform: scale(0.92) rotate(-5deg); opacity: 1; }
+  100% { transform: scale(1.05) rotate(-6deg); opacity: 1; }
+}
+
+.cb-empty-hint {
+  font-size: 11px;
+  color: var(--cb-ink-muted);
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* ---------------- 署名 ---------------- */
+
+.cb-colophon {
+  text-align: center;
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cb-hairline);
+  font-size: 10px;
+  font-family: var(--cb-font-serif-en);
+  letter-spacing: 0.2em;
+  color: var(--cb-ink-muted);
+  text-transform: uppercase;
+}
+
+.cb-colophon strong {
+  color: var(--cb-wine-red);
+  font-weight: 700;
+}
