@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Stamp, Plus, Music2, X, Pencil, Sparkles } from 'lucide-react';
+import { ArrowLeft, Plus, Music2, X, Pencil, Sparkles } from 'lucide-react';
 
 import {
   getOrCreateChallengeBoard,
@@ -256,27 +256,23 @@ const ChallengeBoardPage = ({ chatId, character, onBack }) => {
       className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden animate-fade-in-up"
       style={{ background: 'var(--bg-main)' }}
     >
-      <div
-        className="flex shrink-0 items-center gap-2 border-b px-4 py-3"
-        style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-      >
+      <div className="relative flex-1 overflow-y-auto challenge-board-page">
+        {/* 不用整条顶栏——跟温室（HabitatRoom）同一个做法：一个悬浮的
+            圆形返回按钮，叠在内容上面，不占掉一整条版面。 */}
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center justify-center rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
-          style={{ background: 'var(--control-soft-bg)' }}
           title="返回"
           aria-label="返回"
+          className="absolute left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full border transition-transform active:scale-95"
+          style={{
+            color: 'var(--cb-ink-primary, #181618)',
+            backgroundColor: 'rgba(255,255,255,0.88)',
+            borderColor: 'rgba(133, 28, 35, 0.2)',
+          }}
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <Stamp className="h-4 w-4" />
-        <span className="text-sm font-medium">
-          {character?.name ? `和${character.name}的异地任务挑战` : '异地任务挑战'}
-        </span>
-      </div>
-
-      <div className="flex-1 overflow-y-auto challenge-board-page">
         {isLoading ? null : (
           <div className="cb-scroll-area">
             <div className="cb-paper-film-grain" />

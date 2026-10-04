@@ -24,6 +24,11 @@
 // - call：原文件明确说"不在启动瞬间立即检查一次，避免一打开 App 就可能被
 //   打电话"，这里保留（lastRunAt 初始设为启动时间，从满一个自己的间隔后才到期）。
 // - parallelOrbit：原文件同样明确"不在启动瞬间自动扫描"，这里保留（处理方式同 call）。
+//
+// 2026-10-04 新增 challengeScheduler（异地任务挑战——角色自己判断要不
+// 要完成/布置任务）：没有冷却，比照 call/parallelOrbit 的"不在启动瞬间
+// 自动扫描"处理，间隔选跟 almanacPortrait/parallelOrbit 一样的 60 分钟
+// ——完全没冷却的动作，靠检查间隔本身来避免太频繁。
 import db from '../db';
 import { runRhythmScheduler } from './rhythmScheduler';
 import { runCallScheduler } from './callScheduler';
@@ -31,6 +36,7 @@ import { runParallelOrbitScheduler } from './parallelOrbitScheduler';
 import { checkAndTriggerGlobalSnapshotPosts } from '../apps/snapshots/services/snapshotGlobalScheduler';
 import { checkAlmanacGreetings } from '../apps/almanac/services/almanacGreetingService';
 import { checkAlmanacPortraitAutoGeneration } from '../apps/almanac/services/almanacCharacterPortraitService';
+import { runChallengeScheduler } from '../apps/challenges/challengeScheduler';
 
 const BASE_TICK_MS = 3 * 60 * 1000;
 
@@ -41,10 +47,11 @@ const REGISTRATIONS = [
   { name: 'snapshotGlobal', intervalMs: 15 * 60 * 1000, run: checkAndTriggerGlobalSnapshotPosts },
   { name: 'almanacPortrait', intervalMs: 60 * 60 * 1000, run: checkAlmanacPortraitAutoGeneration },
   { name: 'parallelOrbit', intervalMs: 60 * 60 * 1000, run: runParallelOrbitScheduler },
+  { name: 'challenge', intervalMs: 60 * 60 * 1000, run: runChallengeScheduler },
 ];
 
-// 原本就不在启动瞬间立即检查一次的两个调度器，见文件顶部说明。
-const SKIP_IMMEDIATE_RUN_ON_START = new Set(['call', 'parallelOrbit']);
+// 原本就不在启动瞬间立即检查一次的调度器，见文件顶部说明。
+const SKIP_IMMEDIATE_RUN_ON_START = new Set(['call', 'parallelOrbit', 'challenge']);
 
 let baseTimer = null;
 let lastRunAt = new Map();
@@ -99,7 +106,7 @@ export const startGlobalChatScheduler = () => {
     void runDueSchedulers();
   }, BASE_TICK_MS);
 
-  console.log('[globalChatScheduler] 已启动，基准 tick 3 分钟，合并 rhythm/call/snapshotGlobal/almanacGreeting/almanacPortrait/parallelOrbit。');
+  console.log('[globalChatScheduler] 已启动，基准 tick 3 分钟，合并 rhythm/call/snapshotGlobal/almanacGreeting/almanacPortrait/parallelOrbit/challenge。');
 };
 
 export const stopGlobalChatScheduler = () => {

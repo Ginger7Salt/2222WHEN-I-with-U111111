@@ -29,9 +29,18 @@ import { BUILTIN_QUESTIONNAIRE_PRESETS, BUILTIN_TASK_PRESETS } from './presetSee
 //      会通过 aiService.js 的 formatMsgContentForPrompt 自然看到这段
 //      感想，不需要另外维护一套"有没有被AI看过"的已读标记。
 //
-// 还留到下一个切片的：角色自主判断何时完成"用户发起的任务"、角色
-// 自己任务的完成证明短文、角色自主判断要不要主动给用户派新任务——
-// 这三个要接 globalChatScheduler.js 的定时调度，放在一起做。
+// Slice B 第二部分接上了剩下两块，都靠 challengeScheduler.js 一次AI
+// 调用里"最多选一样做"：
+//   3. completeTaskByCharacter —— 角色自己判断要不要完成一条"用户
+//      布置给TA"的任务，完成时顺带写一段第一人称"完成证明"短文，
+//      当成一条真正的角色消息（sender:'character', type:'text'）发
+//      出来，跟 rhythmReminderService.js 发寄语消息同一个落库方式。
+//   4. createCharacterAssignedTask —— 角色自己判断要不要主动给用户
+//      出一个新任务/问题（自己想的，或者从问卷/任务模板库里选），
+//      同样当成一条真正的角色消息发出来，消息正文就是角色介绍/布置
+//      这个任务时想说的话。
+// 这两个都没有冷却——频率完全靠 challengeScheduler.js 的检查间隔和
+// AI自己"大多数时候选择不做"的判断来控制，不另外叠加概率门槛。
 // ============================================================
 
 const nowIso = () => new Date().toISOString();
@@ -50,8 +59,9 @@ const dispatchLocalMessageEvent = (chatId) => {
 
 // 跟 diyAreaService.js 的 getRecentHistoryText 做法一样：直接查
 // db.messages 的 [chatId+timestamp] 复合索引，不经过 aiService.js 的
-// getRecentChatMessages（避免循环依赖）。
-const getRecentHistoryText = async (chatId, character) => {
+// getRecentChatMessages（避免循环依赖）。导出给 challengeScheduler.js
+// 复用，不用再抄一遍。
+export const getRecentHistoryText = async (chatId, character) => {
   const recentMessages = await db.messages
     .where('[chatId+timestamp]')
     .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
@@ -69,8 +79,8 @@ const getRecentHistoryText = async (chatId, character) => {
 // 跟 diyAreaService.js 的拒绝理由生成同一个做法：直接对 apiConfig 发
 // 一次 fetch，不走 aiService.js 的 generateResponse（原因见本文件
 // 顶部注释）。返回纯文本（trim 之后的 content），失败则返回 null，
-// 调用方自己决定兜底文案。
-const callSingleCompletion = async (systemPrompt, { temperature = 0.9 } = {}) => {
+// 调用方自己决定兜底文案。导出给 challengeScheduler.js 复用。
+export const callSingleCompletion = async (systemPrompt, { temperature = 0.9 } = {}) => {
   const apiSetting = await db.settings.get('apiConfig');
   const apiConfig = apiSetting?.value || {};
 
@@ -393,10 +403,103 @@ export const completeTaskWithNote = async (taskId, completionNote) => {
   return db.challengeTasks.get(taskId);
 };
 
-// 用户发起、角色去完成的任务（assignedBy:'user'）按设计应该由角色自己
-// 判断什么时候算完成、自己写完成证明短文（走下一个切片的定时调度），
-// 这里先不提供"用户代TA点完成"的入口，面板上这类待完成任务只展示
-// 「等待TA自己来完成」，没有可点的盖章按钮。
+// 用户发起、角色去完成的任务（assignedBy:'user'）按设计由角色自己
+// 判断什么时候算完成——面板上没有"用户代TA点完成"的按钮，这类待完成
+// 任务只展示「等待TA自己来完成」。真正的完成由 challengeScheduler.js
+// 调用下面这个函数。
+//
+// proofText 是角色自己写的第一人称完成证明短文，会同时存进
+// completionNote，也会以一条真正的角色消息（sender:'character',
+// type:'text'）发到聊天记录里——跟 rhythmReminderService.js 发寄语
+// 消息同一套落库方式（isRead:false，让未读角标正常显示）。
+export const completeTaskByCharacter = async (taskId, proofText) => {
+  const trimmed = (proofText || '').trim();
+  if (!taskId || !trimmed) return null;
+
+  const task = await db.challengeTasks.get(taskId);
+  if (!task || task.status === 'completed') return null;
+
+  const chat = await db.chats.get(task.chatId);
+  if (!chat?.characterId) return null;
+
+  const completedAt = nowIso();
+
+  await db.challengeTasks.update(taskId, {
+    status: 'completed',
+    completionNote: trimmed,
+    completedAt,
+  });
+
+  const metadata = { challengeTaskId: task.id, source: 'challenge-scheduler' };
+
+  await db.messages.add({
+    chatId: task.chatId,
+    characterId: chat.characterId,
+    sender: 'character',
+    type: 'text',
+    content: trimmed,
+    metadata,
+    versions: [{ type: 'text', content: trimmed, metadata, timestamp: completedAt }],
+    currentVersionIndex: 0,
+    isRead: false,
+    timestamp: completedAt,
+  });
+
+  await db.chats.update(task.chatId, { updatedAt: completedAt });
+
+  dispatchLocalMessageEvent(task.chatId);
+
+  return db.challengeTasks.get(taskId);
+};
+
+// 角色主动给用户出的新任务（assignedBy:'character'）——跟用户手动的
+// "+添加任务"不同，这个只由 challengeScheduler.js 调用，不对外暴露
+// 手动创建入口。announcementText 是角色介绍/布置这个任务时想说的话，
+// 同样发成一条真正的角色消息。
+export const createCharacterAssignedTask = async (chatId, { sourceType, content, sourcePresetId = null, announcementText }) => {
+  const trimmedContent = (content || '').trim();
+  const trimmedAnnouncement = (announcementText || '').trim();
+  if (!chatId || !trimmedContent || !trimmedAnnouncement) return null;
+
+  const chat = await db.chats.get(chatId);
+  if (!chat?.characterId) return null;
+
+  const task = {
+    chatId,
+    assignedBy: 'character',
+    sourceType,
+    sourcePresetId,
+    content: trimmedContent,
+    status: 'pending',
+    completionNote: null,
+    completedAt: null,
+    createdAt: nowIso(),
+  };
+
+  const taskId = await db.challengeTasks.add(task);
+
+  const timestampIso = nowIso();
+  const metadata = { challengeTaskId: taskId, source: 'challenge-scheduler' };
+
+  await db.messages.add({
+    chatId,
+    characterId: chat.characterId,
+    sender: 'character',
+    type: 'text',
+    content: trimmedAnnouncement,
+    metadata,
+    versions: [{ type: 'text', content: trimmedAnnouncement, metadata, timestamp: timestampIso }],
+    currentVersionIndex: 0,
+    isRead: false,
+    timestamp: timestampIso,
+  });
+
+  await db.chats.update(chatId, { updatedAt: timestampIso });
+
+  dispatchLocalMessageEvent(chatId);
+
+  return { ...task, id: taskId };
+};
 
 export const deleteTask = async (taskId) => {
   if (!taskId) return;
