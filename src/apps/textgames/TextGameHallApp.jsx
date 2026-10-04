@@ -119,7 +119,7 @@ const TextGameHallApp = ({ onBackHub }) => {
               <h1>文字游戏大厅</h1>
               <p className="tgh-sub">Twelve small games, one shared door</p>
               <p className="tgh-blurb">
-                十二种打发时间的方法，有的要跟TA一起玩，有的是你一个人也能
+                打发时间的方法，有的要跟TA一起玩，有的是你一个人也能
                 上手。挑一条目录往下看，点进去就能开局。
               </p>
 
