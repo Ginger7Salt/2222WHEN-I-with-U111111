@@ -857,6 +857,7 @@ const [hubBackground, setHubBackground] = useState('');
 
  const isShellApp = currentApp === 'shell';
 const isEmotionKitApp = currentApp === 'emotionkit';
+const isTextGameHallApp = currentApp === 'textgames';
 
   const mainClassName = isInsideChatRoom
     ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
@@ -869,7 +870,7 @@ const isEmotionKitApp = currentApp === 'emotionkit';
     // 满的那一层。
     : isEmotionKitApp
       ? 'relative z-10 w-full min-h-[100dvh] overflow-x-hidden'
-      : isMarginNotesApp || isShellApp
+            : isMarginNotesApp || isShellApp || isTextGameHallApp
         ? 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] overflow-x-hidden'
         : 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6';
 
@@ -968,12 +969,12 @@ const isEmotionKitApp = currentApp === 'emotionkit';
         className={mainClassName}
         style={{
           paddingTop:
-                       isInsideChatRoom || isMarginNotesApp || isShellApp
+                                           isInsideChatRoom || isMarginNotesApp || isShellApp || isTextGameHallApp
               ? '0'
               : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
 
           paddingBottom:
-            isInsideChatRoom || isMarginNotesApp || isShellApp
+            isInsideChatRoom || isMarginNotesApp || isShellApp || isTextGameHallApp
               ? '0'
               : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
         }}
