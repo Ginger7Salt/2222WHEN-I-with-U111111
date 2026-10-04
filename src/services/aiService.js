@@ -581,9 +581,16 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
     });
   }
 
-  if (msg.type === 'companion_offer') {
+    if (msg.type === 'companion_offer') {
     return `[你之前提议过一起养小伙伴: ${msg.content || ''}]`;
   }
+
+  if (msg.type === 'challenge_complete') {
+    return `[用户完成了你在"异地任务挑战"里布置的任务「${
+      msg.metadata?.taskContent || ''
+    }」，写下的完成感想是: ${msg.content || ''}]`;
+  }
+  
 
   return msg.content || '';
 };

@@ -16,6 +16,7 @@ import ChatInteractionMessage from '../interactions/ChatInteractionMessage';
 import ChatPokeNotice from '../interactions/ChatPokeNotice';
 import MoodUpdateNotice from '../mood/MoodUpdateNotice';
 import ChatDiyUpdateNotice from '../diy/ChatDiyUpdateNotice';
+import ChallengeCompletionNotice from '../../challenges/ChallengeCompletionNotice';
 import ChatParcelArrivedNotice from '../parcel/ChatParcelArrivedNotice';
 import ProfileTraceCard from '../profile/ProfileTraceCard';
 import ChatTrickNotice from '../interactions/halloween/ChatTrickNotice';
@@ -276,6 +277,12 @@ const MessageRow = ({
   // 纯文字公告，不可点击跳转。
   if (msg.type === 'diy_update') {
     return <ChatDiyUpdateNotice message={msg} />;
+  }
+
+  // 异地任务挑战——用户完成"TA发起的任务"后留的痕迹：同样是一条居中
+  // 系统提示行，不可点击跳转，具体进度去打卡板面板里看。
+  if (msg.type === 'challenge_complete') {
+    return <ChallengeCompletionNotice message={msg} />;
   }
 
   // 快递到了之后的提示：跟DIY换装那条不一样，这条是可以点的——点进去

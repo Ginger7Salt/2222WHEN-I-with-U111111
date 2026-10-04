@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Stamp, Plus, Music2, X, Pencil } from 'lucide-react';
+import { ArrowLeft, Stamp, Plus, Music2, X, Pencil, Sparkles } from 'lucide-react';
 
 import {
   getOrCreateChallengeBoard,
@@ -7,6 +7,7 @@ import {
   addPlaylistTrack,
   removePlaylistTrack,
   saveLoveMemoNote,
+  generateLoveMemoNote,
   getPresets,
   createUserAssignedTask,
   completeTaskWithNote,
@@ -16,14 +17,17 @@ import {
 import './challengeBoard.css';
 
 // ============================================================
-// 异地任务挑战（情侣任务打卡板）—— Slice A 的面板外壳。
+// 异地任务挑战（情侣任务打卡板）—— 面板外壳。
 //
-// 这一版只接了数据模型 + 能手动摆弄的部分：拍立得上传/文案、歌单增删、
-// 情书便签手写保存、"+添加任务"（用户发起，自定义文字或从模板库选）、
-// 角色发起任务的用户完成+感想。角色自己什么时候决定完成"用户发起"的
-// 任务、角色自主判断给用户派新任务、便签真正由角色生成——这些都要等
-// 下一个切片接上AI调用之后才会真的动起来，这一版它们只是数据结构已经
-// 留好了位置，UI上如实展示"待TA自己来完成"而不是假装能点。
+// Slice A 做了数据模型 + 能手动摆弄的部分：拍立得上传/文案、歌单增删、
+// "+添加任务"（用户发起，自定义文字或从模板库选）、角色发起任务的用户
+// 完成+感想。Slice B 接上了情书便签的AI生成（点"重新生成"才调用，没有
+// 冷却/自动定时），用户完成感想现在也会真的喂给角色当聊天上下文（见
+// challengeService.js 的 completeTaskWithNote）。
+//
+// 还留到下一个切片的：角色自己什么时候决定完成"用户发起的任务"、角色
+// 自主判断要不要主动给用户派新任务——这两个要接 globalChatScheduler.js
+// 的定时调度，UI上如实展示"待TA自己来完成"而不是假装能点。
 // ============================================================
 
 const ADD_TASK_SOURCES = [
@@ -48,6 +52,8 @@ const ChallengeBoardPage = ({ chatId, character, onBack }) => {
 
   const [memoDraft, setMemoDraft] = useState('');
   const [memoDirty, setMemoDirty] = useState(false);
+  const [isGeneratingMemo, setIsGeneratingMemo] = useState(false);
+  const [memoError, setMemoError] = useState('');
 
   const [trackDraft, setTrackDraft] = useState({ title: '', artist: '', url: '' });
 
@@ -133,6 +139,23 @@ const ChallengeBoardPage = ({ chatId, character, onBack }) => {
   const handleSaveMemo = async () => {
     await saveLoveMemoNote(chatId, memoDraft);
     reloadAll();
+  };
+
+  const handleGenerateMemo = async () => {
+    if (isGeneratingMemo) return;
+    setIsGeneratingMemo(true);
+    setMemoError('');
+
+    const result = await generateLoveMemoNote(chatId, character);
+
+    if (!mountedRef.current) return;
+    setIsGeneratingMemo(false);
+
+    if (result.status === 'success') {
+      await reloadAll();
+    } else {
+      setMemoError('这次没写成，要不等会儿再试试？');
+    }
   };
 
   const resetAddTaskForm = () => {
@@ -392,17 +415,32 @@ const ChallengeBoardPage = ({ chatId, character, onBack }) => {
                       </div>
                       <textarea
                         className="cb-memo-body"
-                        placeholder={`${character?.name || 'TA'}还没留下便签……（这一版先由你代笔，角色自己生成留到下个版本）`}
+                        placeholder={`${character?.name || 'TA'}还没留下便签……点下面"重新生成"让TA写一句`}
                         value={memoDraft}
                         onChange={(e) => {
                           setMemoDraft(e.target.value);
                           setMemoDirty(true);
                         }}
                       />
-                      {memoDirty && (
-                        <button type="button" className="cb-memo-save-btn" onClick={handleSaveMemo}>
-                          保存便签
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="cb-memo-save-btn"
+                          disabled={isGeneratingMemo}
+                          onClick={handleGenerateMemo}
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: isGeneratingMemo ? 0.6 : 1 }}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          <span>{isGeneratingMemo ? '正在写…' : '重新生成'}</span>
                         </button>
+                        {memoDirty && (
+                          <button type="button" className="cb-memo-save-btn" onClick={handleSaveMemo}>
+                            保存便签
+                          </button>
+                        )}
+                      </div>
+                      {memoError && (
+                        <div style={{ marginTop: 6, fontSize: 10, color: '#fcebeb', opacity: 0.85 }}>{memoError}</div>
                       )}
                     </div>
                   </aside>

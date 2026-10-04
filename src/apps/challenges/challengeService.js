@@ -1,9 +1,10 @@
+import Dexie from 'dexie';
 import db from '../../db';
 import { convertFileToBase64 } from '../../db/storageUtils';
 import { BUILTIN_QUESTIONNAIRE_PRESETS, BUILTIN_TASK_PRESETS } from './presetSeedData';
 
 // ============================================================
-// 异地任务挑战（情侣任务打卡板）—— 数据层，Slice A。
+// 异地任务挑战（情侣任务打卡板）—— 数据层。
 //
 // 跟DIY小屋一样挂在"这个聊天"（chatId）上，不挂在角色身上。三张表：
 //   - challengeBoards：每个聊天一行，装饰性内容（拍立得画廊/歌单/
@@ -12,14 +13,92 @@ import { BUILTIN_QUESTIONNAIRE_PRESETS, BUILTIN_TASK_PRESETS } from './presetSee
 //     + 用户自建都在同一张表（isBuiltin 区分）。
 //   - challengeTasks：真正的任务卡，一条一行。
 //
-// 这一版只做数据模型 + 面板能摆弄的部分（上传拍立得、管理歌单、手写
+// Slice A 做了数据模型 + 面板能摆弄的部分（上传拍立得、管理歌单、手写
 // 便签、从模板库或自定义文字创建"用户发起"的任务、用户给角色发起的
-// 任务标记完成并写感想）。AI相关的部分——便签真正由角色生成、角色自主
-// 判断何时给用户派任务、角色自己任务的完成证明短文、用户完成感想喂给
-// AI当上下文——留到下一个切片接，本文件里用 TODO 标出对应位置。
+// 任务标记完成并写感想）。
+//
+// Slice B（这一版新增）接上了两块AI相关的：
+//   1. generateLoveMemoNote —— 情书便签真正由角色AI生成，不再是用户
+//      手写代笔（跟DIY小屋一样直接对 apiConfig 发 fetch，不经过
+//      aiService.js——避免循环依赖，见 diyAreaService.js 顶部注释里
+//      同样的理由：aiService.js 以后很可能要反过来导入本文件的内容
+//      去拼系统提示词）。
+//   2. completeTaskWithNote 现在会把用户写的完成感想，以一条
+//      type:'challenge_complete' 的真实聊天消息落库（跟"和好券"用户
+//      发出的券走真实消息同一个思路），这样角色在下一次正常回复时，
+//      会通过 aiService.js 的 formatMsgContentForPrompt 自然看到这段
+//      感想，不需要另外维护一套"有没有被AI看过"的已读标记。
+//
+// 还留到下一个切片的：角色自主判断何时完成"用户发起的任务"、角色
+// 自己任务的完成证明短文、角色自主判断要不要主动给用户派新任务——
+// 这三个要接 globalChatScheduler.js 的定时调度，放在一起做。
 // ============================================================
 
 const nowIso = () => new Date().toISOString();
+
+const RECENT_HISTORY_LIMIT_FOR_MEMO = 30;
+
+const dispatchLocalMessageEvent = (chatId) => {
+  if (typeof window === 'undefined') return;
+
+  window.dispatchEvent(
+    new CustomEvent('new-local-message-inserted', {
+      detail: { chatId },
+    })
+  );
+};
+
+// 跟 diyAreaService.js 的 getRecentHistoryText 做法一样：直接查
+// db.messages 的 [chatId+timestamp] 复合索引，不经过 aiService.js 的
+// getRecentChatMessages（避免循环依赖）。
+const getRecentHistoryText = async (chatId, character) => {
+  const recentMessages = await db.messages
+    .where('[chatId+timestamp]')
+    .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
+    .reverse()
+    .limit(RECENT_HISTORY_LIMIT_FOR_MEMO)
+    .toArray()
+    .then((rows) => rows.reverse());
+
+  return recentMessages
+    .filter((message) => message.type === 'text' && message.content)
+    .map((message) => `${message.sender === 'user' ? '用户' : character.name}: ${message.content}`)
+    .join('\n');
+};
+
+// 跟 diyAreaService.js 的拒绝理由生成同一个做法：直接对 apiConfig 发
+// 一次 fetch，不走 aiService.js 的 generateResponse（原因见本文件
+// 顶部注释）。返回纯文本（trim 之后的 content），失败则返回 null，
+// 调用方自己决定兜底文案。
+const callSingleCompletion = async (systemPrompt, { temperature = 0.9 } = {}) => {
+  const apiSetting = await db.settings.get('apiConfig');
+  const apiConfig = apiSetting?.value || {};
+
+  if (!apiConfig.baseUrl || !apiConfig.apiKey) return null;
+
+  const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiConfig.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: apiConfig.model || 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: '请按照上面的要求执行。' },
+      ],
+      temperature,
+    }),
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  return data?.choices?.[0]?.message?.content || null;
+};
 
 // ---------------- 面板（拍立得 / 歌单 / 情书便签） ----------------
 
@@ -107,10 +186,55 @@ export const removePlaylistTrack = async (chatId, trackId) => {
   });
 };
 
-// TODO（下一个切片）：这里应该换成调用AI让角色自己生成情书便签，现在
-// 先允许用户自己手写/编辑便签内容，只是把文本存起来、打个时间戳。
+// 用户在便签上手写/微调之后点"保存便签"——AI生成之后用户还是能自己
+// 改一改再保存，不强制必须原文照用。
 export const saveLoveMemoNote = async (chatId, text) => {
   return patchBoard(chatId, { memoNote: (text || '').trim(), memoNoteUpdatedAt: nowIso() });
+};
+
+// 点"重新生成"按钮时调用：让角色自己写一句给对方的便签留言，参考
+// 角色人设+最近聊天语气，不需要罗列任务进度，纯粹是想说给TA听的一句
+// 话。没有冷却限制、也不会自动定时触发——只有用户点按钮才会真的调用
+// 一次AI。返回 { status: 'success', board } 或 { status: 'error' }，
+// 失败时不改动已有的便签内容，调用方（ChallengeBoardPage.jsx）决定
+// 失败提示怎么展示。
+export const generateLoveMemoNote = async (chatId, character) => {
+  if (!chatId || !character) return { status: 'error' };
+
+  try {
+    const historyText = await getRecentHistoryText(chatId, character);
+
+    const systemPrompt = `你正在扮演角色：${character.name}。
+
+角色设定：
+${character.bio || '无'}
+
+补充设定：
+${character.extraNotes || '无'}
+
+最近的聊天内容（仅供参考语气和近况，不需要逐条回应）：
+${historyText || '（暂时没有聊天记录）'}
+
+你和用户在"异地任务挑战"这个打卡本里共用一张情书便签。请以第一人称、
+符合以上人设的语气，给对方写一句简短的留言——可以是想念、鼓励、调侃、
+期待下一个挑战之类，不需要罗列挑战进度，只是单纯想说给TA听的一句话。
+
+严格要求：
+- 2 到 4 句话，总长度不超过 80 个汉字；
+- 不使用 Markdown、不使用编号、不要用引号把整段话包起来；
+- 只输出这段留言本身，不要有任何多余说明。`;
+
+    const rawText = await callSingleCompletion(systemPrompt, { temperature: 0.95 });
+    const cleaned = (rawText || '').trim().replace(/^["“]/, '').replace(/["”]$/, '').trim();
+
+    if (!cleaned) return { status: 'error' };
+
+    const board = await patchBoard(chatId, { memoNote: cleaned, memoNoteUpdatedAt: nowIso() });
+    return { status: 'success', board };
+  } catch (error) {
+    console.warn('[异地任务挑战] 情书便签生成失败：', error);
+    return { status: 'error' };
+  }
 };
 
 // ---------------- 模板库（情侣问卷 / 情侣任务） ----------------
@@ -224,20 +348,48 @@ export const createUserAssignedTask = async (chatId, { sourceType, content, sour
 };
 
 // 角色发起、用户去完成的任务（assignedBy:'character'）由用户点击标记
-// 完成，必须附一句完成感想——这句话要喂给角色当上下文用（见下方TODO），
-// 不是纯装饰，所以这里强制非空。
+// 完成，必须附一句完成感想——这句话要喂给角色当上下文用，不是纯装饰，
+// 所以这里强制非空。
+//
+// 落库之后顺带插一条 type:'challenge_complete' 的真实聊天消息（跟
+// "和好券"用户发出的券走真实消息同一个思路），角色下次正常回复时会
+// 通过 aiService.js 的 formatMsgContentForPrompt 自然看到这段感想并
+// 作出反应，不需要另外维护一套"AI有没有看过"的已读标记。这就要求
+// 这个任务当时所在的聊天窗还存在（能查到 chatId/characterId）——查不
+// 到的话仍然正常标记任务完成，只是不再补发这条聊天消息。
 export const completeTaskWithNote = async (taskId, completionNote) => {
   const trimmed = (completionNote || '').trim();
   if (!taskId || !trimmed) return null;
 
+  const task = await db.challengeTasks.get(taskId);
+  if (!task) return null;
+
+  const completedAt = nowIso();
+
   await db.challengeTasks.update(taskId, {
     status: 'completed',
     completionNote: trimmed,
-    completedAt: nowIso(),
+    completedAt,
   });
 
-  // TODO（下一个切片）：把 completionNote 喂给对应角色当聊天上下文，
-  // 让TA能在接下来的回复里看到/回应用户写的这段完成感想。
+  const chat = await db.chats.get(task.chatId);
+  if (chat?.characterId) {
+    await db.messages.add({
+      chatId: task.chatId,
+      characterId: chat.characterId,
+      sender: 'user',
+      type: 'challenge_complete',
+      content: trimmed,
+      metadata: { taskId: task.id, taskContent: task.content },
+      isRead: true,
+      timestamp: completedAt,
+    });
+
+    await db.chats.update(task.chatId, { updatedAt: completedAt });
+
+    dispatchLocalMessageEvent(task.chatId);
+  }
+
   return db.challengeTasks.get(taskId);
 };
 
