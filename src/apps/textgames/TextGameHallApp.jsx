@@ -68,19 +68,17 @@ const TextGameHallApp = ({ onBackHub }) => {
 
   return (
     <div className="tgh-app">
-      <div className="tgh-grain" aria-hidden="true" />
-
-      <button
-        type="button"
-        className="tgh-back-btn"
-        aria-label="返回"
-        onClick={onBackHub}
-      >
-        <BackIcon />
-      </button>
-
       <div className="tgh-container">
         <section className="tgh-masthead">
+          <button
+            type="button"
+            className="tgh-back-btn"
+            aria-label="返回"
+            onClick={onBackHub}
+          >
+            <BackIcon />
+          </button>
+
           <div className="tgh-blob tgh-blob-a" aria-hidden="true" />
           <div className="tgh-blob tgh-blob-b" aria-hidden="true" />
           <div className="tgh-blob tgh-blob-c" aria-hidden="true" />

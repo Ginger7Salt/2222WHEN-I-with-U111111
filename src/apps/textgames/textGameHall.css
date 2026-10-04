@@ -27,14 +27,27 @@
   --tgh-font-script: 'Cormorant Garamond', 'Times New Roman', serif;
   --tgh-font-sans: 'Space Grotesk', 'Helvetica Neue', sans-serif;
 
+  /* 这个 app 是挂在 Hub 的 <main class="... mx-auto max-w-[420px] ..."> 车道
+     里的普通顶层 app（跟 Memory/Hourglass 同一类），不是 HabitatRoom/
+     ChallengeBoardPage 那种盖满整个视口的 fixed 全屏浮层。车道本身在宽屏
+     上是居中的一条窄列，而 position:fixed 永远是相对真实浏览器视口定位，
+     跟车道无关——所以下面装饰用的弥散纹理/返回按钮/toast 都不能用
+     fixed，否则宽屏下会跑到车道外面、贴着真实屏幕边缘（这正是之前那次
+     反馈的问题：不是配色/间距的 CSS 问题，是"fixed 相对谁定位"的框架
+     问题）。统一改成相对 .tgh-app 自己（position:relative）做 absolute
+     定位，或者直接写进 background-image，让它们跟着车道走。
+     高度/滚动也对齐 memory.css 的 .memory-app 写法：只给 min-height，
+     不额外声明 overflow-y:auto 自建一个嵌套滚动区——滚动交给页面自己，
+     嵌套滚动区在 Hub 的 currentApp 容器里撑不满整页。 */
   position: relative;
   min-height: 100vh;
-  min-height: 100dvh;
-  background: var(--tgh-paper);
+  background: var(--tgh-paper)
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E")
+    repeat;
   color: var(--tgh-ink);
   font-family: var(--tgh-font-sans);
   -webkit-font-smoothing: antialiased;
-  overflow-y: auto;
+  overflow-x: clip;
 }
 
 .tgh-app * {
@@ -48,19 +61,11 @@
   position: relative;
 }
 
-.tgh-grain {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.05;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
 .tgh-back-btn {
-  position: fixed;
-  top: max(16px, env(safe-area-inset-top, 0px));
+  /* 相对 .tgh-masthead（position:relative，有自己确定的内容高度）做
+     absolute 定位，跟着车道/墨卡一起走，不再相对真实视口 fixed。 */
+  position: absolute;
+  top: 16px;
   left: 16px;
   width: 38px;
   height: 38px;
@@ -68,13 +73,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(10px);
-  border: 1px solid var(--tgh-hairline);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
   z-index: 20;
   cursor: pointer;
-  color: var(--tgh-ink);
+  color: #fff;
 }
 
 /* ===== 封面墨卡 ===== */
@@ -335,12 +340,16 @@
   letter-spacing: 0.02em;
 }
 
-/* 轻量 toast，用于"该游戏还没做好"的占位反馈 */
+/* 轻量 toast，用于"该游戏还没做好"的占位反馈。不用 fixed（同样是相对
+   真实视口、会跑出车道的问题），用 position:sticky + bottom 让它在
+   页面滚动时始终贴着可视区域底部；水平居中交给 width:max-content +
+   margin:auto，不借助 left/transform 那套 absolute 定位惯用法。 */
 .tgh-toast {
-  position: fixed;
-  left: 50%;
-  bottom: max(28px, env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
+  position: sticky;
+  bottom: 24px;
+  width: max-content;
+  max-width: calc(100% - 36px);
+  margin: -56px auto 0;
   background: var(--tgh-ink);
   color: #fff;
   font-size: 12.5px;
@@ -355,11 +364,11 @@
 @keyframes tghToastIn {
   from {
     opacity: 0;
-    transform: translate(-50%, 8px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translateY(0);
   }
 }
 
