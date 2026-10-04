@@ -19,17 +19,70 @@
    - .tgwp-eyebrow：页面顶部一行哥特花体小标——这个游戏唯一用哥特体
      的地方，节制地用在一处而不是满页都是（哥特花体不支持中文，中文
      标题还是走 --tgh-font-display）。
+   - .tgwp-screen：2026-10 第二轮反馈，黑底版本。原本的 --tgh-paper/
+     --tgh-ink 这套是大厅统一的黑白弥散纸感（定义在 .tgh-app 上，见
+     textGameHall.css 顶部注释——"配色刻意保持黑白灰，不跟随 app 的
+     亮暗主题切换"），没有改那份公共变量（其他文字游戏还在用浅色），
+     而是只在这一个游戏的根节点 .tgwp-screen 上局部重新声明同名变量，
+     把这几个 --tgh-* token 在"瓶子里"反转成深色——CSS 变量就近生效，
+     .tgh-shared-* 那些复用大厅公共样式的输入框/按钮/卡片不用改一行，
+     读到的 var(--tgh-paper-card) / var(--tgh-ink) 自动变成深色版本。
+     唯一例外是三处把 --tgh-ink 当"纯色色块"用而不是当"文字颜色"用的
+     地方（选角色头像兜底底色、主操作按钮的黑色底）——这三处如果也跟着
+     反转会变成白底白字，所以单独在下面覆盖掉，换成女巫紫底白字。
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&display=swap');
 
 :root {
-  --tgwp-purple: #7c4fc9;
+  --tgwp-purple: #8f5fe0;
   --tgwp-purple-deep: #4a2a73;
   --tgwp-purple-pale: #efe7fb;
-  --tgwp-purple-glow: rgba(124, 79, 201, 0.4);
-  --tgwp-poison-glow: rgba(124, 79, 201, 0.5);
+  --tgwp-purple-glow: rgba(143, 95, 224, 0.45);
+  --tgwp-poison-glow: rgba(143, 95, 224, 0.55);
   --tgwp-font-gothic: 'UnifrakturMaguntia', 'Cormorant Garamond', serif;
+  /* 瓶身玻璃本身始终是浅色（不随页面深浅反转），瓶身上印的编号固定用
+     这个深色，不能跟着 --tgh-ink 一起变白，否则在浅色瓶身上会看不见。 */
+  --tgwp-glass-ink: #2a2420;
+  /* "中毒"那一瓶背面的底色——固定的深色/近黑，不取 var(--tgh-ink)，
+     因为黑底版本里 --tgh-ink 已经反转成浅色，不能再拿来当黑色底用。 */
+  --tgwp-void: #0c0712;
+}
+
+/* ===== 黑底版本：局部反转这个游戏自己的 --tgh-* 变量 ===== */
+.tgwp-screen {
+  --tgh-paper: #0a0a0d;
+  --tgh-paper-card: #18141f;
+  --tgh-ink: #f1ece4;
+  --tgh-ink-soft: #cabfe0;
+  --tgh-ink-faint: #8b81a3;
+  --tgh-hairline: rgba(255, 255, 255, 0.12);
+  position: relative;
+  /* .tgh-app 自己在外层已经用 var(--tgh-ink) 算出一份黑色文字色再
+     继承下来——继承拿到的是算好的颜色值，不是"变量引用"，不会因为这里
+     重新声明了 --tgh-ink 就跟着变。这里必须重新显式写一遍 color，用到
+     的 var(--tgh-ink) 才会读到上面刚覆盖的浅色，往下传给没自己设颜色
+     的元素（大厅标题/战绩数字这些）。 */
+  color: var(--tgh-ink);
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(143, 95, 224, 0.16) 0%, transparent 60%),
+    var(--tgh-paper);
+}
+
+/* 这三处原本拿 --tgh-ink 当纯色块用（不是当文字颜色用）：黑底版本里
+   --tgh-ink 已经反转成浅色，这里单独覆盖成女巫紫底+白字，不然会变成
+   白底白字看不见。选择器比 textGameShared.css 里原本的规则多一层
+   .tgwp-screen，优先级更高，不需要 !important。 */
+.tgwp-screen .tgh-shared-picker-avatar,
+.tgwp-screen .tgh-shared-head-avatar {
+  background: var(--tgwp-purple-deep);
+  color: #fff;
+}
+
+.tgwp-screen .tgh-shared-btn.tgh-shared-btn-primary {
+  background: var(--tgwp-purple);
+  color: #fff;
+  border-color: var(--tgwp-purple);
 }
 
 /* ===== 顶部哥特花体小标 ===== */
@@ -164,7 +217,7 @@
   font-family: var(--tgh-font-display);
   font-weight: 700;
   font-size: 15px;
-  color: var(--tgh-ink);
+  color: var(--tgwp-glass-ink);
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
@@ -237,8 +290,8 @@
 
 /* 中毒：撞上的那一瓶——最重的强调，深紫光晕 */
 .tgwp-vial-wrap.is-hit .tgwp-vial-back {
-  background: var(--tgh-ink);
-  border-color: var(--tgh-ink);
+  background: var(--tgwp-void);
+  border-color: var(--tgwp-void);
   box-shadow: 0 0 24px var(--tgwp-poison-glow);
 }
 

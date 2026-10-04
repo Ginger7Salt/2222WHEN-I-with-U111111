@@ -314,7 +314,7 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
 
   if (phase === PHASE.PICK_CHARACTER) {
     return (
-      <div className="tgh-shared-screen">
+      <div className="tgh-shared-screen tgwp-screen">
         <button type="button" className="tgh-back-btn-light" aria-label="返回" onClick={onExitToHall}>
           <BackIcon />
         </button>
@@ -351,7 +351,7 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
 
   if (phase === PHASE.STAKE_SETUP) {
     return (
-      <div className="tgh-shared-screen">
+      <div className="tgh-shared-screen tgwp-screen">
         <button
           type="button"
           className="tgh-back-btn-light"
@@ -395,7 +395,7 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
 
   if (phase === PHASE.HIDING) {
     return (
-      <div className="tgh-shared-screen">
+      <div className="tgh-shared-screen tgwp-screen">
         <button
           type="button"
           className="tgh-back-btn-light"
@@ -495,7 +495,7 @@ const WitchsPoisonGame = ({ onExitToHall }) => {
   };
 
   return (
-    <div className="tgh-shared-screen">
+    <div className="tgh-shared-screen tgwp-screen">
       <button type="button" className="tgh-back-btn-light" aria-label="返回" onClick={handleBackToPicker}>
         <BackIcon />
       </button>
