@@ -155,9 +155,31 @@
   transition: width 0.1s linear;
 }
 
+.uno-clock {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  height: 28px;
+  line-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid #3a2f52;
+  font-family: var(--uno-display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  z-index: 3;
+}
+
+.uno-clock--low {
+  background: #ff5d6c;
+  border-color: #ff5d6c;
+  color: #2a1020;
+}
+
 .uno-dir {
   position: absolute;
-  top: 20px;
+  top: 46px;
   right: 18px;
   font-size: 11px;
   color: var(--uno-mute);

@@ -41,6 +41,8 @@ export const describeMoment = (moment, names) => {
       return `${turn}，${who(moment.player)}抓到${who(moment.target)}忘了喊 UNO，罚抽 ${moment.count} 张`;
     case 'win':
       return `${turn}，${who(moment.player)}出完了最后一张牌`;
+    case 'time_up':
+      return `3 分钟时间到，${who(moment.player)}手里的牌最少（剩 ${moment.remaining} 张），赢了`;
     default:
       return null;
   }
@@ -78,6 +80,7 @@ export const buildMatchRow = ({ summary, players, durationMs, endedAt }) => {
     durationSec: Math.round((durationMs || 0) / 1000),
     standings,
     moments: summary.moments,
+    endedByTime: !!summary.endedByTime,
     summaryStripped: false,
     endedAt,
   };
@@ -132,7 +135,9 @@ export const buildCharacterMessage = ({ row, players, selfSeat }) => {
 
   const parts = [
     `这是一局三人 UNO，同桌的另一位玩家是${other}。`,
-    `${names[winnerSeat]}赢了这一局，用时 ${formatDuration(row.durationSec * 1000)}，共${row.turns}回合。`,
+    row.endedByTime
+      ? `3 分钟时间到了，按手牌最少判定，${names[winnerSeat]}赢了这一局，共${row.turns}回合。`
+      : `${names[winnerSeat]}赢了这一局，用时 ${formatDuration(row.durationSec * 1000)}，共${row.turns}回合。`,
   ];
   if (rankLine) parts.push(`名次：${rankLine}。`);
   if (self) parts.push(`你自己排第${self.rank}。`);

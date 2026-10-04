@@ -28,6 +28,7 @@ export const COLOR_LABEL_ZH = {
 
 export const HAND_SIZE = 7;
 export const TURN_TIME_LIMIT_MS = 15000;
+export const MATCH_TIME_LIMIT_MS = 180000;
 export const UNO_PENALTY_COUNT = 2;
 const MAX_MOMENTS = 60;
 
@@ -158,6 +159,7 @@ export const createGame = ({
     unoVulnerable: null,
     status: 'playing',
     winnerIndex: null,
+    endedByTime: false,
     turnCount: 1,
     // missingColors[i]：玩家 i 被观察到“没有”的颜色（他在该颜色为当前色时
     // 被迫抽牌）。角色策略用它来猜对手手里缺什么。
@@ -396,7 +398,35 @@ export const applyTimeout = (state, playerIndex, opts = {}) => {
   return { ok: true, state: current, events };
 };
 
+// 整局 3 分钟到了：手牌最少的人赢；一样多就比手牌点数（小的赢）；
+// 还一样就随机定一个。已经结束的局不会再动。
+export const endByTime = (state, opts = {}) => {
+  const { rng = Math.random } = opts;
+  if (state.status !== 'playing') return fail('game_over');
+
+  const next = structuredClone(state);
+  const rows = next.players.map((p, index) => ({
+    index,
+    remaining: p.hand.length,
+    points: p.hand.reduce((sum, c) => sum + cardPoints(c), 0),
+  }));
+  const best = rows.reduce((acc, r) =>
+    r.remaining < acc.remaining || (r.remaining === acc.remaining && r.points < acc.points) ? r : acc
+  );
+  const tied = rows.filter((r) => r.remaining === best.remaining && r.points === best.points);
+  const winner = tied[Math.min(tied.length - 1, Math.floor(rng() * tied.length))].index;
+
+  next.status = 'ended';
+  next.endedByTime = true;
+  next.winnerIndex = winner;
+  next.drawnCardId = null;
+  next.unoVulnerable = null;
+  addMoment(next, { type: 'time_up', player: winner, remaining: next.players[winner].hand.length });
+  return { ok: true, state: next, events: [{ type: 'time_up', player: winner }] };
+};
+
 // 对局结束后的名次：赢家第一，其余按剩余牌的点数从小到大。
+// 时间到的局，其余玩家先比手牌张数、再比点数。
 export const getStandings = (state) => {
   const rows = state.players.map((p, index) => ({
     index,
@@ -408,6 +438,7 @@ export const getStandings = (state) => {
   rows.sort((a, b) => {
     if (a.index === state.winnerIndex) return -1;
     if (b.index === state.winnerIndex) return 1;
+    if (state.endedByTime && a.remaining !== b.remaining) return a.remaining - b.remaining;
     return a.points - b.points;
   });
 
@@ -419,6 +450,7 @@ export const getStandings = (state) => {
 export const getMatchSummary = (state) => ({
   turns: state.turnCount,
   winnerIndex: state.winnerIndex,
+  endedByTime: !!state.endedByTime,
   standings: getStandings(state),
   moments: state.moments.slice(),
 });

@@ -255,6 +255,11 @@ const UnoMatch = ({ characters, onExitToHall, onBackToPicker }) => {
           </>
         )}
         <div className="uno-dir">{game.direction === 1 ? '顺时针' : '逆时针'}</div>
+        {!ended && (
+          <div className={`uno-clock ${m.matchLeftSec <= 30 ? 'uno-clock--low' : ''}`}>
+            全局 {Math.floor(m.matchLeftSec / 60)}:{String(m.matchLeftSec % 60).padStart(2, '0')}
+          </div>
+        )}
 
         <OpponentPanel
           seat={1}
@@ -444,7 +449,9 @@ const UnoMatch = ({ characters, onExitToHall, onBackToPicker }) => {
               <div className="uno-result-left">
                 <h3>{userWon ? '你赢了' : `${m.nameOf(winner.index)}赢了`}</h3>
                 <p>
-                  用时 {formatDuration(m.durationMs)}，共 {game.turnCount} 回合
+                  {game.endedByTime
+                    ? `3 分钟时间到，手牌最少的赢，共 ${game.turnCount} 回合`
+                    : `用时 ${formatDuration(m.durationMs)}，共 ${game.turnCount} 回合`}
                 </p>
                 <div className="uno-rank">
                   {m.standings.map((s) => (
@@ -498,7 +505,7 @@ const UnoGame = ({ onExitToHall }) => {
   const [loading, setLoading] = useState(true);
   const [pickedIds, setPickedIds] = useState([]);
   const [table, setTable] = useState(null); // 选定的两位角色（数组），null = 还在选
-    const [preparing, setPreparing] = useState(false);
+  const [preparing, setPreparing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -579,7 +586,7 @@ const UnoGame = ({ onExitToHall }) => {
             <button
               type="button"
               className="tgh-ttt-btn tgh-ttt-btn-primary"
-                           disabled={startDisabled || preparing}
+              disabled={startDisabled || preparing}
               onClick={async () => {
                 const picked = pickedIds.map((id) => characters.find((c) => c.id === id));
                 setPreparing(true);

@@ -7,7 +7,8 @@
 // 座位：0 是用户，1、2 是两位角色（characters[0]、characters[1]）。
 //
 // 时序约定（用户确认过的）：
-// - 角色每手停 1.5-2 秒再出牌；抽到能出的牌后的第二步停 0.8 秒；
+// - 整局 3 分钟，时间到按手牌最少判胜负；
+// - 角色每手停 2-10 秒再出牌；抽到能出的牌后的第二步停 0.8 秒；
 // - 用户每手 15 秒，超时自动抽一张并结束这一轮（引擎的 applyTimeout）；
 // - 用户出到只剩一张没喊 UNO：下一位角色行动前（那 1.5-2 秒）就是用户的
 //   补喊窗口，角色行动时有概率抓包（CATCH_UNO_CHANCE）；
@@ -20,6 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  MATCH_TIME_LIMIT_MS,
   TURN_TIME_LIMIT_MS,
   applyTimeout,
   callUno,
@@ -27,6 +29,7 @@ import {
   catchUno,
   createGame,
   drawCard,
+  endByTime,
   getMatchSummary,
   getPlayableCardIds,
   getStandings,
@@ -67,6 +70,7 @@ export const useUnoMatch = ({ characters }) => {
   const gameRef = useRef(null);
 
   const [remainingMs, setRemainingMs] = useState(TURN_TIME_LIMIT_MS);
+  const [matchLeftSec, setMatchLeftSec] = useState(Math.ceil(MATCH_TIME_LIMIT_MS / 1000));
   const [bubbles, setBubbles] = useState({});
   const [flash, setFlash] = useState(null);
   const [notice, setNotice] = useState('');
@@ -161,6 +165,13 @@ export const useUnoMatch = ({ characters }) => {
         case 'timeout':
           say('15 秒到了，自动替你抽了一张牌');
           break;
+        case 'time_up': {
+          say('时间到了，手牌最少的人赢');
+          speak(ev.player, 'win');
+          const others = [1, 2].filter((s) => s !== ev.player);
+          if (ev.player !== 0 && others.length > 0) speak(others[0], 'lose');
+          break;
+        }
         case 'win': {
           speak(ev.player, 'win');
           const losers = [1, 2].filter((s) => s !== ev.player);
@@ -204,6 +215,7 @@ export const useUnoMatch = ({ characters }) => {
     setShowResult(false);
     setStats(null);
     setRemainingMs(TURN_TIME_LIMIT_MS);
+    setMatchLeftSec(Math.ceil(MATCH_TIME_LIMIT_MS / 1000));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characters]);
 
@@ -294,6 +306,35 @@ export const useUnoMatch = ({ characters }) => {
 
     return () => clearInterval(timer);
   }, [game?.turnCount, game?.currentIndex, game?.status]);
+
+  // ---------- 整局 3 分钟计时 ----------
+  // 按开局时刻算墙上时间（不受切后台影响）；到点就按手牌数判胜负。
+  const matchActive = !!game && game.status === 'playing';
+  useEffect(() => {
+    if (!matchActive) return undefined;
+
+    const tick = () => {
+      const left = MATCH_TIME_LIMIT_MS - (Date.now() - startedAtRef.current);
+      setMatchLeftSec(Math.max(0, Math.ceil(left / 1000)));
+      if (left > 0) return;
+
+      const g = gameRef.current;
+      if (g && g.status === 'playing') {
+        const r = endByTime(g);
+        if (r.ok) {
+          setSelectedId(null);
+          setWildPendingId(null);
+          setUnoArmed(false);
+          commitRef.current(r.state, r.events);
+        }
+      }
+    };
+
+    tick();
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchActive]);
 
   // ---------- 结束：只存一次档 ----------
   useEffect(() => {
@@ -439,6 +480,7 @@ export const useUnoMatch = ({ characters }) => {
     isMyTurn,
     playableIds,
     remainingMs,
+    matchLeftSec,
     bubbles,
     flash,
     notice,
