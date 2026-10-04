@@ -204,7 +204,7 @@ const TicTacToeGame = ({ onExitToHall }) => {
       <div className="tgh-ttt-screen">
         <button
           type="button"
-          className="tgh-back-btn"
+          className="tgh-back-btn-light"
           aria-label="返回"
           onClick={onExitToHall}
         >
@@ -252,7 +252,7 @@ const TicTacToeGame = ({ onExitToHall }) => {
     <div className="tgh-ttt-screen">
       <button
         type="button"
-        className="tgh-back-btn"
+        className="tgh-back-btn-light"
         aria-label="返回"
         onClick={handleBackToPicker}
       >

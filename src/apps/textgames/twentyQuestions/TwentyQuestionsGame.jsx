@@ -313,7 +313,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
   if (phase === PHASE.PICK_CHARACTER) {
     return (
       <div className="tgh-shared-screen">
-        <button type="button" className="tgh-back-btn" aria-label="返回" onClick={onExitToHall}>
+        <button type="button" className="tgh-back-btn-light" aria-label="返回" onClick={onExitToHall}>
           <BackIcon />
         </button>
 
@@ -352,7 +352,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
       <div className="tgh-shared-screen">
         <button
           type="button"
-          className="tgh-back-btn"
+          className="tgh-back-btn-light"
           aria-label="返回"
           onClick={handleBackToPicker}
         >
@@ -396,7 +396,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
       <div className="tgh-shared-screen">
         <button
           type="button"
-          className="tgh-back-btn"
+          className="tgh-back-btn-light"
           aria-label="返回"
           onClick={handleChangeDirection}
         >
@@ -438,7 +438,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
       <div className="tgh-shared-screen">
         <button
           type="button"
-          className="tgh-back-btn"
+          className="tgh-back-btn-light"
           aria-label="返回"
           onClick={handleChangeDirection}
         >
@@ -457,7 +457,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
     <div className="tgh-shared-screen">
       <button
         type="button"
-        className="tgh-back-btn"
+        className="tgh-back-btn-light"
         aria-label="返回"
         onClick={handleChangeDirection}
       >
