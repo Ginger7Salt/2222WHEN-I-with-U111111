@@ -339,6 +339,7 @@ const TexasMatch = ({ characters, buyIn, onExitToHall, onBackToPicker }) => {
       </div>
 
       <div className="tht-felt">
+        <div className="tht-felt-inner">
         <div className="tht-opponents-row">
           {renderSeat(1, characters[0])}
           {renderSeat(2, characters[1])}
@@ -354,6 +355,7 @@ const TexasMatch = ({ characters, buyIn, onExitToHall, onBackToPicker }) => {
         </div>
 
         {renderSeat(0, null)}
+        </div>{/* tht-felt-inner */}
       </div>
 
       {m.notice && <div className="tht-notice">{m.notice}</div>}

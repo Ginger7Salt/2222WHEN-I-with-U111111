@@ -1,26 +1,35 @@
 /* ============================================================
-   德州扑克——专属视觉层。颜色底子复用文字游戏大厅的 --tgh-paper/
-   --tgh-ink 等（见 textGameHall.css），选角色/买入这两屏直接用
-   textGameShared.css 的 .tgh-shared-* 公共样式（跟20个问题/女巫的
-   毒药一样），牌桌本身是这个游戏专属的——德州扑克天然该有一块暗绿色
-   的桌布，所以牌桌这块局部叠一层 --tht-* 深色变量，不跟着大厅的黑白
-   弥散纸感走；选角色/买入两屏还是走大厅公共的浅色磁贴风格，跟其它
-   游戏的"选角色"体验保持一致，只有真正坐上牌桌之后才换成赌桌氛围。
-
-   跟 UNO 不一样：UNO 的牌桌是固定横屏舞台、竖屏自动转90度；德州这里
-   三个座位天然竖排（两个角色在上、公共牌在中间、用户在下），不需要
-   横屏，直接用大厅那条窄车道本身的宽度走纵向滚动布局就够了，省掉一整
-   套视口旋转的逻辑。
+   德州扑克——专属视觉层（暗黑典仪风格）
+   颜色底子复用 --tgh-* 变量做 picker/买入页，
+   牌桌本身叠一层 --tht-* 深色变量。
+   字体：Cinzel Decorative（牌桌标题/数字）从 Google Fonts 加载，
+   走 @import 放在文件最顶——Vite 会把它处理成 <link>。
    ============================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&display=swap');
+
+/* ===== 全局 CSS 变量（定义在 .tht-screen 上） ===== */
 .tht-screen {
-  --tht-felt: #0e3b2c;
-  --tht-felt-dark: #082219;
-  --tht-gold: #d9b45a;
-  --tht-card-bg: #fbf8f1;
-  --tht-card-ink: #1a1a1a;
-  --tht-card-red: #b4323a;
-  --tht-accent: #d9b45a;
+  --tht-void:        #050307;
+  --tht-void-mid:    #0d0a12;
+  --tht-void-edge:   #1a1224;
+  --tht-blood-core:  #70061d;
+  --tht-blood-glow:  #e0143c;
+  --tht-blood-dim:   #3a0510;
+  --tht-gold:        #d4af37;
+  --tht-gold-pale:   #f0d870;
+  --tht-gold-dim:    #7a6010;
+  --tht-card-bg:     #fbf8f0;
+  --tht-card-ink:    #1a1a1a;
+  --tht-card-red:    #c0192b;
+  --tht-felt:        #0e3b2c;   /* 留着，action bar 里还用 */
+  --tht-font-title:  'Cinzel Decorative', 'Georgia', serif;
+}
+
+/* picker / 买入页里的强调色 */
+.tgh-shared-picker-item.tht-picked {
+  border-color: var(--tht-gold);
+  box-shadow: 0 0 0 2px var(--tht-gold) inset;
 }
 
 .tht-picker-hint,
@@ -31,11 +40,7 @@
   margin-top: 14px;
 }
 
-.tgh-shared-picker-item.tht-picked {
-  border-color: var(--tht-accent);
-  box-shadow: 0 0 0 2px var(--tht-accent) inset;
-}
-
+/* ===== 筹码余额卡 ===== */
 .tht-balance-card {
   margin-top: 26px;
   padding: 16px;
@@ -53,8 +58,8 @@
 
 .tht-balance-num {
   display: block;
-  font-family: var(--tgh-font-display);
-  font-weight: 800;
+  font-family: var(--tht-font-title);
+  font-weight: 700;
   font-size: 30px;
   margin-top: 4px;
 }
@@ -63,41 +68,83 @@
   display: block;
   margin-top: 6px;
   font-size: 11px;
-  color: var(--tht-card-red);
+  color: var(--tht-blood-glow);
 }
 
-/* ===== 牌桌 ===== */
+/* ================================================================
+   牌桌屏幕容器
+   ================================================================ */
 .tht-table-screen {
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;
+  background: var(--tht-void);
+  /* 向内收一点，让暗色延伸到 tgh-app 边缘 */
+  margin: -2px;
+  padding: 56px 14px 24px;
   max-width: 480px;
-  margin: 0 auto;
-  padding: 60px 14px 20px;
+  margin-inline: auto;
+  overflow: hidden;
 }
 
+/* 牌桌屏背景噪点光晕 */
+.tht-table-screen::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(112,6,29,0.22) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 100%, rgba(5,3,7,0.9) 0%, transparent 80%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== 顶部信息栏 ===== */
 .tht-header {
+  position: relative;
+  z-index: 2;
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  color: var(--tgh-ink-faint);
-  padding: 0 4px 10px;
+  font-family: var(--tht-font-title);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--tht-gold-dim);
+  padding: 0 4px 12px;
+  text-transform: uppercase;
 }
 
+/* ===== 牌桌 felt ===== */
 .tht-felt {
-  background: radial-gradient(ellipse at center, var(--tht-felt) 0%, var(--tht-felt-dark) 100%);
-  border-radius: 24px;
-  border: 6px solid #2a1810;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 0 40px rgba(0, 0, 0, 0.35);
-  padding: 18px 12px 24px;
-  color: #f4ede1;
   position: relative;
+  z-index: 2;
+  /* 3D 倾斜：近大远小的赌桌透视感 */
+  perspective: 700px;
+  perspective-origin: 50% 0%;
 }
 
+.tht-felt-inner {
+  background: radial-gradient(ellipse 90% 70% at 50% 40%, #0a2a1f 0%, #040f09 100%);
+  border-radius: 28px;
+  border: 4px solid transparent;
+  background-clip: padding-box;
+  box-shadow:
+    0 0 0 1px var(--tht-gold-dim),
+    0 0 0 3px rgba(0,0,0,0.8),
+    0 0 0 4px var(--tht-gold-dim),
+    0 20px 60px rgba(0,0,0,0.7),
+    inset 0 0 60px rgba(0,0,0,0.5);
+  padding: 18px 14px 22px;
+  color: #f0ebe0;
+  transform: rotateX(12deg);
+  transform-origin: top center;
+}
+
+/* ===== 座位 ===== */
 .tht-opponents-row {
   display: flex;
   justify-content: space-around;
   gap: 10px;
+  margin-bottom: 4px;
 }
 
 .tht-seat {
@@ -110,25 +157,30 @@
   min-width: 0;
   padding: 8px 4px;
   border-radius: 14px;
-  transition: background 0.2s;
+  transition: background 0.25s, box-shadow 0.25s;
 }
 
 .tht-seat-acting {
-  background: rgba(217, 180, 90, 0.16);
+  background: rgba(212, 175, 55, 0.12);
   box-shadow: 0 0 0 1.5px var(--tht-gold);
 }
 
 .tht-seat-winner {
-  box-shadow: 0 0 0 1.5px #f6e27a;
-  background: rgba(246, 226, 122, 0.14);
+  background: rgba(212, 175, 55, 0.18);
+  box-shadow: 0 0 0 1.5px var(--tht-gold-pale), 0 0 16px rgba(212,175,55,0.25);
 }
 
 .tht-seat-folded {
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
 .tht-seat-out {
-  opacity: 0.3;
+  opacity: 0.25;
+}
+
+/* 用户自己座位（桌子底部） */
+.tht-seat-user {
+  margin-top: 4px;
 }
 
 .tht-seat-top {
@@ -138,100 +190,110 @@
   justify-content: center;
 }
 
+/* 头像 */
 .tht-avatar {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  background: var(--tht-gold);
-  color: #1a1a1a;
+  background: var(--tht-gold-dim);
+  color: var(--tht-void);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--tgh-font-display);
+  font-family: var(--tht-font-title);
   font-weight: 700;
-  font-size: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  font-size: 14px;
+  border: 1.5px solid var(--tht-gold-dim);
 }
 
+/* 庄家筹码 */
 .tht-btn-chip {
   position: absolute;
   top: -6px;
   right: -8px;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #fff;
-  color: #1a1a1a;
-  font-size: 10px;
-  font-weight: 800;
+  background: var(--tht-gold);
+  color: var(--tht-void);
+  font-family: var(--tht-font-title);
+  font-size: 8.5px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid var(--tht-gold);
+  border: 1px solid var(--tht-void);
 }
 
 .tht-seat-name {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   max-width: 90px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: rgba(240,235,224,0.75);
+  letter-spacing: 0.03em;
 }
 
 .tht-seat-stack {
-  font-family: var(--tgh-font-display);
+  font-family: var(--tht-font-title);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--tht-gold);
+  letter-spacing: 0.04em;
 }
 
 .tht-seat-tag {
-  font-size: 9.5px;
-  padding: 1px 8px;
+  font-size: 9px;
+  padding: 1px 7px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(244, 237, 225, 0.8);
+  background: rgba(255,255,255,0.1);
+  color: rgba(240,235,224,0.7);
+  letter-spacing: 0.05em;
 }
 
 .tht-seat-tag-allin {
-  background: var(--tht-card-red);
+  background: var(--tht-blood-core);
   color: #fff;
 }
 
 .tht-hole-row {
   display: flex;
   gap: 4px;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .tht-hand-tag {
-  font-size: 10px;
-  color: var(--tht-gold);
+  font-size: 9.5px;
+  color: var(--tht-gold-pale);
   text-align: center;
   max-width: 110px;
+  letter-spacing: 0.03em;
 }
 
-/* ===== 牌 ===== */
+/* ================================================================
+   牌
+   ================================================================ */
 .tht-card {
   width: 34px;
-  height: 48px;
-  border-radius: 6px;
+  height: 49px;
+  border-radius: 5px;
   background: var(--tht-card-bg);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   font-family: var(--tgh-font-display);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.15);
+  border: none;
 }
 
 .tht-card-sm {
-  width: 26px;
-  height: 37px;
-  border-radius: 5px;
+  width: 25px;
+  height: 35px;
+  border-radius: 4px;
 }
 
 .tht-card-rank {
@@ -241,7 +303,7 @@
 }
 
 .tht-card-sm .tht-card-rank {
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 .tht-card-suit {
@@ -253,213 +315,304 @@
   font-size: 10px;
 }
 
-.tht-card-red {
-  color: var(--tht-card-red);
-}
+.tht-card-red  { color: var(--tht-card-red); }
+.tht-card-black { color: var(--tht-card-ink); }
 
-.tht-card-black {
-  color: var(--tht-card-ink);
-}
-
+/* 牌背：深蓝斜线 */
 .tht-card-back {
-  background: repeating-linear-gradient(135deg, #1c3f6e, #1c3f6e 4px, #26527f 4px, #26527f 8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background:
+    repeating-linear-gradient(135deg, #14204a, #14204a 4px, #1e3266 4px, #1e3266 8px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.55), inset 0 0 0 1.5px rgba(255,255,255,0.1);
 }
 
-/* ===== 公共牌 / 底池 ===== */
+/* ================================================================
+   公共牌 / 底池
+   ================================================================ */
 .tht-board-area {
-  margin: 18px 0;
+  margin: 16px 0 12px;
   text-align: center;
 }
 
+/* 底池文字：经典赌场风格，血红高光 */
 .tht-pot {
-  font-size: 12px;
-  color: var(--tht-gold);
-  margin-bottom: 8px;
-  font-weight: 600;
+  font-family: var(--tht-font-title);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tht-blood-glow);
+  margin-bottom: 10px;
+  text-shadow: 0 0 8px rgba(224,20,60,0.4);
 }
 
 .tht-board-row {
   display: flex;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
 }
 
-/* ===== 台词气泡 ===== */
+/* ================================================================
+   台词气泡（角色对话）
+   ================================================================ */
 .tht-bubble {
   position: absolute;
-  top: -30px;
+  top: -32px;
   left: 50%;
   transform: translateX(-50%);
-  background: #fff;
-  color: #1a1a1a;
-  font-size: 11px;
-  padding: 5px 10px;
-  border-radius: 12px;
+  background: rgba(5,3,7,0.92);
+  color: var(--tht-gold-pale);
+  font-size: 10.5px;
+  padding: 5px 11px;
+  border-radius: 10px;
   white-space: nowrap;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
-  z-index: 5;
+  border: 1px solid var(--tht-gold-dim);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5), 0 0 8px rgba(212,175,55,0.12);
+  z-index: 8;
   animation: tht-pop 0.18s ease-out;
 }
 
 @keyframes tht-pop {
-  from {
-    transform: translateX(-50%) scale(0.8);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(-50%) scale(1);
-    opacity: 1;
-  }
+  from { transform: translateX(-50%) scale(0.8); opacity: 0; }
+  to   { transform: translateX(-50%) scale(1);   opacity: 1; }
 }
 
-/* ===== 提示条 ===== */
+/* ================================================================
+   提示条（中央漂浮）
+   ================================================================ */
 .tht-notice {
   position: absolute;
-  top: 54px;
+  top: 58px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(18, 18, 18, 0.85);
-  color: #fff;
-  font-size: 12px;
-  padding: 6px 14px;
+  background: rgba(5,3,7,0.9);
+  color: var(--tht-gold);
+  font-family: var(--tht-font-title);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 6px 16px;
   border-radius: 999px;
+  border: 1px solid var(--tht-gold-dim);
   white-space: nowrap;
   z-index: 10;
 }
 
-/* ===== 操作区 ===== */
+/* ================================================================
+   操作区
+   ================================================================ */
 .tht-action-bar {
-  margin-top: 16px;
+  position: relative;
+  z-index: 2;
+  margin-top: 18px;
 }
 
+/* 计时条 */
 .tht-timer-track {
-  height: 3px;
-  background: var(--tgh-hairline);
+  height: 2px;
+  background: rgba(255,255,255,0.08);
   border-radius: 2px;
   overflow: hidden;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .tht-timer-fill {
   height: 100%;
-  background: var(--tht-accent);
+  background: linear-gradient(90deg, var(--tht-blood-core), var(--tht-blood-glow));
   transition: width 0.15s linear;
 }
 
+/* 操作按钮 2×2 网格：弃牌|过牌/跟注 + 加注|全下 */
 .tht-action-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
 .tht-act-btn {
-  flex: 1;
-  padding: 12px 6px;
+  padding: 13px 6px;
   border-radius: 12px;
-  border: none;
+  border: 1px solid transparent;
   font-size: 13px;
   font-weight: 700;
   font-family: var(--tgh-font-sans);
   cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: opacity 0.15s, transform 0.1s;
 }
 
+.tht-act-btn:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+/* 弃牌：低调 */
 .tht-act-fold {
-  background: var(--tgh-paper-card);
-  border: 1px solid var(--tgh-hairline);
-  color: var(--tgh-ink-soft);
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.14);
+  color: rgba(240,235,224,0.6);
 }
 
+/* 跟注 / 过牌：金叶边框 */
 .tht-act-call {
-  background: var(--tgh-ink);
-  color: #fff;
+  background: rgba(212,175,55,0.1);
+  border-color: var(--tht-gold-dim);
+  color: var(--tht-gold);
 }
 
+/* 加注：血红 */
 .tht-act-raise {
-  background: var(--tht-felt);
+  background: var(--tht-blood-core);
+  border-color: var(--tht-blood-glow);
   color: #fff;
+  box-shadow: 0 0 12px rgba(224,20,60,0.25);
 }
 
+/* 全下：深红 + 特效 */
 .tht-act-allin {
-  background: var(--tht-card-red);
+  background: linear-gradient(135deg, #6b0018, #a30024);
+  border-color: var(--tht-blood-glow);
   color: #fff;
+  font-family: var(--tht-font-title);
+  letter-spacing: 0.1em;
+  box-shadow: 0 0 18px rgba(224,20,60,0.35);
 }
 
+/* 加注滑块行 */
 .tht-raise-row {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-top: 10px;
+  padding: 0 2px;
 }
 
 .tht-raise-step {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1px solid var(--tgh-hairline);
-  background: var(--tgh-paper-card);
+  border: 1px solid var(--tht-gold-dim);
+  background: rgba(212,175,55,0.08);
+  color: var(--tht-gold);
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
+  transition: background 0.15s;
 }
 
+.tht-raise-step:active {
+  background: rgba(212,175,55,0.2);
+}
+
+/* range 滑块——血红调 */
 .tht-raise-slider {
   flex: 1;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--tht-blood-glow), var(--tht-blood-dim));
+  outline: none;
+  cursor: pointer;
 }
 
-/* ===== 一手结束 / 会话结算 ===== */
+.tht-raise-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--tht-gold);
+  border: 2px solid var(--tht-void);
+  box-shadow: 0 0 6px rgba(212,175,55,0.5);
+  cursor: pointer;
+}
+
+.tht-raise-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--tht-gold);
+  border: 2px solid var(--tht-void);
+  box-shadow: 0 0 6px rgba(212,175,55,0.5);
+  cursor: pointer;
+}
+
+/* ================================================================
+   一手结束 / 会话结算
+   ================================================================ */
 .tht-hand-result {
+  position: relative;
+  z-index: 2;
   margin-top: 18px;
   text-align: center;
-  padding: 16px;
+  padding: 18px 16px;
   border-radius: 16px;
-  background: var(--tgh-paper-card);
-  border: 1px solid var(--tgh-hairline);
+  background: rgba(5,3,7,0.85);
+  border: 1px solid var(--tht-gold-dim);
+  box-shadow: 0 0 24px rgba(212,175,55,0.1);
 }
 
 .tht-hand-result h4 {
-  font-family: var(--tgh-font-display);
-  font-size: 15px;
-  margin: 0 0 6px;
+  font-family: var(--tht-font-title);
+  font-size: 14px;
+  color: var(--tht-gold-pale);
+  margin: 0 0 10px;
+  letter-spacing: 0.06em;
 }
 
 .tht-pot-results p {
   font-size: 12.5px;
-  color: var(--tgh-ink-soft);
-  margin: 2px 0;
+  color: rgba(240,235,224,0.65);
+  margin: 3px 0;
 }
 
 .tht-session-overlay {
+  position: relative;
+  z-index: 2;
   margin-top: 18px;
 }
 
+/* 精彩时刻日志 */
 .tht-moment-log {
   list-style: none;
   margin: 16px 0 0;
   padding: 0;
   font-size: 12px;
-  color: var(--tgh-ink-soft);
+  color: rgba(240,235,224,0.55);
   line-height: 1.8;
 }
 
 .tht-moment-log li {
   padding: 6px 0;
-  border-bottom: 1px dashed var(--tgh-hairline);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .tht-saved-note {
   text-align: center;
   font-size: 11.5px;
-  color: var(--tgh-ink-faint);
+  color: rgba(240,235,224,0.35);
   margin-top: 14px;
 }
 
+/* ================================================================
+   覆盖 tgh-shared 在黑色背景下的按钮样式
+   ================================================================ */
+.tht-table-screen .tgh-shared-btn {
+  background: rgba(212,175,55,0.08);
+  border: 1px solid var(--tht-gold-dim);
+  color: var(--tht-gold);
+}
+
+.tht-table-screen .tgh-shared-btn-primary {
+  background: var(--tht-blood-core);
+  border-color: var(--tht-blood-glow);
+  color: #fff;
+}
+
+/* ================================================================
+   响应式
+   ================================================================ */
 @media (max-width: 360px) {
-  .tht-card {
-    width: 30px;
-    height: 43px;
-  }
-  .tht-avatar {
-    width: 38px;
-    height: 38px;
-  }
+  .tht-card       { width: 30px; height: 43px; }
+  .tht-card-sm    { width: 22px; height: 31px; }
+  .tht-avatar     { width: 36px; height: 36px; }
+  .tht-felt-inner { padding: 14px 10px 18px; }
 }
