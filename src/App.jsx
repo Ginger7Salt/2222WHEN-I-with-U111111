@@ -137,6 +137,7 @@ const AlmanacApp = lazyWithRetry(() => import('./apps/almanac/AlmanacApp'), 'Alm
 const SharedWorldApp = lazyWithRetry(() => import('./apps/shared-world/SharedWorldApp'), 'SharedWorldApp');
 const RhythmApp = lazyWithRetry(() => import('./apps/rhythm/RhythmApp'), 'RhythmApp');
 const WorkflowApp = lazyWithRetry(() => import('./apps/workflows/WorkflowApp'), 'WorkflowApp');
+const TextGameHallApp = lazyWithRetry(() => import('./apps/textgames/TextGameHallApp'), 'TextGameHallApp');
 
 // 只是"这个模块的代码正在下载"那零点几秒到一两秒（视网络而定）的占位，
 // 不是常规的应用内 loading 状态，所以故意做得很轻，没有另起 CSS 文件。
@@ -226,6 +227,7 @@ const REGISTERED_APPS = [
   'newspaper',
   'margin-notes',
   'workflows',
+  'textgames',
 ];
 
 const DEFAULT_AUDIO_CONFIG = {
@@ -1295,6 +1297,16 @@ const isEmotionKitApp = currentApp === 'emotionkit';
           <ErrorBoundary>
             <React.Suspense fallback={<AppLoadingFallback />}>
               <BadgeExchangeApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
+          </ErrorBoundary>
+        )}
+
+                {currentApp === 'textgames' && (
+          <ErrorBoundary>
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <TextGameHallApp
                 onBackHub={() => openApp('hub')}
               />
             </React.Suspense>

@@ -1,0 +1,126 @@
+// src/apps/textgames/textGameCatalog.js
+//
+// “文字游戏大厅”目录的静态数据——这一批小游戏规则差异很大（有的是人机
+// 对战、有的是双人对战、有的两者都支持），所以这里先只维护目录展示用
+// 的元数据，不建任何 Dexie 表：真正的对局状态（棋盘/猜测记录/卡牌等）
+// 留到每个具体游戏被排到建造时，各自决定自己的数据结构再加表，不在这
+// 里提前假设一个“大家都能复用”的通用对局表。
+//
+// mode 字段只是目录页展示用的标签文案，不是代码逻辑会读取判断的枚举，
+// 后续某个具体游戏的真实玩法细节确定后可以随时改措辞，不用担心改坏哪里。
+
+export const TEXT_GAME_STATUS = {
+  COMING_SOON: 'coming_soon',
+  AVAILABLE: 'available',
+};
+
+export const TEXT_GAME_CATALOG = [
+  {
+    id: 'tic-tac-toe',
+    title: '井字棋',
+    titleEn: 'Three in a row',
+    desc: '九宫格对战，经典到不需要说明书。',
+    mode: '双人对战',
+    modeEmphasis: false,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'idiom-wordle',
+    title: '猜成语 Wordle',
+    titleEn: 'Four tiles, one idiom',
+    desc: '绿黄黑三色提示里，一步步逼近那个成语。',
+    mode: '人机对战',
+    modeEmphasis: true,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'turtle-soup',
+    title: '海龟汤',
+    titleEn: 'A puzzle in silence',
+    desc: '只能问是非题，真相常常藏在转折里。',
+    mode: '人机出题',
+    modeEmphasis: true,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'twenty-questions',
+    title: '20个问题',
+    titleEn: 'Twenty questions',
+    desc: '靠提问一点点缩小范围，猜中算赢。',
+    mode: '人机 · 双人皆可',
+    modeEmphasis: false,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'emoji-charades',
+    title: 'Emoji 猜谜',
+    titleEn: 'Symbols, not sentences',
+    desc: '看一串符号，猜出它拼成的词或句子。',
+    mode: '人机出题',
+    modeEmphasis: true,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'bulls-and-cows',
+    title: '1A2B 猜数字',
+    titleEn: 'Right digit, wrong place',
+    desc: '每轮给出A和B两个数，一步步锁定四位密码。',
+    mode: '人机 · 双人皆可',
+    modeEmphasis: false,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'race-to-21',
+    title: '抢21',
+    titleEn: 'Never cross twenty-one',
+    desc: '轮流报数，谁先踩到21谁就输。',
+    mode: '双人对战',
+    modeEmphasis: false,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'undercover',
+    title: '谁是卧底',
+    titleEn: 'One word, two meanings',
+    desc: '描述你拿到的词，找出那个说法不一样的人。',
+    mode: '多人身份推理',
+    modeEmphasis: false,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'two-truths-one-lie',
+    title: '两个真话，一个假话',
+    titleEn: 'Spot the lie',
+    desc: '说三句话，让对方猜出哪一句是假的。',
+    mode: '双人对战',
+    modeEmphasis: false,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'mystery-script-duo',
+    title: '双人剧本杀',
+    titleEn: 'A mystery for two',
+    desc: '各拿半份线索，拼凑出一整件案情。',
+    mode: '双人叙事',
+    modeEmphasis: false,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'witchs-poison',
+    title: '女巫的毒药',
+    titleEn: 'Someone is lying about the cup',
+    desc: '猜哪一杯被下了药，赌一次直觉。',
+    mode: '双人对战',
+    modeEmphasis: false,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+  {
+    id: 'scratch-card',
+    title: '刮刮乐',
+    titleEn: 'A scratch, a small reward',
+    desc: '刮开涂层，看看这次手气如何。',
+    mode: '单人手气',
+    modeEmphasis: false,
+    status: TEXT_GAME_STATUS.COMING_SOON,
+  },
+];

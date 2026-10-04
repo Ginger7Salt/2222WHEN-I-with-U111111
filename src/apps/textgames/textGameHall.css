@@ -1,0 +1,383 @@
+/* ============================================================
+   文字游戏大厅 —— 黑白弥散杂志风整页样式。视觉参考是用户自己确认过的
+   HTML 预览（刊物封面 + 目录条目），这里原样复刻排版/配色，只是把裸
+   HTML 换成 React 组件、类名统一加 tgh- 前缀并嵌套在 .tgh-app 下面，
+   避免跟 app 里其它页面的类名撞车。配色刻意保持黑白灰，不跟随 app 的
+   亮暗主题切换——这是它自己的独立刊物质感，跟异地任务挑战的酒红杂志
+   页同一处理思路，只是换成黑白弥散的版本，所以这里不走 themes.css 的
+   token，自己定义一套。
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,500&family=Space+Grotesk:wght@400;500;600&display=swap');
+
+.tgh-app {
+  --tgh-paper: #f6f6f4;
+  --tgh-paper-card: #ffffff;
+  --tgh-ink: #121212;
+  --tgh-ink-soft: #46464a;
+  --tgh-ink-faint: #8c8c90;
+  --tgh-hairline: rgba(18, 18, 18, 0.12);
+  --tgh-panel-a: #1c1c1e;
+  --tgh-panel-b: #050506;
+  --tgh-blob-1: rgba(210, 210, 210, 0.55);
+  --tgh-blob-2: rgba(150, 150, 150, 0.4);
+  --tgh-blob-3: rgba(235, 235, 235, 0.6);
+
+  --tgh-font-display: 'Noto Serif SC', 'Songti SC', serif;
+  --tgh-font-script: 'Cormorant Garamond', 'Times New Roman', serif;
+  --tgh-font-sans: 'Space Grotesk', 'Helvetica Neue', sans-serif;
+
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--tgh-paper);
+  color: var(--tgh-ink);
+  font-family: var(--tgh-font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-y: auto;
+}
+
+.tgh-app * {
+  box-sizing: border-box;
+}
+
+.tgh-container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 28px 18px 72px;
+  position: relative;
+}
+
+.tgh-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.tgh-back-btn {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top, 0px));
+  left: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--tgh-hairline);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+  cursor: pointer;
+  color: var(--tgh-ink);
+}
+
+/* ===== 封面墨卡 ===== */
+.tgh-masthead {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  background: linear-gradient(160deg, var(--tgh-panel-a) 0%, var(--tgh-panel-b) 100%);
+  color: #fff;
+  padding: 54px 26px 32px;
+  margin-top: 28px;
+  isolation: isolate;
+}
+
+.tgh-masthead::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0, transparent 60%);
+  background-size: 3px 3px;
+  opacity: 0.5;
+  z-index: 0;
+}
+
+.tgh-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  z-index: 0;
+}
+
+.tgh-blob-a {
+  width: 220px;
+  height: 220px;
+  top: -60px;
+  right: -40px;
+  background: var(--tgh-blob-1);
+  opacity: 0.35;
+}
+
+.tgh-blob-b {
+  width: 180px;
+  height: 180px;
+  bottom: -70px;
+  left: -30px;
+  background: var(--tgh-blob-2);
+  opacity: 0.3;
+}
+
+.tgh-blob-c {
+  width: 140px;
+  height: 140px;
+  top: 40%;
+  left: 30%;
+  background: var(--tgh-blob-3);
+  opacity: 0.18;
+}
+
+.tgh-masthead-inner {
+  position: relative;
+  z-index: 2;
+}
+
+.tgh-kicker {
+  font-family: var(--tgh-font-sans);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.56);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tgh-kicker .tgh-rule {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.tgh-masthead h1 {
+  font-family: var(--tgh-font-display);
+  font-weight: 900;
+  font-size: clamp(34px, 9vw, 48px);
+  line-height: 1.08;
+  margin: 18px 0 6px;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+
+.tgh-masthead .tgh-sub {
+  font-family: var(--tgh-font-script);
+  font-style: italic;
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0 0 22px;
+}
+
+.tgh-masthead .tgh-blurb {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.74);
+  max-width: 46ch;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  padding-top: 16px;
+  margin: 0;
+}
+
+.tgh-count-row {
+  display: flex;
+  gap: 22px;
+  margin-top: 18px;
+}
+
+.tgh-count {
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.tgh-count-label {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 2px;
+}
+
+/* ===== 目录区 ===== */
+.tgh-index-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 40px 2px 14px;
+}
+
+.tgh-index-head h2 {
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 20px;
+  margin: 0;
+}
+
+.tgh-index-head .tgh-en {
+  font-family: var(--tgh-font-script);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--tgh-ink-faint);
+}
+
+.tgh-index-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--tgh-hairline);
+}
+
+.tgh-entry {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 14px;
+  align-items: start;
+  padding: 18px 10px;
+  border-bottom: 1px solid var(--tgh-hairline);
+  background: var(--tgh-paper-card);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+
+.tgh-entry:hover,
+.tgh-entry:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(18, 18, 18, 0.07);
+  outline: none;
+}
+
+.tgh-entry .tgh-num {
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--tgh-ink-faint);
+  line-height: 1.5;
+}
+
+.tgh-entry .tgh-body-col {
+  min-width: 0;
+}
+
+.tgh-entry .tgh-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tgh-entry .tgh-title {
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.tgh-entry .tgh-byline {
+  font-family: var(--tgh-font-script);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--tgh-ink-faint);
+  white-space: nowrap;
+}
+
+.tgh-entry .tgh-desc {
+  font-size: 12.5px;
+  color: var(--tgh-ink-soft);
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
+.tgh-entry .tgh-tag-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.tgh-tag {
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--tgh-hairline);
+  color: var(--tgh-ink-soft);
+  background: var(--tgh-paper);
+}
+
+.tgh-tag.tgh-tag-ink {
+  background: var(--tgh-ink);
+  color: #fff;
+  border-color: var(--tgh-ink);
+}
+
+.tgh-chevron {
+  width: 14px;
+  height: 14px;
+  stroke: var(--tgh-ink-faint);
+}
+
+.tgh-footer-note {
+  text-align: center;
+  margin-top: 30px;
+  font-size: 11.5px;
+  color: var(--tgh-ink-faint);
+  letter-spacing: 0.02em;
+}
+
+/* 轻量 toast，用于"该游戏还没做好"的占位反馈 */
+.tgh-toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(28px, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  background: var(--tgh-ink);
+  color: #fff;
+  font-size: 12.5px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  z-index: 30;
+  pointer-events: none;
+  animation: tghToastIn 0.18s ease-out;
+}
+
+@keyframes tghToastIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tgh-toast {
+    animation: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .tgh-entry {
+    grid-template-columns: 32px 1fr;
+  }
+
+  .tgh-entry .tgh-tag-col {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding-top: 6px;
+  }
+}
