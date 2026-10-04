@@ -114,6 +114,15 @@ export const TEXT_GAME_CATALOG = [
     modeEmphasis: false,
     status: TEXT_GAME_STATUS.AVAILABLE,
   },
+    {
+    id: 'uno',
+    title: 'UNO',
+    titleEn: 'One card left',
+    desc: '三个人一张桌子，最后一张牌别忘了喊出来。',
+    mode: '三人对战',
+    modeEmphasis: true,
+    status: TEXT_GAME_STATUS.AVAILABLE,
+  },
   {
     id: 'scratch-card',
     title: '刮刮乐',

@@ -1,0 +1,922 @@
+@import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+
+/* ============================================================
+   UNO——横屏对局舞台（暗黑萌系）。舞台是固定 844x390 的坐标系，
+   UnoGame.jsx 负责按屏幕缩放/竖屏时旋转；这里所有尺寸都按这个坐标系写。
+   选同桌角色那一屏用的是大厅自己的 tgh-ttt-* 样式，只补了几条 uno-
+   前缀的规则放在文件最后。
+   圆润标题字体（ZCOOL KuaiLe）是联网加载的，离线时退回系统字体，
+   排版不受影响。
+   ============================================================ */
+
+.uno-root {
+  --uno-night: #15101d;
+  --uno-night2: #221a30;
+  --uno-felt: #2c2140;
+  --uno-felt-edge: #4a3a66;
+  --uno-moon: #efe9f7;
+  --uno-mute: #a99bc2;
+  --uno-pink: #ff7aa8;
+  --uno-pink-soft: rgba(255, 122, 168, 0.28);
+  --uno-black: #232027;
+  --uno-red: #d9454a;
+  --uno-white: #f3efe8;
+  --uno-darkblue: #26427d;
+  --uno-rim: #f1ece4;
+  --uno-display: 'ZCOOL KuaiLe', 'PingFang SC', 'Noto Sans SC', sans-serif;
+
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  background: #0c0912;
+  color: var(--uno-moon);
+  font-family: -apple-system, 'PingFang SC', 'Noto Sans SC', sans-serif;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.uno-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  /* clip 而不是 hidden：hidden 的容器会被浏览器在点击/聚焦屏幕外的子元素时
+     内部滚动，整个舞台就错位了；clip 不能被滚动。 */
+  overflow: hidden;
+  overflow: clip;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.05) 0 1px, transparent 2px) 0 0 / 90px 90px,
+    radial-gradient(circle at 70% 60%, rgba(255, 255, 255, 0.05) 0 1px, transparent 2px) 0 0 / 130px 130px,
+    radial-gradient(ellipse at 50% 40%, var(--uno-night2), var(--uno-night) 70%);
+}
+
+/* :where() 让这条规则的优先级为 0，不会盖掉各个按钮自己写的 color。 */
+:where(.uno-stage) button {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---------- 桌面 ---------- */
+.uno-table {
+  position: absolute;
+  left: 150px;
+  right: 150px;
+  top: 44px;
+  height: 230px;
+  border-radius: 120px;
+  background: radial-gradient(ellipse at 50% 40%, #35294d, var(--uno-felt));
+  box-shadow: inset 0 0 0 7px #1a1326, inset 0 0 40px rgba(0, 0, 0, 0.4);
+}
+
+.uno-table::after {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  border-radius: 108px;
+  border: 2px dashed var(--uno-felt-edge);
+  opacity: 0.7;
+}
+
+/* ---------- 顶栏 ---------- */
+.uno-roundbtn {
+  position: absolute;
+  top: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid #3a2f52;
+  display: grid;
+  place-items: center;
+  color: var(--uno-mute);
+  cursor: pointer;
+  padding: 0;
+  z-index: 6;
+}
+
+.uno-back {
+  left: 14px;
+}
+
+.uno-handbtn {
+  position: absolute;
+  top: 12px;
+  left: 56px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid #3a2f52;
+  font-family: var(--uno-display);
+  font-size: 13px;
+  cursor: pointer;
+  z-index: 6;
+}
+
+.uno-turn {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--uno-display);
+  font-size: 14px;
+  padding: 5px 16px;
+  border-radius: 999px;
+  background: var(--uno-pink);
+  color: #2a1020;
+  letter-spacing: 0.06em;
+  white-space: pre;
+  z-index: 3;
+}
+
+.uno-turn--hurry {
+  background: #ff5d6c;
+}
+
+.uno-timer {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  width: 120px;
+  height: 3px;
+  margin-left: -60px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  z-index: 3;
+}
+
+.uno-timer-fill {
+  height: 100%;
+  background: var(--uno-pink);
+  transition: width 0.1s linear;
+}
+
+.uno-dir {
+  position: absolute;
+  top: 20px;
+  right: 18px;
+  font-size: 11px;
+  color: var(--uno-mute);
+}
+
+/* ---------- 对手 ---------- */
+.uno-opp {
+  position: absolute;
+  top: 96px;
+  width: 128px;
+  text-align: center;
+  z-index: 2;
+}
+
+.uno-opp--l {
+  left: 16px;
+}
+
+.uno-opp--r {
+  right: 16px;
+}
+
+.uno-avatar {
+  width: 62px;
+  height: 62px;
+  margin: 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--uno-display);
+  font-size: 26px;
+  color: #2a1020;
+  border: 3px solid var(--uno-moon);
+  object-fit: cover;
+  background: #ffc2d6;
+}
+
+.uno-opp--r .uno-avatar {
+  background: #b9c6ff;
+}
+
+.uno-opp--on .uno-avatar {
+  border-color: var(--uno-pink);
+  box-shadow: 0 0 0 4px var(--uno-pink-soft), 0 0 22px 4px var(--uno-pink-soft);
+}
+
+.uno-opp-name {
+  font-family: var(--uno-display);
+  font-size: 14px;
+  margin-top: 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.uno-count {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--uno-mute);
+}
+
+.uno-count--warn {
+  background: var(--uno-pink);
+  color: #2a1020;
+  font-weight: 700;
+}
+
+.uno-mini {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+  height: 42px;
+}
+
+.uno-mini .uno-card + .uno-card {
+  margin-left: -17px;
+}
+
+.uno-catch {
+  margin-top: 6px;
+  height: 26px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 2px solid var(--uno-rim);
+  background: var(--uno-pink);
+  color: #2a1020;
+  font-family: var(--uno-display);
+  font-size: 12px;
+  cursor: pointer;
+  animation: uno-pulse 1s ease-in-out infinite;
+}
+
+.uno-bubble {
+  position: absolute;
+  top: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--uno-moon);
+  color: #2a1f3d;
+  font-size: 12px;
+  line-height: 1.35;
+  padding: 7px 12px;
+  border-radius: 16px;
+  width: max-content;
+  max-width: 150px;
+  z-index: 9;
+  animation: uno-pop 0.18s ease-out;
+}
+
+.uno-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: var(--uno-moon);
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 2px;
+}
+
+/* ---------- 桌面中央 ---------- */
+.uno-center {
+  position: absolute;
+  left: 50%;
+  top: 78px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  z-index: 2;
+}
+
+.uno-pile {
+  position: relative;
+}
+
+.uno-pile-tag {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -20px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--uno-mute);
+}
+
+.uno-pile--draw .uno-card {
+  box-shadow: 3px 3px 0 -1px #3b2f56, 6px 6px 0 -2px #2a2040, 0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+.uno-pile--discard .uno-card {
+  transform: rotate(-7deg);
+}
+
+.uno-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 118px;
+  height: 118px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.uno-colorchip {
+  position: absolute;
+  left: 50%;
+  top: 230px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--uno-mute);
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.uno-colorchip i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--uno-rim);
+}
+
+.uno-notice {
+  position: absolute;
+  left: 50%;
+  top: 49px;
+  transform: translateX(-50%);
+  max-width: 360px;
+  font-size: 12px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: rgba(12, 8, 20, 0.62);
+  color: var(--uno-moon);
+  z-index: 3;
+  white-space: nowrap;
+}
+
+.uno-flash {
+  position: absolute;
+  left: 50%;
+  top: 56px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px 10px 12px;
+  border-radius: 20px;
+  background: rgba(26, 19, 38, 0.94);
+  border: 2px solid #43365f;
+  font-family: var(--uno-display);
+  font-size: 15px;
+  z-index: 12;
+  animation: uno-pop 0.2s ease-out;
+}
+
+/* ---------- 手牌 ---------- */
+.uno-hand {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -18px;
+  height: 132px;
+  z-index: 4;
+}
+
+/* 选择器带上 .uno-hand：否则会被后面通用的 .uno-card { position: relative }
+   （同样的优先级、写在后面）盖掉，手牌就不按扇形排了。 */
+.uno-hand > .uno-card--hand {
+  position: absolute;
+  bottom: 0;
+  transform-origin: 50% 160%;
+  transition: transform 0.15s;
+  cursor: pointer;
+}
+
+.uno-card--selected {
+  outline: 3px solid var(--uno-pink);
+  outline-offset: 2px;
+}
+
+.uno-card--dimmed {
+  filter: saturate(0.4) brightness(0.78);
+}
+
+.uno-round {
+  position: absolute;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-family: var(--uno-display);
+  border: 3px solid var(--uno-rim);
+  z-index: 6;
+  padding: 0;
+}
+
+.uno-round:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.uno-round--draw {
+  left: 20px;
+  bottom: 20px;
+  width: 62px;
+  height: 62px;
+  background: #3a2f52;
+  font-size: 14px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.uno-round--uno {
+  right: 20px;
+  bottom: 16px;
+  width: 84px;
+  height: 84px;
+  background: var(--uno-pink);
+  color: #2a1020;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 0 0 5px var(--uno-pink-soft);
+}
+
+.uno-round--armed {
+  background: #ffd1e1;
+}
+
+.uno-round--pulse {
+  animation: uno-pulse 1s ease-in-out infinite;
+}
+
+@keyframes uno-pulse {
+  50% {
+    box-shadow: 0 0 0 12px var(--uno-pink-soft);
+  }
+}
+
+@keyframes uno-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uno-round--pulse,
+  .uno-catch,
+  .uno-bubble,
+  .uno-flash {
+    animation: none;
+  }
+}
+
+/* ---------- 牌 ---------- */
+.uno-card {
+  --uno-cc: var(--uno-red);
+  --uno-tx: #fff;
+  position: relative;
+  width: 66px;
+  height: 98px;
+  border-radius: 12px;
+  background: var(--uno-cc);
+  color: var(--uno-tx);
+  border: 3px solid var(--uno-rim);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  flex: none;
+}
+
+.uno-card[data-c='black'] {
+  --uno-cc: var(--uno-black);
+  --uno-tx: #f3efe8;
+}
+.uno-card[data-c='red'] {
+  --uno-cc: var(--uno-red);
+}
+.uno-card[data-c='white'] {
+  --uno-cc: var(--uno-white);
+  --uno-tx: #26202f;
+}
+.uno-card[data-c='darkblue'] {
+  --uno-cc: var(--uno-darkblue);
+}
+.uno-card[data-c='wild'] {
+  background: conic-gradient(var(--uno-red) 0 25%, var(--uno-darkblue) 0 50%, var(--uno-white) 0 75%, var(--uno-black) 0);
+}
+.uno-card[data-c='back'] {
+  background: var(--uno-black);
+}
+
+.uno-card-oval {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 84%;
+  height: 60%;
+  transform: translate(-50%, -50%) rotate(-24deg);
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+}
+
+.uno-card[data-c='white'] .uno-card-oval {
+  background: rgba(0, 0, 0, 0.08);
+}
+.uno-card[data-c='wild'] .uno-card-oval {
+  background: rgba(255, 255, 255, 0.9);
+}
+.uno-card[data-c='back'] .uno-card-oval {
+  background: var(--uno-pink);
+  opacity: 0.9;
+}
+
+.uno-card-mid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--uno-display);
+  font-size: 32px;
+  z-index: 1;
+}
+
+.uno-card[data-c='wild'] .uno-card-mid {
+  color: #26202f;
+  font-size: 22px;
+}
+
+.uno-card-mid svg {
+  width: 30px;
+  height: 30px;
+}
+
+.uno-card-corner {
+  position: absolute;
+  font-family: var(--uno-display);
+  font-size: 12px;
+  z-index: 1;
+}
+.uno-card-corner--tl {
+  left: 6px;
+  top: 3px;
+}
+.uno-card-corner--br {
+  right: 6px;
+  bottom: 3px;
+  transform: rotate(180deg);
+}
+
+.uno-card-face {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30px;
+  height: 18px;
+  transform: translate(-50%, -50%) rotate(-24deg);
+  z-index: 1;
+}
+
+/* 用了图床图片的牌：容器透明，图片铺满，不画 CSS 装饰。 */
+.uno-card--image {
+  background: transparent !important;
+  border: none;
+  box-shadow: none;
+  border-radius: 10px;
+}
+.uno-card--image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.uno-card--big {
+  width: 82px;
+  height: 122px;
+  border-radius: 14px;
+}
+.uno-card--big .uno-card-mid {
+  font-size: 40px;
+}
+.uno-card--big .uno-card-face {
+  width: 38px;
+  height: 22px;
+}
+
+.uno-card--mini {
+  width: 28px;
+  height: 42px;
+  border-width: 2px;
+  border-radius: 7px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+.uno-card--mini .uno-card-face {
+  display: none;
+}
+
+.uno-card--detail {
+  width: 92px;
+  height: 136px;
+  border-radius: 15px;
+}
+.uno-card--detail .uno-card-mid {
+  font-size: 44px;
+}
+.uno-card--detail .uno-card-mid svg {
+  width: 38px;
+  height: 38px;
+}
+
+.uno-card--grid {
+  width: 44px;
+  height: 64px;
+  border-width: 2px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.uno-card--grid .uno-card-mid {
+  font-size: 20px;
+}
+.uno-card--grid .uno-card-mid svg {
+  width: 20px;
+  height: 20px;
+}
+.uno-card--grid .uno-card-corner {
+  display: none;
+}
+
+/* ---------- 详情面板 ---------- */
+.uno-detail {
+  position: absolute;
+  left: 50%;
+  top: 52px;
+  transform: translateX(-50%);
+  z-index: 40;
+  width: 430px;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  background: rgba(26, 19, 38, 0.97);
+  border: 2px solid #43365f;
+  border-radius: 22px;
+  padding: 14px 18px;
+}
+
+.uno-detail-pic {
+  flex: none;
+}
+
+.uno-detail-txt {
+  flex: 1;
+  min-width: 0;
+}
+
+.uno-detail-txt h4 {
+  font-family: var(--uno-display);
+  font-size: 20px;
+  font-weight: 400;
+  margin: 0;
+}
+
+.uno-detail-eff {
+  font-size: 12px;
+  color: var(--uno-mute);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.uno-can {
+  display: inline-block;
+  margin-top: 9px;
+  font-size: 12px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+.uno-can--yes {
+  background: var(--uno-pink);
+  color: #2a1020;
+  font-weight: 700;
+}
+.uno-can--no {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--uno-mute);
+}
+
+.uno-detail-acts,
+.uno-acts-row {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.uno-pill {
+  height: 34px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 2px solid var(--uno-rim);
+  background: var(--uno-pink);
+  color: #2a1020;
+  font-family: var(--uno-display);
+  font-size: 14px;
+  cursor: pointer;
+}
+.uno-pill:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.uno-pill--ghost {
+  background: transparent;
+  color: var(--uno-moon);
+  border-color: #43365f;
+}
+.uno-pill--below {
+  margin-top: 12px;
+}
+
+/* ---------- 弹层 ---------- */
+.uno-ov {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 8, 20, 0.66);
+  backdrop-filter: blur(3px);
+}
+.uno-ov--show {
+  display: flex;
+}
+
+.uno-sheet {
+  background: var(--uno-night2);
+  border: 2px solid #43365f;
+  border-radius: 24px;
+  padding: 20px 26px;
+  text-align: center;
+}
+.uno-sheet h3 {
+  font-family: var(--uno-display);
+  font-size: 22px;
+  font-weight: 400;
+  margin: 0;
+}
+.uno-sheet p {
+  font-size: 12px;
+  color: var(--uno-mute);
+  line-height: 1.6;
+  margin: 4px 0 0;
+}
+
+.uno-colors {
+  display: flex;
+  gap: 14px;
+  margin-top: 16px;
+  justify-content: center;
+}
+.uno-colorbtn {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 4px solid var(--uno-rim);
+  font-family: var(--uno-display);
+  font-size: 15px;
+  cursor: pointer;
+}
+.uno-colorbtn--black {
+  background: var(--uno-black);
+  color: #f3efe8;
+}
+.uno-colorbtn--red {
+  background: var(--uno-red);
+  color: #fff;
+}
+.uno-colorbtn--white {
+  background: var(--uno-white);
+  color: #26202f;
+}
+.uno-colorbtn--darkblue {
+  background: var(--uno-darkblue);
+  color: #fff;
+}
+
+.uno-sheet--grid {
+  width: 580px;
+  max-height: 340px;
+  overflow-y: auto;
+  text-align: left;
+  padding: 16px 20px;
+}
+.uno-sheet--grid h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.uno-grow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px dashed #36294c;
+}
+.uno-grow-label {
+  width: 46px;
+  flex: none;
+  font-size: 12px;
+  color: var(--uno-mute);
+}
+.uno-grow-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.uno-sheet--result {
+  width: 660px;
+  display: flex;
+  gap: 22px;
+  text-align: left;
+}
+.uno-result-left {
+  width: 220px;
+  flex: none;
+}
+.uno-result-left h3 {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+.uno-rank {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 2.1;
+}
+.uno-rank > div {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed #43365f;
+}
+.uno-rank-first {
+  color: var(--uno-pink);
+  font-weight: 700;
+}
+.uno-stats {
+  margin-top: 10px !important;
+}
+.uno-result-right {
+  flex: 1;
+  border-left: 1px solid #43365f;
+  padding-left: 22px;
+  min-width: 0;
+}
+.uno-result-right h4 {
+  font-family: var(--uno-display);
+  font-size: 15px;
+  font-weight: 400;
+  margin: 0 0 8px;
+}
+.uno-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--uno-mute);
+  max-height: 150px;
+  overflow-y: auto;
+}
+.uno-log li {
+  padding: 5px 0;
+  border-bottom: 1px dashed #36294c;
+}
+.uno-saved {
+  margin-top: 8px !important;
+}
+
+/* ---------- 选同桌那一屏（在大厅的浅色页面里） ---------- */
+.uno-picked {
+  border-color: var(--tgh-ink, #121212) !important;
+  box-shadow: 0 0 0 2px var(--tgh-ink, #121212);
+}
+
+.uno-picker-hint {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--tgh-ink-faint, #888);
+}

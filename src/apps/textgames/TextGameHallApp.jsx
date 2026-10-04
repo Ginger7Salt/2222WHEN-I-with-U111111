@@ -15,12 +15,14 @@ import { TEXT_GAME_CATALOG, TEXT_GAME_STATUS } from './textGameCatalog';
 import TicTacToeGame from './ticTacToe/TicTacToeGame';
 import TwentyQuestionsGame from './twentyQuestions/TwentyQuestionsGame';
 import WitchsPoisonGame from './witchsPoison/WitchsPoisonGame';
+import UnoGame from './uno/UnoGame';
 import './textGameHall.css';
 
 const GAME_COMPONENTS = {
   'tic-tac-toe': TicTacToeGame,
   'twenty-questions': TwentyQuestionsGame,
   'witchs-poison': WitchsPoisonGame,
+  'uno': UnoGame,
 };
 
 const ChevronIcon = () => (
