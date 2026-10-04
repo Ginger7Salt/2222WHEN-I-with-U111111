@@ -16,6 +16,7 @@ import { sortHandForDisplay, useUnoMatch } from './useUnoMatch';
 import { formatDuration } from './unoMatchFormat';
 import { TURN_TIME_LIMIT_MS, COLORS, getTopCard, isWild } from './unoEngine';
 import { listCharactersForPicker } from './unoService';
+import { ensureUnoLinesForTable } from './unoLinesService';
 import './uno.css';
 
 const STAGE_W = 844;
@@ -497,6 +498,7 @@ const UnoGame = ({ onExitToHall }) => {
   const [loading, setLoading] = useState(true);
   const [pickedIds, setPickedIds] = useState([]);
   const [table, setTable] = useState(null); // 选定的两位角色（数组），null = 还在选
+    const [preparing, setPreparing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -577,12 +579,21 @@ const UnoGame = ({ onExitToHall }) => {
             <button
               type="button"
               className="tgh-ttt-btn tgh-ttt-btn-primary"
-              disabled={startDisabled}
-              onClick={() =>
-                setTable(pickedIds.map((id) => characters.find((c) => c.id === id)))
-              }
+                           disabled={startDisabled || preparing}
+              onClick={async () => {
+                const picked = pickedIds.map((id) => characters.find((c) => c.id === id));
+                setPreparing(true);
+                try {
+                  // 第一次和某个角色玩时生成专属台词并缓存；失败就用通用台词。
+                  setTable(await ensureUnoLinesForTable(picked));
+                } catch (err) {
+                  setTable(picked);
+                } finally {
+                  setPreparing(false);
+                }
+              }}
             >
-              开局
+              {preparing ? '正在准备台词……' : '开局'}
             </button>
           </div>
         </>

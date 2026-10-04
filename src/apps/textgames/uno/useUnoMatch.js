@@ -40,8 +40,8 @@ import { getUnoStats, recordUnoMatch } from './unoService';
 import { buildSummaryLinesForUser } from './unoMatchFormat';
 import { isSpecialCard } from './UnoCard';
 
-export const AI_DELAY_MIN_MS = 1500;
-export const AI_DELAY_MAX_MS = 2000;
+export const AI_DELAY_MIN_MS = 2000;
+export const AI_DELAY_MAX_MS = 10000;
 export const AI_FOLLOWUP_DELAY_MS = 800;
 const BUBBLE_MS = 2800;
 const FLASH_MS = 1500;
