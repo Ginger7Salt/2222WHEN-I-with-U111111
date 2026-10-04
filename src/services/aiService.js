@@ -592,6 +592,15 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
   }
 
   if (msg.type === 'text_game_result') {
+    // contextNote 是游戏自己拼好的详细文案，不是所有游戏的胜负都能用
+    // "用户赢了/你赢了"这种二元说法讲清楚，有就优先用它；没有就退回
+    // 下面这个最简单的默认措辞（兼容井字棋，它没有传 contextNote）。
+    if (msg.metadata?.contextNote) {
+      return `[你和用户刚在"文字游戏大厅"玩了一局「${
+        msg.metadata?.gameTitle || ''
+      }」。${msg.metadata.contextNote}]`;
+    }
+
     const resultLabel = {
       win: '用户赢了',
       loss: '你赢了',

@@ -1,0 +1,98 @@
+/* ============================================================
+   20个问题——跟文字游戏大厅同一套黑白弥散质感，颜色变量复用 .tgh-app，
+   选角色/结果横幅/操作按钮/战绩行走 textGameShared.css 的公共样式，
+   这里只补这个游戏自己的东西：方向选择卡片、对局头部、Q&A 记录条、
+   回答按钮行。
+   ============================================================ */
+
+.tgq-direction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.tgq-direction-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--tgh-hairline);
+  background: var(--tgh-paper-card);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.tgq-direction-card:hover,
+.tgq-direction-card:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(18, 18, 18, 0.08);
+  outline: none;
+}
+
+.tgq-direction-title {
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.tgq-direction-desc {
+  font-size: 12px;
+  color: var(--tgh-ink-faint);
+}
+
+/* 对局头部（角色头像+标题行）挪到 textGameShared.css 的
+   .tgh-shared-head* 里了——女巫的毒药也要用同一套，不是这个文件专属。 */
+
+.tgq-log {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.tgq-log-empty {
+  text-align: center;
+  color: var(--tgh-ink-faint);
+  font-size: 12.5px;
+  padding: 20px 0;
+}
+
+.tgq-log-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--tgh-paper-card);
+  border: 1px solid var(--tgh-hairline);
+}
+
+.tgq-log-row-pending {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.tgq-log-q {
+  font-size: 13px;
+  color: var(--tgh-ink);
+}
+
+.tgq-log-a {
+  font-size: 12px;
+  color: var(--tgh-ink-faint);
+}
+
+.tgq-answer-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}

@@ -13,13 +13,14 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import { TEXT_GAME_CATALOG, TEXT_GAME_STATUS } from './textGameCatalog';
 import TicTacToeGame from './ticTacToe/TicTacToeGame';
+import TwentyQuestionsGame from './twentyQuestions/TwentyQuestionsGame';
+import WitchsPoisonGame from './witchsPoison/WitchsPoisonGame';
 import './textGameHall.css';
 
-// 目录 id -> 实际游戏组件。只有真正建好的游戏才在这里登记；没登记的
-// id 即使 status 被标成 AVAILABLE 也会退回"即将开放"提示，避免手滑
-// 改了 catalog 状态却忘了接组件时整页报错。
 const GAME_COMPONENTS = {
   'tic-tac-toe': TicTacToeGame,
+  'twenty-questions': TwentyQuestionsGame,
+  'witchs-poison': WitchsPoisonGame,
 };
 
 const ChevronIcon = () => (

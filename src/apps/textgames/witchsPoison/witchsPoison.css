@@ -1,0 +1,65 @@
+/* ============================================================
+   女巫的毒药——跟文字游戏大厅同一套黑白弥散质感，颜色变量复用 .tgh-app，
+   选角色/赌注输入/结果横幅/操作按钮/战绩行走 textGameShared.css 的
+   公共样式，这里只补9个杯子的网格本身。
+   ============================================================ */
+
+.tgwp-hint {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--tgh-ink-faint);
+}
+
+.tgwp-cup-grid {
+  margin: 18px auto 0;
+  width: min(320px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.tgwp-cup {
+  aspect-ratio: 1;
+  border-radius: 16px;
+  border: 1px solid var(--tgh-hairline);
+  background: var(--tgh-paper-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--tgh-ink);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.tgwp-cup:disabled {
+  cursor: default;
+}
+
+.tgwp-cup:not(:disabled):hover {
+  background: var(--tgh-paper);
+  transform: translateY(-1px);
+}
+
+.tgwp-cup-hidden-marker {
+  border-style: dashed;
+  border-color: var(--tgh-ink-soft);
+}
+
+.tgwp-cup-poisoned {
+  background: var(--tgh-ink);
+  color: #fff;
+}
+
+.tgwp-cup-guessed {
+  border: 2px solid var(--tgh-ink-soft);
+}
+
+@media (max-width: 380px) {
+  .tgwp-cup-grid {
+    gap: 8px;
+  }
+}

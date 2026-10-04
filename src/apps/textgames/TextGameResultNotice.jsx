@@ -18,7 +18,7 @@ const RESULT_TEXT = {
 const TextGameResultNotice = ({ message }) => {
   const gameTitle = message?.metadata?.gameTitle || '一局游戏';
   const result = message?.metadata?.result;
-  const resultText = RESULT_TEXT[result] || '结束了这一局';
+  const resultText = message?.metadata?.noticeText || RESULT_TEXT[result] || '结束了这一局';
 
   return (
     <div className="my-2 flex justify-center">
