@@ -590,7 +590,17 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
       msg.metadata?.taskContent || ''
     }」，写下的完成感想是: ${msg.content || ''}]`;
   }
-  
+
+  if (msg.type === 'text_game_result') {
+    const resultLabel = {
+      win: '用户赢了',
+      loss: '你赢了',
+      draw: '打成了平局',
+    }[msg.metadata?.result] || '结束了这一局';
+    return `[你和用户刚在"文字游戏大厅"玩了一局「${
+      msg.metadata?.gameTitle || ''
+    }」，${resultLabel}]`;
+  }
 
   return msg.content || '';
 };

@@ -17,6 +17,7 @@ import ChatPokeNotice from '../interactions/ChatPokeNotice';
 import MoodUpdateNotice from '../mood/MoodUpdateNotice';
 import ChatDiyUpdateNotice from '../diy/ChatDiyUpdateNotice';
 import ChallengeCompletionNotice from '../../challenges/ChallengeCompletionNotice';
+import TextGameResultNotice from '../../textgames/TextGameResultNotice';
 import ChatParcelArrivedNotice from '../parcel/ChatParcelArrivedNotice';
 import ProfileTraceCard from '../profile/ProfileTraceCard';
 import ChatTrickNotice from '../interactions/halloween/ChatTrickNotice';
@@ -283,6 +284,13 @@ const MessageRow = ({
   // 系统提示行，不可点击跳转，具体进度去打卡板面板里看。
   if (msg.type === 'challenge_complete') {
     return <ChallengeCompletionNotice message={msg} />;
+  }
+
+  // 文字游戏大厅——跟角色对弈完一局之后留在聊天记录里的痕迹，同样
+  // 是居中系统提示行，不可点击，具体棋盘/规则都在大厅里回看不了
+  // （对局本身不落盘，只落这条结果公告）。
+  if (msg.type === 'text_game_result') {
+    return <TextGameResultNotice message={msg} />;
   }
 
   // 快递到了之后的提示：跟DIY换装那条不一样，这条是可以点的——点进去

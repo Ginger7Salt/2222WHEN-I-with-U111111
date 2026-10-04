@@ -1,0 +1,286 @@
+/* ============================================================
+   井字棋——跟文字游戏大厅同一套黑白弥散质感（见 textGameHall.css 顶部
+   注释），这里只补棋盘本身和角色选择网格需要的样式，颜色变量直接复用
+   .tgh-app 里定义的那一份，所以这个文件总是跟 textGameHall.css 一起
+   加载，不单独定义一套新 token。
+   ============================================================ */
+
+.tgh-ttt-screen {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 28px 18px 72px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ===== 选角色 ===== */
+.tgh-ttt-picker-head {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.tgh-ttt-picker-head h2 {
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+
+.tgh-ttt-picker-head p {
+  font-family: var(--tgh-font-script);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--tgh-ink-faint);
+  margin: 0;
+}
+
+.tgh-ttt-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.tgh-ttt-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 6px;
+  border-radius: 16px;
+  border: 1px solid var(--tgh-hairline);
+  background: var(--tgh-paper-card);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.tgh-ttt-picker-item:hover,
+.tgh-ttt-picker-item:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(18, 18, 18, 0.08);
+  outline: none;
+}
+
+.tgh-ttt-picker-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--tgh-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.tgh-ttt-picker-name {
+  font-size: 12px;
+  color: var(--tgh-ink-soft);
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tgh-ttt-empty {
+  text-align: center;
+  margin-top: 60px;
+  color: var(--tgh-ink-faint);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+/* ===== 对局界面 ===== */
+.tgh-ttt-match-head {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.tgh-ttt-vs-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.tgh-ttt-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.tgh-ttt-side-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--tgh-ink);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+}
+
+.tgh-ttt-side-label {
+  font-size: 11px;
+  color: var(--tgh-ink-faint);
+  letter-spacing: 0.04em;
+}
+
+.tgh-ttt-side-symbol {
+  font-family: var(--tgh-font-display);
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.tgh-ttt-vs-divider {
+  font-family: var(--tgh-font-script);
+  font-style: italic;
+  color: var(--tgh-ink-faint);
+  font-size: 13px;
+}
+
+.tgh-ttt-status-line {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--tgh-ink-soft);
+  min-height: 18px;
+}
+
+.tgh-ttt-board {
+  margin: 24px auto 0;
+  width: min(320px, 100%);
+  aspect-ratio: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 8px;
+  background: var(--tgh-hairline);
+  border: 1px solid var(--tgh-hairline);
+  border-radius: 18px;
+  padding: 8px;
+  box-shadow: 0 16px 40px rgba(18, 18, 18, 0.08);
+}
+
+.tgh-ttt-cell {
+  background: var(--tgh-paper-card);
+  border-radius: 12px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--tgh-font-display);
+  font-weight: 900;
+  font-size: clamp(28px, 9vw, 40px);
+  cursor: pointer;
+  color: var(--tgh-ink);
+  transition: background 0.15s ease;
+}
+
+.tgh-ttt-cell:disabled {
+  cursor: default;
+}
+
+.tgh-ttt-cell:not(:disabled):hover {
+  background: var(--tgh-paper);
+}
+
+.tgh-ttt-cell.tgh-ttt-cell-win {
+  background: var(--tgh-ink);
+  color: #fff;
+}
+
+.tgh-ttt-cell-x {
+  color: var(--tgh-ink);
+}
+
+.tgh-ttt-cell-o {
+  color: var(--tgh-ink-soft);
+}
+
+.tgh-ttt-result-banner {
+  margin-top: 22px;
+  text-align: center;
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, var(--tgh-panel-a) 0%, var(--tgh-panel-b) 100%);
+  color: #fff;
+}
+
+.tgh-ttt-result-banner h3 {
+  font-family: var(--tgh-font-display);
+  font-weight: 800;
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+.tgh-ttt-result-banner p {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0;
+}
+
+.tgh-ttt-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.tgh-ttt-btn {
+  font-family: var(--tgh-font-sans);
+  font-size: 12.5px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--tgh-hairline);
+  background: var(--tgh-paper-card);
+  color: var(--tgh-ink);
+  cursor: pointer;
+}
+
+.tgh-ttt-btn.tgh-ttt-btn-primary {
+  background: var(--tgh-ink);
+  color: #fff;
+  border-color: var(--tgh-ink);
+}
+
+.tgh-ttt-stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 26px;
+  padding-top: 16px;
+  border-top: 1px solid var(--tgh-hairline);
+}
+
+.tgh-ttt-stat {
+  text-align: center;
+}
+
+.tgh-ttt-stat .tgh-ttt-stat-num {
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.tgh-ttt-stat .tgh-ttt-stat-label {
+  font-size: 10.5px;
+  color: var(--tgh-ink-faint);
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+@media (max-width: 380px) {
+  .tgh-ttt-picker-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

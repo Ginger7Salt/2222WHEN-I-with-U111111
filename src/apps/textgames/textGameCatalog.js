@@ -22,7 +22,7 @@ export const TEXT_GAME_CATALOG = [
     desc: '九宫格对战，经典到不需要说明书。',
     mode: '双人对战',
     modeEmphasis: false,
-    status: TEXT_GAME_STATUS.COMING_SOON,
+    status: TEXT_GAME_STATUS.AVAILABLE,
   },
   {
     id: 'idiom-wordle',

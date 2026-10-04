@@ -12,7 +12,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 import { TEXT_GAME_CATALOG, TEXT_GAME_STATUS } from './textGameCatalog';
+import TicTacToeGame from './ticTacToe/TicTacToeGame';
 import './textGameHall.css';
+
+// 目录 id -> 实际游戏组件。只有真正建好的游戏才在这里登记；没登记的
+// id 即使 status 被标成 AVAILABLE 也会退回"即将开放"提示，避免手滑
+// 改了 catalog 状态却忘了接组件时整页报错。
+const GAME_COMPONENTS = {
+  'tic-tac-toe': TicTacToeGame,
+};
 
 const ChevronIcon = () => (
   <svg
@@ -44,6 +52,7 @@ const BackIcon = () => (
 
 const TextGameHallApp = ({ onBackHub }) => {
   const [toastMessage, setToastMessage] = useState('');
+  const [activeGameId, setActiveGameId] = useState(null);
   const toastTimerRef = useRef(null);
 
   useEffect(() => () => {
@@ -53,108 +62,120 @@ const TextGameHallApp = ({ onBackHub }) => {
   }, []);
 
   const handleEntryClick = (game) => {
+    const GameComponent = GAME_COMPONENTS[game.id];
+
+    if (game.status === TEXT_GAME_STATUS.AVAILABLE && GameComponent) {
+      setActiveGameId(game.id);
+      return;
+    }
+
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
     }
 
-    const message =
-      game.status === TEXT_GAME_STATUS.AVAILABLE
-        ? ''
-        : `《${game.title}》还在准备中，之后会在这里开放`;
-
-    setToastMessage(message);
+    setToastMessage(`《${game.title}》还在准备中，之后会在这里开放`);
     toastTimerRef.current = setTimeout(() => setToastMessage(''), 2200);
   };
 
+  // activeGameId 分支和大厅目录分支都要包在同一个 .tgh-app 根节点下面
+  // ——ticTacToe.css 用的 --tgh-ink/--tgh-paper 这些颜色变量是定义在
+  // .tgh-app 这个类选择器上的（不是 :root），具体对局界面不自带一份
+  // .tgh-app 外壳的话，这些变量在那边全都解析不到。
   return (
-    <div className="tgh-app">
-      <div className="tgh-container">
-        <section className="tgh-masthead">
-          <button
-            type="button"
-            className="tgh-back-btn"
-            aria-label="返回"
-            onClick={onBackHub}
-          >
-            <BackIcon />
-          </button>
-
-          <div className="tgh-blob tgh-blob-a" aria-hidden="true" />
-          <div className="tgh-blob tgh-blob-b" aria-hidden="true" />
-          <div className="tgh-blob tgh-blob-c" aria-hidden="true" />
-
-          <div className="tgh-masthead-inner">
-            <div className="tgh-kicker">
-              <span>VOL. 01</span>
-              <span className="tgh-rule" />
-              <span>TEXT GAME HALL</span>
-            </div>
-
-            <h1>文字游戏大厅</h1>
-            <p className="tgh-sub">Twelve small games, one shared door</p>
-            <p className="tgh-blurb">
-              十二种打发时间的方法，有的要跟TA一起玩，有的是你一个人也能
-              上手。挑一条目录往下看，点进去就能开局。
-            </p>
-
-            <div className="tgh-count-row">
-              <div>
-                <div className="tgh-count">{TEXT_GAME_CATALOG.length}</div>
-                <div className="tgh-count-label">款游戏</div>
-              </div>
-              <div>
-                <div className="tgh-count">02</div>
-                <div className="tgh-count-label">人机 / 双人</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="tgh-index-head">
-          <h2>游戏目录</h2>
-          <span className="tgh-en">Issue Index</span>
-        </div>
-
-        <div className="tgh-index-list">
-          {TEXT_GAME_CATALOG.map((game, index) => (
+       <div className="tgh-app">
+      {activeGameId ? (
+        (() => {
+          const ActiveGame = GAME_COMPONENTS[activeGameId];
+          return <ActiveGame onExitToHall={() => setActiveGameId(null)} />;
+        })()
+      ) : (
+        <div className="tgh-container">
+          <section className="tgh-masthead">
             <button
-              key={game.id}
               type="button"
-              className="tgh-entry"
-              onClick={() => handleEntryClick(game)}
+              className="tgh-back-btn"
+              aria-label="返回"
+              onClick={onBackHub}
             >
-              <div className="tgh-num">
-                {String(index + 1).padStart(2, '0')}
-              </div>
-
-              <div className="tgh-body-col">
-                <div className="tgh-title-row">
-                  <span className="tgh-title">{game.title}</span>
-                  <span className="tgh-byline">{game.titleEn}</span>
-                </div>
-                <div className="tgh-desc">{game.desc}</div>
-              </div>
-
-              <div className="tgh-tag-col">
-                <span
-                  className={
-                    game.modeEmphasis ? 'tgh-tag tgh-tag-ink' : 'tgh-tag'
-                  }
-                >
-                  {game.mode}
-                </span>
-                <ChevronIcon />
-              </div>
+              <BackIcon />
             </button>
-          ))}
-        </div>
 
-        <p className="tgh-footer-note">点击任意一条，马上开局</p>
-      </div>
+            <div className="tgh-blob tgh-blob-a" aria-hidden="true" />
+            <div className="tgh-blob tgh-blob-b" aria-hidden="true" />
+            <div className="tgh-blob tgh-blob-c" aria-hidden="true" />
+
+            <div className="tgh-masthead-inner">
+              <div className="tgh-kicker">
+                <span>VOL. 01</span>
+                <span className="tgh-rule" />
+                <span>TEXT GAME HALL</span>
+              </div>
+
+              <h1>文字游戏大厅</h1>
+              <p className="tgh-sub">Twelve small games, one shared door</p>
+              <p className="tgh-blurb">
+                十二种打发时间的方法，有的要跟TA一起玩，有的是你一个人也能
+                上手。挑一条目录往下看，点进去就能开局。
+              </p>
+
+              <div className="tgh-count-row">
+                <div>
+                  <div className="tgh-count">{TEXT_GAME_CATALOG.length}</div>
+                  <div className="tgh-count-label">款游戏</div>
+                </div>
+                <div>
+                  <div className="tgh-count">02</div>
+                  <div className="tgh-count-label">人机 / 双人</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="tgh-index-head">
+            <h2>游戏目录</h2>
+            <span className="tgh-en">Issue Index</span>
+          </div>
+
+          <div className="tgh-index-list">
+            {TEXT_GAME_CATALOG.map((game, index) => (
+              <button
+                key={game.id}
+                type="button"
+                className="tgh-entry"
+                onClick={() => handleEntryClick(game)}
+              >
+                <div className="tgh-num">
+                  {String(index + 1).padStart(2, '0')}
+                </div>
+
+                <div className="tgh-body-col">
+                  <div className="tgh-title-row">
+                    <span className="tgh-title">{game.title}</span>
+                    <span className="tgh-byline">{game.titleEn}</span>
+                  </div>
+                  <div className="tgh-desc">{game.desc}</div>
+                </div>
+
+                <div className="tgh-tag-col">
+                  <span
+                    className={
+                      game.modeEmphasis ? 'tgh-tag tgh-tag-ink' : 'tgh-tag'
+                    }
+                  >
+                    {game.mode}
+                  </span>
+                  <ChevronIcon />
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <p className="tgh-footer-note">点击任意一条，马上开局</p>
+        </div>
+      )}
 
       {toastMessage && <div className="tgh-toast">{toastMessage}</div>}
     </div>
   );
 };
-
 export default TextGameHallApp;

@@ -4693,4 +4693,23 @@ db.version(75).stores({
     '++id, chatId, status, assignedBy, sourceType, sourcePresetId, createdAt, [chatId+status]',
 });
 
+// ============================================================
+// v76：文字游戏大厅——井字棋的对局记录。
+//
+// 大厅本身（目录页）不需要任何表，纯静态数据，见 textGameCatalog.js。
+// 这张表设计成"文字游戏大厅"里任何一个跟角色对弈的游戏都能共用，不是
+// 井字棋专属：按 gameId 区分是哪款游戏，一局一行（照抄 shellCatches
+// 的思路——不额外维护一张"胜负次数"汇总表，战绩统计直接从这张表的行
+// 聚合算出来，避免汇总表跟实际记录不同步）。
+//
+// "只保留最新10局"不是靠查询时 limit(10) 简单截断：recordTextGameMatch
+// 写完新的一局之后，会把同一个 [gameId+characterId] 下超出最近10条的
+// 旧行物理删除，这张表本身永远只存得下最近10局，跟潮汐贝壳"配额直接
+// 从实际记录算"同一个"不另外维护冗余计数"的哲学一致。
+// ============================================================
+db.version(76).stores({
+  textGameMatches:
+    '++id, gameId, characterId, chatId, endedAt, [gameId+characterId]',
+});
+
 export default db;
