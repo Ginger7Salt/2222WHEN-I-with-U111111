@@ -25,11 +25,11 @@ const buildIframeDocument = (content) => `<!doctype html>
     padding: 0;
     box-sizing: border-box;
     width: 100%;
-    height: 100%;
     min-height: 100%;
     background: transparent;
     font-family: system-ui, -apple-system, 'PingFang SC', sans-serif;
     overflow-x: hidden;
+    overflow-y: auto;
   }
   * { box-sizing: border-box; }
 </style>
@@ -186,7 +186,7 @@ const CharacterDiyPage = ({ chatId, character, onBack }) => {
         )}
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
         {isLoading ? null : !content ? (
           <div className="flex h-full items-center justify-center px-6 text-center text-[12px] leading-relaxed opacity-60">
             {character?.name || 'TA'} 还没有收拾这个小屋，
