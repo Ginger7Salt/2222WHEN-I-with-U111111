@@ -96,7 +96,6 @@ const FlaskFront = ({ number }) => (
     <div className="tgwp-flask-body">
       <div className="tgwp-flask-liquid" />
     </div>
-    <div className="tgwp-flask-shine" />
     <div className="tgwp-flask-num">{number}</div>
   </div>
 );

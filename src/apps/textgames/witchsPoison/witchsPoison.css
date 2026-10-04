@@ -195,18 +195,6 @@
   opacity: 0.85;
 }
 
-.tgwp-flask-shine {
-  position: absolute;
-  top: 10%;
-  left: 18%;
-  width: 14%;
-  height: 50%;
-  background: rgba(255, 255, 255, 0.55);
-  border-radius: 50%;
-  filter: blur(2.5px);
-  z-index: 1;
-}
-
 .tgwp-flask-num {
   position: absolute;
   bottom: 10%;
@@ -228,9 +216,15 @@
     0 8px 18px rgba(124, 79, 201, 0.22);
 }
 
-/* ===== 轮流点杯阶段：3D 翻转药瓶 ===== */
+/* ===== 轮流点杯阶段：3D 翻转药瓶 =====
+   手机上（主要是iOS Safari）如果只写不带前缀的 backface-visibility/
+   transform-style，翻到背面后正面瓶口/瓶塞那一小截经常还会露出来一条
+   缝——这几个属性手机浏览器至今仍然认前缀版本，桌面Chrome不加前缀也能
+   蒙混过去，所以之前在桌面上看不出问题。这里把 -webkit- 前缀都补上，
+   背面同时套一层纯色背景兜底遮住缝隙，双重保险。 */
 .tgwp-vial-wrap {
   aspect-ratio: 3 / 4;
+  -webkit-perspective: 700px;
   perspective: 700px;
   cursor: pointer;
 }
@@ -243,11 +237,13 @@
   position: relative;
   width: 100%;
   height: 100%;
+  -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
 }
 
 .tgwp-vial-wrap.is-flipped .tgwp-vial-inner {
+  -webkit-transform: rotateY(180deg);
   transform: rotateY(180deg);
 }
 
@@ -255,10 +251,21 @@
 .tgwp-vial-back {
   position: absolute;
   inset: 0;
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
 
+.tgwp-vial-face {
+  /* 正面本身不透明本来就够用，这里再显式兜底一层纸色背景——个别手机
+     浏览器哪怕翻到背面、backface-visibility理论上已经隐藏了正面，瓶口
+     那一小截棱角处仍可能因为合成层问题露出一丝缝隙，有底色兜着就不会
+     透出下面的页面背景。 */
+  background: var(--tgh-paper, transparent);
+  border-radius: 16px;
+}
+
 .tgwp-vial-back {
+  -webkit-transform: rotateY(180deg);
   transform: rotateY(180deg);
   border-radius: 16px;
   background: var(--tgh-paper-card);
