@@ -107,6 +107,31 @@
   }
 }
 
+/* ===== 浅色背景专用的返回按钮 =====
+   .tgh-back-btn（定义在 textGameHall.css）是白色半透明底+白色图标，
+   专门配大厅封面那块深色墨卡渐变背景；井字棋/20个问题/女巫的毒药这些
+   对局页背景是浅色的 --tgh-paper，套用同一个类会变成"白底白图标"，
+   基本看不清——这是一直都在的bug，不是这几个新游戏引入的。这里单独
+   给浅色背景页面一个专用的深色版本，复用同一套 position/尺寸/圆角，
+   只换配色。 */
+.tgh-back-btn-light {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tgh-paper-card);
+  border: 1px solid var(--tgh-hairline);
+  box-shadow: 0 6px 18px rgba(18, 18, 18, 0.1);
+  z-index: 20;
+  cursor: pointer;
+  color: var(--tgh-ink);
+}
+
 /* ===== 对局头部（角色头像+标题行），20个问题/女巫的毒药共用 ===== */
 .tgh-shared-head {
   display: flex;

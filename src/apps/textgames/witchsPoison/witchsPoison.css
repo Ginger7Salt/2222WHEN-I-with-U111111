@@ -1,7 +1,15 @@
 /* ============================================================
    女巫的毒药——跟文字游戏大厅同一套黑白弥散质感，颜色变量复用 .tgh-app，
    选角色/赌注输入/结果横幅/操作按钮/战绩行走 textGameShared.css 的
-   公共样式，这里只补9个杯子的网格本身。
+   公共样式，这里只补9个杯子的网格、杯子状态高亮，以及轮次记录列表。
+
+   2026-10 规则改版后的类名（替换掉第一版"一方藏一方猜"用的
+   tgwp-cup-poisoned / tgwp-cup-guessed / tgwp-cup-hidden-marker）：
+   - .tgwp-cup-hit            结束时，真正撞上的那一杯
+   - .tgwp-cup-user-secret    结束时，用户藏毒的那一杯（没被撞上时）
+   - .tgwp-cup-character-secret 结束时，角色藏毒的那一杯（没被撞上时）
+   - .tgwp-log / .tgwp-log-row / .tgwp-log-side / .tgwp-log-reason
+     轮次记录（谁点了几号、安全，以及角色的那一句理由）
    ============================================================ */
 
 .tgwp-hint {
@@ -32,11 +40,12 @@
   font-size: 20px;
   color: var(--tgh-ink);
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
 
 .tgwp-cup:disabled {
   cursor: default;
+  opacity: 0.55;
 }
 
 .tgwp-cup:not(:disabled):hover {
@@ -44,18 +53,49 @@
   transform: translateY(-1px);
 }
 
-.tgwp-cup-hidden-marker {
-  border-style: dashed;
-  border-color: var(--tgh-ink-soft);
-}
-
-.tgwp-cup-poisoned {
+/* 结束揭晓时，真正撞上的那一杯——最重的视觉强调 */
+.tgwp-cup-hit {
   background: var(--tgh-ink);
   color: #fff;
+  opacity: 1;
+  border-color: var(--tgh-ink);
 }
 
-.tgwp-cup-guessed {
-  border: 2px solid var(--tgh-ink-soft);
+/* 结束揭晓时，用户/角色各自藏毒的那一杯（没被撞上时，弱一档的标记） */
+.tgwp-cup-user-secret,
+.tgwp-cup-character-secret {
+  border: 2px dashed var(--tgh-ink-soft);
+  opacity: 1;
+}
+
+/* ===== 轮次记录 ===== */
+.tgwp-log {
+  margin: 18px auto 0;
+  width: min(320px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tgwp-log-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--tgh-paper-card);
+  border: 1px solid var(--tgh-hairline);
+  font-size: 12px;
+}
+
+.tgwp-log-side {
+  color: var(--tgh-ink-soft);
+}
+
+.tgwp-log-reason {
+  color: var(--tgh-ink-faint);
+  font-family: var(--tgh-font-script);
+  font-style: italic;
 }
 
 @media (max-width: 380px) {
