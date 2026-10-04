@@ -123,6 +123,15 @@ export const TEXT_GAME_CATALOG = [
     modeEmphasis: true,
     status: TEXT_GAME_STATUS.AVAILABLE,
   },
+    {
+    id: 'texas-holdem',
+    title: '德州扑克',
+    titleEn: 'Texas Hold’em',
+    desc: '三人桌，公共牌一张张翻开，筹码池里见真章。',
+    mode: '三人对战',
+    modeEmphasis: true,
+    status: TEXT_GAME_STATUS.AVAILABLE,
+  },
   {
     id: 'scratch-card',
     title: '刮刮乐',

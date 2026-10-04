@@ -16,6 +16,7 @@ import TicTacToeGame from './ticTacToe/TicTacToeGame';
 import TwentyQuestionsGame from './twentyQuestions/TwentyQuestionsGame';
 import WitchsPoisonGame from './witchsPoison/WitchsPoisonGame';
 import UnoGame from './uno/UnoGame';
+import TexasHoldemGame from './texas/TexasHoldemGame';   // 新增
 import './textGameHall.css';
 
 const GAME_COMPONENTS = {
@@ -23,6 +24,7 @@ const GAME_COMPONENTS = {
   'twenty-questions': TwentyQuestionsGame,
   'witchs-poison': WitchsPoisonGame,
   'uno': UnoGame,
+  'texas-holdem': TexasHoldemGame,
 };
 
 const ChevronIcon = () => (
