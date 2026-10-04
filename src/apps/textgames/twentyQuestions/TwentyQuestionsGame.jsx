@@ -338,7 +338,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
 
   if (phase === PHASE.PICK_CHARACTER) {
     return (
-      <div className="tgh-shared-screen">
+      <div className="tgh-shared-screen tgq-screen">
         <button type="button" className="tgh-back-btn-light" aria-label="返回" onClick={onExitToHall}>
           <BackIcon />
         </button>
@@ -375,7 +375,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
 
   if (phase === PHASE.PICK_DIRECTION) {
     return (
-      <div className="tgh-shared-screen">
+      <div className="tgh-shared-screen tgq-screen">
         <button
           type="button"
           className="tgh-back-btn-light"
@@ -396,6 +396,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
             className="tgq-direction-card"
             onClick={() => startWithDirection(DIRECTIONS.CHARACTER_SETS)}
           >
+            <span className="tgq-direction-num">I.</span>
             <span className="tgq-direction-title">TA来想，你来问</span>
             <span className="tgq-direction-desc">
               {selectedCharacter?.name || 'TA'}心里悄悄想一个东西，你问是非题来猜
@@ -407,6 +408,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
             className="tgq-direction-card"
             onClick={() => startWithDirection(DIRECTIONS.USER_SETS)}
           >
+            <span className="tgq-direction-num">II.</span>
             <span className="tgq-direction-title">你来想，TA来问</span>
             <span className="tgq-direction-desc">
               你心里悄悄想一个东西，{selectedCharacter?.name || 'TA'}问是非题来猜
@@ -419,7 +421,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
 
   if (phase === PHASE.SETUP_SECRET) {
     return (
-      <div className="tgh-shared-screen">
+      <div className="tgh-shared-screen tgq-screen">
         <button
           type="button"
           className="tgh-back-btn-light"
@@ -461,7 +463,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
 
   if (phase === PHASE.LOADING_SECRET) {
     return (
-      <div className="tgh-shared-screen">
+      <div className="tgh-shared-screen tgq-screen">
         <button
           type="button"
           className="tgh-back-btn-light"
@@ -480,7 +482,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
   const questionsLeft = QUESTION_LIMIT - actionsUsed;
 
   return (
-    <div className="tgh-shared-screen">
+    <div className="tgh-shared-screen tgq-screen">
       <button
         type="button"
         className="tgh-back-btn-light"
@@ -520,8 +522,11 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
 
           {history.map((item, index) => (
             <div className="tgq-log-row" key={index}>
-              <div className="tgq-log-q">{item.question}</div>
-              <div className="tgq-log-a">{item.answer}</div>
+              <div className="tgq-log-num">{String(index + 1).padStart(2, '0')}</div>
+              <div className="tgq-log-body">
+                <div className="tgq-log-q">{item.question}</div>
+                <div className="tgq-log-a">{item.answer}</div>
+              </div>
             </div>
           ))}
 
@@ -529,10 +534,13 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
             pendingCharacterTurn &&
             phase === PHASE.PLAYING && (
               <div className="tgq-log-row tgq-log-row-pending">
-                <div className="tgq-log-q">
-                  {pendingCharacterTurn.type === 'guess'
-                    ? `TA猜：${pendingCharacterTurn.text}`
-                    : pendingCharacterTurn.text}
+                <div className="tgq-log-num">{String(history.length + 1).padStart(2, '0')}</div>
+                <div className="tgq-log-body">
+                  <div className="tgq-log-q">
+                    {pendingCharacterTurn.type === 'guess'
+                      ? `TA猜：${pendingCharacterTurn.text}`
+                      : pendingCharacterTurn.text}
+                  </div>
                 </div>
               </div>
             )}
@@ -644,11 +652,12 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
 
       {phase === PHASE.RESULT && (
         <div className="tgh-shared-result-banner">
+          <div className="tgq-result-kicker">{result === 'win' ? 'The Reveal' : 'So Close'}</div>
           <h3>{result === 'win' ? '猜中了' : '没猜中'}</h3>
-          <p>
-            秘密是「{direction === DIRECTIONS.USER_SETS ? userSecret : secretWord}」，
-            一共用了{actionsUsed}问。
-          </p>
+          <div className="tgq-result-secret">
+            「{direction === DIRECTIONS.USER_SETS ? userSecret : secretWord}」
+          </div>
+          <p>一共用了{actionsUsed}问</p>
           <p>这一局的结果已经让TA知道了，下次聊天可能会提起。</p>
         </div>
       )}

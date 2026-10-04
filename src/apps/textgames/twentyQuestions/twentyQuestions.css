@@ -3,7 +3,23 @@
    选角色/结果横幅/操作按钮/战绩行走 textGameShared.css 的公共样式，
    这里只补这个游戏自己的东西：方向选择卡片、对局头部、Q&A 记录条、
    回答按钮行。
+
+   2026-10 美化改版：在黑白弥散底子上叠一层这个游戏专属的"玫瑰粉"强调
+   色（--tgq-* 变量，只在这个文件里定义、只给这一个游戏用），用法参照
+   女巫的毒药（--tgwp-*）同一套惯例——不碰 textGameShared.css 里给所有
+   游戏共用的类，只在这个文件里用 .tgq- 前缀的选择器去"追加"或者用更
+   高优先级的选择器局部覆盖共用样式（比如按钮 hover 色、结果横幅底色），
+   没有改动任何共用类本身，井字棋/女巫的毒药两个不动。
+   用在：方向卡的罗马数字+悬浮侧边条、对局头部的"还剩N问"、Q&A 记录条
+   的编号+手写体答案、回答/提问按钮的悬浮色、结果横幅的揭晓感光晕。
    ============================================================ */
+
+:root {
+  --tgq-pink: #c9436b;
+  --tgq-pink-deep: #8e2c4c;
+  --tgq-pink-pale: #f7dde4;
+  --tgq-pink-glow: rgba(201, 67, 107, 0.28);
+}
 
 .tgq-direction-list {
   display: flex;
@@ -13,17 +29,33 @@
 }
 
 .tgq-direction-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
   text-align: left;
-  padding: 16px 18px;
+  padding: 16px 18px 16px 21px;
   border-radius: 16px;
   border: 1px solid var(--tgh-hairline);
   background: var(--tgh-paper-card);
   cursor: pointer;
   font: inherit;
   color: inherit;
+  overflow: hidden;
+}
+
+/* 悬浮/聚焦时左侧浮出一条玫瑰粉竖线——跟大厅"目录条目"那套克制的 hover
+   反馈是同一手法，只是换成这个游戏自己的点缀色。 */
+.tgq-direction-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--tgq-pink);
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 
 .tgq-direction-card:hover,
@@ -31,6 +63,19 @@
   transform: translateY(-1px);
   box-shadow: 0 10px 24px rgba(18, 18, 18, 0.08);
   outline: none;
+}
+
+.tgq-direction-card:hover::before,
+.tgq-direction-card:focus-visible::before {
+  opacity: 1;
+}
+
+.tgq-direction-num {
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--tgq-pink);
+  letter-spacing: 0.06em;
 }
 
 .tgq-direction-title {
@@ -45,7 +90,13 @@
 }
 
 /* 对局头部（角色头像+标题行）挪到 textGameShared.css 的
-   .tgh-shared-head* 里了——女巫的毒药也要用同一套，不是这个文件专属。 */
+   .tgh-shared-head* 里了——女巫的毒药也要用同一套，不是这个文件专属。
+   这里只把"还剩 N 问"这一行局部染成点缀色，选择器比共用规则多一层
+   .tgq-screen，不影响女巫的毒药继续用原来的灰色。 */
+.tgq-screen .tgh-shared-head-sub {
+  color: var(--tgq-pink);
+  font-weight: 500;
+}
 
 .tgq-log {
   margin-top: 18px;
@@ -64,10 +115,13 @@
   padding: 20px 0;
 }
 
+/* Q&A 记录条：改成"编号列 + 问答内容列"的采访笔录排版——编号用点缀色，
+   回答用手写体斜体，呼应参考图里那份刊物访谈稿的质感。 */
 .tgq-log-row {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: start;
   padding: 10px 14px;
   border-radius: 14px;
   background: var(--tgh-paper-card);
@@ -79,14 +133,33 @@
   border-style: dashed;
 }
 
+.tgq-log-num {
+  font-family: var(--tgh-font-display);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--tgq-pink);
+  padding-top: 1px;
+}
+
+.tgq-log-row-pending .tgq-log-num {
+  color: var(--tgh-ink-faint);
+}
+
+.tgq-log-body {
+  min-width: 0;
+}
+
 .tgq-log-q {
   font-size: 13px;
   color: var(--tgh-ink);
 }
 
 .tgq-log-a {
-  font-size: 12px;
+  font-family: var(--tgh-font-script);
+  font-style: italic;
+  font-size: 12.5px;
   color: var(--tgh-ink-faint);
+  margin-top: 2px;
 }
 
 .tgq-answer-row {
@@ -95,4 +168,56 @@
   gap: 10px;
   margin-top: 16px;
   flex-wrap: wrap;
+}
+
+/* 这一局内的按钮/输入框悬浮反馈换成点缀色——选择器多一层 .tgq-screen，
+   只影响这个游戏自己，不碰 textGameShared.css 里给所有游戏共用的
+   .tgh-shared-btn / .tgh-shared-input 规则本身。 */
+.tgq-screen .tgh-shared-btn:hover {
+  border-color: var(--tgq-pink);
+  color: var(--tgq-pink-deep);
+}
+
+.tgq-screen .tgh-shared-btn.tgh-shared-btn-primary:hover {
+  background: var(--tgq-pink-deep);
+  border-color: var(--tgq-pink-deep);
+  color: #fff;
+}
+
+.tgq-screen .tgh-shared-input:focus {
+  border-color: var(--tgq-pink);
+}
+
+/* 结果横幅：在共用的黑色渐变横幅上叠一层玫瑰粉的揭晓感光晕，秘密词
+   单独拎出来放大、用手写体斜体强调。 */
+.tgq-screen .tgh-shared-result-banner {
+  position: relative;
+  overflow: hidden;
+}
+
+.tgq-screen .tgh-shared-result-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 50% at 50% 0%, var(--tgq-pink-glow), transparent 70%);
+  pointer-events: none;
+}
+
+.tgq-screen .tgh-shared-result-banner > * {
+  position: relative;
+}
+
+.tgq-result-kicker {
+  font-family: var(--tgh-font-script);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--tgq-pink);
+}
+
+.tgq-result-secret {
+  font-family: var(--tgh-font-display);
+  font-style: italic;
+  font-size: 19px;
+  color: var(--tgq-pink);
+  margin: 8px 0 2px;
 }
