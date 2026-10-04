@@ -49,7 +49,7 @@ export const TEXT_GAME_CATALOG = [
     desc: '靠提问一点点缩小范围，猜中算赢。',
     mode: '人机 · 双人皆可',
     modeEmphasis: false,
-    status: TEXT_GAME_STATUS.COMING_SOON,
+    status: TEXT_GAME_STATUS.AVAILABLE,
   },
   {
     id: 'emoji-charades',
@@ -112,7 +112,7 @@ export const TEXT_GAME_CATALOG = [
     desc: '猜哪一杯被下了药，赌一次直觉。',
     mode: '双人对战',
     modeEmphasis: false,
-    status: TEXT_GAME_STATUS.COMING_SOON,
+    status: TEXT_GAME_STATUS.AVAILABLE,
   },
   {
     id: 'scratch-card',
