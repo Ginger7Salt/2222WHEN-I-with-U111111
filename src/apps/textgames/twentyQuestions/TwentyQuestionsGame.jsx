@@ -166,6 +166,12 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
   };
 
   // USER_SETS 方向：问角色下一步该干什么（提问 or 直接猜）。
+  // 如果AI接口没配置好，generateCharacterQuestion 会带着 aiUnavailable
+  // 标记返回同一句兜底问题——这里识别出这个标记就直接停下来，复用跟
+  // CHARACTER_SETS 方向一样的"未配置AI接口"提示，而不是让TA在用户毫无
+  // 察觉的情况下一直重复问同一个问题，白白耗光20问（2026-10 修复：
+  // 之前这里没有这层识别，USER_SETS 方向遇到AI没配置时会悄悄卡成
+  // 复读机）。
   const requestNextCharacterTurn = async (historyForPrompt) => {
     setIsWaitingAi(true);
     setPendingCharacterTurn(null);
@@ -178,10 +184,23 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
     });
 
     setIsWaitingAi(false);
+
+    if (turn?.aiUnavailable) {
+      setAiUnavailable(true);
+      setPendingCharacterTurn(null);
+      return;
+    }
+
     setPendingCharacterTurn(turn);
   };
 
-  const finishRound = async (finalResult, revealedSecret, usedCount) => {
+  // historyForRecord：结束这一刻的完整问答历史，显式传入而不是读组件
+  // state 里的 history——调用方大多是"这一步刚把新的一条 push 进去、
+  // 同一个函数里马上要结束游戏"的场景，此时 setHistory 还没真正生效，
+  // 直接读 history 闭包变量拿到的是上一轮的旧值，所以每个调用点都显式
+  // 把"算好的最新一份"传进来，写回 contextNote 的过程摘要才不会漏掉
+  // 刚刚那一问（或者那个决定胜负的最终猜测）。
+  const finishRound = async (finalResult, revealedSecret, usedCount, historyForRecord) => {
     setResult(finalResult);
     setPhase(PHASE.RESULT);
 
@@ -194,6 +213,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
       result: finalResult,
       secretWord: revealedSecret,
       questionsUsed: usedCount,
+      history: historyForRecord || history,
     });
     await refreshStats(selectedCharacter.id);
   };
@@ -220,7 +240,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
     setIsWaitingAi(false);
 
     if (nextUsed >= QUESTION_LIMIT) {
-      await finishRound('loss', secretWord, nextUsed);
+      await finishRound('loss', secretWord, nextUsed, nextHistory);
     }
   };
 
@@ -236,15 +256,17 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
     setIsWaitingAi(false);
 
     if (isCorrect) {
-      await finishRound('win', secretWord, nextUsed);
+      const winHistory = [...history, { question: `（最终猜测）${guess}`, answer: '对' }];
+      await finishRound('win', secretWord, nextUsed, winHistory);
       return;
     }
 
-    setHistory((prev) => [...prev, { question: `（最终猜测）${guess}`, answer: '不对' }]);
+    const nextHistory = [...history, { question: `（最终猜测）${guess}`, answer: '不对' }];
+    setHistory(nextHistory);
     setActionsUsed(nextUsed);
 
     if (nextUsed >= QUESTION_LIMIT) {
-      await finishRound('loss', secretWord, nextUsed);
+      await finishRound('loss', secretWord, nextUsed, nextHistory);
     }
   };
 
@@ -261,7 +283,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
     setActionsUsed(nextUsed);
 
     if (nextUsed >= QUESTION_LIMIT) {
-      await finishRound('loss', userSecret, nextUsed);
+      await finishRound('loss', userSecret, nextUsed, nextHistory);
       return;
     }
 
@@ -274,7 +296,11 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
     const nextUsed = actionsUsed + 1;
 
     if (wasCorrect) {
-      await finishRound('win', userSecret, nextUsed);
+      const winHistory = [
+        ...history,
+        { question: `（TA猜）${pendingCharacterTurn.text}`, answer: '对' },
+      ];
+      await finishRound('win', userSecret, nextUsed, winHistory);
       return;
     }
 
@@ -286,7 +312,7 @@ const TwentyQuestionsGame = ({ onExitToHall }) => {
     setActionsUsed(nextUsed);
 
     if (nextUsed >= QUESTION_LIMIT) {
-      await finishRound('loss', userSecret, nextUsed);
+      await finishRound('loss', userSecret, nextUsed, nextHistory);
       return;
     }
 

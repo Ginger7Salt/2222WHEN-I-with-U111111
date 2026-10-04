@@ -117,7 +117,13 @@ export const generateCharacterQuestion = async ({
   const fallback = { type: 'question', text: '这个东西是活的吗？' };
 
   const context = await getGenerationContext(chatId);
-  if (!context) return fallback;
+  // 没配置好AI接口：之前这里直接默默返回兜底问题，USER_SETS方向下
+  // 每一轮都会再调用一次、每次又因为同样的原因拿到同一句兜底文案，
+  // 用户会看到TA一直重复问同一个"这个东西是活的吗？"、20问很快被
+  // 耗光，而且没有任何提示说明是AI没配置好——现在带上 aiUnavailable
+  // 标记，让 TwentyQuestionsGame.jsx 能识别出这不是一次正常的提问，
+  // 从而提前停下来显示跟 CHARACTER_SETS 方向一致的"未配置AI接口"提示。
+  if (!context) return { ...fallback, aiUnavailable: true };
 
   const { apiConfig } = context;
 
