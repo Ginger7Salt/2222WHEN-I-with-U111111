@@ -14,6 +14,10 @@
 import db from '../../../db';
 
 const REQUEST_TIMEOUT_MS = 12000;
+// 走"原始内容兜底"这条路时，模型可能也没遵守25字限制——截断一下避免
+// 在 UI 上挤成一大段，跟 UndercoverGame.jsx 里 SPEECH_MAX_LEN 留一点余量
+// （这里稍微宽松一点，没必要跟用户输入框的硬限制一模一样）。
+const SPEECH_HARD_CAP = 40;
 
 const removeEmoji = (text = '') => String(text)
   .replace(
@@ -22,10 +26,25 @@ const removeEmoji = (text = '') => String(text)
   )
   .trim();
 
+// 下面这几个诊断用的 console.warn（2026-10 排查"AI 总是退回兜底"问题时
+// 加的）：原来请求失败/格式解析不出来/词语泄露这三种情况全部静默退回
+// 兜底，玩的时候完全看不出卡在哪一步。现在每一步失败都会在控制台打印
+// 一行 [UndercoverAiService] 开头的日志，帮忙对照下面哪一种：
+// 1. "没有配置 apiConfig" —— db.settings 里没有 baseUrl/apiKey，这个
+//    游戏本身没走错路，是接口配置没读到（但其他游戏正常就不太像这个）；
+// 2. "接口返回非 200" —— 带上了状态码，网络/接口本身的问题；
+// 3. "解析不出发言格式，原始内容：..." —— 接口确实返回了内容，但不是
+//    "发言：xxx"这个格式，模型没有照着格式输出（最常见的一种，很多
+//    模型不会严格遵守这种"冒号后一句话"的格式要求）；
+// 4. "发言里包含了词本身，已替换成兜底" —— 格式对了，但内容里带了那个
+//    词，被兜底逻辑拦掉了（这种情况其实是在保护游戏，不是 bug）。
 const getApiConfig = async () => {
   const apiSetting = await db.settings.get('apiConfig');
   const apiConfig = apiSetting?.value || {};
-  if (!apiConfig.baseUrl || !apiConfig.apiKey) return null;
+  if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+    console.warn('[UndercoverAiService] 没有配置 apiConfig（缺 baseUrl 或 apiKey），退回兜底。');
+    return null;
+  }
   return apiConfig;
 };
 
@@ -52,12 +71,19 @@ const requestText = async (systemPrompt) => {
         temperature: 0.9,
       }),
     });
-    if (!response.ok) return '';
+    if (!response.ok) {
+      const bodyText = await response.text().catch(() => '');
+      console.warn(
+        `[UndercoverAiService] 接口返回非 200（状态码 ${response.status}），退回兜底。`,
+        bodyText.slice(0, 300)
+      );
+      return '';
+    }
 
     const data = await response.json();
     return removeEmoji(data?.choices?.[0]?.message?.content || '');
   } catch (error) {
-    console.warn('[UndercoverAiService] 请求失败。', error);
+    console.warn('[UndercoverAiService] 请求失败（网络错误/超时/JSON解析失败）。', error);
     return '';
   } finally {
     if (timer) clearTimeout(timer);
@@ -72,6 +98,18 @@ const FALLBACK_SPEECHES = [
 ];
 
 const containsWord = (text, word) => !!text && !!word && text.includes(word);
+
+// 模型不一定会乖乖带着"发言："这个标签回答——很多模型对"随口说一句话"
+// 这种偏口语化的要求，会直接说那句话，不套格式（跟"选一个编号"这种天然
+// 适合结构化输出的要求不一样）。所以解析失败时不直接认输：退一步把
+// 原始内容本身洗一遍（去掉首尾引号/多余空白/换行）当成发言内容，只有
+// 洗完还是空的才真正交给兜底库。
+const cleanRawReply = (content) =>
+  String(content || '')
+    .trim()
+    .replace(/^["'"'「『]+|["'"'」』]+$/g, '')
+    .split('\n')[0]
+    .trim();
 
 // seat：当前要发言的座位（带 name/bio/word）。speechHistory：
 // toPerspectiveSpeechLog 转换好的、这个座位视角下的 [{ label, text }]。
@@ -105,10 +143,29 @@ ${historyLines ? `本轮目前已经有人发言：\n${historyLines}\n` : '你�
 
   try {
     const content = await requestText(systemPrompt);
+    if (!content) return fallback(); // requestText 已经打印过具体原因了
+
     const match = content.match(/发言[：:]\s*(.+)/);
     let text = match ? match[1].trim() : '';
-    if (!text || containsWord(text, seat.word)) {
-      text = fallback();
+
+    if (!text) {
+      // 没按格式回答，退一步直接用模型说的那句话本身，不急着判定失败。
+      text = cleanRawReply(content);
+      if (text) {
+        console.warn('[UndercoverAiService] 没有按"发言：xxx"格式回答，改用原始内容本身。原始内容：', content);
+      }
+    }
+
+    if (!text) {
+      console.warn('[UndercoverAiService] 解析不出任何可用发言内容，原始内容：', content);
+      return fallback();
+    }
+    if (text.length > SPEECH_HARD_CAP) {
+      text = `${text.slice(0, SPEECH_HARD_CAP)}……`;
+    }
+    if (containsWord(text, seat.word)) {
+      console.warn('[UndercoverAiService] 发言里包含了词本身，已替换成兜底。', text);
+      return fallback();
     }
     return text;
   } catch (error) {
@@ -145,12 +202,31 @@ ${historyLines || '（这一轮没有人发言）'}
 
   try {
     const content = await requestText(systemPrompt);
+    if (!content) return { target: fallbackPick(), reason: '' }; // requestText 已经打印过原因
+
     const nameMatch = content.match(/投票[：:]\s*(\S+)/);
     const reasonMatch = content.match(/理由[：:]\s*(.+)/);
     const pickedName = nameMatch?.[1]?.trim();
-    const target = candidates.find((c) => c.label === pickedName) || fallbackPick();
+    let matched = candidates.find((c) => c.label === pickedName);
+
+    if (!matched) {
+      // 没按"投票：名字"格式回答——退一步看原始内容里有没有直接提到
+      // 某个候选人的名字（模型可能只是说了"我觉得是XX"这种自然语句）。
+      matched = candidates.find((c) => content.includes(c.label));
+      if (matched) {
+        console.warn('[UndercoverAiService] 没有按"投票：名字"格式回答，从原始内容里认出了候选人名字。', content);
+      }
+    }
+
+    if (!matched) {
+      console.warn(
+        `[UndercoverAiService] 投票解析不出候选名字（候选是：${candidateNames}），随机选择。原始内容：`,
+        content
+      );
+    }
+
     return {
-      target,
+      target: matched || fallbackPick(),
       reason: reasonMatch ? reasonMatch[1].trim() : '',
     };
   } catch (error) {
