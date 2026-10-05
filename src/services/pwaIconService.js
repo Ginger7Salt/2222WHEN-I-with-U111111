@@ -1,69 +1,61 @@
 // pwaIconService.js
-// 在 App 启动时调用 applyPwaIcon(iconUrl)，动态替换 manifest 的图标和 apple-touch-icon。
-// 若 iconUrl 为空字符串，则不做任何修改（保持静态 manifest 原样）。
-//
-// 技术说明：PWA manifest 是静态文件，无法在运行时修改。
-// 这里的做法是：读取现有 manifest 内容，注入自定义图标，
-// 生成 Blob URL，再把 <link rel="manifest"> 指向这个 Blob URL。
-// 已安装的 PWA 图标不会自动更新，用户需要卸载后重新"添加到主屏幕"。
-
 let _blobUrl = null;
+let _originalManifestHref = null;
+
+function ensureLink(rel, attrs = {}) {
+  let el = document.querySelector(`link[rel="${rel}"]`);
+  if (!el) {
+    el = document.createElement('link');
+    el.rel = rel;
+    document.head.appendChild(el);
+  }
+  Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+  return el;
+}
 
 export async function applyPwaIcon(iconUrl) {
   if (!iconUrl || typeof iconUrl !== 'string') return;
 
   try {
-    // 1. 读取现有 manifest（用于保留其他字段）
+    const absIcon = new URL(iconUrl, location.href).href;
+
+    // 1. apple-touch-icon（iOS 主要读这个），没有就创建
+    ensureLink('apple-touch-icon', { href: absIcon, sizes: '180x180' });
+
+    // 2. manifest
     const manifestLink = document.querySelector('link[rel="manifest"]');
     if (!manifestLink) return;
 
-    let baseManifest = {};
-    try {
-      const response = await fetch(manifestLink.href);
-      if (response.ok) {
-        baseManifest = await response.json();
-      }
-    } catch {
-      // 读取失败时用最小结构，不影响主流程
-    }
+    // 只记录一次"原始"地址，避免之后读到已被 revoke 的 blob
+    if (!_originalManifestHref) _originalManifestHref = manifestLink.href;
+    const origHref = _originalManifestHref;
 
-    // 2. 构造新 manifest，注入自定义图标
+    let base = {};
+    try {
+      const res = await fetch(origHref);
+      if (res.ok) base = await res.json();
+    } catch {}
+
+    // blob URL 下相对路径会失效，统一转成绝对地址
+    const abs = (p, fallback = '.') => new URL(p || fallback, origHref).href;
+
     const newManifest = {
-      ...baseManifest,
+      ...base,
+      start_url: abs(base.start_url),
+      scope: abs(base.scope),
+      ...(base.id ? { id: abs(base.id) } : {}),
       icons: [
-        {
-          src: iconUrl,
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any',
-        },
-        {
-          src: iconUrl,
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any maskable',
-        },
+        { src: absIcon, sizes: '192x192', purpose: 'any' },
+        { src: absIcon, sizes: '512x512', purpose: 'any' },
       ],
     };
 
-    // 3. 生成 Blob URL 并替换 <link rel="manifest">
-    if (_blobUrl) {
-      URL.revokeObjectURL(_blobUrl);
-    }
-    const blob = new Blob([JSON.stringify(newManifest)], {
-      type: 'application/manifest+json',
-    });
-    _blobUrl = URL.createObjectURL(blob);
-    manifestLink.href = _blobUrl;
-
-    // 4. 同时更新 apple-touch-icon（iOS 用这个，不读 manifest）
-    const appleIcons = document.querySelectorAll(
-      'link[rel="apple-touch-icon"], link[rel="apple-touch-icon-precomposed"]',
+    if (_blobUrl) URL.revokeObjectURL(_blobUrl);
+    _blobUrl = URL.createObjectURL(
+      new Blob([JSON.stringify(newManifest)], { type: 'application/manifest+json' }),
     );
-    appleIcons.forEach((el) => {
-      el.href = iconUrl;
-    });
-  } catch (error) {
-    console.warn('[pwaIconService] 应用自定义图标失败:', error);
+    manifestLink.href = _blobUrl;
+  } catch (e) {
+    console.warn('[pwaIconService] 应用自定义图标失败:', e);
   }
 }
