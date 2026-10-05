@@ -85,7 +85,7 @@ export const TEXT_GAME_CATALOG = [
     desc: '描述你拿到的词，找出那个说法不一样的人。',
     mode: '多人身份推理',
     modeEmphasis: false,
-    status: TEXT_GAME_STATUS.COMING_SOON,
+    status: TEXT_GAME_STATUS.AVAILABLE,
   },
   {
     id: 'two-truths-one-lie',
