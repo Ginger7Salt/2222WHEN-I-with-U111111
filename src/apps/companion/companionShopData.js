@@ -30,9 +30,9 @@ const placeholderAvatarSvg = (fill) => {
 
 // 三个占位形态，用不同颜色区分；替换成真实图片前，先能选、能领养、能看见。
 export const DEFAULT_AVATARS = [
-  { id: 'preset-a', label: '形态 A', url: 'https://u2.fukit.cn/GBd84WFuR' },
-  { id: 'preset-b', label: '形态 B', url: placeholderAvatarSvg('#F4B860') },
-  { id: 'preset-c', label: '形态 C', url: placeholderAvatarSvg('#7FB3D5') },
+  { id: 'preset-a', label: '形态 A', url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/rAW5/1428X1971/1_%285%29.jpg/webp' },
+  { id: 'preset-b', label: '形态 B', url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/pkSb/1635X1915/1_%284%29.jpg/webp' },
+  { id: 'preset-c', label: '形态 C', url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/eAXF/1595X1823/1_%281%29.jpg/webp' },
 ];
 
 /*

@@ -44,12 +44,12 @@
   --cp-font-display: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --cp-font-body: "Nunito", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
 
-  position: relative;
-  /* 跟随父容器高度，避免比外壳高、底部被截掉；父容器没有高度时 JS 会兜底成 100dvh */
+  /* 跟 MemoirPage 一样：fixed 铺满全屏，不依赖父容器高度。
+     JS 侧用 ROOT_STYLE inline 覆盖，这里作为 CSS 层面的兜底。 */
+  position: fixed;
+  inset: 0;
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  flex: 1 1 auto;
+  height: 100dvh;
   overflow: hidden;
   isolation: isolate;
   background: var(--cp-bg);

@@ -169,7 +169,7 @@ const getLogKind = (log) => {
   return matchLogKind(log.logType) || matchLogKind(log.content) || 'other';
 };
 
-// 如果日志里带了时间（createdAt / created_at / timestamp），就显示成“刚刚 / 5 分钟前 / 3/14”
+// 如果日志里带了时间（createdAt / created_at / timestamp），就显示成"刚刚 / 5 分钟前 / 3/14"
 const formatLogTime = (log) => {
   const raw = log.createdAt ?? log.created_at ?? log.timestamp;
   if (raw === undefined || raw === null || raw === '') return '';
@@ -187,6 +187,18 @@ const formatLogTime = (log) => {
 const FLOATER_LIFETIME_MS = 1100;
 const STATS_AUTO_CLOSE_MS = 2400;
 const CONFETTI_COLORS = ['#3A97E8', '#FFD27A', '#8FD9C0', '#8CC9FF', '#FF86A0'];
+
+// 跟 MemoirPage 一样的全屏方式：脱离父容器，直接铺满整个视口
+const ROOT_CLASS = 'cp-root fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden animate-fade-in-up';
+const ROOT_STYLE = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 50,
+  width: '100%',
+  height: '100dvh',
+  overflow: 'hidden',
+  background: 'var(--bg-main)',
+};
 
 const CompanionPage = ({ chatId, character, onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -561,7 +573,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     setEventPopup(null);
   };
 
-  // 点“知道啦”：先撒一把彩带，稍等一下再真正领取、关弹窗
+  // 点"知道啦"：先撒一把彩带，稍等一下再真正领取、关弹窗
   const handleClaimWithFx = (activeEventId) => {
     if (isClaiming) return;
     setIsClaiming(true);
@@ -634,12 +646,6 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const sheetOpenRef = useRef(sheetOpen);
   sheetOpenRef.current = sheetOpen;
   const hasCompanion = Boolean(companion);
-
-  // 父容器没有明确高度时（height:100% 塌成 0），兜底成整屏高度
-  useLayoutEffect(() => {
-    const root = rootRef.current;
-    if (root && root.offsetHeight < 240) root.style.height = '100dvh';
-  }, [isLoading, hasCompanion]);
 
   useLayoutEffect(() => {
     applySheetPosition(sheetOpen);
@@ -716,7 +722,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
 
   if (isLoading) {
     return (
-      <div className="cp-root" ref={rootRef}>
+      <div className={ROOT_CLASS} style={ROOT_STYLE} ref={rootRef}>
         {floatingBackButton}
       </div>
     );
@@ -729,7 +735,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
       || '';
 
     return (
-      <div className="cp-root" ref={rootRef}>
+      <div className={ROOT_CLASS} style={ROOT_STYLE} ref={rootRef}>
         <div className="cp-adopt">
           <div className="cp-adopt-inner">
             <i className="cp-blob b1" />
@@ -829,7 +835,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const lowStat = companion.satiety < 30 || companion.mood < 30;
 
   return (
-    <div className="cp-root" ref={rootRef}>
+    <div className={ROOT_CLASS} style={ROOT_STYLE} ref={rootRef}>
       {/* 场景：有图用图，没图（url 为空）就用兜底的天空 */}
       <div className="cp-scene">
         {activeScene?.url ? (
