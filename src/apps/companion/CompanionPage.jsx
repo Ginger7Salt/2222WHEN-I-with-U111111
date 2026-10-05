@@ -1,11 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  Activity,
   ArrowLeft,
   Check,
   Droplets,
   Gamepad2,
+  Heart,
   Palette,
   Pencil,
+  Shirt,
   Sparkles,
   Store,
   Upload,
@@ -82,6 +85,9 @@ const compressAvatarFile = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
+const rand = (min, max) => min + Math.random() * (max - min);
+const clampPercent = (value) => Math.max(0, Math.min(100, value));
+
 // ---- 漂浮数值小动画：渲染挂在某个锚点（satiety/mood/hearts）上的一批 +N ----
 const FloatingNumbers = ({ floaters, anchor, color }) => {
   const items = floaters.filter((item) => item.anchor === anchor);
@@ -93,7 +99,7 @@ const FloatingNumbers = ({ floaters, anchor, color }) => {
         <span
           key={item.id}
           className="cp-floating-number"
-          style={{ color, '--cp-i': index }}
+          style={{ right: 0, top: '-2px', color, marginRight: `${index * 18}px` }}
         >
           {item.text}
         </span>
@@ -102,55 +108,39 @@ const FloatingNumbers = ({ floaters, anchor, color }) => {
   );
 };
 
-// 数值量杯：竖着的果冻管，液面随 value 升降。props 与之前的横条保持一致。
-const StatBar = ({ icon: Icon, label, value, floaters, anchor }) => (
-  <div className={`cp-gauge-col cp-gauge-${anchor}`}>
-    <div className="cp-gauge-icon">
+// 状态气泡里的一行：图标 + 名称 + 数值，下面一条进度条
+const StatBar = ({ icon: Icon, label, value, floaters, anchor, tone }) => (
+  <div className={`cp-stat-row ${tone}`}>
+    <div className="cp-stat-top">
       <Icon className="cp-ic" />
+      {label}
+      <b className="cp-stat-val">
+        {Math.round(value)}
+        <FloatingNumbers floaters={floaters} anchor={anchor} color="var(--cp-accent)" />
+      </b>
     </div>
-    <div
-      className="cp-gauge"
-      role="img"
-      aria-label={`${label} ${Math.round(value)}`}
-      title={label}
-    >
-      <div
-        className="cp-liquid"
-        style={{ height: `${Math.max(0, Math.min(100, value))}%` }}
-      >
-        <i />
-        <i />
-        <i />
-      </div>
+    <div className="cp-track" role="img" aria-label={label}>
+      <i className="cp-fill" style={{ width: `${clampPercent(value)}%` }} />
     </div>
-    <span className="cp-gauge-value">
-      {Math.round(value)}
-      <FloatingNumbers floaters={floaters} anchor={anchor} color="var(--cp-accent)" />
-    </span>
-    <span className="cp-gauge-label">{label}</span>
   </div>
 );
 
 const ACTIONS = [
-  { id: 'feed', label: '喂食', icon: UtensilsCrossed, tone: 'sun', anim: 'munch', particle: 'crumb' },
-  { id: 'clean', label: '清洁', icon: Droplets, tone: 'sky', anim: 'wiggle', particle: 'bubble' },
-  { id: 'play', label: '玩耍', icon: Gamepad2, tone: 'mint', anim: 'hop', particle: 'spark' },
+  { id: 'feed', label: '喂食', icon: UtensilsCrossed },
+  { id: 'clean', label: '清洁', icon: Droplets },
+  { id: 'play', label: '玩耍', icon: Gamepad2 },
 ];
 
-const FLOATER_LIFETIME_MS = 1100;
+// 三个互动各自的动效：宠物动作 + 粒子
+const ACTION_FX = {
+  feed: { zone: 'munch', particle: 'crumb', count: 8, gap: 80, ms: 1400 },
+  clean: { zone: 'wiggle', particle: 'bubble-p', count: 10, gap: 70, ms: 900 },
+  play: { zone: 'hop', particle: 'spark', count: 9, gap: 40, ms: 950 },
+};
 
-// 领取事件时的彩纸：位置按序号算好，渲染时不依赖随机数
-const CONFETTI_PIECES = Array.from({ length: 26 }, (_, index) => {
-  const angle = index * 2.399;
-  const radius = 110 + (index % 5) * 28;
-  return {
-    id: index,
-    dx: Math.round(Math.cos(angle) * radius),
-    dy: Math.round(Math.sin(angle) * radius - 70),
-    rot: ((index * 67) % 720) - 360,
-    tone: index % 5,
-  };
-});
+const FLOATER_LIFETIME_MS = 1100;
+const STATS_AUTO_CLOSE_MS = 2400;
+const CONFETTI_COLORS = ['#3A97E8', '#FFD27A', '#8FD9C0', '#8CC9FF', '#FF86A0'];
 
 const CompanionPage = ({ chatId, character, onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -165,6 +155,16 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const [floaters, setFloaters] = useState([]);
   const [eventPopup, setEventPopup] = useState(null);
 
+  // 新增的纯视觉 state：状态气泡 / 抽屉 / 动效
+  const [showStats, setShowStats] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetTab, setSheetTab] = useState('logs');
+  const [zoneFx, setZoneFx] = useState('');
+  const [particles, setParticles] = useState([]);
+  const [hasPoked, setHasPoked] = useState(false);
+  const [confetti, setConfetti] = useState([]);
+  const [isClaiming, setIsClaiming] = useState(false);
+
   // 领养表单
   const [selectedPreset, setSelectedPreset] = useState(DEFAULT_AVATARS[0]?.id || null);
   const [uploadedAvatar, setUploadedAvatar] = useState(null);
@@ -177,27 +177,20 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const [renameDraft, setRenameDraft] = useState('');
   const [isSavingRename, setIsSavingRename] = useState(false);
 
-  // 纯视觉用的状态：抽屉开合、标签页、动作动画、粒子、彩纸、场景切换
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('logs');
-  const [actionAnim, setActionAnim] = useState('');
-  const [particles, setParticles] = useState([]);
-  const [hasPoked, setHasPoked] = useState(false);
-  const [confettiKey, setConfettiKey] = useState(0);
-  const [shownSceneUrl, setShownSceneUrl] = useState('');
-  const [revealSceneUrl, setRevealSceneUrl] = useState(null);
-
   const feedbackTimerRef = useRef(null);
   const pokeTimerRef = useRef(null);
-  const animTimerRef = useRef(null);
   const avatarInputRef = useRef(null);
   const adoptFileInputRef = useRef(null);
   const floaterTimersRef = useRef([]);
+  const statsTimerRef = useRef(null);
+  const zoneFxTimerRef = useRef(null);
+  const claimTimerRef = useRef(null);
+
+  // 抽屉拖拽用
   const rootRef = useRef(null);
   const sheetRef = useRef(null);
   const peekRef = useRef(null);
   const dragRef = useRef(null);
-  const sceneInitRef = useRef(false);
 
   const reload = async () => {
     const { companion: found, newEvents } = await openCompanionSession(chatId);
@@ -225,7 +218,9 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     return () => {
       if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
       if (pokeTimerRef.current) window.clearTimeout(pokeTimerRef.current);
-      if (animTimerRef.current) window.clearTimeout(animTimerRef.current);
+      if (statsTimerRef.current) window.clearTimeout(statsTimerRef.current);
+      if (zoneFxTimerRef.current) window.clearTimeout(zoneFxTimerRef.current);
+      if (claimTimerRef.current) window.clearTimeout(claimTimerRef.current);
       floaterTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       floaterTimersRef.current = [];
     };
@@ -237,6 +232,34 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
     feedbackTimerRef.current = window.setTimeout(() => setFeedback(''), 4000);
   };
+
+  // ---- 状态气泡：点小图标展开，点别处/按 Esc 收起；互动之后自动弹一下 ----
+  const setStatsOpen = (open, autoClose = false) => {
+    if (statsTimerRef.current) window.clearTimeout(statsTimerRef.current);
+    setShowStats(open);
+    if (open && autoClose) {
+      statsTimerRef.current = window.setTimeout(() => setShowStats(false), STATS_AUTO_CLOSE_MS);
+    }
+  };
+
+  useEffect(() => {
+    if (!showStats) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!event.target.closest?.('[data-cp-stats]')) setStatsOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setStatsOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showStats]);
 
   // ---- 漂浮数值：喂食/清洁/玩耍/戳一戳之后，在对应的数值条上飘一个 +N ----
   const spawnFloater = (anchor, text) => {
@@ -260,42 +283,55 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     if (heartsDelta !== 0) spawnFloater('hearts', `${heartsDelta > 0 ? '+' : ''}${heartsDelta}`);
   };
 
-  // ---- 纯视觉：小伙伴身上的粒子（面包屑/泡泡/星光/爱心/波纹） ----
-  const spawnParticles = (kind, count, gap = 70) => {
+  // ---- 粒子：以宠物中心为原点，随机散开（crumb/bubble-p/spark/ripple/heart-p） ----
+  const spawnParticles = (type, count, gap = 90) => {
     const stamp = Date.now();
-    const batch = Array.from({ length: count }, (_, index) => ({
-      id: `${kind}-${stamp}-${index}-${Math.random().toString(36).slice(2, 6)}`,
-      kind,
-      dx: Math.round((Math.random() * 2 - 1) * 70),
-      dy: Math.round(-(20 + Math.random() * 90)),
-      size: kind === 'ripple' ? 44 : Math.round(10 + Math.random() * 12),
-      delay: index * gap,
-    }));
+    const batch = Array.from({ length: count }, (_, index) => {
+      let dx = rand(-60, 60);
+      let dy = rand(-90, -20);
+      let offsetX = type === 'crumb' ? 0 : rand(-40, 40);
+      let offsetY = type === 'crumb' ? -10 : rand(-10, 60);
+
+      if (type === 'spark') {
+        dx = rand(-90, 90);
+        dy = rand(-100, 50);
+      }
+      if (type === 'ripple' || type === 'heart-p') {
+        dx = rand(-30, 30);
+        offsetX = rand(-24, 24);
+        offsetY = rand(-24, 8);
+      }
+
+      return {
+        id: `${type}-${stamp}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+        type,
+        style: {
+          '--x': `calc(50% + ${offsetX}px)`,
+          '--y': `calc(50% + ${offsetY}px)`,
+          '--dx': `${dx}px`,
+          '--dy': `${dy}px`,
+          '--s': `${rand(10, 24)}px`,
+          animationDelay: `${index * gap}ms`,
+        },
+      };
+    });
 
     setParticles((prev) => [...prev, ...batch]);
+    const doomed = new Set(batch.map((item) => item.id));
     const timerId = window.setTimeout(() => {
-      setParticles((prev) => prev.filter((item) => !batch.some((entry) => entry.id === item.id)));
-    }, 2000 + count * gap);
+      setParticles((prev) => prev.filter((item) => !doomed.has(item.id)));
+    }, 1800 + count * gap);
     floaterTimersRef.current.push(timerId);
   };
 
-  const playPetAnimation = (name, duration) => {
-    setActionAnim(name);
-    if (animTimerRef.current) window.clearTimeout(animTimerRef.current);
-    animTimerRef.current = window.setTimeout(() => setActionAnim(''), duration);
-  };
+  const playActionFx = (actionType) => {
+    const fx = ACTION_FX[actionType];
+    if (!fx) return;
 
-  const playActionEffect = (actionType) => {
-    const action = ACTIONS.find((item) => item.id === actionType);
-    if (!action) return;
-    playPetAnimation(action.anim, action.anim === 'munch' ? 1400 : 1000);
-    spawnParticles(action.particle, action.particle === 'bubble' ? 10 : 8, action.particle === 'spark' ? 40 : 80);
-  };
-
-  const burstConfetti = () => {
-    setConfettiKey(Date.now());
-    const timerId = window.setTimeout(() => setConfettiKey(0), 1500);
-    floaterTimersRef.current.push(timerId);
+    setZoneFx(fx.zone);
+    if (zoneFxTimerRef.current) window.clearTimeout(zoneFxTimerRef.current);
+    zoneFxTimerRef.current = window.setTimeout(() => setZoneFx(''), fx.ms);
+    spawnParticles(fx.particle, fx.count, fx.gap);
   };
 
   const handlePickAdoptFile = async (event) => {
@@ -365,7 +401,8 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     try {
       const result = await performFreeAction(companion.id, actionType);
       if (result) {
-        playActionEffect(actionType);
+        playActionFx(actionType);
+        setStatsOpen(true, true);
         spawnDeltaFloaters(before, result.companion);
         setCompanion(result.companion);
         showFeedback(result.feedbackText);
@@ -385,13 +422,13 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     setHasPoked(true);
     setIsPoking(true);
     if (pokeTimerRef.current) window.clearTimeout(pokeTimerRef.current);
-    pokeTimerRef.current = window.setTimeout(() => setIsPoking(false), 520);
+    pokeTimerRef.current = window.setTimeout(() => setIsPoking(false), 500);
+    spawnParticles('ripple', 1, 0);
+    spawnParticles('heart-p', 1, 0);
 
     try {
       const result = await pokeCompanion(companion.id);
       if (result) {
-        spawnParticles('ripple', 1);
-        spawnParticles('heart', 1);
         spawnDeltaFloaters(before, result.companion);
         setCompanion(result.companion);
         showFeedback(result.line);
@@ -414,7 +451,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     const next = companion.equippedOutfit === itemName ? null : itemName;
     const updated = await equipOutfit(companion.id, next);
     setCompanion(updated);
-    if (next) spawnParticles('spark', 5, 50);
+    spawnParticles('spark', 5, 50);
   };
 
   const handleSelectScene = async (sceneId) => {
@@ -473,10 +510,38 @@ const CompanionPage = ({ chatId, character, onBack }) => {
 
   const handleClaimEvent = async (activeEventId) => {
     if (!companion) return;
-    burstConfetti();
     const updated = await claimCompanionEvent(companion.id, activeEventId);
     if (updated) setCompanion(updated);
     setEventPopup(null);
+  };
+
+  // 点“知道啦”：先撒一把彩带，稍等一下再真正领取、关弹窗
+  const handleClaimWithFx = (activeEventId) => {
+    if (isClaiming) return;
+    setIsClaiming(true);
+
+    setConfetti(Array.from({ length: 26 }, (_, index) => {
+      const angle = rand(0, Math.PI * 2);
+      const distance = rand(90, 200);
+      return {
+        id: index,
+        style: {
+          background: CONFETTI_COLORS[index % CONFETTI_COLORS.length],
+          '--dx': `${Math.cos(angle) * distance}px`,
+          '--dy': `${Math.sin(angle) * distance - 40}px`,
+          '--r': `${rand(-540, 540)}deg`,
+        },
+      };
+    }));
+
+    claimTimerRef.current = window.setTimeout(async () => {
+      try {
+        await handleClaimEvent(activeEventId);
+      } finally {
+        setIsClaiming(false);
+        setConfetti([]);
+      }
+    }, 800);
   };
 
   const handleUseLegendaryFood = async (foodId) => {
@@ -504,117 +569,85 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     return '状态很不错，暖暖的。';
   }, [companion]);
 
-  const hasCompanion = Boolean(companion);
-  const activeSceneUrl = activeScene?.url || '';
-
-  // ---- 场景切换：新场景从调色板按钮处圆形展开，盖住旧场景 ----
-  useEffect(() => {
-    if (!hasCompanion) return undefined;
-
-    if (!sceneInitRef.current) {
-      sceneInitRef.current = true;
-      setShownSceneUrl(activeSceneUrl);
-      return undefined;
-    }
-    if (activeSceneUrl === shownSceneUrl) return undefined;
-
-    setRevealSceneUrl(activeSceneUrl);
-    const timerId = window.setTimeout(() => {
-      setShownSceneUrl(activeSceneUrl);
-      setRevealSceneUrl(null);
-    }, 780);
-    return () => window.clearTimeout(timerId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSceneUrl, hasCompanion]);
-
-  // ---- 底部抽屉：直接操作 DOM 的 transform，拖动时不触发 React 重渲染 ----
-  const applySheet = (open) => {
+  // ---- 底部抽屉：点一下 / 拖一下展开收起 ----
+  const getPeekOffset = () => {
     const sheet = sheetRef.current;
     const peek = peekRef.current;
-    const root = rootRef.current;
-    if (!sheet || !peek || !root) return;
+    return sheet && peek ? sheet.offsetHeight - peek.offsetHeight : 0;
+  };
 
-    const offset = sheet.offsetHeight - peek.offsetHeight;
-    sheet.style.transform = open ? 'translateY(0)' : `translateY(${offset}px)`;
+  const applySheetPosition = (open) => {
+    const sheet = sheetRef.current;
+    const root = rootRef.current;
+    if (!sheet || !root) return;
+
+    sheet.style.transform = open ? 'translateY(0)' : `translateY(${getPeekOffset()}px)`;
     root.style.setProperty('--cp-p', open ? '1' : '0');
   };
 
+  const sheetOpenRef = useRef(sheetOpen);
+  sheetOpenRef.current = sheetOpen;
+  const hasCompanion = Boolean(companion);
+
+  useLayoutEffect(() => {
+    applySheetPosition(sheetOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetOpen, hasCompanion]);
+
   useEffect(() => {
     const sheet = sheetRef.current;
-    if (!sheet) return undefined;
+    if (!sheet || typeof ResizeObserver === 'undefined') return undefined;
 
-    applySheet(sheetOpen);
-    if (typeof ResizeObserver === 'undefined') return undefined;
-
-    const observer = new ResizeObserver(() => applySheet(sheetOpen));
+    const observer = new ResizeObserver(() => applySheetPosition(sheetOpenRef.current));
     observer.observe(sheet);
-    if (peekRef.current) observer.observe(peekRef.current);
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, hasCompanion, sheetOpen]);
+  }, [hasCompanion]);
 
-  const handleSheetPointerDown = (event) => {
+  const handlePeekPointerDown = (event) => {
     if (event.target.closest('.cp-dock-btn')) return;
-    const sheet = sheetRef.current;
-    const peek = peekRef.current;
-    if (!sheet || !peek) return;
-
-    const offset = sheet.offsetHeight - peek.offsetHeight;
     dragRef.current = {
       startY: event.clientY,
-      from: sheetOpen ? 0 : offset,
-      offset,
+      from: sheetOpen ? 0 : getPeekOffset(),
       moved: false,
-      last: null,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
-  const handleSheetPointerMove = (event) => {
+  const handlePeekPointerMove = (event) => {
     const drag = dragRef.current;
-    if (!drag || !sheetRef.current || !rootRef.current) return;
+    if (!drag) return;
 
     const deltaY = event.clientY - drag.startY;
-    if (!drag.moved && Math.abs(deltaY) < 5) return;
+    if (Math.abs(deltaY) > 4) drag.moved = true;
+    if (!drag.moved) return;
 
-    drag.moved = true;
+    const max = getPeekOffset();
+    const offset = Math.max(0, Math.min(max, drag.from + deltaY));
     rootRef.current.dataset.dragging = '1';
-    const next = Math.max(0, Math.min(drag.offset, drag.from + deltaY));
-    drag.last = next;
-    sheetRef.current.style.transform = `translateY(${next}px)`;
-    rootRef.current.style.setProperty('--cp-p', String(1 - next / (drag.offset || 1)));
+    sheetRef.current.style.transform = `translateY(${offset}px)`;
+    rootRef.current.style.setProperty('--cp-p', String(max ? 1 - offset / max : 0));
   };
 
-  const handleSheetPointerUp = () => {
+  const finishPeekDrag = (event, cancelled = false) => {
     const drag = dragRef.current;
-    dragRef.current = null;
     if (!drag) return;
-    if (rootRef.current) delete rootRef.current.dataset.dragging;
+    dragRef.current = null;
+    delete rootRef.current.dataset.dragging;
 
-    if (!drag.moved) {
-      setSheetOpen((prev) => !prev);
+    if (cancelled) {
+      applySheetPosition(sheetOpen);
       return;
     }
 
-    const shouldOpen = (drag.last ?? drag.from) < drag.offset * 0.5;
-    if (shouldOpen === sheetOpen) {
-      applySheet(shouldOpen);
-    } else {
-      setSheetOpen(shouldOpen);
+    let nextOpen = !sheetOpen;
+    if (drag.moved) {
+      const offset = drag.from + (event.clientY - drag.startY);
+      nextOpen = offset < getPeekOffset() * 0.5;
     }
-  };
 
-  const handleSheetPointerCancel = () => {
-    dragRef.current = null;
-    if (rootRef.current) delete rootRef.current.dataset.dragging;
-    applySheet(sheetOpen);
-  };
-
-  const handleGrabberKeyDown = (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      setSheetOpen((prev) => !prev);
-    }
+    applySheetPosition(nextOpen);
+    setSheetOpen(nextOpen);
   };
 
   const floatingBackButton = (
@@ -623,7 +656,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
       onClick={onBack}
       title="返回"
       aria-label="返回"
-      className="cp-round-btn cp-back"
+      className="cp-round-btn left"
     >
       <ArrowLeft className="cp-ic" />
     </button>
@@ -633,95 +666,77 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     return (
       <div className="cp-root">
         {floatingBackButton}
-        <div className="cp-loading">
-          <span className="cp-loading-dot" />
-          <span className="cp-loading-dot" />
-          <span className="cp-loading-dot" />
-        </div>
       </div>
     );
   }
 
+  // ================= 领养页 =================
   if (!companion) {
     const adoptPreviewUrl = uploadedAvatar
       || DEFAULT_AVATARS.find((item) => item.id === selectedPreset)?.url
       || '';
 
     return (
-      <div className="cp-root cp-adopt-root">
-        {floatingBackButton}
-        <i className="cp-blob cp-blob-a" />
-        <i className="cp-blob cp-blob-b" />
-
-        <div className="cp-adopt-scroll">
+      <div className="cp-root">
+        <div className="cp-adopt">
           <div className="cp-adopt-inner">
+            <i className="cp-blob b1" />
+            <i className="cp-blob b2" />
+
             <div className="cp-hello">
               这个聊天窗还没有养小伙伴。选一个形态、起个名字，从今天开始由你和
               {character?.name ? ` ${character.name} ` : '它'}一起照顾它吧。
             </div>
 
             <div className={`cp-arch ${isAdopting ? 'is-hatching' : ''}`}>
-              <div className="cp-pet cp-pet-static" key={`${selectedPreset}-${uploadedAvatar ? 'u' : 'p'}`}>
+              <div className="cp-pet" aria-hidden="true">
                 <span className="cp-pet-ring" />
-                {adoptPreviewUrl ? (
-                  <img src={adoptPreviewUrl} alt="形态预览" className="cp-pet-img" draggable={false} />
-                ) : (
-                  <span className="cp-pet-img cp-pet-placeholder" />
-                )}
+                <span className="cp-pet-body">
+                  {adoptPreviewUrl && <img src={adoptPreviewUrl} alt="" />}
+                </span>
+                <i className="cp-orn a" />
+                <i className="cp-orn b" />
+                <i className="cp-orn c" />
               </div>
-              <i className="cp-orn cp-orn-a" />
-              <i className="cp-orn cp-orn-b" />
-              <i className="cp-orn cp-orn-c" />
             </div>
 
             <div className="cp-ribbon">{nameDraft.trim() || '?'}</div>
 
             <div className="cp-presets">
-              {DEFAULT_AVATARS.map((preset) => {
-                const isOn = selectedPreset === preset.id && !uploadedAvatar;
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedPreset(preset.id);
-                      setUploadedAvatar(null);
-                    }}
-                    className={`cp-preset ${isOn ? 'is-on' : ''}`}
-                    aria-label={preset.label}
-                    aria-pressed={isOn}
-                  >
-                    <span className="cp-preset-face">
-                      {preset.url && <img src={preset.url} alt="" draggable={false} />}
-                    </span>
-                    <span className="cp-preset-label">{preset.label}</span>
-                  </button>
-                );
-              })}
+              {DEFAULT_AVATARS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  aria-label={preset.label}
+                  title={preset.label}
+                  className={`cp-preset ${selectedPreset === preset.id && !uploadedAvatar ? 'is-on' : ''}`}
+                  onClick={() => {
+                    setSelectedPreset(preset.id);
+                    setUploadedAvatar(null);
+                  }}
+                >
+                  {preset.url && <img src={preset.url} alt={preset.label} />}
+                </button>
+              ))}
 
-              <input
-                ref={adoptFileInputRef}
-                type="file"
-                accept="image/*"
-                className="cp-hidden"
-                onChange={handlePickAdoptFile}
-              />
               <button
                 type="button"
+                aria-label="上传自己的图片"
+                title="上传自己的图片"
+                className={`cp-preset up ${uploadedAvatar ? 'is-on has' : ''}`}
                 onClick={() => adoptFileInputRef.current?.click()}
-                className={`cp-preset cp-preset-upload ${uploadedAvatar ? 'is-on' : ''}`}
-                aria-label={uploadedAvatar ? '已选择自己上传的图，点击重新选择' : '上传自己的图片'}
               >
-                <span className="cp-preset-face">
-                  {uploadedAvatar ? (
-                    <img src={uploadedAvatar} alt="自定义形态" draggable={false} />
-                  ) : (
-                    <Upload className="cp-ic" />
-                  )}
-                </span>
-                <span className="cp-preset-label">{uploadedAvatar ? '重新选择' : '上传图片'}</span>
+                {uploadedAvatar ? <img src={uploadedAvatar} alt="自定义形态" /> : <Upload className="cp-ic" />}
               </button>
             </div>
+
+            <input
+              ref={adoptFileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={handlePickAdoptFile}
+            />
 
             <div className="cp-name-field">
               <input
@@ -729,12 +744,13 @@ const CompanionPage = ({ chatId, character, onBack }) => {
                 value={nameDraft}
                 onChange={(event) => setNameDraft(event.target.value.slice(0, 20))}
                 placeholder="给小伙伴起个名字"
+                maxLength={20}
                 autoComplete="off"
               />
               <small>{nameDraft.length}/20</small>
             </div>
 
-            <p className="cp-err" key={adoptError || 'ok'}>{adoptError}</p>
+            <p className="cp-err">{adoptError}</p>
 
             <button
               type="button"
@@ -745,40 +761,41 @@ const CompanionPage = ({ chatId, character, onBack }) => {
               {isAdopting ? '正在领养…' : '开始养它'}
             </button>
 
-            <p className="cp-note">
+            <p className="cp-adopt-note">
               形态图、名字之后都可以在这里随时重新上传/修改，场景领养之后也能换。
             </p>
           </div>
         </div>
+
+        {floatingBackButton}
       </div>
     );
   }
 
+  // ================= 主页 =================
   const bubbleText = feedback || statusLine;
-  const baseSceneUrl = shownSceneUrl || activeSceneUrl;
-  const sceneImageStyle = (url) => (url ? { backgroundImage: `url(${url})` } : undefined);
+  const lowStat = companion.satiety < 30 || companion.mood < 30;
 
   return (
-    <div
-      className="cp-root cp-home"
-      ref={rootRef}
-      data-expanded={sheetOpen ? '1' : undefined}
-    >
-      {/* 场景：整页铺满；换场景时新图层从右上角圆形展开 */}
-      <div className="cp-scene" aria-hidden="true">
-        <div className="cp-scene-bg" style={sceneImageStyle(baseSceneUrl)} />
-        {revealSceneUrl !== null && (
-          <div
-            className="cp-scene-bg cp-scene-reveal"
-            style={sceneImageStyle(revealSceneUrl)}
-          />
-        )}
-        <div className="cp-scene-veil" />
-        {!baseSceneUrl && revealSceneUrl === null && (
+    <div className="cp-root" ref={rootRef}>
+      {/* 场景：有图用图，没图（url 为空）就用兜底的天空 */}
+      <div className="cp-scene">
+        {activeScene?.url ? (
           <>
-            <i className="cp-cloud cp-cloud-a" />
-            <i className="cp-cloud cp-cloud-b" />
+            <div
+              className="cp-scene-bg cp-scene-img"
+              style={{ backgroundImage: `url(${activeScene.url})` }}
+            />
+            <div className="cp-scene-dim" />
           </>
+        ) : (
+          <div className="cp-sky">
+            <div className="orb" />
+            <i className="cloud c1" />
+            <i className="cloud c2" />
+            <i className="cloud c3" />
+            <div className="ground" />
+          </div>
         )}
       </div>
 
@@ -789,12 +806,12 @@ const CompanionPage = ({ chatId, character, onBack }) => {
         onClick={() => setShowScenePicker(true)}
         title="换场景"
         aria-label="换场景"
-        className="cp-round-btn cp-palette"
+        className="cp-round-btn right"
       >
         <Palette className="cp-ic" />
       </button>
 
-      {/* 特殊事件：吊牌，最多同时显示 2 个，点一下看详情/领取 */}
+      {/* 特殊事件吊牌：最多同时显示 2 个，点一下看详情/领取 */}
       {activeEvents.length > 0 && (
         <div className="cp-tags">
           {activeEvents.map((event) => (
@@ -806,81 +823,86 @@ const CompanionPage = ({ chatId, character, onBack }) => {
             >
               <b>{event.title}</b>
               <small>{event.bannerText}</small>
-              {!event.claimed && <span className="cp-tag-claim">领取</span>}
+              {!event.claimed && <span className="cp-claim">领取</span>}
             </button>
           ))}
         </div>
       )}
 
-      {/* 舞台：左右是果冻量杯，中间是小伙伴 */}
+      {/* 舞台：宠物居中，点一下会"戳一戳"；饱食度/心情收进左上角的小图标 */}
       <div className="cp-stage">
-        <StatBar icon={UtensilsCrossed} label="饱食度" value={companion.satiety} floaters={floaters} anchor="satiety" />
-
-        <div className={`cp-zone ${actionAnim ? `is-${actionAnim}` : ''}`}>
+        <div className={`cp-zone ${zoneFx ? `is-${zoneFx}` : ''}`}>
           <div className="cp-bubble">
-            <span key={bubbleText} className="cp-bubble-text">{bubbleText}</span>
+            <span key={bubbleText}>{bubbleText}</span>
           </div>
 
           <div className="cp-pet-wrap">
             <button
               type="button"
               onClick={handlePoke}
-              className={`cp-pet ${isPoking ? 'is-poking' : ''} ${hasPoked ? '' : 'has-hint'}`}
+              className={`cp-pet ${hasPoked ? '' : 'hint'} ${isPoking ? 'is-jelly' : ''}`}
               title="戳一戳"
               aria-label="戳一戳"
             >
               <span className="cp-pet-ring" />
-              <img
-                src={companion.avatarUrl}
-                alt={companion.name}
-                className="cp-pet-img"
-                draggable={false}
-              />
+              <span className="cp-pet-body">
+                <img src={companion.avatarUrl} alt={companion.name} />
+              </span>
+              <i className="cp-orn a" />
+              <i className="cp-orn b" />
+              <i className="cp-orn c" />
+              {companion.equippedOutfit && (
+                <span className="cp-outfit-tag">{companion.equippedOutfit}</span>
+              )}
             </button>
 
-            <i className="cp-orn cp-orn-a" />
-            <i className="cp-orn cp-orn-b" />
-            <i className="cp-orn cp-orn-c" />
+            <button
+              type="button"
+              data-cp-stats
+              onClick={() => setStatsOpen(!showStats)}
+              aria-label="查看饱食度和心情"
+              aria-expanded={showStats}
+              className={`cp-mini-fab stat ${showStats ? 'is-on' : ''} ${lowStat ? 'warn' : ''}`}
+            >
+              <Activity className="cp-ic" />
+            </button>
+
+            <div
+              data-cp-stats
+              role="group"
+              aria-label="状态"
+              aria-hidden={!showStats}
+              className={`cp-stat-pop ${showStats ? 'is-open' : ''}`}
+            >
+              <StatBar icon={UtensilsCrossed} label="饱食度" value={companion.satiety} floaters={floaters} anchor="satiety" tone="satiety" />
+              <StatBar icon={Sparkles} label="心情" value={companion.mood} floaters={floaters} anchor="mood" tone="mood" />
+            </div>
 
             <input
               ref={avatarInputRef}
               type="file"
               accept="image/*"
-              className="cp-hidden"
+              hidden
               onChange={handleChangeAvatar}
             />
             <button
               type="button"
               onClick={() => avatarInputRef.current?.click()}
-              className="cp-pet-edit"
-              title="更换形态图"
               aria-label="更换形态图"
+              title="更换形态图"
+              className="cp-mini-fab avatar"
             >
               <Upload className="cp-ic" />
             </button>
 
-            {companion.equippedOutfit && (
-              <span className="cp-outfit-tag">{companion.equippedOutfit}</span>
-            )}
-
-            <div className="cp-fx" aria-hidden="true">
-              {particles.map((item) => (
-                <i
-                  key={item.id}
-                  className={`cp-p cp-p-${item.kind}`}
-                  style={{
-                    '--dx': `${item.dx}px`,
-                    '--dy': `${item.dy}px`,
-                    '--s': `${item.size}px`,
-                    animationDelay: `${item.delay}ms`,
-                  }}
-                >
-                  {item.kind === 'heart' && <CompanionHeartIcon className="cp-ic" />}
+            <div className="cp-fx">
+              {particles.map((particle) => (
+                <i key={particle.id} className={`cp-p ${particle.type}`} style={particle.style}>
+                  {particle.type === 'heart-p' && <Heart className="cp-ic" fill="currentColor" stroke="none" />}
                 </i>
               ))}
             </div>
           </div>
-
           <div className="cp-pet-shadow" />
 
           <div className="cp-nameplate">
@@ -890,19 +912,19 @@ const CompanionPage = ({ chatId, character, onBack }) => {
                   type="text"
                   autoFocus
                   value={renameDraft}
+                  maxLength={20}
                   onChange={(event) => setRenameDraft(event.target.value.slice(0, 20))}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') void handleSaveRename();
                     if (event.key === 'Escape') handleCancelRename();
                   }}
-                  className="cp-rename-input"
                 />
                 <button
                   type="button"
                   onClick={handleSaveRename}
                   disabled={isSavingRename}
                   aria-label="保存名字"
-                  className="cp-mini-btn is-ok"
+                  className="cp-mini-btn ok"
                 >
                   <Check className="cp-ic" />
                 </button>
@@ -917,7 +939,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
               </>
             ) : (
               <>
-                <span className="cp-name">{companion.name}</span>
+                <span className="cp-nm">{companion.name}</span>
                 <button
                   type="button"
                   onClick={handleStartRename}
@@ -927,137 +949,105 @@ const CompanionPage = ({ chatId, character, onBack }) => {
                 >
                   <Pencil className="cp-ic" />
                 </button>
+                <span className="cp-heart-pill">
+                  <CompanionHeartIcon className="cp-heart-ic" />
+                  {companion.hearts}
+                  <FloatingNumbers floaters={floaters} anchor="hearts" color="var(--cp-heart)" />
+                </span>
               </>
             )}
-            <span className="cp-heart-pill">
-              <CompanionHeartIcon className="cp-ic" />
-              <span key={companion.hearts} className="cp-bump">{companion.hearts}</span>
-              <FloatingNumbers floaters={floaters} anchor="hearts" color="var(--cp-accent)" />
-            </span>
           </div>
         </div>
-
-        <StatBar icon={Sparkles} label="心情" value={companion.mood} floaters={floaters} anchor="mood" />
       </div>
 
-      {/* 底部抽屉：收起时只露出互动按钮，往上拖可以看动态和衣橱 */}
-      <div className="cp-sheet" ref={sheetRef}>
+      {/* 底部抽屉：收起时露出互动按钮，拖上来看动态/穿着 */}
+      <div className={`cp-sheet ${sheetOpen ? 'is-open' : ''}`} ref={sheetRef}>
         <div
           className="cp-sheet-peek"
           ref={peekRef}
-          onPointerDown={handleSheetPointerDown}
-          onPointerMove={handleSheetPointerMove}
-          onPointerUp={handleSheetPointerUp}
-          onPointerCancel={handleSheetPointerCancel}
+          onPointerDown={handlePeekPointerDown}
+          onPointerMove={handlePeekPointerMove}
+          onPointerUp={(event) => finishPeekDrag(event)}
+          onPointerCancel={(event) => finishPeekDrag(event, true)}
         >
-          <div
-            className="cp-grabber"
-            role="button"
-            tabIndex={0}
-            aria-label={sheetOpen ? '收起面板' : '展开面板'}
-            aria-expanded={sheetOpen}
-            onKeyDown={handleGrabberKeyDown}
-          >
-            <i />
-          </div>
-
+          <div className="cp-grabber"><i /></div>
           <div className="cp-dock">
-            {ACTIONS.map(({ id, label, icon: Icon, tone }) => (
+            {ACTIONS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 type="button"
                 disabled={isActing}
                 onClick={() => handleFreeAction(id)}
-                className={`cp-dock-btn cp-tone-${tone}`}
+                className={`cp-dock-btn ${id === 'feed' ? 'feed' : id === 'clean' ? 'clean' : 'play'}`}
               >
-                <span className="cp-dock-ico">
-                  <Icon className="cp-ic" />
-                </span>
+                <span className="cp-dock-ico"><Icon className="cp-ic" /></span>
                 {label}
               </button>
             ))}
-
             <button
               type="button"
               onClick={() => setShowShop(true)}
-              className="cp-dock-btn cp-tone-pink"
+              className="cp-dock-btn shop"
             >
               <span className="cp-dock-ico">
                 <Store className="cp-ic" />
-                <b className="cp-badge">
-                  <CompanionHeartIcon className="cp-ic" />
-                  {companion.hearts}
-                </b>
+                <b className="cp-badge">{companion.hearts}</b>
               </span>
-              去商店
+              商店
             </button>
           </div>
         </div>
 
         <div className="cp-sheet-body">
-          <div className="cp-tabs" data-tab={activeTab}>
-            <i className="cp-tabs-ind" />
+          <div className="cp-tabs">
+            <i className="ind" style={{ transform: sheetTab === 'logs' ? 'translateX(0)' : 'translateX(100%)' }} />
             <button
               type="button"
-              className={activeTab === 'logs' ? 'is-on' : ''}
-              onClick={() => setActiveTab('logs')}
+              className={sheetTab === 'logs' ? 'is-on' : ''}
+              onClick={() => setSheetTab('logs')}
             >
               最近的动态
             </button>
             <button
               type="button"
-              className={activeTab === 'outfit' ? 'is-on' : ''}
-              onClick={() => setActiveTab('outfit')}
+              className={sheetTab === 'outfit' ? 'is-on' : ''}
+              onClick={() => setSheetTab('outfit')}
             >
               穿着
             </button>
           </div>
 
-          <div className="cp-sheet-scroll">
-            {activeTab === 'logs' ? (
+          <div className="cp-panel-scroll">
+            {sheetTab === 'logs' ? (
               <div className="cp-timeline">
-                {logs.length === 0 && (
-                  <p className="cp-empty">还没有记录。</p>
-                )}
+                {logs.length === 0 && <p className="cp-empty">还没有记录。</p>}
                 {logs.map((log) => (
-                  <div
-                    key={log.id}
-                    className={`cp-log ${log.logType === 'co_care' ? 'is-co' : ''}`}
-                  >
+                  <div key={log.id} className={`cp-log ${log.logType === 'co_care' ? 'co' : ''}`}>
                     {log.logType === 'co_care' && (
-                      <span className="cp-log-who">
-                        {character?.name || 'TA'} 自己来看过：
-                      </span>
+                      <span className="who">{character?.name || 'TA'} 自己来看过：</span>
                     )}
                     {log.content}
                   </div>
                 ))}
               </div>
             ) : (
-              <div>
-                <p className="cp-outfit-now">
-                  当前穿着：{companion.equippedOutfit || '什么都没穿'}
-                </p>
-                {ownedClothingNames.length === 0 ? (
-                  <p className="cp-empty">还没有衣服，去商店看看吧。</p>
-                ) : (
-                  <div className="cp-hangers">
-                    {ownedClothingNames.map((item) => {
-                      const isOn = companion.equippedOutfit === item.name;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => handleToggleOutfit(item.name)}
-                          className={`cp-hanger ${isOn ? 'is-on' : ''}`}
-                          aria-pressed={isOn}
-                        >
-                          {item.name}
-                        </button>
-                      );
-                    })}
-                  </div>
+              <div className="cp-hangers">
+                {ownedClothingNames.length === 0 && (
+                  <p className="cp-empty">还没有衣服，去商店逛逛吧。</p>
                 )}
+                {ownedClothingNames.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleToggleOutfit(item.name)}
+                    className={`cp-hanger ${companion.equippedOutfit === item.name ? 'is-on' : ''}`}
+                  >
+                    <span className="cp-thumb">
+                      {item.url ? <img src={item.url} alt="" /> : <Shirt className="cp-ic" />}
+                    </span>
+                    {item.name}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -1088,22 +1078,24 @@ const CompanionPage = ({ chatId, character, onBack }) => {
       )}
 
       {eventPopup && (
-        <div className="cp-overlay">
-          <div className="cp-overlay-mask" onClick={() => setEventPopup(null)} />
-          <div className="cp-event-card">
+        <div className="cp-overlay center">
+          <div className="cp-backdrop" onClick={() => setEventPopup(null)} />
+          <div className="cp-panel cp-event-card">
             <div className="cp-gift" aria-hidden="true">
-              <i className="cp-gift-box" />
-              <i className="cp-gift-lid" />
-              <i className="cp-gift-rib" />
-              <i className="cp-gift-bow" />
+              <i className="box" />
+              <i className="lid" />
+              <i className="rib" />
+              <i className="bow" />
             </div>
-            <p className="cp-event-title">{eventPopup.title}</p>
-            <p className="cp-event-text">{eventPopup.bannerText}</p>
+
+            <h4>{eventPopup.title}</h4>
+            <p>{eventPopup.bannerText}</p>
             {eventPopup.grantsFoodId && (
-              <p className="cp-event-got">
+              <p className="got">
                 获得了「{findShopItem(eventPopup.grantsFoodId)?.name || '新食物'}」
               </p>
             )}
+
             <div className="cp-btn-row">
               <button
                 type="button"
@@ -1114,29 +1106,18 @@ const CompanionPage = ({ chatId, character, onBack }) => {
               </button>
               <button
                 type="button"
-                onClick={() => handleClaimEvent(eventPopup.id)}
-                className="cp-btn is-main"
+                disabled={isClaiming}
+                onClick={() => handleClaimWithFx(eventPopup.id)}
+                className="cp-btn main"
               >
                 知道啦
               </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {confettiKey > 0 && (
-        <div className="cp-confetti" key={confettiKey} aria-hidden="true">
-          {CONFETTI_PIECES.map((piece) => (
-            <i
-              key={piece.id}
-              className={`cp-conf cp-conf-${piece.tone}`}
-              style={{
-                '--dx': `${piece.dx}px`,
-                '--dy': `${piece.dy}px`,
-                '--r': `${piece.rot}deg`,
-              }}
-            />
-          ))}
+            {confetti.map((piece) => (
+              <i key={piece.id} className="cp-confetti" style={piece.style} />
+            ))}
+          </div>
         </div>
       )}
     </div>

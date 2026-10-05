@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, X } from 'lucide-react';
+import { Lock, Shirt, UtensilsCrossed } from 'lucide-react';
 
 import { COMPANION_STAT_LABELS, FOOD_TIERS, SHOP_CLOTHING_ITEMS, SHOP_FOOD_ITEMS } from './companionShopData';
 import CompanionHeartIcon from './CompanionHeartIcon';
@@ -15,6 +15,19 @@ const describeEffects = (effects) => (
     .filter(([, value]) => value)
     .map(([key, value]) => `${COMPANION_STAT_LABELS[key] || key} +${value}`)
     .join(' · ')
+);
+
+// 商品缩略图：有 url 就用图，没有就先放一个图标占位
+const ItemThumb = ({ item, kind }) => (
+  <span className="cp-thumb">
+    {item.url ? (
+      <img src={item.url} alt="" />
+    ) : kind === 'clothing' ? (
+      <Shirt className="cp-ic" />
+    ) : (
+      <UtensilsCrossed className="cp-ic" />
+    )}
+  </span>
 );
 
 /*
@@ -69,63 +82,37 @@ const CompanionShopModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div
-        className="absolute inset-0"
-        style={{ background: 'var(--modal-overlay)' }}
-        onClick={onClose}
-      />
+    <div className="cp-overlay">
+      <div className="cp-backdrop" onClick={onClose} />
 
-      <div
-        className="relative z-10 w-full max-w-[420px] overflow-hidden rounded-t-[2rem] p-5 sm:rounded-[2rem]"
-        style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-main)' }}
-      >
-        <div
-          className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full opacity-15"
-          style={{ background: 'var(--accent-color)' }}
-        />
+      <div className="cp-panel bottom">
+        <i className="cp-handle" />
 
-        <div className="relative mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-base font-medium">
-            <span>商店</span>
-            <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs" style={{ background: 'var(--control-soft-bg)' }}>
-              <CompanionHeartIcon className="h-3.5 w-3.5" style={{ color: 'var(--accent-color)' }} />
-              {hearts}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="关闭"
-            className="flex h-8 w-8 items-center justify-center rounded-full"
-            style={{ background: 'var(--control-soft-bg)' }}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <h3 className="cp-panel-title">
+          <span>商店</span>
+          <span className="cp-heart-pill">
+            <CompanionHeartIcon className="cp-heart-ic" />
+            {hearts}
+          </span>
+        </h3>
 
-        <div className="relative mb-4 flex gap-2">
+        <div className="cp-seg">
+          <i className="ind" style={{ transform: tab === 'food' ? 'translateX(0)' : 'translateX(100%)' }} />
           {[{ id: 'food', label: '食物' }, { id: 'clothing', label: '衣服' }].map((option) => (
             <button
               key={option.id}
               type="button"
               onClick={() => setTab(option.id)}
-              className="rounded-full px-4 py-1.5 text-xs"
-              style={{
-                background: tab === option.id ? 'var(--accent-color)' : 'var(--control-soft-bg)',
-                color: tab === option.id ? 'var(--accent-foreground)' : 'var(--text-main)',
-              }}
+              className={tab === option.id ? 'is-on' : ''}
             >
               {option.label}
             </button>
           ))}
         </div>
 
-        {error && (
-          <p className="relative mb-2 text-[11px]" style={{ color: '#e0685a' }}>{error}</p>
-        )}
+        {error && <p className="cp-error">{error}</p>}
 
-        <div className="relative max-h-[40vh] space-y-2.5 overflow-y-auto">
+        <div className="cp-shop-list">
           {list.map((item) => {
             const owned = tab === 'clothing' && ownedClothingIds.includes(item.id);
             const isRareLocked = tab === 'food' && item.tier === FOOD_TIERS.RARE && !unlockedRareFoodIds.includes(item.id);
@@ -133,25 +120,16 @@ const CompanionShopModal = ({
             const tierLabel = tab === 'food' ? TIER_LABELS[item.tier] : null;
 
             return (
-              <div
-                key={item.id}
-                className="flex items-center justify-between rounded-[1.25rem] px-4 py-3"
-                style={{ background: 'var(--control-soft-bg)' }}
-              >
-                <div>
-                  <p className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--text-main)' }}>
+              <div key={item.id} className="cp-shop-row">
+                <ItemThumb item={item} kind={tab} />
+
+                <div className="cp-shop-info">
+                  <p className="cp-shop-name">
                     {item.name}
-                    {tierLabel && (
-                      <span
-                        className="rounded-full px-1.5 py-0.5 text-[9px]"
-                        style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
-                      >
-                        {tierLabel}
-                      </span>
-                    )}
+                    {tierLabel && <span className="cp-tier">{tierLabel}</span>}
                   </p>
                   {tab === 'food' && (
-                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    <p className="cp-shop-fx">
                       {isRareLocked ? '先触发特殊事件解锁' : describeEffects(item.effects)}
                     </p>
                   )}
@@ -161,17 +139,16 @@ const CompanionShopModal = ({
                   type="button"
                   disabled={owned || isRareLocked || !canAfford || pendingId === item.id}
                   onClick={() => handleBuy(item)}
-                  className="flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] disabled:opacity-50"
-                  style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+                  className="cp-buy"
                 >
                   {owned ? (
                     '已拥有'
                   ) : isRareLocked ? (
-                    <Lock className="h-3 w-3" />
+                    <Lock className="cp-ic" />
                   ) : (
                     <>
                       {item.price}
-                      <CompanionHeartIcon className="h-3 w-3" />
+                      <CompanionHeartIcon className="cp-heart-ic" />
                     </>
                   )}
                 </button>
@@ -181,31 +158,25 @@ const CompanionShopModal = ({
         </div>
 
         {tab === 'food' && legendaryOwned.length > 0 && (
-          <div className="relative mt-4 border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
-            <p className="mb-2 text-[11px]" style={{ color: 'var(--text-sub)' }}>
-              传说食物（库存，只能靠事件获得）
-            </p>
-            <div className="space-y-2.5">
+          <div className="cp-legendary">
+            <p>传说食物（库存，只能靠事件获得）</p>
+            <div className="cp-shop-list">
               {legendaryOwned.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between rounded-[1.25rem] px-4 py-3"
-                  style={{ background: 'var(--control-soft-bg)' }}
-                >
-                  <div>
-                    <p className="text-[13px]" style={{ color: 'var(--text-main)' }}>
+                <div key={item.id} className="cp-shop-row">
+                  <ItemThumb item={item} kind="food" />
+
+                  <div className="cp-shop-info">
+                    <p className="cp-shop-name">
                       {item.name} × {legendaryStock[item.id]}
                     </p>
-                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                      {describeEffects(item.effects)}
-                    </p>
+                    <p className="cp-shop-fx">{describeEffects(item.effects)}</p>
                   </div>
+
                   <button
                     type="button"
                     disabled={pendingId === item.id}
                     onClick={() => handleUseLegendary(item)}
-                    className="rounded-full px-3.5 py-1.5 text-[11px] disabled:opacity-50"
-                    style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+                    className="cp-buy"
                   >
                     吃掉
                   </button>
@@ -214,6 +185,10 @@ const CompanionShopModal = ({
             </div>
           </div>
         )}
+
+        <button type="button" className="cp-close-link" onClick={onClose}>
+          先逛到这里
+        </button>
       </div>
     </div>
   );
