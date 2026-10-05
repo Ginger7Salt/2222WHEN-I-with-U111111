@@ -34,6 +34,7 @@ import { applyPwaIcon } from '../../services/pwaIconService';
 import AppNameDisplaySettings from './AppNameDisplaySettings';
 import { APP_NAME_DISPLAY_EN } from '../hub/useAppNameDisplayMode';
 import HubHeaderLayoutSettings from './HubHeaderLayoutSettings';
+import LoveProfileSettings from '../messages/loveProfile/LoveProfileSettings';
 import { HUB_HEADER_LAYOUT_CLASSIC } from '../hub/hubHeaderLayouts/registry';
 
 import PetWidgetSettings from '../pet/PetWidgetSettings';
@@ -1248,6 +1249,11 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
         />
       </GlassCard>
 
+
+          {/* 情感偏好问卷（自带保存，不依赖本页底部的保存按钮） */}
+      <GlassCard className="space-y-4 text-left">
+        <LoveProfileSettings />
+      </GlassCard>
 
       {/* 2. 加载页文案库 */}
 <GlassCard className="space-y-4 text-left">

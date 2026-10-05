@@ -25,6 +25,7 @@ import LearningModeSettingsSection from '../learningMode/LearningModeSettingsSec
 import db from '../../../db';
 import { CHAT_CONTROL_STYLE_OPTIONS } from '../chatControlStylePresets';
 import { compressImageFile } from '../../../utils/imageHelper';
+import ChatLoveProfileSection from '../loveProfile/ChatLoveProfileSection';
 import {
   CHARACTER_ANALYSIS_PRESETS,
   DEFAULT_CHARACTER_ANALYSIS_PROMPT,
@@ -1058,6 +1059,9 @@ const handleToggleLocation = async () => {
             )}
           </div>
         </div>
+
+         {/* 情感偏好（单窗覆盖，全局默认在设置页） */}
+        <ChatLoveProfileSection chat={chat} onUpdated={onUpdatedUserPersona} />
 
  {/* 地理位置 */}
 <div

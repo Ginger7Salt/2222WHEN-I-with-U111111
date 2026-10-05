@@ -109,6 +109,7 @@ import {
 import {
   buildCharacterAnalysisPromptBlock,
 } from '../apps/messages/characterAnalysisPrompt';
+import { getLoveProfilePromptBlock } from '../apps/messages/loveProfile/loveProfileService';
 
 
 import {
@@ -1224,12 +1225,15 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
         ))
         .join('\n')}`
     : '';
-      const characterAnalysisPromptBlock =
+            const characterAnalysisPromptBlock =
     buildCharacterAnalysisPromptBlock({
       enabled: chat.characterAnalysisEnabled === true,
       customPrompt: chat.characterAnalysisPrompt,
     });
 
+  // 情感偏好问卷：全局默认 + 单窗覆盖，没填过问卷时返回空串，
+  // 行为和这个功能不存在时完全一致。内部已经 try/catch，不会抛错。
+  const loveProfilePromptBlock = await getLoveProfilePromptBlock(chat);
   // 角色聊自己的话题：复用 dailyLifeTopicPicker.js 里碎碎念/今日安排/
   // 拍立得动态已经在用的那套话题池（npc 动态 / 资讯 / 单纯想到用户 /
   // 自己的工作爱好），接进正式聊天的系统提示词——但不是每次回复都塞，
@@ -1422,7 +1426,8 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
     summaryText: summaryText.length,
     todoText: todoText.length,
     diaryText: diaryText.length,
-    characterAnalysisPromptBlock: characterAnalysisPromptBlock.length,
+        characterAnalysisPromptBlock: characterAnalysisPromptBlock.length,
+    loveProfilePromptBlock: loveProfilePromptBlock.length,
     dailyLifeTopicBlock: dailyLifeTopicBlock.length,
     userInterestBlock: userInterestBlock.length,
     stickerInstruction: stickerInstruction.length,
@@ -1455,6 +1460,7 @@ ${summaryText}
 ${todoText}
 ${diaryText}
 ${characterAnalysisPromptBlock}
+${loveProfilePromptBlock}
 ${dailyLifeTopicBlock}
 ${userInterestBlock}
 ${chat.mode === 'work' ? `【表达准则】：
