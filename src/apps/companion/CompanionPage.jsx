@@ -9,6 +9,7 @@ import {
   Palette,
   Pencil,
   Shirt,
+  ShoppingBag,
   Sparkles,
   Store,
   Upload,
@@ -136,6 +137,51 @@ const ACTION_FX = {
   feed: { zone: 'munch', particle: 'crumb', count: 8, gap: 80, ms: 1400 },
   clean: { zone: 'wiggle', particle: 'bubble-p', count: 10, gap: 70, ms: 900 },
   play: { zone: 'hop', particle: 'spark', count: 9, gap: 40, ms: 950 },
+};
+
+// ---- 动态时间线：按内容给每条动态配一张小贴纸（吃/玩/洗/换装/购物/改名/来看过） ----
+const LOG_KINDS = {
+  feed: { label: '喂食', icon: UtensilsCrossed },
+  clean: { label: '清洁', icon: Droplets },
+  play: { label: '玩耍', icon: Gamepad2 },
+  outfit: { label: '换装', icon: Shirt },
+  buy: { label: '购物', icon: ShoppingBag },
+  rename: { label: '改名', icon: Pencil },
+  visit: { label: '来看过', icon: Heart },
+  other: { label: '动态', icon: Sparkles },
+};
+
+const matchLogKind = (text) => {
+  const value = String(text || '').toLowerCase();
+  if (!value) return null;
+  if (/feed|food|eat|喂|吃|点心|好吃/.test(value)) return 'feed';
+  if (/clean|wash|bath|洗|澡|清洁/.test(value)) return 'clean';
+  if (/play|玩|陪/.test(value)) return 'play';
+  if (/outfit|equip|cloth|换上|穿|衣|围巾|帽/.test(value)) return 'outfit';
+  if (/buy|purchase|shop|买|购|商店/.test(value)) return 'buy';
+  if (/rename|改名|名字/.test(value)) return 'rename';
+  return null;
+};
+
+// 先看 logType，认不出来再从内容里找关键词
+const getLogKind = (log) => {
+  if (log.logType === 'co_care') return 'visit';
+  return matchLogKind(log.logType) || matchLogKind(log.content) || 'other';
+};
+
+// 如果日志里带了时间（createdAt / created_at / timestamp），就显示成“刚刚 / 5 分钟前 / 3/14”
+const formatLogTime = (log) => {
+  const raw = log.createdAt ?? log.created_at ?? log.timestamp;
+  if (raw === undefined || raw === null || raw === '') return '';
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes} 分钟前`;
+  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)} 小时前`;
+  return `${date.getMonth() + 1}/${date.getDate()}`;
 };
 
 const FLOATER_LIFETIME_MS = 1100;
@@ -1025,17 +1071,31 @@ const CompanionPage = ({ chatId, character, onBack }) => {
 
           <div className="cp-panel-scroll">
             {sheetTab === 'logs' ? (
-              <div className="cp-timeline">
-                {logs.length === 0 && <p className="cp-empty">还没有记录。</p>}
-                {logs.map((log) => (
-                  <div key={log.id} className={`cp-log ${log.logType === 'co_care' ? 'co' : ''}`}>
-                    {log.logType === 'co_care' && (
-                      <span className="who">{character?.name || 'TA'} 自己来看过：</span>
-                    )}
-                    {log.content}
-                  </div>
-                ))}
-              </div>
+              <ul className="cp-tl">
+                {logs.length === 0 && <li className="cp-empty">还没有记录，喂喂它、陪它玩一会儿吧～</li>}
+                {logs.map((log, index) => {
+                  const kind = getLogKind(log);
+                  const { label, icon: KindIcon } = LOG_KINDS[kind];
+                  const time = formatLogTime(log);
+
+                  return (
+                    <li
+                      key={log.id}
+                      className={`cp-tl-item ${kind}`}
+                      style={{ '--i': Math.min(index, 8) }}
+                    >
+                      <span className="cp-sticker"><KindIcon className="cp-ic" /></span>
+                      <div className="cp-tl-bubble">
+                        <div className="cp-tl-meta">
+                          <b>{kind === 'visit' ? `${character?.name || 'TA'} 自己来看过` : label}</b>
+                          {time && <time>{time}</time>}
+                        </div>
+                        <p>{log.content}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             ) : (
               <div className="cp-hangers">
                 {ownedClothingNames.length === 0 && (
@@ -1069,6 +1129,8 @@ const CompanionPage = ({ chatId, character, onBack }) => {
           onBuy={handleBuy}
           onUseLegendary={handleUseLegendaryFood}
           onClose={() => setShowShop(false)}
+          shopkeeperUrl={companion.avatarUrl}
+          shopkeeperName={companion.name}
         />
       )}
 

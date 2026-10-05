@@ -65,35 +65,36 @@ export const FOOD_TIERS = {
  */
 export const SHOP_FOOD_ITEMS = [
   // ---- 普通 ----
-  { id: 'food-rice-ball', name: '小饭团', category: 'food', tier: FOOD_TIERS.COMMON, price: 8, effects: { satiety: 15 }, url: '' },
-  { id: 'food-boiled-egg', name: '白水煮蛋', category: 'food', tier: FOOD_TIERS.COMMON, price: 6, effects: { satiety: 12 }, url: '' },
-  { id: 'food-sweet-tofu', name: '甜豆花', category: 'food', tier: FOOD_TIERS.COMMON, price: 7, effects: { mood: 12 }, url: '' },
-  { id: 'food-pumpkin-porridge', name: '南瓜粥', category: 'food', tier: FOOD_TIERS.COMMON, price: 12, effects: { satiety: 20 }, url: '' },
-  { id: 'food-strawberry-jelly', name: '草莓果冻', category: 'food', tier: FOOD_TIERS.COMMON, price: 10, effects: { mood: 15 }, url: '' },
-  { id: 'food-honey-toast', name: '蜂蜜吐司', category: 'food', tier: FOOD_TIERS.COMMON, price: 11, effects: { satiety: 18, mood: 8 }, url: '' },
-  { id: 'food-apple-slice', name: '苹果片', category: 'food', tier: FOOD_TIERS.COMMON, price: 5, effects: { satiety: 8 }, url: '' },
-  { id: 'food-matcha-cookie', name: '抹茶饼干', category: 'food', tier: FOOD_TIERS.COMMON, price: 8, effects: { mood: 10, satiety: 6 }, url: '' },
+  { id: 'food-rice-ball', name: '小饭团', category: 'food', tier: FOOD_TIERS.COMMON, price: 8, effects: { satiety: 15 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/kdb2/1292X1292/food_%282%29.png/webp' },
+  { id: 'food-boiled-egg', name: '白水煮蛋', category: 'food', tier: FOOD_TIERS.COMMON, price: 6, effects: { satiety: 12 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/7jcJ/1257X1234/food_%283%29.png/webp' },
+  { id: 'food-sweet-tofu', name: '甜豆花', category: 'food', tier: FOOD_TIERS.COMMON, price: 7, effects: { mood: 12 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/SZGx/1343X1230/food_%284%29.png/webp' },
+  { id: 'food-pumpkin-porridge', name: '南瓜粥', category: 'food', tier: FOOD_TIERS.COMMON, price: 12, effects: { satiety: 20 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/8ByB/1479X1203/food_%285%29.png/webp' },
+  { id: 'food-strawberry-jelly', name: '草莓果冻', category: 'food', tier: FOOD_TIERS.COMMON, price: 10, effects: { mood: 15 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/Zy3L/890X830/food_%2817%29.png/webp' },
+  { id: 'food-honey-toast', name: '蜂蜜吐司', category: 'food', tier: FOOD_TIERS.COMMON, price: 11, effects: { satiety: 18, mood: 8 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/lDBZ/1376X1292/food_%287%29.png/webp' },
+  { id: 'food-apple-slice', name: '苹果片', category: 'food', tier: FOOD_TIERS.COMMON, price: 5, effects: { satiety: 8 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/FF5O/1420X1569/food_%288%29.png/webp' },
+  { id: 'food-matcha-cookie', name: '抹茶饼干', category: 'food', tier: FOOD_TIERS.COMMON, price: 8, effects: { mood: 10, satiety: 6 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/eUWE/1311X1050/food_%289%29.png/webp' },
 
   // ---- 稀有（需事件解锁）----
-  { id: 'food-sakura-mochi', name: '樱花年糕', category: 'food', tier: FOOD_TIERS.RARE, price: 35, effects: { mood: 30 }, url: '' },
-  { id: 'food-cream-puff', name: '奶油泡芙', category: 'food', tier: FOOD_TIERS.RARE, price: 40, effects: { satiety: 35, mood: 20 }, url: '' },
-  { id: 'food-onsen-egg', name: '溏心温泉蛋', category: 'food', tier: FOOD_TIERS.RARE, price: 45, effects: { satiety: 20, mood: 20 }, url: '' },
-  { id: 'food-mint-lemon-tart', name: '薄荷柠檬挞', category: 'food', tier: FOOD_TIERS.RARE, price: 38, effects: { mood: 25 }, url: '' },
-  { id: 'food-matcha-millefeuille', name: '抹茶千层', category: 'food', tier: FOOD_TIERS.RARE, price: 42, effects: { satiety: 30, mood: 25 }, url: '' },
-  { id: 'food-cheese-sweet-potato', name: '芝士焗红薯', category: 'food', tier: FOOD_TIERS.RARE, price: 48, effects: { satiety: 40, mood: 20 }, url: '' },
-  { id: 'food-strawberry-daifuku', name: '草莓大福', category: 'food', tier: FOOD_TIERS.RARE, price: 40, effects: { satiety: 15, mood: 35 }, url: '' },
-  { id: 'food-rose-pudding', name: '玫瑰奶冻', category: 'food', tier: FOOD_TIERS.RARE, price: 50, effects: { mood: 40 }, url: '' },
+  { id: 'food-sakura-mochi', name: '樱花年糕', category: 'food', tier: FOOD_TIERS.RARE, price: 35, effects: { mood: 30 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/XrqL/803X702/food_%2810%29.png/webp' },
+  { id: 'food-cream-puff', name: '奶油泡芙', category: 'food', tier: FOOD_TIERS.RARE, price: 40, effects: { satiety: 35, mood: 20 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/tXIj/762X827/food_%2811%29.png/webp' },
+  { id: 'food-onsen-egg', name: '溏心温泉蛋', category: 'food', tier: FOOD_TIERS.RARE, price: 45, effects: { satiety: 20, mood: 20 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/SEsl/800X756/food_%2812%29.png/webp' },
+  { id: 'food-mint-lemon-tart', name: '薄荷柠檬挞', category: 'food', tier: FOOD_TIERS.RARE, price: 38, effects: { mood: 25 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/Tbcy/841X1036/food_%2813%29.png/webp' },
+  { id: 'food-matcha-millefeuille', name: '抹茶千层', category: 'food', tier: FOOD_TIERS.RARE, price: 42, effects: { satiety: 30, mood: 25 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/sPsK/817X745/food_%2814%29.png/webp' },
+  { id: 'food-cheese-sweet-potato', name: '芝士焗红薯', category: 'food', tier: FOOD_TIERS.RARE, price: 48, effects: { satiety: 40, mood: 20 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/I6Za/838X735/food_%2815%29.png/webp' },
+  { id: 'food-strawberry-daifuku', name: '草莓大福', category: 'food', tier: FOOD_TIERS.RARE, price: 40, effects: { satiety: 15, mood: 35 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/gJ4G/844X803/food_%2816%29.png/webp' },
+  { id: 'food-rose-pudding', name: '玫瑰奶冻', category: 'food', tier: FOOD_TIERS.RARE, price: 50, effects: { mood: 40 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/zfZT/1626X1283/food_%286%29.png/webp' },
 
   // ---- 传说（只能靠事件获得，不能用心心买）----
-  { id: 'food-starry-jelly', name: '星空果冻', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 40, mood: 40 }, url: '' },
-  { id: 'food-golden-chestnut-rice', name: '黄金栗子饭', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 100 }, url: '' },
-  { id: 'food-dream-macaron', name: '梦境马卡龙', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { mood: 100 }, url: '' },
-  { id: 'food-shooting-star-candy', name: '流星糖葫芦', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 30, mood: 30 }, url: '' },
-  { id: 'food-first-snow-matcha-roll', name: '初雪抹茶卷', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { mood: 50 }, url: '' },
-  { id: 'food-rainbow-honey-cake', name: '彩虹蜂蜜蛋糕', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 30, mood: 30 }, grantHearts: 20, url: '' },
-  { id: 'food-time-cream-pudding', name: '时光奶油冻', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 50, mood: 50 }, url: '' },
-  { id: 'food-lucky-cookie', name: '幸运饼干', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { mood: 15 }, triggersRandomEvent: true, url: '' },
+  { id: 'food-starry-jelly', name: '星空果冻', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 40, mood: 40 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/IhXA/923X1103/food_%2818%29.png/webp' },
+  { id: 'food-golden-chestnut-rice', name: '黄金栗子饭', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 100 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/yiGN/782X792/food_%281%29.png/webp' },
+  { id: 'food-dream-macaron', name: '梦境马卡龙', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { mood: 100 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/7UFe/678X934/food_%2819%29.png/webp' },
+  { id: 'food-shooting-star-candy', name: '流星糖葫芦', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 30, mood: 30 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/U6rw/681X1175/food_%2820%29.png/webp' },
+  { id: 'food-first-snow-matcha-roll', name: '初雪抹茶卷', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { mood: 50 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/Wt4r/900X938/food_%2821%29.png/webp' },
+  { id: 'food-rainbow-honey-cake', name: '彩虹蜂蜜蛋糕', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 30, mood: 30 }, grantHearts: 20, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/BiQ0/889X986/food_%2822%29.png/webp' },
+  { id: 'food-time-cream-pudding', name: '时光奶油冻', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 50, mood: 50 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/Vy2E/881X868/food_%2823%29.png/webp' },
+  { id: 'food-lucky-cookie', name: '幸运饼干', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { mood: 15 }, triggersRandomEvent: true, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/xdZZ/986X687/food_%2824%29.png/webp' },
 ];
+
 
 /*
  * 衣服：纯文字，买下后永久拥有，可在"穿着"里选择要不要穿上；
@@ -136,10 +137,26 @@ const placeholderSceneSvg = (from, to, label) => {
 
 // 免费场景：领养之后就可以直接四选一，不需要解锁/购买。
 export const COMPANION_SCENES = [
-  { id: 'scene-a', label: '场景 A', url: placeholderSceneSvg('#F7D9B6', '#F2A65A', '场景 A') },
-  { id: 'scene-b', label: '场景 B', url: placeholderSceneSvg('#BFE3D0', '#6FA98C', '场景 B') },
-  { id: 'scene-c', label: '场景 C', url: placeholderSceneSvg('#C9D9F2', '#7B93C4', '场景 C') },
-  { id: 'scene-d', label: '场景 D', url: placeholderSceneSvg('#EAC6D6', '#C97FA0', '场景 D') },
+  { 
+    id: 'scene-a', 
+    label: '场景 A', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/rwkG/960X1280/beij_%288%29.png/webp' 
+  },
+  { 
+    id: 'scene-b', 
+    label: '场景 B', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/xXZu/960X1280/beij_%287%29.png/webp' 
+  },
+  { 
+    id: 'scene-c', 
+    label: '场景 C', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/w3tg/960X1280/beij_%286%29.png/webp' 
+  },
+  { 
+    id: 'scene-d', 
+    label: '场景 D', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/3ZRt/960X1280/beij_%2815%29.png/webp' 
+  },
 ];
 
 /*
@@ -148,11 +165,71 @@ export const COMPANION_SCENES = [
  * 同一套"买过就不用再买"判断逻辑。
  */
 export const SHOP_SCENE_ITEMS = [
-  { id: 'scene-e', label: '场景 E · 向日葵田', category: 'scene', price: 30, url: placeholderSceneSvg('#FDE9A8', '#F2C94C', '场景 E') },
-  { id: 'scene-f', label: '场景 F · 深夜书房', category: 'scene', price: 35, url: placeholderSceneSvg('#CBD2E8', '#6B7399', '场景 F') },
-  { id: 'scene-g', label: '场景 G · 海边小屋', category: 'scene', price: 35, url: placeholderSceneSvg('#A8DDE0', '#4E9AA3', '场景 G') },
-  { id: 'scene-h', label: '场景 H · 雪夜灯笼', category: 'scene', price: 40, url: placeholderSceneSvg('#DCE6F2', '#8FA3C2', '场景 H') },
+  { 
+    id: 'scene-e', 
+    label: '场景 E', 
+    category: 'scene', 
+    price: 30, 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/2Ebq/960X1280/beij_%284%29.png/webp' 
+  },
+  { 
+    id: 'scene-f', 
+    label: '场景 F', 
+    category: 'scene', 
+    price: 35, 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/HQts/960X1280/beij_%283%29.png/webp' 
+  },
+  { 
+    id: 'scene-g', 
+    label: '场景 G', 
+    category: 'scene', 
+    price: 35, 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/nded/960X1280/beij_%282%29.png/webp' 
+  },
+  { 
+    id: 'scene-h', 
+    label: '场景 H', 
+    category: 'scene', 
+    price: 40, 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/4kfB/960X1280/beij_%2814%29.png/webp' 
+  },
+  { 
+    id: 'scene-i', 
+    label: '场景 I', 
+    category: 'scene', 
+    price: 40, 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/Zztv/960X1280/beij_%2813%29.png/webp' 
+  },
+  { 
+    id: 'scene-j', 
+    label: '场景 J', 
+    category: 'scene', 
+    price: 45, 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/GPuz/960X1280/beij_%2812%29.png/webp' 
+  },
+  { 
+    id: 'scene-k', 
+    label: '场景 K', 
+    category: 'scene', 
+    price: 45, 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/3w94/960X1280/beij_%2811%29.png/webp' 
+  },
+  { 
+    id: 'scene-l', 
+    label: '场景 L', 
+    category: 'scene', 
+    price: 50, 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/MIQ9/960X1280/beij_%289%29.png/webp' 
+  },
+  { 
+    id: 'scene-m', 
+    label: '场景 M', 
+    category: 'scene', 
+    price: 50, 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/G1CS/960X1280/beij_%2810%29.png/webp' 
+  },
 ];
+
 
 export const findScene = (sceneId) => (
   COMPANION_SCENES.find((scene) => scene.id === sceneId)

@@ -322,12 +322,6 @@
 .cp-tabs button { position: relative; padding: 8px 0; font-size: 13px; font-weight: 800; color: var(--cp-muted); transition: color 0.2s; }
 .cp-tabs button.is-on { color: var(--cp-text); }
 .cp-panel-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 2px 24px; overscroll-behavior: contain; }
-.cp-timeline { position: relative; padding-left: 22px; }
-.cp-timeline::before { content: ""; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: repeating-linear-gradient(var(--cp-border) 0 6px, transparent 6px 11px); }
-.cp-log { position: relative; margin-bottom: 10px; padding: 10px 14px; border-radius: 6px 18px 18px 18px; background: var(--cp-soft); font-size: 12.5px; line-height: 1.55; }
-.cp-log::before { content: ""; position: absolute; left: -21px; top: 14px; width: 11px; height: 11px; border-radius: 50%; background: var(--cp-accent); border: 3px solid var(--cp-card); }
-.cp-log.co { background: var(--cp-accent-soft); }
-.cp-log .who { display: block; font-size: 11px; font-weight: 800; color: var(--cp-accent); margin-bottom: 1px; }
 .cp-empty { margin: 0; font-size: 12px; color: var(--cp-muted); text-align: center; padding: 14px; }
 
 .cp-hangers { display: flex; gap: 12px; overflow-x: auto; padding: 14px 4px 10px; scrollbar-width: none; }
@@ -375,17 +369,6 @@
 .cp-close-link:active { transform: scale(0.92); }
 .cp-error { margin: 0 0 8px; font-size: 12px; font-weight: 700; color: #E0685A; }
 
-/* 商店 */
-.cp-seg { position: relative; flex: none; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; margin-bottom: 12px; border-radius: 99px; background: var(--cp-soft); }
-.cp-seg .ind { position: absolute; left: 4px; top: 4px; bottom: 4px; width: calc(50% - 4px); border-radius: 99px; background: var(--cp-card); box-shadow: 0 3px 8px -4px var(--cp-shadow); transition: transform 0.4s cubic-bezier(0.3, 1.5, 0.5, 1); }
-.cp-seg button { position: relative; padding: 8px 0; font-size: 13px; font-weight: 800; color: var(--cp-muted); transition: color 0.2s; }
-.cp-seg button.is-on { color: var(--cp-text); }
-.cp-shop-list { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 2px; }
-.cp-shop-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 22px; background: var(--cp-soft); }
-.cp-shop-row .cp-thumb { margin: 0; flex: none; width: 48px; height: 48px; border-radius: 15px; font-size: 20px; }
-.cp-shop-info { flex: 1; min-width: 0; }
-.cp-shop-name { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; }
-.cp-shop-fx { margin: 2px 0 0; font-size: 10.5px; color: var(--cp-muted); line-height: 1.4; }
 .cp-tier { padding: 1px 7px; border-radius: 99px; font-size: 9.5px; font-weight: 800; background: var(--cp-accent); color: var(--cp-on-accent); }
 .cp-buy {
   flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 7px 14px; border-radius: 99px; font-size: 12px; font-weight: 800;
@@ -394,8 +377,6 @@
 .cp-buy:active:not(:disabled) { transform: scale(0.88); }
 .cp-buy:disabled { opacity: 0.5; }
 .cp-buy .cp-heart-ic { width: 12px; height: 12px; }
-.cp-legendary { flex: none; margin-top: 14px; padding-top: 12px; border-top: 2px dashed var(--cp-border); }
-.cp-legendary > p { margin: 0 0 8px; font-size: 11.5px; font-weight: 800; color: var(--cp-sub); }
 
 /* 场景选择 */
 .cp-scene-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; overflow-y: auto; padding: 4px 2px; }
@@ -500,3 +481,144 @@
 @media (prefers-reduced-motion: reduce) {
   .cp-root *, .cp-root *::before, .cp-root *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+
+/* =========================================================
+ * 7. 动态：带小贴纸的时间线
+ * ========================================================= */
+.cp-tl { list-style: none; margin: 0; padding: 0; position: relative; }
+.cp-tl::before { content: ""; position: absolute; left: 18px; top: 14px; bottom: 14px; width: 3px; border-radius: 3px; background: repeating-linear-gradient(var(--cp-border) 0 6px, transparent 6px 11px); }
+.cp-tl .cp-empty { position: relative; padding: 18px 8px; }
+.cp-tl-item {
+  --k-bg: var(--cp-soft); --k-fg: var(--cp-muted); --k-soft: var(--cp-soft);
+  position: relative; display: grid; grid-template-columns: 40px 1fr; gap: 10px; margin-bottom: 12px;
+  animation: cp-tl-in 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; animation-delay: calc(var(--i, 0) * 45ms);
+}
+.cp-tl-item.feed { --k-bg: var(--cp-butter-bg); --k-fg: var(--cp-butter-fg); --k-soft: #FFF9E3; }
+.cp-tl-item.clean { --k-bg: var(--cp-sky-bg); --k-fg: var(--cp-sky-fg); --k-soft: #EBF5FF; }
+.cp-tl-item.play { --k-bg: var(--cp-mint-bg); --k-fg: var(--cp-mint-fg); --k-soft: #E9F9F2; }
+.cp-tl-item.outfit { --k-bg: var(--cp-accent-soft); --k-fg: var(--cp-accent); --k-soft: #EDF5FF; }
+.cp-tl-item.buy, .cp-tl-item.visit { --k-bg: var(--cp-heart-soft); --k-fg: var(--cp-heart); --k-soft: #FFF2F5; }
+.cp-tl-item.rename { --k-bg: var(--cp-soft); --k-fg: var(--cp-sub); --k-soft: var(--cp-soft); }
+@keyframes cp-tl-in { from { opacity: 0; transform: translateX(-16px) scale(0.92); } to { opacity: 1; transform: none; } }
+
+.cp-sticker {
+  position: relative; z-index: 1; justify-self: center; align-self: start; width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 18px; background: var(--k-bg); color: var(--k-fg);
+  border: 3px solid #fff; box-shadow: 0 0 0 1.5px var(--cp-border), 0 6px 8px -5px var(--cp-shadow);
+  transform: rotate(-8deg); transition: transform 0.3s cubic-bezier(0.3, 1.8, 0.5, 1);
+}
+.cp-sticker::before { content: ""; position: absolute; left: 5px; top: 4px; width: 11px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.7); transform: rotate(-30deg); }
+.cp-tl-item:nth-child(3n + 2) .cp-sticker { transform: rotate(7deg); }
+.cp-tl-item:nth-child(3n) .cp-sticker { transform: rotate(-2deg); }
+.cp-tl-item:active .cp-sticker { transform: rotate(14deg) scale(1.15); }
+
+.cp-tl-bubble { position: relative; padding: 9px 13px 10px; border-radius: 6px 18px 18px 18px; background: var(--k-soft); border: 1.5px solid var(--k-bg); }
+.cp-tl-bubble::before { content: ""; position: absolute; left: -7px; top: 13px; width: 0; height: 0; border: 6px solid transparent; border-left: 0; border-right-color: var(--k-bg); }
+.cp-tl-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; font-size: 11px; }
+.cp-tl-meta b { font-weight: 800; color: var(--k-fg); }
+.cp-tl-meta time { margin-left: auto; color: var(--cp-muted); font-weight: 700; }
+.cp-tl-bubble p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--cp-text); }
+
+/* =========================================================
+ * 8. 商店：小摊 + 漂浮气泡
+ * ========================================================= */
+.cp-panel.bottom.cp-stall { padding: 0 0 calc(14px + env(safe-area-inset-bottom, 0px)); height: 88%; max-height: 88%; overflow: hidden; }
+
+/* 遮阳棚 */
+.cp-awning {
+  position: relative; flex: none; z-index: 2; height: 42px; border-radius: 30px 30px 0 0;
+  background: repeating-linear-gradient(90deg, var(--cp-accent) 0 28px, #D4E9FC 28px 56px);
+  box-shadow: 0 6px 10px -6px var(--cp-shadow);
+}
+.cp-awning::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 14px;
+  background:
+    radial-gradient(circle at 14px 0, var(--cp-accent) 14px, transparent 14.5px) 0 0 / 56px 14px repeat-x,
+    radial-gradient(circle at 42px 0, #D4E9FC 14px, transparent 14.5px) 0 0 / 56px 14px repeat-x;
+}
+.cp-stall-hearts.cp-heart-pill { position: absolute; top: 8px; right: 14px; z-index: 3; background: var(--cp-card); box-shadow: 0 4px 8px -4px var(--cp-shadow); }
+
+/* 店员 + 说话气泡 */
+.cp-keeper { flex: none; display: flex; align-items: center; gap: 12px; padding: 26px 18px 0; }
+.cp-keeper-avatar {
+  position: relative; flex: none; width: 58px; height: 58px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  font-size: 22px; color: var(--cp-accent); background: radial-gradient(circle at 34% 28%, #fff, var(--cp-accent-soft));
+  border: 3px solid var(--cp-card); box-shadow: 0 0 0 2px var(--cp-border), 0 8px 12px -8px var(--cp-shadow);
+  transform-origin: 50% 100%; animation: cp-breathe 3.2s ease-in-out infinite;
+}
+.cp-keeper-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cp-keeper-say { position: relative; flex: 1; min-width: 0; margin: 0; padding: 9px 13px; border-radius: 6px 18px 18px 18px; background: var(--cp-soft); font-size: 12.5px; font-weight: 700; line-height: 1.5; color: var(--cp-text); }
+.cp-keeper-say::before { content: ""; position: absolute; left: -7px; top: 14px; width: 0; height: 0; border: 6px solid transparent; border-left: 0; border-right-color: var(--cp-soft); }
+.cp-keeper-say span { display: inline-block; animation: cp-pop 0.35s cubic-bezier(0.2, 1.8, 0.4, 1); }
+.cp-keeper-say.is-error { background: var(--cp-heart-soft); color: var(--cp-heart); }
+.cp-keeper-say.is-error::before { border-right-color: var(--cp-heart-soft); }
+
+/* 挂牌 */
+.cp-signs { flex: none; display: flex; justify-content: center; gap: 16px; padding: 18px 0 2px; }
+.cp-sign { position: relative; padding: 7px 20px; border-radius: 12px; background: var(--cp-soft); color: var(--cp-muted); font-size: 13px; font-weight: 800; transform-origin: 50% -10px; transition: background 0.2s, color 0.2s; }
+.cp-sign::before, .cp-sign::after { content: ""; position: absolute; top: -10px; width: 2px; height: 10px; background: var(--cp-border); }
+.cp-sign::before { left: 16px; }
+.cp-sign::after { right: 16px; }
+.cp-sign.is-on { background: var(--cp-accent); color: var(--cp-on-accent); box-shadow: 0 8px 12px -8px var(--cp-accent); animation: cp-swing 3.6s ease-in-out infinite; }
+
+/* 漂浮气泡 */
+.cp-bubbles { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 4px 8px; padding: 22px 12px 14px; overscroll-behavior: contain; }
+.cp-orb {
+  --orb-a: rgba(255, 255, 255, 0.55); --orb-b: rgba(120, 190, 245, 0.38); --orb-edge: rgba(61, 155, 234, 0.28);
+  width: 98px; display: flex; flex-direction: column; align-items: center;
+  animation: cp-bob 3.8s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -0.7s);
+}
+.cp-orb:nth-child(even) { margin-top: 16px; }
+.cp-orb.is-rare { --orb-a: rgba(255, 252, 235, 0.7); --orb-b: rgba(255, 214, 110, 0.5); --orb-edge: rgba(230, 170, 30, 0.35); color: var(--cp-butter-fg); }
+.cp-orb.is-legendary { --orb-a: rgba(255, 255, 255, 0.7); --orb-b: rgba(255, 160, 190, 0.5); --orb-edge: rgba(255, 120, 160, 0.4); }
+@keyframes cp-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+
+.cp-orb-ball {
+  position: relative; width: 86px; height: 86px; border-radius: 50%; display: grid; place-items: center; font-size: 30px; color: var(--cp-accent);
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.95) 0 11%, rgba(255, 255, 255, 0.4) 12% 24%, transparent 25%),
+    radial-gradient(circle at 50% 60%, var(--orb-a), var(--orb-b));
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 -9px 16px var(--orb-edge), inset 0 6px 10px rgba(255, 255, 255, 0.6), 0 14px 18px -12px var(--cp-shadow);
+  transition: transform 0.35s cubic-bezier(0.3, 1.8, 0.5, 1), box-shadow 0.25s;
+}
+.cp-orb.is-rare .cp-orb-ball, .cp-orb.is-legendary .cp-orb-ball { color: var(--cp-butter-fg); }
+.cp-orb-face { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; overflow: hidden; }
+.cp-orb-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cp-orb:active .cp-orb-ball { transform: scale(0.88); }
+.cp-orb.is-selected .cp-orb-ball {
+  transform: scale(1.14);
+  box-shadow: inset 0 -9px 16px var(--orb-edge), inset 0 6px 10px rgba(255, 255, 255, 0.6), 0 0 0 3px var(--cp-accent), 0 16px 20px -12px var(--cp-shadow);
+}
+.cp-orb.is-locked { opacity: 0.6; filter: saturate(0.4); }
+
+.cp-orb-price {
+  position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 9px; border-radius: 99px; background: var(--cp-card); color: var(--cp-heart); font-size: 11.5px; font-weight: 800;
+  box-shadow: 0 4px 8px -4px var(--cp-shadow); white-space: nowrap;
+}
+.cp-orb.cant .cp-orb-price { color: var(--cp-muted); }
+.cp-orb-price .cp-heart-ic, .cp-buy .cp-heart-ic, .cp-heart-pill .cp-heart-ic { width: 12px; height: 12px; }
+.cp-orb-name { margin-top: 16px; max-width: 100%; font-size: 12px; font-weight: 800; line-height: 1.25; text-align: center; color: var(--cp-text); }
+.cp-orb-badge { position: absolute; right: -2px; top: -2px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 99px; display: grid; place-items: center; font-size: 12px; font-weight: 800; border: 2px solid var(--cp-card); }
+.cp-orb-badge.lock { background: var(--cp-muted); color: #fff; }
+.cp-orb-badge.own { background: var(--cp-mint-fg); color: #fff; }
+.cp-orb-badge.stock { background: var(--cp-heart); color: var(--cp-heart-fg); }
+
+.cp-orb.is-popping .cp-orb-ball { animation: cp-orb-pop 0.7s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.cp-orb.is-popping .cp-orb-ball::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 3px solid var(--cp-accent); animation: cp-orb-ring 0.7s ease-out forwards; }
+@keyframes cp-orb-pop { 0% { transform: scale(1); } 30% { transform: scale(1.28); } 55% { transform: scale(0.9); } 100% { transform: scale(1); } }
+@keyframes cp-orb-ring { from { transform: scale(1); opacity: 0.9; } to { transform: scale(1.7); opacity: 0; } }
+
+.cp-legend-title { flex: 0 0 100%; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 14px 0 0; font-size: 11.5px; font-weight: 800; color: var(--cp-sub); }
+.cp-legend-title .cp-ic { color: var(--cp-butter-fg); }
+
+/* 柜台：选中商品的详情 */
+.cp-counter { flex: none; display: flex; align-items: center; gap: 12px; min-height: 72px; margin: 0 14px; padding: 12px 14px; border-radius: 24px; background: var(--cp-soft); box-shadow: inset 0 -4px 0 rgba(61, 155, 234, 0.1); }
+.cp-counter-hint { flex: 1; margin: 0; text-align: center; font-size: 12px; font-weight: 700; color: var(--cp-muted); }
+.cp-counter .cp-thumb { flex: none; margin: 0; width: 48px; height: 48px; border-radius: 50%; border-style: solid; }
+.cp-counter-info { flex: 1; min-width: 0; }
+.cp-counter-name { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 14px; font-weight: 800; }
+.cp-counter-fx { margin: 2px 0 0; font-size: 11px; line-height: 1.4; color: var(--cp-sub); }
+.cp-stall .cp-close-link { margin-top: 10px; }
