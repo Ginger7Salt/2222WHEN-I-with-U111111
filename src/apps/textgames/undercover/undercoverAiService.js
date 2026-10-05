@@ -67,7 +67,17 @@ const requestText = async (systemPrompt) => {
       },
       body: JSON.stringify({
         model: apiConfig.model || 'gpt-3.5-turbo',
-        messages: [{ role: 'system', content: systemPrompt }],
+        // 2026-10 排查发现：只发一条 role:'system' 消息，在某些
+        // 网关/代理（比如把 messages 转译成 Gemini 的 contents 字段
+        // 那种）下会被判定成"contents is not specified"直接 400——
+        // 这类网关认定"只有 system、没有任何 user 消息"不是合法请求。
+        // 改成标准的 system+user 两条，把人设/规则放 system，把"现在
+        // 要做什么"单独放一条 user，兼容性更好，其他聊天接口对这种
+        // 写法也完全没问题。
+        messages: [
+          { role: 'system', content: '你是一个游戏里的角色扮演助手，严格按用户给出的要求生成内容。' },
+          { role: 'user', content: systemPrompt },
+        ],
         temperature: 0.9,
       }),
     });

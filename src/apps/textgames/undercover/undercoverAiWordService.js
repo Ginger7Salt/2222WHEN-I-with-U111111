@@ -62,11 +62,24 @@ ${avoidLine}
       },
       body: JSON.stringify({
         model: apiConfig.model || 'gpt-3.5-turbo',
-        messages: [{ role: 'system', content: systemPrompt }],
+        // 同 undercoverAiService.js 的修复：只发一条 system 消息在某些
+        // 网关下会被判定成请求体不合法（见那边的详细注释），这里也改成
+        // system+user 两条。
+        messages: [
+          { role: 'system', content: '你是一个游戏内容生成助手，严格按用户给出的要求输出。' },
+          { role: 'user', content: systemPrompt },
+        ],
         temperature: 1.0,
       }),
     });
-    if (!response.ok) return fallback();
+    if (!response.ok) {
+      const bodyText = await response.text().catch(() => '');
+      console.warn(
+        `[UndercoverAiWordService] 接口返回非 200（状态码 ${response.status}），退回内置词库。`,
+        bodyText.slice(0, 300)
+      );
+      return fallback();
+    }
 
     const data = await response.json();
     const parsed = parseWordPair(data?.choices?.[0]?.message?.content || '');
