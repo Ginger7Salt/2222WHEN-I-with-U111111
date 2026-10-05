@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  Check,
   Droplets,
   Gamepad2,
   Hand,
-  PawPrint,
+  Palette,
+  Pencil,
   Sparkles,
   Store,
   Upload,
   UtensilsCrossed,
+  X,
 } from 'lucide-react';
 
 import {
@@ -20,11 +23,15 @@ import {
   getRecentLogs,
   performFreeAction,
   pokeCompanion,
+  renameCompanion,
+  setCompanionScene,
   updateCompanionAvatar,
 } from './companionService';
-import { DEFAULT_AVATARS, findShopItem } from './companionShopData';
+import { COMPANION_SCENES, DEFAULT_AVATARS, findScene, findShopItem } from './companionShopData';
 import CompanionShopModal from './CompanionShopModal';
+import CompanionSceneModal from './CompanionSceneModal';
 import CompanionHeartIcon from './CompanionHeartIcon';
+import './companionPage.css';
 
 /*
  * 把用户上传的图片压到一个头像该有的尺寸、保留透明通道、输出 PNG。
@@ -73,14 +80,40 @@ const compressAvatarFile = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
-const StatBar = ({ icon: Icon, label, value }) => (
+// ---- 漂浮数值小动画：渲染挂在某个锚点（satiety/mood/hearts）上的一批 +N ----
+const FloatingNumbers = ({ floaters, anchor, color }) => {
+  const items = floaters.filter((item) => item.anchor === anchor);
+  if (items.length === 0) return null;
+
+  return (
+    <>
+      {items.map((item, index) => (
+        <span
+          key={item.id}
+          className="cp-floating-number"
+          style={{ right: 0, top: '-2px', color, marginRight: `${index * 18}px` }}
+        >
+          {item.text}
+        </span>
+      ))}
+    </>
+  );
+};
+
+const StatBar = ({ icon: Icon, label, value, floaters, anchor }) => (
   <div className="mb-4">
-    <div className="mb-1.5 flex items-center justify-between text-[12px]" style={{ color: 'var(--text-sub)' }}>
+    <div
+      className="relative mb-1.5 flex items-center justify-between text-[12px]"
+      style={{ color: 'var(--text-sub)' }}
+    >
       <span className="flex items-center gap-1.5">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </span>
-      <span className="font-medium" style={{ color: 'var(--text-main)' }}>{Math.round(value)}</span>
+      <span className="relative font-medium" style={{ color: 'var(--text-main)' }}>
+        {Math.round(value)}
+        <FloatingNumbers floaters={floaters} anchor={anchor} color="var(--accent-color)" />
+      </span>
     </div>
     <div
       className="h-3 w-full overflow-hidden rounded-full"
@@ -105,6 +138,8 @@ const ACTIONS = [
   { id: 'play', label: '玩耍', icon: Gamepad2 },
 ];
 
+const FLOATER_LIFETIME_MS = 1100;
+
 const CompanionPage = ({ chatId, character, onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [companion, setCompanion] = useState(null);
@@ -113,7 +148,9 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const [feedback, setFeedback] = useState('');
   const [isActing, setIsActing] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showScenePicker, setShowScenePicker] = useState(false);
   const [isPoking, setIsPoking] = useState(false);
+  const [floaters, setFloaters] = useState([]);
 
   // 领养表单
   const [selectedPreset, setSelectedPreset] = useState(DEFAULT_AVATARS[0]?.id || null);
@@ -122,10 +159,16 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const [isAdopting, setIsAdopting] = useState(false);
   const [adoptError, setAdoptError] = useState('');
 
+  // 改名
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [isSavingRename, setIsSavingRename] = useState(false);
+
   const feedbackTimerRef = useRef(null);
   const pokeTimerRef = useRef(null);
   const avatarInputRef = useRef(null);
   const adoptFileInputRef = useRef(null);
+  const floaterTimersRef = useRef([]);
 
   const reload = async () => {
     const found = await getCompanionByChat(chatId);
@@ -148,6 +191,8 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     return () => {
       if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
       if (pokeTimerRef.current) window.clearTimeout(pokeTimerRef.current);
+      floaterTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      floaterTimersRef.current = [];
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
@@ -156,6 +201,28 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     setFeedback(text);
     if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
     feedbackTimerRef.current = window.setTimeout(() => setFeedback(''), 4000);
+  };
+
+  // ---- 漂浮数值：喂食/清洁/玩耍/戳一戳之后，在对应的数值条上飘一个 +N ----
+  const spawnFloater = (anchor, text) => {
+    const id = `${anchor}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setFloaters((prev) => [...prev, { id, anchor, text }]);
+    const timerId = window.setTimeout(() => {
+      setFloaters((prev) => prev.filter((item) => item.id !== id));
+    }, FLOATER_LIFETIME_MS);
+    floaterTimersRef.current.push(timerId);
+  };
+
+  const spawnDeltaFloaters = (before, after) => {
+    if (!before || !after) return;
+
+    const satietyDelta = Math.round(after.satiety - before.satiety);
+    const moodDelta = Math.round(after.mood - before.mood);
+    const heartsDelta = Math.round((after.hearts - before.hearts) * 10) / 10;
+
+    if (satietyDelta !== 0) spawnFloater('satiety', `${satietyDelta > 0 ? '+' : ''}${satietyDelta}`);
+    if (moodDelta !== 0) spawnFloater('mood', `${moodDelta > 0 ? '+' : ''}${moodDelta}`);
+    if (heartsDelta !== 0) spawnFloater('hearts', `${heartsDelta > 0 ? '+' : ''}${heartsDelta}`);
   };
 
   const handlePickAdoptFile = async (event) => {
@@ -220,10 +287,12 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const handleFreeAction = async (actionType) => {
     if (!companion || isActing) return;
     setIsActing(true);
+    const before = companion;
 
     try {
       const result = await performFreeAction(companion.id, actionType);
       if (result) {
+        spawnDeltaFloaters(before, result.companion);
         setCompanion(result.companion);
         showFeedback(result.feedbackText);
         setLogs(await getRecentLogs(companion.id));
@@ -237,6 +306,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
 
   const handlePoke = async () => {
     if (!companion) return;
+    const before = companion;
 
     setIsPoking(true);
     if (pokeTimerRef.current) window.clearTimeout(pokeTimerRef.current);
@@ -245,6 +315,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     try {
       const result = await pokeCompanion(companion.id);
       if (result) {
+        spawnDeltaFloaters(before, result.companion);
         setCompanion(result.companion);
         showFeedback(result.line);
       }
@@ -268,12 +339,55 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     setCompanion(updated);
   };
 
+  const handleSelectScene = async (sceneId) => {
+    if (!companion) return;
+    const updated = await setCompanionScene(companion.id, sceneId);
+    setCompanion(updated);
+    setShowScenePicker(false);
+  };
+
+  const handleStartRename = () => {
+    if (!companion) return;
+    setRenameDraft(companion.name);
+    setIsRenaming(true);
+  };
+
+  const handleCancelRename = () => {
+    setIsRenaming(false);
+    setRenameDraft('');
+  };
+
+  const handleSaveRename = async () => {
+    if (!companion) return;
+    const trimmed = renameDraft.trim();
+    if (!trimmed || trimmed === companion.name) {
+      setIsRenaming(false);
+      return;
+    }
+
+    setIsSavingRename(true);
+    try {
+      const updated = await renameCompanion(companion.id, trimmed);
+      setCompanion(updated);
+      setIsRenaming(false);
+      setLogs(await getRecentLogs(companion.id));
+    } catch (error) {
+      showFeedback(error.message || '改名失败，请重试。');
+    } finally {
+      setIsSavingRename(false);
+    }
+  };
+
   const ownedClothingNames = useMemo(() => (
     inventory
       .filter((row) => row.category === 'clothing')
       .map((row) => findShopItem(row.itemId))
       .filter(Boolean)
   ), [inventory]);
+
+  const activeScene = useMemo(() => (
+    findScene(companion?.background) || COMPANION_SCENES[0]
+  ), [companion?.background]);
 
   const statusLine = useMemo(() => {
     if (!companion) return '';
@@ -282,40 +396,39 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     return '状态很不错，暖暖的。';
   }, [companion]);
 
-  const headerBar = (
-    <div
-      className="flex shrink-0 items-center gap-2 border-b px-4 py-3"
-      style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+  const floatingBackButton = (
+    <button
+      type="button"
+      onClick={onBack}
+      title="返回"
+      aria-label="返回"
+      className="absolute left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full border transition-transform active:scale-90"
+      style={{
+        color: 'var(--text-main)',
+        backgroundColor: 'var(--bg-surface, var(--card-bg))',
+        borderColor: 'var(--card-border)',
+      }}
     >
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center justify-center rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
-        style={{ background: 'var(--control-soft-bg)' }}
-        title="返回"
-        aria-label="返回"
-      >
-        <ArrowLeft className="h-4 w-4" />
-      </button>
-      <PawPrint className="h-4 w-4" />
-      <span className="text-sm font-medium">小伙伴</span>
-    </div>
+      <ArrowLeft className="h-4 w-4" />
+    </button>
   );
 
   if (isLoading) {
     return (
-      <div className="flex h-[100dvh] flex-col" style={{ background: 'var(--bg-main)' }}>
-        {headerBar}
+      <div className="relative flex h-[100dvh] flex-col overflow-hidden" style={{ background: 'var(--bg-main)' }}>
+        <div className="relative flex-1 overflow-y-auto px-4 pb-6 pt-16">
+          {floatingBackButton}
+        </div>
       </div>
     );
   }
 
   if (!companion) {
     return (
-      <div className="flex h-[100dvh] flex-col" style={{ background: 'var(--bg-main)' }}>
-        {headerBar}
+      <div className="relative flex h-[100dvh] flex-col overflow-hidden" style={{ background: 'var(--bg-main)' }}>
+        <div className="relative flex-1 overflow-y-auto px-5 pb-8 pt-16">
+          {floatingBackButton}
 
-        <div className="flex-1 overflow-y-auto px-5 py-8">
           <div className="relative mb-6 overflow-hidden rounded-[2rem] p-6 text-center" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
             <div
               className="pointer-events-none absolute -left-8 -top-10 h-32 w-32 rounded-full opacity-20"
@@ -341,7 +454,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
                   setSelectedPreset(preset.id);
                   setUploadedAvatar(null);
                 }}
-                className="flex flex-col items-center gap-2 rounded-[1.5rem] p-3 transition-opacity"
+                className="flex flex-col items-center gap-2 rounded-[1.5rem] p-3 transition-transform active:scale-95"
                 style={{
                   border: `2px solid ${selectedPreset === preset.id && !uploadedAvatar ? 'var(--accent-color)' : 'var(--card-border)'}`,
                   background: 'var(--card-bg)',
@@ -364,7 +477,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
           <button
             type="button"
             onClick={() => adoptFileInputRef.current?.click()}
-            className="mb-5 flex w-full items-center justify-center gap-2 rounded-[1.5rem] py-3 text-xs"
+            className="mb-5 flex w-full items-center justify-center gap-2 rounded-[1.5rem] py-3 text-xs transition-transform active:scale-[0.98]"
             style={{
               border: `2px dashed ${uploadedAvatar ? 'var(--accent-color)' : 'var(--card-border)'}`,
               color: 'var(--text-sub)',
@@ -400,14 +513,14 @@ const CompanionPage = ({ chatId, character, onBack }) => {
             type="button"
             disabled={isAdopting}
             onClick={handleAdopt}
-            className="w-full rounded-2xl py-3 text-sm font-medium disabled:opacity-60"
+            className="w-full rounded-2xl py-3 text-sm font-medium transition-transform active:scale-[0.98] disabled:opacity-60"
             style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
           >
             {isAdopting ? '正在领养…' : '开始养它'}
           </button>
 
           <p className="mt-4 text-center text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            形态图之后随时可以在这里重新上传更换，名字暂时还不支持修改。
+            形态图、名字之后都可以在这里随时重新上传/修改，场景领养之后也能换。
           </p>
         </div>
       </div>
@@ -415,14 +528,37 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col" style={{ background: 'var(--bg-main)' }}>
-      {headerBar}
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden" style={{ color: 'var(--text-main)' }}>
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" style={{ background: 'var(--bg-main)' }}>
+        <div
+          className="cp-scene-bg absolute inset-0"
+          style={{ backgroundImage: `url(${activeScene.url})` }}
+        />
+        <div className="absolute inset-0" style={{ background: 'var(--bg-main)', opacity: 0.5 }} />
+      </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-6">
+      <div className="relative flex-1 overflow-y-auto px-5 pb-6 pt-16">
+        {floatingBackButton}
+
+        <button
+          type="button"
+          onClick={() => setShowScenePicker(true)}
+          title="换场景"
+          aria-label="换场景"
+          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full border transition-transform active:scale-90"
+          style={{
+            color: 'var(--text-main)',
+            backgroundColor: 'var(--bg-surface, var(--card-bg))',
+            borderColor: 'var(--card-border)',
+          }}
+        >
+          <Palette className="h-4 w-4" />
+        </button>
+
         {/* 头像区：大一圈、带柔和光晕装饰，点一下会"戳一戳" */}
         <div
           className="relative mb-5 overflow-hidden rounded-[2rem] px-5 pb-5 pt-8 text-center"
-          style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+          style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: '0 10px 30px -18px rgba(0,0,0,0.35)' }}
         >
           <div
             className="pointer-events-none absolute -left-10 -top-12 h-36 w-36 rounded-full opacity-20"
@@ -466,12 +602,61 @@ const CompanionPage = ({ chatId, character, onBack }) => {
             onChange={handleChangeAvatar}
           />
 
-          <div className="mb-1 flex items-center justify-center gap-2">
-            <span className="text-lg font-medium" style={{ color: 'var(--text-main)' }}>{companion.name}</span>
-            <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs" style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}>
-              <CompanionHeartIcon className="h-3.5 w-3.5" style={{ color: 'var(--accent-color)' }} />
-              {companion.hearts}
-            </span>
+          <div className="mb-1 flex items-center justify-center gap-1.5">
+            {isRenaming ? (
+              <>
+                <input
+                  type="text"
+                  autoFocus
+                  value={renameDraft}
+                  onChange={(event) => setRenameDraft(event.target.value.slice(0, 20))}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') void handleSaveRename();
+                    if (event.key === 'Escape') handleCancelRename();
+                  }}
+                  className="w-28 rounded-full px-3 py-1 text-center text-sm outline-none"
+                  style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveRename}
+                  disabled={isSavingRename}
+                  aria-label="保存名字"
+                  className="flex h-6 w-6 items-center justify-center rounded-full transition-transform active:scale-90 disabled:opacity-50"
+                  style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelRename}
+                  aria-label="取消改名"
+                  className="flex h-6 w-6 items-center justify-center rounded-full transition-transform active:scale-90"
+                  style={{ background: 'var(--control-soft-bg)', color: 'var(--text-sub)' }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-lg font-medium" style={{ color: 'var(--text-main)' }}>{companion.name}</span>
+                <button
+                  type="button"
+                  onClick={handleStartRename}
+                  aria-label="改名字"
+                  title="改名字"
+                  className="flex h-6 w-6 items-center justify-center rounded-full opacity-70 transition-transform active:scale-90 hover:opacity-100"
+                  style={{ background: 'var(--control-soft-bg)' }}
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+                <span className="relative flex items-center gap-1 rounded-full px-2 py-0.5 text-xs" style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}>
+                  <CompanionHeartIcon className="h-3.5 w-3.5" style={{ color: 'var(--accent-color)' }} />
+                  {companion.hearts}
+                  <FloatingNumbers floaters={floaters} anchor="hearts" color="var(--accent-color)" />
+                </span>
+              </>
+            )}
           </div>
 
           <p className="text-[12px]" style={{ color: 'var(--text-sub)' }}>{statusLine}</p>
@@ -482,7 +667,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
           <button
             type="button"
             onClick={() => avatarInputRef.current?.click()}
-            className="mx-auto mt-3 flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px]"
+            className="mx-auto mt-3 flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] transition-transform active:scale-95"
             style={{ background: 'var(--control-soft-bg)', color: 'var(--text-sub)' }}
           >
             <Upload className="h-3 w-3" />
@@ -492,7 +677,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
 
         {feedback && (
           <div
-            className="mb-4 rounded-2xl px-4 py-2.5 text-[13px]"
+            className="mb-4 rounded-2xl px-4 py-2.5 text-[13px] animate-fade-in-up"
             style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
           >
             {feedback}
@@ -500,9 +685,9 @@ const CompanionPage = ({ chatId, character, onBack }) => {
         )}
 
         {/* 数值条卡片 */}
-        <div className="mb-4 rounded-[1.75rem] p-5" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-          <StatBar icon={UtensilsCrossed} label="饱食度" value={companion.satiety} />
-          <StatBar icon={Sparkles} label="心情" value={companion.mood} />
+        <div className="mb-4 rounded-[1.75rem] p-5" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: '0 10px 30px -20px rgba(0,0,0,0.35)' }}>
+          <StatBar icon={UtensilsCrossed} label="饱食度" value={companion.satiety} floaters={floaters} anchor="satiety" />
+          <StatBar icon={Sparkles} label="心情" value={companion.mood} floaters={floaters} anchor="mood" />
         </div>
 
         {/* 互动按钮卡片 */}
@@ -513,7 +698,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
               type="button"
               disabled={isActing}
               onClick={() => handleFreeAction(id)}
-              className="flex flex-col items-center gap-1.5 rounded-[1.5rem] py-4 text-xs disabled:opacity-60"
+              className="flex flex-col items-center gap-1.5 rounded-[1.5rem] py-4 text-xs transition-transform active:scale-90 disabled:opacity-60"
               style={{ background: 'var(--card-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
             >
               <Icon className="h-5 w-5" style={{ color: 'var(--accent-color)' }} />
@@ -525,7 +710,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
         <button
           type="button"
           onClick={() => setShowShop(true)}
-          className="mb-4 flex w-full items-center justify-center gap-2 rounded-[1.5rem] py-3.5 text-sm font-medium"
+          className="mb-4 flex w-full items-center justify-center gap-2 rounded-[1.5rem] py-3.5 text-sm font-medium transition-transform active:scale-[0.98]"
           style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
         >
           <Store className="h-4 w-4" />
@@ -545,7 +730,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
                   key={item.id}
                   type="button"
                   onClick={() => handleToggleOutfit(item.name)}
-                  className="rounded-full px-3.5 py-1.5 text-[12px]"
+                  className="rounded-full px-3.5 py-1.5 text-[12px] transition-transform active:scale-95"
                   style={{
                     background: companion.equippedOutfit === item.name ? 'var(--accent-color)' : 'var(--control-soft-bg)',
                     color: companion.equippedOutfit === item.name ? 'var(--accent-foreground)' : 'var(--text-main)',
@@ -588,6 +773,14 @@ const CompanionPage = ({ chatId, character, onBack }) => {
           ownedClothingIds={ownedClothingNames.map((item) => item.id)}
           onBuy={handleBuy}
           onClose={() => setShowShop(false)}
+        />
+      )}
+
+      {showScenePicker && (
+        <CompanionSceneModal
+          currentSceneId={activeScene.id}
+          onSelect={handleSelectScene}
+          onClose={() => setShowScenePicker(false)}
         />
       )}
     </div>

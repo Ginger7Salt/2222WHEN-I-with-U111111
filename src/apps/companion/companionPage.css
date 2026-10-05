@@ -1,0 +1,40 @@
+/*
+ * "小伙伴"页面框架改版用的少量自定义动画：按钮按下的手感 Tailwind
+ * 自带的 active:scale-* 就够了，这里只补 Tailwind 没有的"数值变化时
+ * 漂浮一个 +N 往上飘"的效果，以及场景背景的叠加暗化层。
+ */
+
+@keyframes cp-float-up {
+  0% {
+    transform: translateY(0) scale(0.85);
+    opacity: 0;
+  }
+  15% {
+    transform: translateY(-4px) scale(1.05);
+    opacity: 1;
+  }
+  75% {
+    transform: translateY(-30px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-44px) scale(0.95);
+    opacity: 0;
+  }
+}
+
+.cp-floating-number {
+  position: absolute;
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  animation: cp-float-up 1100ms ease-out forwards;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.cp-scene-bg {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}

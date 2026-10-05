@@ -128,6 +128,7 @@ export const adoptCompanion = async ({ chatId, characterId, name, avatarUrl }) =
     satiety: 80,
     hearts: 0,
     equippedOutfit: null,
+    background: null,
     lastInteractionAt: now,
     lastDecayedAt: now,
     lastAutoCareAt: null,
@@ -158,6 +159,45 @@ export const adoptCompanion = async ({ chatId, characterId, name, avatarUrl }) =
 export const updateCompanionAvatar = async (companionId, avatarUrl) => {
   const now = Date.now();
   await db.companions.update(companionId, { avatarUrl, updatedAt: now });
+  return await db.companions.get(companionId);
+};
+
+/*
+ * 改名：用户本轮要求支持重新改名字（之前只能领养时定一次）。
+ * 跟换形态图一样轻量，不留历史记录，直接覆盖，写一条日志留痕即可。
+ */
+export const renameCompanion = async (companionId, newName) => {
+  const trimmed = String(newName || '').trim().slice(0, 20);
+  if (!trimmed) throw new Error('名字不能为空');
+
+  const companion = await db.companions.get(companionId);
+  if (!companion) throw new Error('小伙伴不存在');
+  if (trimmed === companion.name) return companion;
+
+  const now = Date.now();
+  const previousName = companion.name;
+  await db.companions.update(companionId, { name: trimmed, updatedAt: now });
+
+  await db.companionLogs.add({
+    companionId,
+    logType: 'user_action',
+    actionType: 'rename',
+    content: `把它的名字从「${previousName}」改成了「${trimmed}」。`,
+    timestamp: now,
+  });
+
+  return await db.companions.get(companionId);
+};
+
+/*
+ * 场景/背景：用户本轮要求"像装修房间"一样四选一，选哪个就一直是哪个，
+ * 不随心情/时间自动变化（已跟用户确认）。
+ */
+export const setCompanionScene = async (companionId, sceneId) => {
+  await db.companions.update(companionId, {
+    background: sceneId,
+    updatedAt: Date.now(),
+  });
   return await db.companions.get(companionId);
 };
 

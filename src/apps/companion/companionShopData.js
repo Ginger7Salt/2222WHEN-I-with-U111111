@@ -60,3 +60,39 @@ export const findShopItem = (itemId) => (
   || SHOP_CLOTHING_ITEMS.find((item) => item.id === itemId)
   || null
 );
+
+/*
+ * 场景背景：小伙伴页面"装修房间"用的背景图，用户在场景选择里四选一，
+ * 选择会持久化在 companion.background 上（见 companionService.js 的
+ * setCompanionScene）。跟 DEFAULT_AVATARS 一样，这里先放占位渐变图，
+ * 等你出好图之后直接把对应 url 换成图床链接即可，不用改别的代码。
+ */
+const placeholderSceneSvg = (from, to, label) => {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${from}" />
+          <stop offset="100%" stop-color="${to}" />
+        </linearGradient>
+      </defs>
+      <rect width="400" height="600" fill="url(#g)" />
+      <circle cx="320" cy="90" r="46" fill="#ffffff" opacity="0.18" />
+      <circle cx="60" cy="480" r="70" fill="#ffffff" opacity="0.12" />
+      <text x="200" y="300" font-family="sans-serif" font-size="22" fill="#ffffff" opacity="0.55" text-anchor="middle">${label}</text>
+    </svg>
+  `.trim();
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+};
+
+export const COMPANION_SCENES = [
+  { id: 'scene-a', label: '场景 A', url: placeholderSceneSvg('#F7D9B6', '#F2A65A', '场景 A') },
+  { id: 'scene-b', label: '场景 B', url: placeholderSceneSvg('#BFE3D0', '#6FA98C', '场景 B') },
+  { id: 'scene-c', label: '场景 C', url: placeholderSceneSvg('#C9D9F2', '#7B93C4', '场景 C') },
+  { id: 'scene-d', label: '场景 D', url: placeholderSceneSvg('#EAC6D6', '#C97FA0', '场景 D') },
+];
+
+export const findScene = (sceneId) => (
+  COMPANION_SCENES.find((scene) => scene.id === sceneId) || null
+);
