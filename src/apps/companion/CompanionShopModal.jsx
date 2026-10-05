@@ -1,19 +1,48 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { Lock, X } from 'lucide-react';
 
-import { SHOP_CLOTHING_ITEMS, SHOP_FOOD_ITEMS } from './companionShopData';
+import { COMPANION_STAT_LABELS, FOOD_TIERS, SHOP_CLOTHING_ITEMS, SHOP_FOOD_ITEMS } from './companionShopData';
 import CompanionHeartIcon from './CompanionHeartIcon';
 
+const TIER_LABELS = {
+  [FOOD_TIERS.COMMON]: null,
+  [FOOD_TIERS.RARE]: '稀有',
+  [FOOD_TIERS.LEGENDARY]: '传说',
+};
+
+const describeEffects = (effects) => (
+  Object.entries(effects || {})
+    .filter(([, value]) => value)
+    .map(([key, value]) => `${COMPANION_STAT_LABELS[key] || key} +${value}`)
+    .join(' · ')
+);
+
 /*
- * 简单商店：固定价格，不做稀有度/限时道具（9.2 第 6 条已确认，
- * 第一步只做最简单的版本，复杂度留到以后的阶段）。
+ * 商店：食物分三档（普通/稀有/传说），衣服还是老样子。
+ *   - 稀有：没解锁就显示锁图标+"先触发事件解锁"，不能点。
+ *   - 传说：不在这个 tab 里卖，单独列在下面"传说食物"区域，
+ *     只能用已有库存"吃掉"（onUseLegendary），库存为 0 就不显示。
  */
-const CompanionShopModal = ({ hearts, ownedClothingIds, onBuy, onClose }) => {
+const CompanionShopModal = ({
+  hearts,
+  ownedClothingIds,
+  unlockedRareFoodIds = [],
+  legendaryStock = {},
+  onBuy,
+  onUseLegendary,
+  onClose,
+}) => {
   const [tab, setTab] = useState('food');
   const [pendingId, setPendingId] = useState(null);
   const [error, setError] = useState('');
 
-  const list = tab === 'food' ? SHOP_FOOD_ITEMS : SHOP_CLOTHING_ITEMS;
+  const list = tab === 'food'
+    ? SHOP_FOOD_ITEMS.filter((item) => item.tier !== FOOD_TIERS.LEGENDARY)
+    : SHOP_CLOTHING_ITEMS;
+
+  const legendaryOwned = SHOP_FOOD_ITEMS.filter(
+    (item) => item.tier === FOOD_TIERS.LEGENDARY && (legendaryStock[item.id] || 0) > 0
+  );
 
   const handleBuy = async (item) => {
     setPendingId(item.id);
@@ -22,6 +51,18 @@ const CompanionShopModal = ({ hearts, ownedClothingIds, onBuy, onClose }) => {
       await onBuy(item.id);
     } catch (buyError) {
       setError(buyError.message || '购买失败');
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  const handleUseLegendary = async (item) => {
+    setPendingId(item.id);
+    setError('');
+    try {
+      await onUseLegendary(item.id);
+    } catch (useError) {
+      setError(useError.message || '使用失败');
     } finally {
       setPendingId(null);
     }
@@ -84,10 +125,12 @@ const CompanionShopModal = ({ hearts, ownedClothingIds, onBuy, onClose }) => {
           <p className="relative mb-2 text-[11px]" style={{ color: '#e0685a' }}>{error}</p>
         )}
 
-        <div className="relative max-h-[50vh] space-y-2.5 overflow-y-auto">
+        <div className="relative max-h-[40vh] space-y-2.5 overflow-y-auto">
           {list.map((item) => {
             const owned = tab === 'clothing' && ownedClothingIds.includes(item.id);
+            const isRareLocked = tab === 'food' && item.tier === FOOD_TIERS.RARE && !unlockedRareFoodIds.includes(item.id);
             const canAfford = hearts >= item.price;
+            const tierLabel = tab === 'food' ? TIER_LABELS[item.tier] : null;
 
             return (
               <div
@@ -96,23 +139,35 @@ const CompanionShopModal = ({ hearts, ownedClothingIds, onBuy, onClose }) => {
                 style={{ background: 'var(--control-soft-bg)' }}
               >
                 <div>
-                  <p className="text-[13px]" style={{ color: 'var(--text-main)' }}>{item.name}</p>
+                  <p className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--text-main)' }}>
+                    {item.name}
+                    {tierLabel && (
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-[9px]"
+                        style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+                      >
+                        {tierLabel}
+                      </span>
+                    )}
+                  </p>
                   {tab === 'food' && (
                     <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                      饱食度 +{item.satiety} · 心情 +{item.mood}
+                      {isRareLocked ? '先触发特殊事件解锁' : describeEffects(item.effects)}
                     </p>
                   )}
                 </div>
 
                 <button
                   type="button"
-                  disabled={owned || !canAfford || pendingId === item.id}
+                  disabled={owned || isRareLocked || !canAfford || pendingId === item.id}
                   onClick={() => handleBuy(item)}
                   className="flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] disabled:opacity-50"
                   style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
                 >
                   {owned ? (
                     '已拥有'
+                  ) : isRareLocked ? (
+                    <Lock className="h-3 w-3" />
                   ) : (
                     <>
                       {item.price}
@@ -124,6 +179,41 @@ const CompanionShopModal = ({ hearts, ownedClothingIds, onBuy, onClose }) => {
             );
           })}
         </div>
+
+        {tab === 'food' && legendaryOwned.length > 0 && (
+          <div className="relative mt-4 border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+            <p className="mb-2 text-[11px]" style={{ color: 'var(--text-sub)' }}>
+              传说食物（库存，只能靠事件获得）
+            </p>
+            <div className="space-y-2.5">
+              {legendaryOwned.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between rounded-[1.25rem] px-4 py-3"
+                  style={{ background: 'var(--control-soft-bg)' }}
+                >
+                  <div>
+                    <p className="text-[13px]" style={{ color: 'var(--text-main)' }}>
+                      {item.name} × {legendaryStock[item.id]}
+                    </p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                      {describeEffects(item.effects)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={pendingId === item.id}
+                    onClick={() => handleUseLegendary(item)}
+                    className="rounded-full px-3.5 py-1.5 text-[11px] disabled:opacity-50"
+                    style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+                  >
+                    吃掉
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

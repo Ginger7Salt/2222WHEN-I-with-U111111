@@ -12,7 +12,8 @@ import {
   generateFreeActionFeedback,
   generateAutonomousCareNote,
 } from './companionAiService';
-import { findShopItem } from './companionShopData';
+import { findShopItem, FOOD_TIERS } from './companionShopData';
+import { checkCompanionEvents, getActiveEvents } from './companionEventService';
 
 // ---- 数值状态衰减（参照 habitatService.js 的 applyTimeDecay）----
 const DECAY_PER_HOUR = { satiety: 4, mood: 2 };
@@ -55,6 +56,7 @@ export const pokeCompanion = async (companionId) => {
     mood: clamp100(companion.mood + 2),
     lastInteractionAt: now,
     updatedAt: now,
+    totalInteractionCount: (companion.totalInteractionCount || 0) + 1,
   };
 
   await db.companions.put(updated);
@@ -114,6 +116,56 @@ export const getCompanionByChat = async (chatId) => {
   return await applyTimeDecay(companion);
 };
 
+// ---- 日志自动清理：超过 7 天的照顾日记直接删掉 ----
+const LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const pruneOldCompanionLogs = async (companionId) => {
+  const cutoff = Date.now() - LOG_RETENTION_MS;
+  const staleIds = await db.companionLogs
+    .where('companionId')
+    .equals(companionId)
+    .filter((log) => log.timestamp < cutoff)
+    .primaryKeys();
+
+  if (staleIds.length > 0) {
+    await db.companionLogs.bulkDelete(staleIds);
+  }
+};
+
+/*
+ * 打开小伙伴页面时调用一次（只在挂载时调用，不要在每次 reload() 都调用，
+ * 否则事件判定的冷却/"最近打开时间"会被互动动作误触发）：
+ *   1. 正常拿一次衰减后的 companion（跟 getCompanionByChat 一样）。
+ *   2. 清理超过 7 天的照顾日记。
+ *   3. 判定一次特殊事件（命中的话会顺带插入一条聊天消息）。
+ *   4. 把"最近一次打开"的时间戳更新成现在——放在事件判定*之后*，
+ *      因为"好久没见好想你"这个传说事件要用的是"这次打开之前"
+ *      已经过去了多久，不能被这次打开自己覆盖掉。
+ *
+ * 返回 { companion, newEvents }：companion 是最终状态（衰减 + 事件
+ * 判定都应用之后的），newEvents 是这次新出现的事件，供页面决定要不要
+ * 自动弹一个详情弹窗。
+ */
+export const openCompanionSession = async (chatId) => {
+  const companion = await getCompanionByChat(chatId);
+  if (!companion) return { companion: null, newEvents: [] };
+
+  await pruneOldCompanionLogs(companion.id);
+
+  const { companion: afterEvents, newEvents } = await checkCompanionEvents(companion.id);
+  const finalCompanion = afterEvents || companion;
+
+  await db.companions.update(finalCompanion.id, { lastPageOpenAt: Date.now() });
+
+  return {
+    companion: { ...finalCompanion, lastPageOpenAt: Date.now() },
+    newEvents,
+  };
+};
+
+export { getActiveEvents };
+export { claimCompanionEvent } from './companionEventService';
+
 export const adoptCompanion = async ({ chatId, characterId, name, avatarUrl }) => {
   const existing = await db.companions.where('chatId').equals(chatId).first();
   if (existing) return existing;
@@ -134,6 +186,18 @@ export const adoptCompanion = async ({ chatId, characterId, name, avatarUrl }) =
     lastAutoCareAt: null,
     lastAutoCareRollAt: null,
     chatHeartProgress: { dateStr: todayDateStr(), responseCount: 0, heartsAwardedToday: 0 },
+    // ---- 事件/食物分级系统用到的计数与状态（见 companionEventService.js）----
+    feedCount: 0,
+    cleanActionCount: 0,
+    totalInteractionCount: 0,
+    moodFullStreak: 0,
+    lastPageOpenAt: now,
+    lastEventRollAt: null,
+    lastLegendaryGrantAt: null,
+    unlockedRareFoodIds: [],
+    legendaryStock: {},
+    firedMilestoneEventIds: [],
+    activeEvents: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -234,13 +298,19 @@ export const performFreeAction = async (companionId, actionType) => {
   companion = await applyTimeDecay(companion);
 
   const now = Date.now();
+  const newMood = clamp100(companion.mood + effect.mood);
   const updated = {
     ...companion,
     satiety: clamp100(companion.satiety + effect.satiety),
-    mood: clamp100(companion.mood + effect.mood),
+    mood: newMood,
     hearts: Math.round((companion.hearts + effect.hearts) * 10) / 10,
     lastInteractionAt: now,
     updatedAt: now,
+    totalInteractionCount: (companion.totalInteractionCount || 0) + 1,
+    feedCount: (companion.feedCount || 0) + (actionType === 'feed' ? 1 : 0),
+    cleanActionCount: (companion.cleanActionCount || 0) + (actionType === 'clean' ? 1 : 0),
+    // 心情"连续满格"计数：这次也满格就+1，否则清零（见稀有解锁事件 2）。
+    moodFullStreak: newMood >= 100 ? (companion.moodFullStreak || 0) + 1 : 0,
   };
 
   await db.companions.put(updated);
@@ -421,21 +491,30 @@ export const buyShopItem = async (companionId, itemId) => {
   const companion = await db.companions.get(companionId);
   if (!companion) throw new Error('小伙伴不存在');
 
-  if (companion.hearts < item.price) {
-    throw new Error('心心不够啦');
-  }
-
   const now = Date.now();
-  const isFood = Number.isFinite(item.satiety) || Number.isFinite(item.mood);
 
-  if (isFood) {
+  if (item.category === 'food') {
+    if (item.tier === FOOD_TIERS.LEGENDARY) {
+      // 传说食物不能用心心买，只能靠事件获得——走 useLegendaryFood。
+      throw new Error('这是传说食物，只能靠特殊事件获得，不能直接购买哦。');
+    }
+    if (item.tier === FOOD_TIERS.RARE && !(companion.unlockedRareFoodIds || []).includes(item.id)) {
+      throw new Error('这件稀有食物还没解锁，先触发对应的特殊事件吧。');
+    }
+    if (companion.hearts < item.price) {
+      throw new Error('心心不够啦');
+    }
+
+    const effects = item.effects || {};
     const updated = {
       ...companion,
       hearts: Math.round((companion.hearts - item.price) * 10) / 10,
-      satiety: clamp100(companion.satiety + (item.satiety || 0)),
-      mood: clamp100(companion.mood + (item.mood || 0)),
+      satiety: clamp100(companion.satiety + (effects.satiety || 0)),
+      mood: clamp100(companion.mood + (effects.mood || 0)),
       lastInteractionAt: now,
       updatedAt: now,
+      feedCount: (companion.feedCount || 0) + 1,
+      totalInteractionCount: (companion.totalInteractionCount || 0) + 1,
     };
     await db.companions.put(updated);
     await db.companionLogs.add({
@@ -448,7 +527,40 @@ export const buyShopItem = async (companionId, itemId) => {
     return updated;
   }
 
+  if (item.category === 'scene') {
+    const owned = await db.companionInventory.where({ companionId, category: 'scene' }).toArray();
+    if (owned.some((row) => row.itemId === itemId)) {
+      throw new Error('这个场景已经解锁了');
+    }
+    if (companion.hearts < item.price) {
+      throw new Error('心心不够啦');
+    }
+
+    await db.companions.update(companionId, {
+      hearts: Math.round((companion.hearts - item.price) * 10) / 10,
+      updatedAt: now,
+    });
+    await db.companionInventory.add({
+      companionId,
+      itemId,
+      category: 'scene',
+      acquiredAt: now,
+    });
+    await db.companionLogs.add({
+      companionId,
+      logType: 'user_action',
+      actionType: 'shop_scene',
+      content: `解锁了新场景「${item.label}」。`,
+      timestamp: now,
+    });
+    return await db.companions.get(companionId);
+  }
+
   // 衣服：先查是否已拥有，拥有就不重复购买/扣费。
+  if (companion.hearts < item.price) {
+    throw new Error('心心不够啦');
+  }
+
   const owned = await db.companionInventory
     .where({ companionId, category: 'clothing' })
     .toArray();
@@ -478,6 +590,51 @@ export const buyShopItem = async (companionId, itemId) => {
   });
 
   return await db.companions.get(companionId);
+};
+
+/*
+ * 吃一份传说食物：只能从 companion.legendaryStock 里消耗（不扣心心），
+ * 存量不够就报错。grantHearts/triggersRandomEvent 是两个特殊食物
+ * （彩虹蜂蜜蛋糕、幸运饼干）的额外效果，见 companionShopData.js 里的注释。
+ */
+export const useLegendaryFood = async (companionId, foodId) => {
+  const item = findShopItem(foodId);
+  if (!item || item.tier !== FOOD_TIERS.LEGENDARY) throw new Error('这不是传说食物');
+
+  const companion = await db.companions.get(companionId);
+  if (!companion) throw new Error('小伙伴不存在');
+
+  const stock = companion.legendaryStock || {};
+  if (!stock[foodId] || stock[foodId] <= 0) {
+    throw new Error('这份传说食物还没有，等事件触发吧。');
+  }
+
+  const now = Date.now();
+  const effects = item.effects || {};
+  const nextStock = { ...stock, [foodId]: stock[foodId] - 1 };
+
+  const updated = {
+    ...companion,
+    legendaryStock: nextStock,
+    satiety: clamp100(companion.satiety + (effects.satiety || 0)),
+    mood: clamp100(companion.mood + (effects.mood || 0)),
+    hearts: Math.round(((companion.hearts || 0) + (item.grantHearts || 0)) * 10) / 10,
+    lastInteractionAt: now,
+    updatedAt: now,
+    feedCount: (companion.feedCount || 0) + 1,
+    totalInteractionCount: (companion.totalInteractionCount || 0) + 1,
+  };
+
+  await db.companions.put(updated);
+  await db.companionLogs.add({
+    companionId,
+    logType: 'user_action',
+    actionType: 'use_legendary_food',
+    content: `吃掉了传说食物「${item.name}」！`,
+    timestamp: now,
+  });
+
+  return updated;
 };
 
 export const equipOutfit = async (companionId, itemNameOrNull) => {

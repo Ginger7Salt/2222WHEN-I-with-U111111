@@ -17,17 +17,20 @@ import {
 import {
   adoptCompanion,
   buyShopItem,
+  claimCompanionEvent,
   equipOutfit,
-  getCompanionByChat,
+  getActiveEvents,
   getInventory,
   getRecentLogs,
+  openCompanionSession,
   performFreeAction,
   pokeCompanion,
   renameCompanion,
   setCompanionScene,
   updateCompanionAvatar,
+  useLegendaryFood,
 } from './companionService';
-import { COMPANION_SCENES, DEFAULT_AVATARS, findScene, findShopItem } from './companionShopData';
+import { DEFAULT_AVATARS, findScene, findShopItem, getAllSceneOptions } from './companionShopData';
 import CompanionShopModal from './CompanionShopModal';
 import CompanionSceneModal from './CompanionSceneModal';
 import CompanionHeartIcon from './CompanionHeartIcon';
@@ -151,6 +154,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const [showScenePicker, setShowScenePicker] = useState(false);
   const [isPoking, setIsPoking] = useState(false);
   const [floaters, setFloaters] = useState([]);
+  const [eventPopup, setEventPopup] = useState(null);
 
   // 领养表单
   const [selectedPreset, setSelectedPreset] = useState(DEFAULT_AVATARS[0]?.id || null);
@@ -171,7 +175,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const floaterTimersRef = useRef([]);
 
   const reload = async () => {
-    const found = await getCompanionByChat(chatId);
+    const { companion: found, newEvents } = await openCompanionSession(chatId);
     setCompanion(found);
 
     if (found) {
@@ -181,6 +185,11 @@ const CompanionPage = ({ chatId, character, onBack }) => {
       ]);
       setLogs(recentLogs);
       setInventory(ownedItems);
+
+      // 新出现的事件，自动弹一个详情（只弹第一个，另一个留在横幅里点开看）。
+      if (newEvents.length > 0) {
+        setEventPopup(newEvents[0]);
+      }
     }
 
     setIsLoading(false);
@@ -385,8 +394,37 @@ const CompanionPage = ({ chatId, character, onBack }) => {
       .filter(Boolean)
   ), [inventory]);
 
+  const ownedSceneIds = useMemo(() => (
+    inventory.filter((row) => row.category === 'scene').map((row) => row.itemId)
+  ), [inventory]);
+
+  const activeEvents = useMemo(() => (
+    companion ? getActiveEvents(companion) : []
+  ), [companion]);
+
+  const handleClaimEvent = async (activeEventId) => {
+    if (!companion) return;
+    const updated = await claimCompanionEvent(companion.id, activeEventId);
+    if (updated) setCompanion(updated);
+    setEventPopup(null);
+  };
+
+  const handleUseLegendaryFood = async (foodId) => {
+    if (!companion) return;
+    const updated = await useLegendaryFood(companion.id, foodId);
+    setCompanion(updated);
+    setLogs(await getRecentLogs(companion.id));
+  };
+
+  const handleBuyScene = async (itemId) => {
+    if (!companion) return;
+    const updated = await buyShopItem(companion.id, itemId);
+    setCompanion(updated);
+    setInventory(await getInventory(companion.id));
+  };
+
   const activeScene = useMemo(() => (
-    findScene(companion?.background) || COMPANION_SCENES[0]
+    findScene(companion?.background) || getAllSceneOptions()[0]
   ), [companion?.background]);
 
   const statusLine = useMemo(() => {
@@ -554,6 +592,34 @@ const CompanionPage = ({ chatId, character, onBack }) => {
         >
           <Palette className="h-4 w-4" />
         </button>
+
+        {/* 特殊事件横幅：最多同时显示 2 个，点一下看详情/领取 */}
+        {activeEvents.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {activeEvents.map((event) => (
+              <button
+                key={event.id}
+                type="button"
+                onClick={() => setEventPopup(event)}
+                className="flex w-full items-center justify-between rounded-[1.5rem] px-4 py-3 text-left transition-transform active:scale-[0.98]"
+                style={{ background: 'var(--card-bg)', border: '1px solid var(--accent-color)' }}
+              >
+                <div>
+                  <p className="text-[13px] font-medium" style={{ color: 'var(--text-main)' }}>{event.title}</p>
+                  <p className="text-[11px]" style={{ color: 'var(--text-sub)' }}>{event.bannerText}</p>
+                </div>
+                {!event.claimed && (
+                  <span
+                    className="ml-2 shrink-0 rounded-full px-2.5 py-1 text-[10px]"
+                    style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+                  >
+                    领取
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* 头像区：大一圈、带柔和光晕装饰，点一下会"戳一戳" */}
         <div
@@ -771,7 +837,10 @@ const CompanionPage = ({ chatId, character, onBack }) => {
         <CompanionShopModal
           hearts={companion.hearts}
           ownedClothingIds={ownedClothingNames.map((item) => item.id)}
+          unlockedRareFoodIds={companion.unlockedRareFoodIds || []}
+          legendaryStock={companion.legendaryStock || {}}
           onBuy={handleBuy}
+          onUseLegendary={handleUseLegendaryFood}
           onClose={() => setShowShop(false)}
         />
       )}
@@ -779,9 +848,52 @@ const CompanionPage = ({ chatId, character, onBack }) => {
       {showScenePicker && (
         <CompanionSceneModal
           currentSceneId={activeScene.id}
+          ownedSceneIds={ownedSceneIds}
+          hearts={companion.hearts}
           onSelect={handleSelectScene}
+          onBuy={handleBuyScene}
           onClose={() => setShowScenePicker(false)}
         />
+      )}
+
+      {eventPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+          <div
+            className="absolute inset-0"
+            style={{ background: 'var(--modal-overlay)' }}
+            onClick={() => setEventPopup(null)}
+          />
+          <div
+            className="relative z-10 w-full max-w-[360px] rounded-[1.75rem] p-5 text-center"
+            style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-main)' }}
+          >
+            <p className="mb-2 text-base font-medium">{eventPopup.title}</p>
+            <p className="mb-4 text-[13px]" style={{ color: 'var(--text-sub)' }}>{eventPopup.bannerText}</p>
+            {eventPopup.grantsFoodId && (
+              <p className="mb-4 text-[12px]" style={{ color: 'var(--accent-color)' }}>
+                获得了「{findShopItem(eventPopup.grantsFoodId)?.name || '新食物'}」
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setEventPopup(null)}
+                className="flex-1 rounded-2xl py-2.5 text-sm transition-transform active:scale-[0.98]"
+                style={{ background: 'var(--control-soft-bg)', color: 'var(--text-sub)' }}
+              >
+                先这样
+              </button>
+              <button
+                type="button"
+                onClick={() => handleClaimEvent(eventPopup.id)}
+                className="flex-1 rounded-2xl py-2.5 text-sm font-medium transition-transform active:scale-[0.98]"
+                style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+              >
+                知道啦
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
