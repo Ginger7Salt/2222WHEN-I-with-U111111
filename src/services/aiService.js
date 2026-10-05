@@ -80,6 +80,7 @@ import {
 } from '../apps/offline/offlineSessionService';
 
 import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptContext';
+import { scanBuiltinWorldBook } from '../apps/messages/builtinWorldBook';
 
 
 
@@ -137,6 +138,13 @@ import {
  * 无关，返回顺序仍然是按时间从旧到新（跟原来 sortBy('timestamp') 的
  * 结果顺序一致），调用方不用跟着改。
  */
+// ChatRoom关键词世界书扫描窗口/条数上限——数值跟长RP的
+// rpAiService.js（WORLD_BOOK_SCAN_WINDOW/WORLD_BOOK_MAX_ENTRIES）保持
+// 一致，两边没有共享同一套机制的必要（RP走自己的historyForContext），
+// 但调出来的手感应该一样。
+const WORLD_BOOK_SCAN_WINDOW = 6;
+const WORLD_BOOK_MAX_ENTRIES = 5;
+
 export const getRecentChatMessages = (chatId, limit) => (
   db.messages
     .where('[chatId+timestamp]')
@@ -1127,6 +1135,25 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
         .join('\n')}${characterWorldBookText}`
     : '';
 
+  // ChatRoom侧的内置世界书（builtinWorldBook.js，纯代码维护，跟长RP自己
+  // 的世界书、以及shared-world全局设定完全独立，互不共用）——总开关是
+  // chat.worldBookEnabled，聊天窗设置里一个开关，全有或全无，没有"挑
+  // 哪几本"这层界面。关闭时这一段什么都不做，跟功能完全不存在一样。
+  let keywordWorldBookText = '';
+  if (chat.worldBookEnabled) {
+    try {
+      const recentForScan = await getRecentChatMessages(chatId, WORLD_BOOK_SCAN_WINDOW);
+      const scanText = recentForScan
+        .map((m) => formatMsgContentForPrompt(m))
+        .filter(Boolean)
+        .join('\n');
+
+      keywordWorldBookText = scanBuiltinWorldBook(scanText, { maxEntries: WORLD_BOOK_MAX_ENTRIES });
+    } catch (error) {
+      console.warn('[buildChatSystemPrompt] 扫描内置世界书失败：', error);
+    }
+  }
+
   let summaryEntries = [];
 
   if (Array.isArray(chat.summary)) {
@@ -1381,6 +1408,30 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   // 共享世界：全局设定，拼在核心总提示词之后、角色设定之前
   const sharedWorldBlock = await getSharedWorldPromptBlock(character.id);
 
+  // 临时诊断日志：每一段动态拼接内容各自多少字符，方便定位是哪一块
+  // 突然变大导致单次生成的token暴涨。确认不再需要之后可以整段删掉，
+  // 不影响功能本身——纯打印，不改变任何拼接结果。
+  console.log('[PromptSize]', {
+    finalBasePrompt: finalBasePrompt.length,
+    sharedWorldBlock: sharedWorldBlock.length,
+    worldBooksText: worldBooksText.length,
+    keywordWorldBookText: keywordWorldBookText.length,
+    summaryText: summaryText.length,
+    todoText: todoText.length,
+    diaryText: diaryText.length,
+    characterAnalysisPromptBlock: characterAnalysisPromptBlock.length,
+    dailyLifeTopicBlock: dailyLifeTopicBlock.length,
+    userInterestBlock: userInterestBlock.length,
+    stickerInstruction: stickerInstruction.length,
+    diyPromptBlock: diyPromptBlock.length,
+    parcelPromptBlock: parcelPromptBlock.length,
+    couponPromptBlock: couponPromptBlock.length,
+    learningModePromptBlock: learningModePromptBlock.length,
+    activeCallNote: activeCallNote.length,
+    recentOfflineNote: recentOfflineNote.length,
+    monthlyBadgeNote: monthlyBadgeNote.length,
+  });
+
   return `${finalBasePrompt}${sharedWorldBlock}
 
 【当前真实时间/环境感知】：
@@ -1396,6 +1447,7 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
 - 用户专属人设背景：${userPersona}
 
 ${worldBooksText}
+${keywordWorldBookText}
 ${summaryText}
 ${todoText}
 ${diaryText}

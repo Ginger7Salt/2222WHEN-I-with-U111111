@@ -84,6 +84,17 @@ export const ChatSettingsModal = ({
   const [diyAutoDecorateEnabled, setDiyAutoDecorateEnabled] = useState(
     chat?.diyAutoDecorateEnabled !== false
   );
+
+  // 本聊天窗是否开启关键词触发世界书（跟老的"角色专属世界书/全局勾选
+  // 世界书"是两套并行机制，这里管的是新的"挂载哪几本共享世界书，靠
+  // 关键词命中才注入"）。未设置时默认关闭——这是新功能，不该让老聊天
+  // 窗在用户还没去挑过书之前就突然带上一段陌生设定。
+  // 内置世界书（builtinWorldBook.js，纯代码维护，想加/改书直接改那个
+  // 文件）总开关——未设置时默认关闭，新功能不该让老聊天窗在用户还没
+  // 主动打开之前就突然带上一段陌生设定。
+  const [worldBookEnabled, setWorldBookEnabled] = useState(
+    chat?.worldBookEnabled === true
+  );
   const [characterAnalysisPrompt, setCharacterAnalysisPrompt] = useState(
     chat?.characterAnalysisPrompt || ''
   );
@@ -500,6 +511,19 @@ const handleToggleLocation = async () => {
 
     if (onUpdatedUserPersona) {
       onUpdatedUserPersona({ diyAutoDecorateEnabled: nextEnabled });
+    }
+  };
+
+  const handleToggleWorldBookEnabled = async () => {
+    if (!chat?.id) return;
+
+    const nextEnabled = !worldBookEnabled;
+    setWorldBookEnabled(nextEnabled);
+
+    await db.chats.update(chat.id, { worldBookEnabled: nextEnabled });
+
+    if (onUpdatedUserPersona) {
+      onUpdatedUserPersona({ worldBookEnabled: nextEnabled });
     }
   };
 
@@ -1083,6 +1107,46 @@ const handleToggleLocation = async () => {
               style={{
                 background: 'var(--bg-main)',
                 transform: diyAutoDecorateEnabled
+                  ? 'translateX(20px)'
+                  : 'translateX(0)'
+              }}
+            />
+          </button>
+        </div>
+
+        {/* 内置世界书：总开关（书和条目本身写在代码的
+            builtinWorldBook.js 里，这里只管这整个库要不要参与扫描） */}
+        <div
+          className="flex items-center justify-between gap-4 rounded-2xl border p-3"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)',
+          }}
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-medium">内置世界书</p>
+            <p className="mt-1 text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              开启后，会在最近几条对话里扫描内置世界书的关键词，命中才会把对应条目注入给AI——不是整本都塞进去。
+            </p>
+          </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={worldBookEnabled}
+            onClick={handleToggleWorldBookEnabled}
+            className="relative h-5 w-10 shrink-0 overflow-hidden rounded-full transition-colors"
+            style={{
+              background: worldBookEnabled
+                ? 'var(--accent-color)'
+                : 'var(--divider)'
+            }}
+          >
+            <span
+              className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition-transform"
+              style={{
+                background: 'var(--bg-main)',
+                transform: worldBookEnabled
                   ? 'translateX(20px)'
                   : 'translateX(0)'
               }}
