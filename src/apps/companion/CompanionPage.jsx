@@ -589,6 +589,12 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   sheetOpenRef.current = sheetOpen;
   const hasCompanion = Boolean(companion);
 
+  // 父容器没有明确高度时（height:100% 塌成 0），兜底成整屏高度
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (root && root.offsetHeight < 240) root.style.height = '100dvh';
+  }, [isLoading, hasCompanion]);
+
   useLayoutEffect(() => {
     applySheetPosition(sheetOpen);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -664,7 +670,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
 
   if (isLoading) {
     return (
-      <div className="cp-root">
+      <div className="cp-root" ref={rootRef}>
         {floatingBackButton}
       </div>
     );
@@ -677,7 +683,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
       || '';
 
     return (
-      <div className="cp-root">
+      <div className="cp-root" ref={rootRef}>
         <div className="cp-adopt">
           <div className="cp-adopt-inner">
             <i className="cp-blob b1" />

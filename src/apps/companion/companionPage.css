@@ -1,7 +1,8 @@
 /*
  * "小伙伴"页面样式（天空蓝清新版）。
  *
- * 所有颜色都定义成 --cp-* 变量、只作用在 .cp-root 里面，不会影响全局主题变量。
+ * 所有颜色都定义成 --cp-* 变量、只作用在 .cp-root 里面，不会影响全局主题变量，
+ * 也不跟随暗色模式（固定白蓝色系）。
  * 想整体换色，只改下面 .cp-root 里的变量就行。
  *
  * 注意：@import 必须放在文件最前面（注释除外）。
@@ -12,38 +13,43 @@
  * 0. 配色 + 根容器
  * ========================================================= */
 .cp-root {
-  --cp-bg: #EEF7FF;
+  /* 白蓝色系：固定亮色，不跟随系统/应用的暗色模式 */
+  --cp-bg: #F5FAFF;
   --cp-card: #FFFFFF;
-  --cp-border: #D3E6F6;
-  --cp-text: #26425A;
-  --cp-sub: #587B96;
-  --cp-muted: #98B1C6;
-  --cp-accent: #3A97E8;
+  --cp-border: #DCEBF8;
+  --cp-text: #24415A;
+  --cp-sub: #5E819C;
+  --cp-muted: #9DB8CD;
+  --cp-accent: #3D9BEA;
   --cp-on-accent: #FFFFFF;
-  --cp-accent-soft: #D9ECFD;
-  --cp-soft: #E4F1FC;
-  --cp-overlay: rgba(24, 55, 85, 0.38);
-  --cp-shadow: rgba(50, 110, 170, 0.26);
+  --cp-accent-soft: #E1F0FE;
+  --cp-soft: #EDF5FD;
+  --cp-overlay: rgba(36, 65, 90, 0.32);
+  --cp-shadow: rgba(60, 120, 180, 0.22);
   --cp-heart: #FF86A0;
-  --cp-heart-soft: #FFE4EA;
+  --cp-heart-soft: #FFEAEF;
   --cp-heart-fg: #FFFFFF;
-  --cp-butter-bg: #FFF0B5;
-  --cp-butter-fg: #C9930A;
-  --cp-sky-bg: #D2EBFF;
+  --cp-butter-bg: #FFF4C9;
+  --cp-butter-fg: #D19A0A;
+  --cp-sky-bg: #DCEEFF;
   --cp-sky-fg: #2F86CC;
-  --cp-mint-bg: #CDF3E6;
+  --cp-mint-bg: #D5F5EA;
   --cp-mint-fg: #25967A;
   /* 没有场景图（url 为空）时的兜底天空 */
-  --cp-sky: linear-gradient(#BFE3FF 0%, #E4F3FF 38%, #F3FBFF 62%);
-  --cp-ground: linear-gradient(#C8EDB2, #9FDB9A);
-  --cp-orb: #FFE9A0;
-  --cp-orb-glow: rgba(255, 233, 160, 0.55);
-  --cp-cloud: rgba(255, 255, 255, 0.88);
+  --cp-sky: linear-gradient(#CBE6FF 0%, #E8F5FF 40%, #FFFFFF 72%);
+  --cp-ground: linear-gradient(#D4F1C4, #B2E3AA);
+  --cp-orb: #FFEFB5;
+  --cp-orb-glow: rgba(255, 239, 181, 0.55);
+  --cp-cloud: rgba(255, 255, 255, 0.95);
   --cp-font-display: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --cp-font-body: "Nunito", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
 
   position: relative;
-  height: 100dvh;
+  /* 跟随父容器高度，避免比外壳高、底部被截掉；父容器没有高度时 JS 会兜底成 100dvh */
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   isolation: isolate;
   background: var(--cp-bg);
@@ -52,43 +58,12 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .cp-root {
-    --cp-bg: #16222E; --cp-card: #203141; --cp-border: #31485E;
-    --cp-text: #E6F2FC; --cp-sub: #A6C2D8; --cp-muted: #7794AB;
-    --cp-accent: #62B3F5; --cp-on-accent: #0E2740; --cp-accent-soft: #2A4964;
-    --cp-soft: #283E52; --cp-overlay: rgba(5, 12, 20, 0.6); --cp-shadow: rgba(0, 0, 0, 0.5);
-    --cp-heart: #FF9DB2; --cp-heart-soft: #46303B; --cp-heart-fg: #4A2330;
-    --cp-butter-bg: #5A4A22; --cp-butter-fg: #FFDB8A;
-    --cp-sky-bg: #2B4A66; --cp-sky-fg: #A9D4FF;
-    --cp-mint-bg: #2A5246; --cp-mint-fg: #A6EBD2;
-    --cp-sky: linear-gradient(#1D3550 0%, #2A4A66 55%, #34597A 100%);
-    --cp-ground: linear-gradient(#3F6A63, #2F5550);
-    --cp-orb: #FFF3C9; --cp-orb-glow: rgba(255, 243, 201, 0.35);
-    --cp-cloud: rgba(210, 225, 245, 0.28);
-  }
-}
-:root[data-theme="dark"] .cp-root {
-  --cp-bg: #16222E; --cp-card: #203141; --cp-border: #31485E;
-  --cp-text: #E6F2FC; --cp-sub: #A6C2D8; --cp-muted: #7794AB;
-  --cp-accent: #62B3F5; --cp-on-accent: #0E2740; --cp-accent-soft: #2A4964;
-  --cp-soft: #283E52; --cp-overlay: rgba(5, 12, 20, 0.6); --cp-shadow: rgba(0, 0, 0, 0.5);
-  --cp-heart: #FF9DB2; --cp-heart-soft: #46303B; --cp-heart-fg: #4A2330;
-  --cp-butter-bg: #5A4A22; --cp-butter-fg: #FFDB8A;
-  --cp-sky-bg: #2B4A66; --cp-sky-fg: #A9D4FF;
-  --cp-mint-bg: #2A5246; --cp-mint-fg: #A6EBD2;
-  --cp-sky: linear-gradient(#1D3550 0%, #2A4A66 55%, #34597A 100%);
-  --cp-ground: linear-gradient(#3F6A63, #2F5550);
-  --cp-orb: #FFF3C9; --cp-orb-glow: rgba(255, 243, 201, 0.35);
-  --cp-cloud: rgba(210, 225, 245, 0.28);
-}
-
 .cp-root *, .cp-root *::before, .cp-root *::after { box-sizing: border-box; }
-.cp-root button {
+:where(.cp-root) button {
   font: inherit; color: inherit; border: 0; background: none; padding: 0;
   cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation;
 }
-.cp-root button:focus-visible, .cp-root input:focus-visible { outline: 3px solid var(--cp-accent); outline-offset: 2px; }
+:where(.cp-root) button:focus-visible, :where(.cp-root) input:focus-visible { outline: 3px solid var(--cp-accent); outline-offset: 2px; }
 .cp-root [hidden] { display: none !important; }
 .cp-ic { width: 1em; height: 1em; flex: none; stroke-width: 2; }
 
