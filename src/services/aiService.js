@@ -1137,8 +1137,8 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
 
   // ChatRoom侧的内置世界书（builtinWorldBook.js，纯代码维护，跟长RP自己
   // 的世界书、以及shared-world全局设定完全独立，互不共用）——总开关是
-  // chat.worldBookEnabled，聊天窗设置里一个开关，全有或全无，没有"挑
-  // 哪几本"这层界面。关闭时这一段什么都不做，跟功能完全不存在一样。
+  // chat.worldBookEnabled；每本书各自有独立开关，存在 chat.enabledWorldBookIds
+  // 数组里；enabledWorldBookIds 为 null/undefined 时视为全部书开启（向后兼容）。
   let keywordWorldBookText = '';
   if (chat.worldBookEnabled) {
     try {
@@ -1148,7 +1148,10 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
         .filter(Boolean)
         .join('\n');
 
-      keywordWorldBookText = scanBuiltinWorldBook(scanText, { maxEntries: WORLD_BOOK_MAX_ENTRIES });
+      keywordWorldBookText = scanBuiltinWorldBook(scanText, {
+        maxEntries: WORLD_BOOK_MAX_ENTRIES,
+        enabledBookIds: chat.enabledWorldBookIds ?? null,
+      });
     } catch (error) {
       console.warn('[buildChatSystemPrompt] 扫描内置世界书失败：', error);
     }

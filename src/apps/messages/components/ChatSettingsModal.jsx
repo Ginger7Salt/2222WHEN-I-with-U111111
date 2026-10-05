@@ -25,6 +25,11 @@ import LearningModeSettingsSection from '../learningMode/LearningModeSettingsSec
 import db from '../../../db';
 import { CHAT_CONTROL_STYLE_OPTIONS } from '../chatControlStylePresets';
 import { compressImageFile } from '../../../utils/imageHelper';
+import {
+  CHARACTER_ANALYSIS_PRESETS,
+  DEFAULT_CHARACTER_ANALYSIS_PROMPT,
+} from '../characterAnalysisPrompt';
+import { BUILTIN_WORLD_BOOK_METAS } from '../builtinWorldBook';
 
 import { triggerGlobalToast } from '../../../components/NotificationToast';
 import { getLocationSettings, setLocationEnabled } from '../../../apps/location/placeService';
@@ -94,6 +99,10 @@ export const ChatSettingsModal = ({
   // 主动打开之前就突然带上一段陌生设定。
   const [worldBookEnabled, setWorldBookEnabled] = useState(
     chat?.worldBookEnabled === true
+  );
+  // 各本书的独立开关——存书 id 数组；null/undefined 时视为全部开启
+  const [enabledWorldBookIds, setEnabledWorldBookIds] = useState(
+    chat?.enabledWorldBookIds ?? BUILTIN_WORLD_BOOK_METAS.map((b) => b.id)
   );
   const [characterAnalysisPrompt, setCharacterAnalysisPrompt] = useState(
     chat?.characterAnalysisPrompt || ''
@@ -524,6 +533,26 @@ const handleToggleLocation = async () => {
 
     if (onUpdatedUserPersona) {
       onUpdatedUserPersona({ worldBookEnabled: nextEnabled });
+    }
+  };
+
+  const handleToggleBookEnabled = async (bookId) => {
+    if (!chat?.id) return;
+
+    const allIds = BUILTIN_WORLD_BOOK_METAS.map((b) => b.id);
+    const current = Array.isArray(enabledWorldBookIds)
+      ? enabledWorldBookIds
+      : allIds;
+
+    const next = current.includes(bookId)
+      ? current.filter((id) => id !== bookId)
+      : [...current, bookId];
+
+    setEnabledWorldBookIds(next);
+    await db.chats.update(chat.id, { enabledWorldBookIds: next });
+
+    if (onUpdatedUserPersona) {
+      onUpdatedUserPersona({ enabledWorldBookIds: next });
     }
   };
 
@@ -963,6 +992,40 @@ const handleToggleLocation = async () => {
           </p>
 
           <div className="space-y-1.5">
+            {/* 预设快捷按钮 */}
+            <div className="flex flex-wrap gap-1.5">
+              {CHARACTER_ANALYSIS_PRESETS.map((preset) => {
+                const isActive =
+                  preset.id === 'default'
+                    ? !characterAnalysisPrompt.trim()
+                    : characterAnalysisPrompt.trim() === preset.prompt.trim();
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    disabled={!characterAnalysisEnabled}
+                    onClick={() => {
+                      const next =
+                        preset.id === 'default' ? '' : preset.prompt.trim();
+                      setCharacterAnalysisPrompt(next);
+                      handleSaveUserIdentity({
+                        nextCharacterAnalysisPrompt: next
+                      });
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-40"
+                    style={{
+                      background: isActive
+                        ? 'var(--accent-color)'
+                        : 'var(--divider)',
+                      color: isActive ? '#fff' : 'var(--text-main)'
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <textarea
               rows={7}
               value={characterAnalysisPrompt}
@@ -1114,44 +1177,91 @@ const handleToggleLocation = async () => {
           </button>
         </div>
 
-        {/* 内置世界书：总开关（书和条目本身写在代码的
-            builtinWorldBook.js 里，这里只管这整个库要不要参与扫描） */}
+        {/* 内置世界书：总开关 + 每本书单独开关 */}
         <div
-          className="flex items-center justify-between gap-4 rounded-2xl border p-3"
+          className="space-y-2.5 rounded-2xl border p-3"
           style={{
             background: 'var(--control-soft-bg)',
             borderColor: 'var(--card-border)',
           }}
         >
-          <div className="min-w-0">
-            <p className="text-xs font-medium">内置世界书</p>
-            <p className="mt-1 text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              开启后，会在最近几条对话里扫描内置世界书的关键词，命中才会把对应条目注入给AI——不是整本都塞进去。
-            </p>
+          {/* 总开关行 */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-medium">内置世界书</p>
+              <p className="mt-1 text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                开启后，会在最近几条对话里扫描关键词，命中才会把对应条目注入给 AI——不是整本都塞进去。
+              </p>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={worldBookEnabled}
+              onClick={handleToggleWorldBookEnabled}
+              className="relative h-5 w-10 shrink-0 overflow-hidden rounded-full transition-colors"
+              style={{
+                background: worldBookEnabled
+                  ? 'var(--accent-color)'
+                  : 'var(--divider)'
+              }}
+            >
+              <span
+                className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition-transform"
+                style={{
+                  background: 'var(--bg-main)',
+                  transform: worldBookEnabled
+                    ? 'translateX(20px)'
+                    : 'translateX(0)'
+                }}
+              />
+            </button>
           </div>
 
-          <button
-            type="button"
-            role="switch"
-            aria-checked={worldBookEnabled}
-            onClick={handleToggleWorldBookEnabled}
-            className="relative h-5 w-10 shrink-0 overflow-hidden rounded-full transition-colors"
-            style={{
-              background: worldBookEnabled
-                ? 'var(--accent-color)'
-                : 'var(--divider)'
-            }}
-          >
-            <span
-              className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition-transform"
-              style={{
-                background: 'var(--bg-main)',
-                transform: worldBookEnabled
-                  ? 'translateX(20px)'
-                  : 'translateX(0)'
-              }}
-            />
-          </button>
+          {/* 总开关开启时，显示每本书的独立开关 */}
+          {worldBookEnabled && (
+            <div className="space-y-1.5 pt-1">
+              {BUILTIN_WORLD_BOOK_METAS.map((meta) => {
+                const isOn = Array.isArray(enabledWorldBookIds)
+                  ? enabledWorldBookIds.includes(meta.id)
+                  : true;
+                return (
+                  <div
+                    key={meta.id}
+                    className="flex items-center justify-between gap-3 rounded-xl px-2.5 py-2"
+                    style={{ background: 'var(--bg-main)' }}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium">{meta.name}</p>
+                      {meta.desc && (
+                        <p className="text-[10px] mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                          {meta.desc}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isOn}
+                      onClick={() => handleToggleBookEnabled(meta.id)}
+                      className="relative h-4 w-8 shrink-0 overflow-hidden rounded-full transition-colors"
+                      style={{
+                        background: isOn ? 'var(--accent-color)' : 'var(--divider)'
+                      }}
+                    >
+                      <span
+                        className="absolute left-0.5 top-0.5 h-3 w-3 rounded-full transition-transform"
+                        style={{
+                          background: 'var(--bg-main)',
+                          transform: isOn ? 'translateX(16px)' : 'translateX(0)'
+                        }}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* 暂时不在线（每个聊天窗单独设置） */}
