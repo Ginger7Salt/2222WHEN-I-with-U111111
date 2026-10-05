@@ -19,7 +19,7 @@
 //   - 顶部：轮次/存活人数状态条 + 规则按钮；
 //   - 舞台：5 个席位一排，当前行动者抬起+光圈，下方的发言气泡箭头
 //     指向"刚发言的人"（气泡 = 刚说了什么，光圈 = 现在轮到谁）；
-//   - 表情条：给刚发言的人飘表情，纯前端动效，不影响对局、不落库；
+//   - 表情条：给刚发言的人飘表态标签，纯前端动效，不影响对局、不落库；
 //   - 本轮发言记录、底部操作舱（发言输入 / 投票选择 / 淘汰结算）。
 // 对局逻辑（effects、引擎调用、落库）与改版前完全一致，只改了渲染层
 // 和少量只读派生状态。结算画面只是展示本局结果，不回写聊天。
@@ -62,15 +62,16 @@ import './undercover.css';
 const MAX_REAL_PICKS = 4; // 5 人局，用户占 1 席，真实角色最多选 4 位
 const SPEECH_MAX_LEN = 25;
 const AI_TURN_DELAY_MS = 900; // AI 发言/投票之间的停顿，模拟"正在输入"
-const REACTION_LIFETIME_MS = 1200; // 飘出来的表情存在多久
+const REACTION_LIFETIME_MS = 1200; // 飘出来的标签存在多久
 
+// 表态用纯文字标签，不用 emoji：飘在席位头顶的是一枚小胶囊
 const REACTIONS = [
-  { emoji: '🤨', label: '怀疑' },
-  { emoji: '📝', label: '记小本' },
-  { emoji: '👀', label: '盯' },
-  { emoji: '👏', label: '认可' },
+  { label: '怀疑' },
+  { label: '记小本' },
+  { label: '盯' },
+  { label: '认可' },
 ];
-const SEAT_TAP_EMOJI = '👀'; // 直接点座位时飘的表情
+const SEAT_TAP_LABEL = '盯'; // 直接点座位时飘的标签
 
 const RULES_TEXT =
   '发言时不能说出自己的词。听谁的描述格格不入，就把票投给他。卧底被投出局，平民获胜；场上只剩 2 人且卧底还在，卧底获胜。';
@@ -192,7 +193,7 @@ const Seat = ({ player, active, voted, voteCount, reactions, onTap }) => {
       className={cls}
       role="button"
       tabIndex={0}
-      aria-label={`${label}，点击飘一个表情`}
+      aria-label={`${label}，点击表态`}
       onClick={onTap}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -207,12 +208,14 @@ const Seat = ({ player, active, voted, voteCount, reactions, onTap }) => {
         {voteCount > 0 && <span className="uc-seat-votes">{voteCount}</span>}
         {voted && (
           <span className="uc-seat-voted" aria-label="已投票">
-            ✓
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
           </span>
         )}
         {reactions.map((r) => (
           <span key={r.id} className="uc-float" aria-hidden="true">
-            {r.emoji}
+            {r.label}
           </span>
         ))}
       </div>
@@ -248,7 +251,7 @@ const MatchScreen = ({ players, setPlayers, onExitToHall, onEnded }) => {
 
   // 纯展示用状态：不参与对局逻辑
   const [pendingTarget, setPendingTarget] = useState(null); // 用户投票时"已选中、待确认"的座位
-  const [reactions, setReactions] = useState([]); // [{ id, seatIndex, emoji }]
+  const [reactions, setReactions] = useState([]); // [{ id, seatIndex, label }]
   const [showRules, setShowRules] = useState(false);
 
   const handledKeyRef = useRef(null);
@@ -403,11 +406,11 @@ const MatchScreen = ({ players, setPlayers, onExitToHall, onEnded }) => {
     setPhase(UNDERCOVER_PHASES.DESCRIBING);
   };
 
-  const fireReaction = (seatIndex, emoji) => {
+  const fireReaction = (seatIndex, label) => {
     if (seatIndex == null) return;
     reactionIdRef.current += 1;
     const id = reactionIdRef.current;
-    setReactions((list) => [...list, { id, seatIndex, emoji }]);
+    setReactions((list) => [...list, { id, seatIndex, label }]);
     setTimeout(() => {
       setReactions((list) => list.filter((r) => r.id !== id));
     }, REACTION_LIFETIME_MS);
@@ -554,7 +557,7 @@ const MatchScreen = ({ players, setPlayers, onExitToHall, onEnded }) => {
               voted={phase === UNDERCOVER_PHASES.VOTING && votes[p.seatIndex] !== undefined}
               voteCount={phase === UNDERCOVER_PHASES.ELIMINATED ? voteCounts[p.seatIndex] || 0 : 0}
               reactions={reactions.filter((r) => r.seatIndex === p.seatIndex)}
-              onTap={() => fireReaction(p.seatIndex, SEAT_TAP_EMOJI)}
+              onTap={() => fireReaction(p.seatIndex, SEAT_TAP_LABEL)}
             />
           ))}
         </div>
@@ -604,13 +607,13 @@ const MatchScreen = ({ players, setPlayers, onExitToHall, onEnded }) => {
           <div className="uc-reactions-group">
             {REACTIONS.map((r) => (
               <button
-                key={r.emoji}
+                key={r.label}
                 type="button"
                 className="uc-reaction-btn"
                 disabled={!reactionTarget}
-                onClick={() => fireReaction(reactionTarget?.seatIndex, r.emoji)}
+                onClick={() => fireReaction(reactionTarget?.seatIndex, r.label)}
               >
-                {r.emoji} {r.label}
+                {r.label}
               </button>
             ))}
           </div>

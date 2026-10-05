@@ -503,7 +503,7 @@
   animation: uc-badge 0.3s var(--uc-spring);
 }
 
-/* 投票阶段的"已投"对勾 */
+/* 投票阶段的"已投"对勾（SVG） */
 .uc-seat-voted {
   position: absolute;
   right: -5px;
@@ -516,8 +516,9 @@
   color: #fff;
   font-size: 10px;
   font-weight: 800;
-  line-height: 14px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   animation: uc-badge 0.3s var(--uc-spring);
 }
 
@@ -526,21 +527,27 @@
   100% { transform: scale(1); }
 }
 
-/* 头顶飘出的表情 */
+/* 头顶飘出的表态标签（纯文字胶囊，不用 emoji） */
 .uc-float {
   position: absolute;
-  top: -22px;
+  top: -26px;
   left: 50%;
-  margin-left: -10px;
-  font-size: 20px;
+  padding: 2px 9px;
+  border: 1.5px solid var(--uc-ink);
+  border-radius: 999px;
+  background: var(--uc-bg);
+  color: var(--uc-ink);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
   pointer-events: none;
   animation: uc-float-up 1.2s forwards var(--uc-smooth);
 }
 
 @keyframes uc-float-up {
-  0% { opacity: 0; transform: translateY(6px) scale(0.5); }
-  30% { opacity: 1; transform: translateY(-8px) scale(1.2); }
-  100% { opacity: 0; transform: translateY(-24px) scale(0.9); }
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.6); }
+  30% { opacity: 1; transform: translate(-50%, -6px) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -22px) scale(0.95); }
 }
 
 /* ============ 对局页：气泡（全页唯一的重点） ============ */
@@ -654,7 +661,7 @@
   40% { transform: translateY(-5px); opacity: 1; }
 }
 
-/* ============ 对局页：表情条 ============ */
+/* ============ 对局页：表态条 ============ */
 .uc-reactions {
   margin-top: 12px;
   display: flex;
