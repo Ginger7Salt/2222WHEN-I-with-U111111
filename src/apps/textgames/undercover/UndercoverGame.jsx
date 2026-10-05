@@ -27,6 +27,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   listCharactersForPicker,
   getRecentWordPairs,
+  recordUndercoverMatch,
 } from './undercoverService';
 import { generateAiWordPair } from './undercoverAiWordService';
 import { pickRandomWordPair } from './undercoverWordBank';
@@ -155,6 +156,7 @@ const MatchScreen = ({ players, setPlayers, onExitToHall, onEnded }) => {
   const [busy, setBusy] = useState(false);
 
   const handledKeyRef = useRef(null);
+  const matchStartRef = useRef(Date.now());
 
   const userSeat = players.find((p) => p.isUser);
   const aliveCount = getAliveSeats(players).length;
@@ -252,7 +254,12 @@ const MatchScreen = ({ players, setPlayers, onExitToHall, onEnded }) => {
     const result = checkGameEnd(updatedPlayers);
     if (result) {
       setPhase(UNDERCOVER_PHASES.ENDED);
-      onEnded({ result, players: updatedPlayers });
+      onEnded({
+        result,
+        players: updatedPlayers,
+        rounds: round,
+        durationMs: Date.now() - matchStartRef.current,
+      });
     } else {
       setPhase(UNDERCOVER_PHASES.ELIMINATED);
     }
@@ -495,6 +502,7 @@ const UndercoverGame = ({ onExitToHall }) => {
   const [players, setPlayers] = useState(null); // 发完身份的 5 人座位数组，null = 还在选人
   const [screen, setScreen] = useState('reveal'); // 'reveal' | 'match' | 'ended'
   const [endedResult, setEndedResult] = useState(null);
+  const recordedRef = useRef(false); // 保证一局只落库/回写一次，跟 useUnoMatch.js 的 recordedRef 同一个理由
 
   useEffect(() => {
     let cancelled = false;
@@ -581,10 +589,20 @@ const UndercoverGame = ({ onExitToHall }) => {
         players={players}
         setPlayers={setPlayers}
         onExitToHall={onExitToHall}
-        onEnded={({ result, players: finalPlayers }) => {
+        onEnded={({ result, players: finalPlayers, rounds, durationMs }) => {
           setPlayers(finalPlayers);
           setEndedResult(result);
           setScreen('ended');
+
+          // 只落库/回写一次，跟 useUnoMatch.js 的 recordedRef 同一个
+          // 理由——这个回调理论上只会被 MatchScreen 的结算 effect 调用
+          // 一次，但多一道保险不会错。
+          if (!recordedRef.current) {
+            recordedRef.current = true;
+            recordUndercoverMatch({ players: finalPlayers, result, rounds, durationMs }).catch(
+              (err) => console.warn('[UndercoverGame] 结算落库/回写失败。', err)
+            );
+          }
         }}
       />
     );
@@ -599,6 +617,7 @@ const UndercoverGame = ({ onExitToHall }) => {
         onPlayAgain={() => {
           setPlayers(null);
           setPickedIds([]);
+          recordedRef.current = false; // 下一局要能重新落库/回写
         }}
       />
     );
