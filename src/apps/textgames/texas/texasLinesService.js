@@ -39,11 +39,27 @@ export const ensureTexasLines = async (character) => {
       },
       body: JSON.stringify({
         model: apiConfig.model || 'gpt-3.5-turbo',
-        messages: [{ role: 'system', content: buildTexasLinesPrompt(character) }],
+        // 2026-10 修复：只发一条 role:'system' 消息，在某些网关/代理
+        // （把 messages 转译成 Gemini 的 contents 字段那种）下会被判定
+        // 成"contents is not specified"直接 400——这类网关认定"只有
+        // system、没有任何 user 消息"不是合法请求。改成标准的
+        // system+user 两条，跟 unoLinesService.js/undercoverAiService.js
+        // 排查到的同一个问题、同一种修法。
+        messages: [
+          { role: 'system', content: '你是一个游戏内容生成助手，严格按用户给出的要求输出。' },
+          { role: 'user', content: buildTexasLinesPrompt(character) },
+        ],
         temperature: 0.9,
       }),
     });
-    if (!response.ok) return character;
+    if (!response.ok) {
+      const bodyText = await response.text().catch(() => '');
+      console.warn(
+        `[TexasLines] 接口返回非 200（状态码 ${response.status}），先用通用台词。`,
+        bodyText.slice(0, 300)
+      );
+      return character;
+    }
 
     const data = await response.json();
     const parsed = parseTexasLines(data?.choices?.[0]?.message?.content || '');
