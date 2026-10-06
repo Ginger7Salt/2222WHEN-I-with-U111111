@@ -4712,4 +4712,11 @@ db.version(76).stores({
     '++id, gameId, characterId, chatId, endedAt, [gameId+characterId]',
 });
 
+db.version(77).stores({
+  // 每个聊天窗口独立的打卡火花 streak
+  chatStreaks: '++id, chatId',
+  // 每个小伙伴（companionId）独立的日签抽取记录
+  fortuneDraws: '++id, companionId',
+});
+
 export default db;

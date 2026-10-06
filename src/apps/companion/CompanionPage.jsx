@@ -24,6 +24,7 @@ import {
   claimCompanionEvent,
   equipOutfit,
   getActiveEvents,
+  getCompanionByChat,
   getInventory,
   getRecentLogs,
   openCompanionSession,
@@ -36,10 +37,12 @@ import {
   useLegendaryFood,
 } from './companionService';
 import { DEFAULT_AVATARS, findScene, findShopItem, getAllSceneOptions } from './companionShopData';
+import { buyFreezeCard, getStreakForChat } from '../messages/streak/streakService';
 import CompanionShopModal from './CompanionShopModal';
 import CompanionSceneModal from './CompanionSceneModal';
 import CompanionHeartsInfoModal from './CompanionHeartsInfoModal';
 import CompanionHeartIcon from './CompanionHeartIcon';
+import CompanionFortuneModal from './fortune/CompanionFortuneModal';
 import './companionPage.css';
 
 /*
@@ -213,6 +216,8 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const [showShop, setShowShop] = useState(false);
   const [showScenePicker, setShowScenePicker] = useState(false);
   const [showHeartsInfo, setShowHeartsInfo] = useState(false);
+  const [showFortune, setShowFortune] = useState(false);
+  const [chatStreakCount, setChatStreakCount] = useState(0);
   const [isPoking, setIsPoking] = useState(false);
   const [floaters, setFloaters] = useState([]);
   const [eventPopup, setEventPopup] = useState(null);
@@ -506,6 +511,15 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     setCompanion(updated);
     setInventory(await getInventory(companion.id));
     setLogs(await getRecentLogs(companion.id));
+  };
+
+  const handleBuyTool = async (itemId) => {
+    if (!companion || !chatId) return;
+    // 目前只有冻结卡这一种道具，统一走 streakService
+    await buyFreezeCard(chatId, companion.id);
+    // 刷新心心余额
+    const updated = await getCompanionByChat(chatId);
+    if (updated) setCompanion(updated);
   };
 
   const handleToggleOutfit = async (itemName) => {
@@ -1085,6 +1099,25 @@ const CompanionPage = ({ chatId, character, onBack }) => {
               </span>
               商店
             </button>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const st = await getStreakForChat(chatId);
+                  setChatStreakCount(st?.count ?? 0);
+                } catch (_) { /* 静默失败 */ }
+                setShowFortune(true);
+              }}
+              className="cp-dock-btn"
+              aria-label="宠物日签"
+            >
+              <span className="cp-dock-ico">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </span>
+              日签
+            </button>
           </div>
         </div>
 
@@ -1166,6 +1199,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
           legendaryStock={companion.legendaryStock || {}}
           onBuy={handleBuy}
           onUseLegendary={handleUseLegendaryFood}
+          onBuyTool={handleBuyTool}
           onClose={() => setShowShop(false)}
           shopkeeperUrl={companion.avatarUrl}
           shopkeeperName={companion.name}
@@ -1185,6 +1219,16 @@ const CompanionPage = ({ chatId, character, onBack }) => {
 
       {showHeartsInfo && (
         <CompanionHeartsInfoModal onClose={() => setShowHeartsInfo(false)} />
+      )}
+
+      {showFortune && (
+        <CompanionFortuneModal
+          companionId={companion.id}
+          companionAvatarUrl={companion.avatarUrl}
+          companionName={companion.name}
+          streakCount={chatStreakCount}
+          onClose={() => setShowFortune(false)}
+        />
       )}
 
       {eventPopup && (

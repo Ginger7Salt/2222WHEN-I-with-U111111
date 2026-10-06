@@ -237,6 +237,26 @@ export const SHOP_SCENE_ITEMS = [
 ];
 
 
+/* ------------------------------------------------------------------ */
+/* 道具区：火花冻结卡                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 冻结卡：5 心心一张，用于保住连续打卡 streak 一天不衰减。
+ * category: 'freeze-card'，购买不走 buyShopItem，
+ * 而是走 streakService.buyFreezeCard(chatId, companionId)。
+ */
+export const SHOP_TOOL_ITEMS = [
+  {
+    id: 'tool-freeze-card',
+    name: '火花冻结卡',
+    category: 'freeze-card',
+    price: 5,
+    description: '用一张就能让火花连续天数暂停衰减一天，就算忘了聊天也不怕断签。',
+    url: '',
+  },
+];
+
 export const findScene = (sceneId) => (
   COMPANION_SCENES.find((scene) => scene.id === sceneId)
   || SHOP_SCENE_ITEMS.find((scene) => scene.id === sceneId)

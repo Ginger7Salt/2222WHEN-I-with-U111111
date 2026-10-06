@@ -144,6 +144,7 @@ import PendingPlaceBanner from './components/cards/PendingPlaceBanner';
 
 import CompanionHeartIcon from '../companion/CompanionHeartIcon';
 import { recordChatResponseForCompanion } from '../companion/companionService';
+import { recordStreakCheckin } from './streak/streakService';
 
 import { recordUserGiftMemoir } from '../memoir/memoirService';
 
@@ -1559,6 +1560,9 @@ useLayoutEffect(() => {
     // 让角色顺路去看看小伙伴——跟这个聊天窗有没有养小伙伴无关，
     // 函数内部会自己判断，没养的话直接跳过。
     void recordChatResponseForCompanion(chatId);
+
+    // #7 火花打卡：每天收到角色AI回复时计一次（同一天多次幂等）
+    void recordStreakCheckin(chatId);
   };
 
   const handleTriggerAiButtonClick = () => {

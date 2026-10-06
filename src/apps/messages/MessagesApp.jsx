@@ -20,6 +20,7 @@ import { subscribeAiEvents } from '../../services/aiService';
 import { destroyChatWithMemories } from '../memory/memoryService';
 import { triggerGlobalToast } from '../../components/NotificationToast';
 import { getEquippedBadgesForChats } from '../badges/monthlyBadgeService';
+import { getStreakMapForChats } from './streak/streakService';
 
 import ChatRoom from './ChatRoom';
 import CharacterLibrary from './CharacterLibrary';
@@ -39,6 +40,8 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   // chatId -> 当前佩戴的限定图标 { id, title, imageUrl, seasonTitle }，
   // 显示在会话列表每一行头像的右下角。
   const [badgeEquipMap, setBadgeEquipMap] = useState(() => new Map());
+  // chatId -> { count, freezeCards, lastDateStr } 火花连续打卡数据
+  const [streakMap, setStreakMap] = useState(() => new Map());
   const [view, setView] = useState('chats');
   const [activeChatId, setActiveChatId] = useState(null);
   const [editingChar, setEditingChar] = useState(null);
@@ -84,6 +87,13 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
         setBadgeEquipMap(nextBadgeMap);
       } catch (badgeError) {
         console.error('[MessagesApp] 读取限定图标佩戴状态失败：', badgeError);
+      }
+
+      try {
+        const nextStreakMap = await getStreakMapForChats(safeChatList.map((item) => item.id));
+        setStreakMap(nextStreakMap);
+      } catch (streakError) {
+        console.error('[MessagesApp] 读取火花打卡数据失败：', streakError);
       }
     } catch (err) {
       console.error('[MessagesApp] loadData failed safely:', err);
@@ -488,6 +498,29 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                           >
                                                        {chatItem.mode === 'rp' ? 'RP' : chatItem.mode === 'work' ? 'Work' : 'Real'}
                           </span>
+
+                          {/* 火花：只在 count >= 2 时才显示（1天不算连续） */}
+                          {(() => {
+                            const st = streakMap.get(chatItem.id);
+                            if (!st || st.count < 2) return null;
+                            return (
+                              <span
+                                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-mono"
+                                style={{
+                                  background: 'rgba(255,140,0,0.12)',
+                                  color: '#ff8c00',
+                                  border: '1px solid rgba(255,140,0,0.25)',
+                                }}
+                                title={`连续打卡 ${st.count} 天`}
+                              >
+                                <svg width="9" height="11" viewBox="0 0 9 11" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+                                  <path d="M4.5 0C4.5 0 7 2.5 7 5.5C7 7.433 5.933 9 4.5 9C3.067 9 2 7.433 2 5.5C2 4.5 2.4 3.6 3 3C3 3 2.5 5 4 5C4 5 3.5 3 4.5 0Z" fill="#ff8c00"/>
+                                  <path d="M4.5 6C4.5 6 5.5 6.8 5.5 7.8C5.5 8.46 5.06 9 4.5 9C3.94 9 3.5 8.46 3.5 7.8C3.5 6.8 4.5 6 4.5 6Z" fill="#ffcc00"/>
+                                </svg>
+                                {st.count}
+                              </span>
+                            );
+                          })()}
                         </div>
 
                         <p

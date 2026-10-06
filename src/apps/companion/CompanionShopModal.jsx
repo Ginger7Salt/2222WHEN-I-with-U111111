@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Lock, Shirt, Sparkles, UtensilsCrossed } from 'lucide-react';
 
-import { COMPANION_STAT_LABELS, FOOD_TIERS, SHOP_CLOTHING_ITEMS, SHOP_FOOD_ITEMS } from './companionShopData';
+import { COMPANION_STAT_LABELS, FOOD_TIERS, SHOP_CLOTHING_ITEMS, SHOP_FOOD_ITEMS, SHOP_TOOL_ITEMS } from './companionShopData';
 import CompanionHeartIcon from './CompanionHeartIcon';
 
 const TIER_LABELS = {
@@ -43,6 +43,7 @@ const CompanionShopModal = ({
   legendaryStock = {},
   onBuy,
   onUseLegendary,
+  onBuyTool,         // (itemId) => Promise — 购买道具（冻结卡）的回调
   onClose,
   shopkeeperUrl = '',
   shopkeeperName = '',
@@ -61,7 +62,9 @@ const CompanionShopModal = ({
 
   const list = tab === 'food'
     ? SHOP_FOOD_ITEMS.filter((item) => item.tier !== FOOD_TIERS.LEGENDARY)
-    : SHOP_CLOTHING_ITEMS;
+    : tab === 'clothing'
+      ? SHOP_CLOTHING_ITEMS
+      : SHOP_TOOL_ITEMS;
 
   const legendaryOwned = SHOP_FOOD_ITEMS.filter(
     (item) => item.tier === FOOD_TIERS.LEGENDARY && (legendaryStock[item.id] || 0) > 0
@@ -75,6 +78,7 @@ const CompanionShopModal = ({
     return {
       owned: tab === 'clothing' && ownedClothingIds.includes(item.id),
       locked: tab === 'food' && item.tier === FOOD_TIERS.RARE && !unlockedRareFoodIds.includes(item.id),
+      // 道具可叠加购买，不判断 owned
       canAfford: hearts >= item.price,
     };
   };
@@ -142,6 +146,21 @@ const CompanionShopModal = ({
       setKeeperLine('吃得真香，它看起来超满足～');
     } catch (useError) {
       setError(useError.message || '使用失败');
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  const handleBuyTool = async (item) => {
+    if (!onBuyTool) return;
+    setPendingId(item.id);
+    setError('');
+    try {
+      await onBuyTool(item.id);
+      popBubble(item.id);
+      setKeeperLine('冻结卡到手啦，签到断了也不怕～');
+    } catch (toolError) {
+      setError(toolError.message || '购买失败');
     } finally {
       setPendingId(null);
     }
@@ -222,7 +241,7 @@ const CompanionShopModal = ({
           <p className="cp-counter-fx">
             {locked
               ? '先触发特殊事件解锁'
-              : (describeEffects(selectedItem.effects) || (tab === 'clothing' ? '给它换个新造型' : ''))}
+              : (selectedItem.description || describeEffects(selectedItem.effects) || (tab === 'clothing' ? '给它换个新造型' : ''))}
           </p>
         </div>
 
@@ -234,6 +253,22 @@ const CompanionShopModal = ({
             className="cp-buy"
           >
             吃掉
+          </button>
+        ) : selectedItem.category === 'freeze-card' ? (
+          <button
+            type="button"
+            disabled={!canAfford || pendingId === selectedItem.id}
+            onClick={() => handleBuyTool(selectedItem)}
+            className="cp-buy"
+          >
+            {!canAfford ? (
+              '心心不足'
+            ) : (
+              <>
+                {selectedItem.price}
+                <CompanionHeartIcon className="cp-heart-ic" />
+              </>
+            )}
           </button>
         ) : (
           <button
@@ -283,7 +318,7 @@ const CompanionShopModal = ({
 
         {/* 两块挂牌：食物 / 衣服 */}
         <div className="cp-signs">
-          {[{ id: 'food', label: '食物' }, { id: 'clothing', label: '衣服' }].map((option) => (
+          {[{ id: 'food', label: '食物' }, { id: 'clothing', label: '衣服' }, { id: 'tools', label: '道具' }].map((option) => (
             <button
               key={option.id}
               type="button"
