@@ -253,7 +253,7 @@ export const SHOP_TOOL_ITEMS = [
     category: 'freeze-card',
     price: 5,
     description: '用一张就能让火花连续天数暂停衰减一天，就算忘了聊天也不怕断签。',
-    url: '',
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/OdQ2/960X1280/80dd4e87cba0456798efe0375454695c.png/webp',
   },
 ];
 

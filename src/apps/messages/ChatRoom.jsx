@@ -2260,7 +2260,7 @@ useLayoutEffect(() => {
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
                       >
                                                 <CompanionHeartIcon className="h-4 w-4" />
-                        <span>小伙伴<span className="opacity-50">（正在施工）</span></span>
+                        <span>小伙伴</span>
                       </button>
 
                       <button
