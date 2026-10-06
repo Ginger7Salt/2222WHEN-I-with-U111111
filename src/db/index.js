@@ -4719,4 +4719,19 @@ db.version(77).stores({
   fortuneDraws: '++id, companionId',
 });
 
+
+// ============================================================
+// v78：小游戏大厅切片A —— 「接住掉落物」每日次数与奖励记录。
+//
+// catchPlays：每玩一局记一行，不是"一天一行"（跟 fortuneDraws 不同，
+// 这个小游戏一天能玩很多次，只是超过每日奖励次数之后 rewarded 为
+// false，照样能记录、照样能看到自己的分数，只是不再给小伙伴加成）。
+// [companionId+dateStr] 复合索引从建表第一天就加上，跟 v67/v75 一个
+// 道理：这张表最常见的查询就是"这个小伙伴今天玩了几局 / 拿了几次奖励"，
+// 不想后补。
+// ============================================================
+db.version(78).stores({
+  catchPlays: '++id, companionId, dateStr, createdAt, [companionId+dateStr]',
+});
+
 export default db;

@@ -804,11 +804,14 @@ export default function CompanionFortuneModal({
               </div>
 
               <div className="fo-res-actions">
-                <button type="button" className="fo-btn" onClick={handleShare} disabled={shared}>
-                  <svg className="fo-ic"><use href="#i-send" /></svg>
+                <button type="button" className={`fo-btn${shared ? ' is-sent' : ''}`} onClick={handleShare} disabled={shared}>
+                  <svg className="fo-ic"><use href={shared ? '#i-check' : '#i-send'} /></svg>
                   <span>{shared ? '已发给 TA' : '发给 TA'}</span>
                 </button>
-                <button type="button" className="fo-btn main" onClick={closeResult}>收下签文</button>
+                <button type="button" className="fo-btn main" onClick={closeResult}>
+                  <svg className="fo-ic"><use href="#i-check" /></svg>
+                  <span>收下签文</span>
+                </button>
               </div>
             </div>
           </div>

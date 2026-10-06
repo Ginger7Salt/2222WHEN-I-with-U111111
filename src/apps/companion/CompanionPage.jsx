@@ -43,6 +43,7 @@ import CompanionSceneModal from './CompanionSceneModal';
 import CompanionHeartsInfoModal from './CompanionHeartsInfoModal';
 import CompanionHeartIcon from './CompanionHeartIcon';
 import CompanionFortuneModal from './fortune/CompanionFortuneModal';
+import CompanionCatchGameModal from './play/CompanionCatchGameModal';
 import './companionPage.css';
 
 /*
@@ -217,6 +218,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const [showScenePicker, setShowScenePicker] = useState(false);
   const [showHeartsInfo, setShowHeartsInfo] = useState(false);
   const [showFortune, setShowFortune] = useState(false);
+  const [showCatchGame, setShowCatchGame] = useState(false);
   const [chatStreakCount, setChatStreakCount] = useState(0);
   const [isPoking, setIsPoking] = useState(false);
   const [floaters, setFloaters] = useState([]);
@@ -1118,6 +1120,22 @@ const CompanionPage = ({ chatId, character, onBack }) => {
               </span>
               日签
             </button>
+            <button
+              type="button"
+              onClick={() => setShowCatchGame(true)}
+              className="cp-dock-btn"
+              aria-label="小游戏：接住掉落物"
+            >
+              <span className="cp-dock-ico">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="2" y="8" width="20" height="10" rx="5" />
+                  <path d="M7 11v4M5 13h4" />
+                  <circle cx="15" cy="12" r="1" />
+                  <circle cx="18" cy="14" r="1" />
+                </svg>
+              </span>
+              小游戏
+            </button>
           </div>
         </div>
 
@@ -1228,6 +1246,19 @@ const CompanionPage = ({ chatId, character, onBack }) => {
           companionName={companion.name}
           streakCount={chatStreakCount}
           onClose={() => setShowFortune(false)}
+        />
+      )}
+
+      {showCatchGame && (
+        <CompanionCatchGameModal
+          companionId={companion.id}
+          companionAvatarUrl={companion.avatarUrl}
+          companionName={companion.name}
+          onRewardApplied={async (updatedCompanion) => {
+            setCompanion(updatedCompanion);
+            setLogs(await getRecentLogs(updatedCompanion.id));
+          }}
+          onClose={() => setShowCatchGame(false)}
         />
       )}
 
