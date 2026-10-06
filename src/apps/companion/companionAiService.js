@@ -1,6 +1,16 @@
 /*
- * "小伙伴"的轻量 AI 反应文案：喂食/清洁/玩耍的即时反馈、
- * 以及角色自主照顾宠物时留下的日志一句话。
+ * "小伙伴"里唯一还会调用 AI 的互动：角色自主照顾宠物时留下的日志一句话。
+ *
+ * 喂食/清洁/玩耍的即时反馈原本也走这里（复用整个 buildChatSystemPrompt
+ * 生成），2026-10 改成了纯兜底文案（见 companionService.js 的
+ * FEED_FALLBACKS/CLEAN_FALLBACKS/PLAY_FALLBACKS）——这几个按键点击
+ * 频率高，之前每点一次都要带上世界书/待办/日记等一整套大提示词去换一句
+ * 旁白式反应，用户觉得不值这个 token/API 成本，而且这几句本来就是
+ * "小伙伴自己的反应"、不依赖角色人设，AI 生成带来的变化有限。跟戳一戳
+ * 一样改成纯本地文案池，不再调用这个文件里的 callCompanionAi。
+ *
+ * 角色自主照顾的日志不一样：这是角色自己的口吻、低频（有冷却限制，不是
+ * 按钮点击触发），继续保留 AI 生成以维持角色人设一致性。
  *
  * 写法照抄 src/apps/pet/petWidgetService.js 的 generateAiReactionReply：
  * 读同一套 buildChatSystemPrompt（保证角色人设/心情跟正式聊天一致），
@@ -58,9 +68,6 @@ const callCompanionAi = async ({ chatId, chat, character, guideText, userLine })
   }
 };
 
-const FEED_FALLBACKS = ['吃得挺香的，尾巴都在晃。', '心满意足地舔了舔嘴。'];
-const CLEAN_FALLBACKS = ['干干净净，整个精神了不少。', '被打理过后，蹭了蹭你的手。'];
-const PLAY_FALLBACKS = ['玩得很开心，眼睛亮亮的。', '扑腾了几下，看起来很满足。'];
 const CO_CARE_FALLBACKS = [
   '我顺路过来看了看它，陪它玩了一会儿，它看起来很开心。',
   '刚刚喂了它一点吃的，它蹭了蹭我，好像在说谢谢。',
@@ -68,32 +75,6 @@ const CO_CARE_FALLBACKS = [
 ];
 
 const pickFallback = (pool) => pool[Math.floor(Math.random() * pool.length)];
-
-const ACTION_LABELS = { feed: '喂食', clean: '清洁', play: '玩耍' };
-const ACTION_FALLBACKS = { feed: FEED_FALLBACKS, clean: CLEAN_FALLBACKS, play: PLAY_FALLBACKS };
-
-/*
- * 用户在小伙伴页面点了"喂食/清洁/玩耍"之后的即时一句话反馈。
- */
-export const generateFreeActionFeedback = async ({ chatId, chat, character, companion, actionType }) => {
-  const actionLabel = ACTION_LABELS[actionType] || actionType;
-
-  const guideText = `
-
-【注意：这不是一句普通聊天，而是用户在你们共同养的小伙伴"${companion?.name || '它'}"身上做了「${actionLabel}」这个动作】
-请用一句话（20 字以内）以你自己的口吻，对这只小伙伴的反应做出简短描述或感想，符合你的性格和此刻的心情。
-不要提到"系统"、"面板"、"程序"、"App"这类词，不要使用表情符号，不要加引号。`;
-
-  const reply = await callCompanionAi({
-    chatId,
-    chat,
-    character,
-    guideText,
-    userLine: `（用户刚对小伙伴做了「${actionLabel}」）`,
-  });
-
-  return reply || pickFallback(ACTION_FALLBACKS[actionType] || FEED_FALLBACKS);
-};
 
 /*
  * 角色"自主"去看小伙伴时留下的一句日志——不占聊天上下文，

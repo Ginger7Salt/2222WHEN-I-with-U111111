@@ -32,6 +32,7 @@ export const EVENT_KINDS = {
   FLAVOR: 'flavor',
   RARE_UNLOCK: 'rare_unlock',
   LEGENDARY_GRANT: 'legendary_grant',
+  CHOICE: 'choice',
 };
 
 // ---- 氛围小事件：心情异常 / 想要东西 / 认识新朋友 / 学会技能 ----
@@ -266,10 +267,89 @@ export const LEGENDARY_GRANT_EVENTS = [
   },
 ];
 
+// ---- 选项事件：触发时先插一句"剧情开场白"，用户点开事件卡片后要从
+// 2-3 个选项里选一个；选完才真正结算奖励（小数值加成，不会出现惩罚性的
+// 负数——"不是最优解"体现在奖励明显更少，而不是倒扣），并把对应那个
+// 选项的文案当作角色反应单独插进聊天记录（跟触发时的开场白是两条
+// 独立的消息）。跟其它三类事件共用同一套触发判定/冷却/卡槽逻辑，
+// 见 companionEventService.js 的 evaluateCompanionEvents。
+export const CHOICE_EVENTS = [
+  {
+    id: 'choice-two-boxes',
+    kind: EVENT_KINDS.CHOICE,
+    title: '两个神秘的盒子',
+    bannerText: '它叼来了两个长得差不多的盒子，纠结地看看这个又看看那个，好像在等你帮它拿主意。',
+    characterLine: (name) => `${name}叼来了两个长得差不多的盒子，纠结了半天也拿不定主意，眼巴巴地望着你，好像想让你帮它选一个。`,
+    probability: 0.05,
+    check: () => true,
+    options: [
+      {
+        id: 'shiny',
+        label: '选闪闪发光的那个',
+        outcomeText: (name) => `${name}兴冲冲地打开闪闪发光的盒子，结果里面空空如也——不过盒子本身挺好看，它干脆把盒子当成新玩具抱着玩了起来。`,
+        reward: { mood: 4 },
+      },
+      {
+        id: 'plain',
+        label: '选朴素的那个',
+        outcomeText: (name) => `${name}半信半疑地打开朴素的盒子，没想到里面满满当当全是它最爱吃的东西，开心得直打转。`,
+        reward: { mood: 10, satiety: 15, hearts: 1.5 },
+      },
+    ],
+  },
+  {
+    id: 'choice-two-paths',
+    kind: EVENT_KINDS.CHOICE,
+    title: '两条没走过的小路',
+    bannerText: '它在岔路口停了下来，一条近一条远，看起来是想让你帮它挑一条。',
+    characterLine: (name) => `${name}在岔路口停了下来，一条近一条远，转头看着你，好像在等你帮它挑一条没走过的路。`,
+    probability: 0.05,
+    check: (ctx) => ctx.daysSinceAdopt >= 1,
+    options: [
+      {
+        id: 'near',
+        label: '走近的那条',
+        outcomeText: (name) => `${name}很快就逛完了近的那条路，没什么特别的，不过悠悠闲闲地散了个步，心情也还不错。`,
+        reward: { mood: 5 },
+      },
+      {
+        id: 'far',
+        label: '走远的那条',
+        outcomeText: (name) => `${name}走了好久远的那条路，意外看到一片开得正好的花丛，开心得又蹦又跳，一直拉着你说要再去看看。`,
+        reward: { mood: 14, hearts: 1 },
+      },
+    ],
+  },
+  {
+    id: 'choice-stranger-snacks',
+    kind: EVENT_KINDS.CHOICE,
+    title: '陌生人递来的两份点心',
+    bannerText: '路上有人给了它两份点心，一份看起来普普通通，一份看起来有点奇怪，它拿不定主意该吃哪份。',
+    characterLine: (name) => `${name}路上收到了两份点心，一份普普通通，一份看起来有点奇怪，它拿着左看右看，想让你帮它决定先吃哪份。`,
+    probability: 0.04,
+    check: (ctx) => ctx.satiety < 90,
+    options: [
+      {
+        id: 'plain-snack',
+        label: '先吃普通的那份',
+        outcomeText: (name) => `${name}吃了普普通通的那份，味道中规中矩，但也算是吃饱了，心满意足地拍了拍肚子。`,
+        reward: { satiety: 12, mood: 3 },
+      },
+      {
+        id: 'odd-snack',
+        label: '先吃奇怪的那份',
+        outcomeText: (name) => `${name}试探地咬了一口看起来奇怪的那份，没想到意外地好吃，眼睛都亮了起来，一下子吃了个精光。`,
+        reward: { satiety: 10, mood: 12, hearts: 1 },
+      },
+    ],
+  },
+];
+
 export const ALL_EVENT_DEFS = [
   ...FLAVOR_EVENTS,
   ...RARE_UNLOCK_EVENTS,
   ...LEGENDARY_GRANT_EVENTS,
+  ...CHOICE_EVENTS,
 ];
 
 export const findEventDef = (eventDefId) => (

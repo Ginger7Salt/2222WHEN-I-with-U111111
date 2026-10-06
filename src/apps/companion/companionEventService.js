@@ -18,6 +18,7 @@
 
 import db from '../../db';
 import {
+  CHOICE_EVENTS,
   EVENT_KINDS,
   findEventDef,
   FLAVOR_EVENTS,
@@ -84,10 +85,52 @@ const buildActiveEventEntry = (def, now) => ({
   title: def.title,
   bannerText: def.bannerText,
   grantsFoodId: def.grantsFoodId || null,
+  // 选项事件：只把 id/label 放进 activeEvent 条目（给 UI 渲染选项按钮用），
+  // 不带 outcomeText/reward——避免结果提前"剧透"，真正的结果只在用户选完
+  // 之后才通过 findEventDef(entry.defId) 去 def.options 里查。
+  options: def.kind === EVENT_KINDS.CHOICE
+    ? (def.options || []).map((opt) => ({ id: opt.id, label: opt.label }))
+    : null,
+  chosenOptionId: null,
+  resolvedText: null,
   createdAt: now,
   expiresAt: computeExpiresAt(now),
   claimed: false,
 });
+
+/*
+ * 往聊天里插一句话（角色口吻），事件触发时的"开场白"和选项事件结算后的
+ * "结果反应"共用这一个小工具，避免两处重复写同一段 db.messages.add 逻辑。
+ */
+const insertCompanionChatLine = async (companion, line, extraMetadata = {}) => {
+  if (!line) return;
+
+  const chat = await db.chats.get(companion.chatId);
+  const character = chat ? await db.characters.get(chat.characterId) : null;
+  if (!chat || !character) return;
+
+  const timestampIso = new Date().toISOString();
+  const metadata = { ...extraMetadata };
+
+  await db.messages.add({
+    chatId: companion.chatId,
+    characterId: chat.characterId,
+    sender: 'character',
+    type: 'text',
+    content: line,
+    metadata,
+    versions: [{ type: 'text', content: line, metadata, timestamp: timestampIso }],
+    currentVersionIndex: 0,
+    isRead: false,
+    timestamp: timestampIso,
+  });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('new-local-message-inserted', { detail: { chatId: companion.chatId } })
+    );
+  }
+};
 
 /*
  * 核心判定：返回 { triggeredEvents, patch }。
@@ -141,6 +184,11 @@ export const evaluateCompanionEvents = (companion, now = Date.now()) => {
       if (triggeredEvents.length > before) lastLegendaryGrantAt = now;
     });
   }
+
+  // 选项事件：触发判定逻辑跟氛围事件一样随便触发，但命中之后不会立刻结算
+  // 奖励——要等用户在卡片里选完一个选项才真正加数值，见
+  // resolveCompanionChoiceEvent。
+  CHOICE_EVENTS.forEach((def) => tryTrigger(def));
 
   // 氛围小事件：随便触发，不解锁/不发放任何东西。
   FLAVOR_EVENTS.forEach((def) => tryTrigger(def));
@@ -201,41 +249,17 @@ export const checkCompanionEvents = async (companionId) => {
   await db.companions.update(companionId, patch);
   const updated = { ...companion, ...patch };
 
-  // 往聊天里插一句角色台词，让事件也能在聊天记录里看到。
+  // 往聊天里插一句角色台词，让事件也能在聊天记录里看到。选项事件这里插
+  // 的只是"开场白"（剧情设定），选完之后的结果反应是另一条独立消息，
+  // 见 resolveCompanionChoiceEvent。
   try {
-    const chat = await db.chats.get(companion.chatId);
-    const character = chat ? await db.characters.get(chat.characterId) : null;
+    for (const { def } of triggeredEvents) {
+      const line = typeof def.characterLine === 'function'
+        ? def.characterLine(companion.name)
+        : def.characterLine;
 
-    if (chat && character) {
-      for (const { def } of triggeredEvents) {
-        const line = typeof def.characterLine === 'function'
-          ? def.characterLine(companion.name)
-          : def.characterLine;
-        if (!line) continue;
-
-        const timestampIso = new Date().toISOString();
-        const metadata = { companionEventId: def.id };
-
-        // eslint-disable-next-line no-await-in-loop
-        await db.messages.add({
-          chatId: companion.chatId,
-          characterId: chat.characterId,
-          sender: 'character',
-          type: 'text',
-          content: line,
-          metadata,
-          versions: [{ type: 'text', content: line, metadata, timestamp: timestampIso }],
-          currentVersionIndex: 0,
-          isRead: false,
-          timestamp: timestampIso,
-        });
-      }
-
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('new-local-message-inserted', { detail: { chatId: companion.chatId } })
-        );
-      }
+      // eslint-disable-next-line no-await-in-loop
+      await insertCompanionChatLine(companion, line, { companionEventId: def.id });
     }
   } catch (error) {
     console.error('[CompanionEvent] 写入聊天消息失败:', error);
@@ -265,6 +289,9 @@ export const claimCompanionEvent = async (companionId, activeEventId) => {
 
   const target = activeEvents[index];
   if (target.claimed) return companion;
+  // 选项事件不走这条"直接领取"的路——必须先选一个选项，见
+  // resolveCompanionChoiceEvent，这里直接跳过，不做任何改动。
+  if (target.kind === EVENT_KINDS.CHOICE) return companion;
 
   const def = findEventDef(target.defId);
   const now = Date.now();
@@ -289,6 +316,73 @@ export const claimCompanionEvent = async (companionId, activeEventId) => {
 
   await db.companions.put(updated);
   return updated;
+};
+
+/*
+ * 选项事件专用的"领取"：用户在卡片里选了某个选项之后调用。
+ *   - 按选中选项的 reward 加数值（mood/satiety/hearts，没写的字段按 0 算，
+ *     不会出现惩罚性的倒扣）。
+ *   - 选中选项的 outcomeText 当作角色对这次选择的反应，单独插一条聊天
+ *     消息（跟触发时插的"开场白"是两条独立消息）。
+ *   - activeEvent 条目标记为已选择/已领取，并记下 chosenOptionId/
+ *     resolvedText，供 UI 在弹窗里展示"你选的是哪个、结果是什么"。
+ *
+ * 返回 { companion, outcomeText }；传入的 activeEventId 找不到、已经选过、
+ * 或者压根不是选项事件，就原样返回 companion、outcomeText 为 null，
+ * 调用方据此判断没有真正发生改变。
+ */
+export const resolveCompanionChoiceEvent = async (companionId, activeEventId, optionId) => {
+  const companion = await db.companions.get(companionId);
+  if (!companion) return { companion: null, outcomeText: null };
+
+  const activeEvents = getActiveEventsRaw(companion);
+  const index = activeEvents.findIndex((event) => event.id === activeEventId);
+  if (index === -1) return { companion, outcomeText: null };
+
+  const target = activeEvents[index];
+  if (target.claimed || target.kind !== EVENT_KINDS.CHOICE) {
+    return { companion, outcomeText: null };
+  }
+
+  const def = findEventDef(target.defId);
+  const option = def?.options?.find((opt) => opt.id === optionId);
+  if (!option) return { companion, outcomeText: null };
+
+  const now = Date.now();
+  const reward = option.reward || {};
+  const resolvedText = typeof option.outcomeText === 'function'
+    ? option.outcomeText(companion.name)
+    : option.outcomeText;
+
+  const nextActiveEvents = [...activeEvents];
+  nextActiveEvents[index] = {
+    ...target,
+    claimed: true,
+    chosenOptionId: optionId,
+    resolvedText: resolvedText || null,
+  };
+
+  const updated = {
+    ...companion,
+    activeEvents: nextActiveEvents,
+    mood: clamp100((companion.mood ?? 80) + (reward.mood || 0)),
+    satiety: clamp100((companion.satiety ?? 80) + (reward.satiety || 0)),
+    hearts: Math.round(((companion.hearts || 0) + (reward.hearts || 0)) * 10) / 10,
+    updatedAt: now,
+  };
+
+  await db.companions.put(updated);
+
+  try {
+    await insertCompanionChatLine(updated, resolvedText, {
+      companionEventId: def.id,
+      companionEventChoice: optionId,
+    });
+  } catch (error) {
+    console.error('[CompanionEvent] 选项结果写入聊天消息失败:', error);
+  }
+
+  return { companion: updated, outcomeText: resolvedText || null };
 };
 
 export const findShopItemForEvent = (foodId) => findShopItem(foodId);

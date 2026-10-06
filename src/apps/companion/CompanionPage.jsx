@@ -6,6 +6,7 @@ import {
   Droplets,
   Gamepad2,
   Heart,
+  HelpCircle,
   Palette,
   Pencil,
   Shirt,
@@ -29,6 +30,7 @@ import {
   performFreeAction,
   pokeCompanion,
   renameCompanion,
+  resolveCompanionChoiceEvent,
   setCompanionScene,
   updateCompanionAvatar,
   useLegendaryFood,
@@ -36,6 +38,7 @@ import {
 import { DEFAULT_AVATARS, findScene, findShopItem, getAllSceneOptions } from './companionShopData';
 import CompanionShopModal from './CompanionShopModal';
 import CompanionSceneModal from './CompanionSceneModal';
+import CompanionHeartsInfoModal from './CompanionHeartsInfoModal';
 import CompanionHeartIcon from './CompanionHeartIcon';
 import './companionPage.css';
 
@@ -209,6 +212,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const [isActing, setIsActing] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showScenePicker, setShowScenePicker] = useState(false);
+  const [showHeartsInfo, setShowHeartsInfo] = useState(false);
   const [isPoking, setIsPoking] = useState(false);
   const [floaters, setFloaters] = useState([]);
   const [eventPopup, setEventPopup] = useState(null);
@@ -573,6 +577,23 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     setEventPopup(null);
   };
 
+  // 选项事件：选完一个选项后不直接关弹窗，而是让弹窗刷新成"已选择"状态，
+  // 把结果文案展示出来，用户自己点"知道啦"再关。
+  const handleResolveChoice = async (activeEventId, optionId) => {
+    if (!companion || isClaiming) return;
+    setIsClaiming(true);
+    try {
+      const result = await resolveCompanionChoiceEvent(companion.id, activeEventId, optionId);
+      if (result?.companion) {
+        setCompanion(result.companion);
+        const resolvedEvent = getActiveEvents(result.companion).find((event) => event.id === activeEventId);
+        if (resolvedEvent) setEventPopup(resolvedEvent);
+      }
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
   // 点"知道啦"：先撒一把彩带，稍等一下再真正领取、关弹窗
   const handleClaimWithFx = (activeEventId) => {
     if (isClaiming) return;
@@ -881,7 +902,9 @@ const CompanionPage = ({ chatId, character, onBack }) => {
             >
               <b>{event.title}</b>
               <small>{event.bannerText}</small>
-              {!event.claimed && <span className="cp-claim">领取</span>}
+              {!event.claimed && (
+                <span className="cp-claim">{event.kind === 'choice' ? '选择' : '领取'}</span>
+              )}
             </button>
           ))}
         </div>
@@ -1012,6 +1035,15 @@ const CompanionPage = ({ chatId, character, onBack }) => {
                   {companion.hearts}
                   <FloatingNumbers floaters={floaters} anchor="hearts" color="var(--cp-heart)" />
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setShowHeartsInfo(true)}
+                  aria-label="心心是怎么来的"
+                  title="心心是怎么来的"
+                  className="cp-mini-btn cp-hearts-info-trigger"
+                >
+                  <HelpCircle className="cp-ic" />
+                </button>
               </>
             )}
           </div>
@@ -1151,6 +1183,10 @@ const CompanionPage = ({ chatId, character, onBack }) => {
         />
       )}
 
+      {showHeartsInfo && (
+        <CompanionHeartsInfoModal onClose={() => setShowHeartsInfo(false)} />
+      )}
+
       {eventPopup && (
         <div className="cp-overlay center">
           <div className="cp-backdrop" onClick={() => setEventPopup(null)} />
@@ -1163,30 +1199,58 @@ const CompanionPage = ({ chatId, character, onBack }) => {
             </div>
 
             <h4>{eventPopup.title}</h4>
-            <p>{eventPopup.bannerText}</p>
+            <p>{eventPopup.kind === 'choice' && eventPopup.claimed ? eventPopup.resolvedText : eventPopup.bannerText}</p>
             {eventPopup.grantsFoodId && (
               <p className="got">
                 获得了「{findShopItem(eventPopup.grantsFoodId)?.name || '新食物'}」
               </p>
             )}
 
-            <div className="cp-btn-row">
-              <button
-                type="button"
-                onClick={() => setEventPopup(null)}
-                className="cp-btn"
-              >
-                先这样
-              </button>
-              <button
-                type="button"
-                disabled={isClaiming}
-                onClick={() => handleClaimWithFx(eventPopup.id)}
-                className="cp-btn main"
-              >
-                知道啦
-              </button>
-            </div>
+            {eventPopup.kind === 'choice' ? (
+              eventPopup.claimed ? (
+                <div className="cp-btn-row">
+                  <button
+                    type="button"
+                    onClick={() => setEventPopup(null)}
+                    className="cp-btn main"
+                  >
+                    知道啦
+                  </button>
+                </div>
+              ) : (
+                <div className="cp-btn-row cp-choice-row">
+                  {(eventPopup.options || []).map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      disabled={isClaiming}
+                      onClick={() => handleResolveChoice(eventPopup.id, option.id)}
+                      className="cp-btn main"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )
+            ) : (
+              <div className="cp-btn-row">
+                <button
+                  type="button"
+                  onClick={() => setEventPopup(null)}
+                  className="cp-btn"
+                >
+                  先这样
+                </button>
+                <button
+                  type="button"
+                  disabled={isClaiming}
+                  onClick={() => handleClaimWithFx(eventPopup.id)}
+                  className="cp-btn main"
+                >
+                  知道啦
+                </button>
+              </div>
+            )}
 
             {confetti.map((piece) => (
               <i key={piece.id} className="cp-confetti" style={piece.style} />

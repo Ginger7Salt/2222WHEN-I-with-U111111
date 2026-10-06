@@ -8,10 +8,7 @@
  */
 
 import db from '../../db';
-import {
-  generateFreeActionFeedback,
-  generateAutonomousCareNote,
-} from './companionAiService';
+import { generateAutonomousCareNote } from './companionAiService';
 import { findShopItem, FOOD_TIERS } from './companionShopData';
 import { checkCompanionEvents, getActiveEvents } from './companionEventService';
 
@@ -26,7 +23,52 @@ const FREE_ACTION_EFFECT = {
   play: { satiety: -5, mood: 18, hearts: 2 },
 };
 
-const ACTION_LOG_TEXT = { feed: '喂食', clean: '清洁', play: '玩耍' };
+// 从数组里随机挑一条，戳一戳和喂食/清洁/玩耍的反馈文案共用这一个小工具。
+const pickRandom = (pool) => pool[Math.floor(Math.random() * pool.length)];
+
+// ---- 喂食/清洁/玩耍的即时反馈：纯本地文案池，不调用 AI ----
+// （2026-10 从"调 AI、复用整个 buildChatSystemPrompt 生成一句话"改成纯
+// 兜底——这三个按键点击频率高，之前每点一次都要带上世界书/待办/日记等
+// 一整套大提示词去换一句旁白式反应，用户觉得不值这个 token/API 成本；
+// 而且这些反应本来就是"小伙伴自己的反应"，不依赖角色人设，思路跟下面
+// 戳一戳的 POKE_REPLIES 一致）
+const FEED_FALLBACKS = [
+  '吃得挺香的，尾巴都在晃。',
+  '心满意足地舔了舔嘴。',
+  '吃得一粒不剩，还眼巴巴地看着空碗。',
+  '小口小口地吃着，看起来很享受。',
+  '吃到一半停下来蹭了蹭你的手。',
+  '两颊鼓鼓的，像是在偷偷藏粮食。',
+  '吃完打了个满足的小哈欠。',
+  '围着食盆转了两圈才开始吃。',
+  '吃得专注极了，耳朵都竖了起来。',
+  '吃完舒舒服服地趴下了。',
+];
+const CLEAN_FALLBACKS = [
+  '干干净净，整个精神了不少。',
+  '被打理过后，蹭了蹭你的手。',
+  '浑身毛茸茸的，抖了抖身子。',
+  '闻起来香香的，心情也变好了。',
+  '梳理完毛发，舒服地眯起了眼睛。',
+  '干净利落，走起路来都轻快了几分。',
+  '收拾完后一直围着你打转。',
+  '整理好之后，自己蹭了蹭墙角像是在确认。',
+  '清爽多了，趴在你身边不想动。',
+  '收拾得整整齐齐，像是换了一只新的一样。',
+];
+const PLAY_FALLBACKS = [
+  '玩得很开心，眼睛亮亮的。',
+  '扑腾了几下，看起来很满足。',
+  '围着你转圈圈，怎么都玩不腻。',
+  '玩累了，呼哧呼哧地喘着气。',
+  '蹦蹦跳跳的，心情好得不行。',
+  '玩到一半突然扑向你，像是在撒娇。',
+  '尾巴甩得飞快，根本停不下来。',
+  '兴奋地跑来跑去，一刻也不闲着。',
+  '玩具都被它折腾了个遍。',
+  '玩累了，直接窝进你怀里不走了。',
+];
+const FREE_ACTION_FALLBACKS = { feed: FEED_FALLBACKS, clean: CLEAN_FALLBACKS, play: PLAY_FALLBACKS };
 
 // ---- 戳一戳：小伙伴自己"说话"，纯固定文案池，不调用 AI、不写日志 ----
 // （用户确认过：说话的是小伙伴自己，不是角色替它转述，思路照抄
@@ -39,6 +81,14 @@ const POKE_REPLIES = [
   '打了个哈欠，慢悠悠地看向你。',
   '往你身边凑近了一点点。',
   '歪着头看着你，好像在等什么。',
+  '吓了一跳，耳朵抖了抖。',
+  '回头看了你一眼，又低下头假装没事。',
+  '小声哼唧了一下，往后缩了缩。',
+  '忽然来了精神，蹭了蹭你的胳膊。',
+  '翻了个身，露出了肚皮。',
+  '愣了一下，然后凑过来蹭蹭。',
+  '尾巴摇得更欢了。',
+  '被戳得有点痒，扭了扭身子。',
 ];
 
 /*
@@ -61,7 +111,7 @@ export const pokeCompanion = async (companionId) => {
 
   await db.companions.put(updated);
 
-  const line = POKE_REPLIES[Math.floor(Math.random() * POKE_REPLIES.length)];
+  const line = pickRandom(POKE_REPLIES);
   return { companion: updated, line };
 };
 
@@ -164,7 +214,7 @@ export const openCompanionSession = async (chatId) => {
 };
 
 export { getActiveEvents };
-export { claimCompanionEvent } from './companionEventService';
+export { claimCompanionEvent, resolveCompanionChoiceEvent } from './companionEventService';
 
 export const adoptCompanion = async ({ chatId, characterId, name, avatarUrl }) => {
   const existing = await db.companions.where('chatId').equals(chatId).first();
@@ -315,23 +365,7 @@ export const performFreeAction = async (companionId, actionType) => {
 
   await db.companions.put(updated);
 
-  const chat = await db.chats.get(companion.chatId);
-  const character = chat ? await db.characters.get(chat.characterId) : null;
-
-  let feedbackText = `完成了一次${ACTION_LOG_TEXT[actionType] || actionType}。`;
-  try {
-    if (chat && character) {
-      feedbackText = await generateFreeActionFeedback({
-        chatId: companion.chatId,
-        chat,
-        character,
-        companion: updated,
-        actionType,
-      });
-    }
-  } catch (error) {
-    console.error('[Companion] 互动反馈生成失败:', error);
-  }
+  const feedbackText = pickRandom(FREE_ACTION_FALLBACKS[actionType] || FEED_FALLBACKS);
 
   await db.companionLogs.add({
     companionId,

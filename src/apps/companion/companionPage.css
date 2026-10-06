@@ -398,6 +398,26 @@
 .cp-btn:active { transform: scale(0.9); }
 .cp-btn.main { background: var(--cp-accent); color: var(--cp-on-accent); box-shadow: 0 8px 14px -8px var(--cp-accent); }
 .cp-btn:disabled { opacity: 0.7; }
+/* 选项事件：选项文案比"先这样/知道啦"长得多，改成竖排整行按钮，不挤在一行。 */
+.cp-choice-row { flex-direction: column; }
+.cp-choice-row .cp-btn { width: 100%; padding: 12px 16px; text-align: center; white-space: normal; line-height: 1.4; }
+
+/* 心心说明弹窗 */
+.cp-hearts-info-card { max-width: 340px; padding: 38px 22px 20px; border-radius: 32px; text-align: center; animation: cp-card-in 0.55s cubic-bezier(0.2, 1.7, 0.4, 1); }
+.cp-hearts-info-icon {
+  position: absolute; left: 50%; top: -26px; width: 52px; height: 52px; margin-left: -26px;
+  display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--cp-accent-soft); color: var(--cp-heart);
+}
+.cp-hearts-info-icon .cp-heart-ic { width: 26px; height: 26px; }
+.cp-hearts-info-card h4 { margin: 0 0 14px; font-family: var(--cp-font-display); font-weight: 400; font-size: 20px; }
+.cp-hearts-info-list { list-style: none; margin: 0 0 14px; padding: 0; text-align: left; display: flex; flex-direction: column; gap: 10px; }
+.cp-hearts-info-list li { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 16px; background: var(--cp-soft); }
+.cp-hearts-info-list b { font-size: 13px; }
+.cp-hearts-info-list span { font-size: 12px; color: var(--cp-sub); line-height: 1.5; }
+.cp-hearts-info-card .cp-note { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.cp-hearts-info-card .cp-note .cp-ic { width: 13px; height: 13px; }
+.cp-hearts-info-close { margin-top: 16px; width: 100%; }
 .cp-confetti { position: absolute; left: 50%; top: 50%; width: 9px; height: 14px; border-radius: 2px; pointer-events: none; animation: cp-conf 1.3s cubic-bezier(0.2, 0.7, 0.4, 1) forwards; }
 @keyframes cp-conf { 0% { transform: translate(-50%, -50%) scale(0.4); opacity: 1; } 100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--r)) scale(1); opacity: 0; } }
 

@@ -42,6 +42,7 @@ import {
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
 import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
 import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/companion/companionOfferService';
+import { buildCompanionStatusPromptBlock } from '../apps/companion/companionStatusPrompt';
 import { BUBBLE_STYLE_PROMPT_NOTE, applyBubbleStyleDirective } from '../apps/messages/bubbleStyleDirective';
 import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
 import { CONFIRM_CARD_PROMPT_NOTE, applyConfirmCardDirective } from '../apps/messages/confirmCardDirective';
@@ -1225,6 +1226,23 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
         ))
         .join('\n')}`
     : '';
+
+  // 小伙伴（#6 聊天窗宠物）状态感知：2026-10 从"每次都带上"改成按概率抽，
+  // 思路跟下面角色聊自己生活/聊用户兴趣的 dailyLifeTopicBlock/
+  // userInterestBlock 一致——塞进提示词的东西越多，单独一段就越容易被
+  // 周围几十个模块稀释掉，而且不是每轮都需要。抽不中这轮就完全不查/不带
+  // 这段，跟没养小伙伴时一样；抽中的这轮，拼接位置也从原本待办/日记那堆
+  // 中间挪到角色/用户设定正下方，更靠前、更不容易被忽略。
+  const COMPANION_STATUS_INJECT_PROBABILITY = 0.2;
+  let companionStatusBlock = '';
+  if (Math.random() < COMPANION_STATUS_INJECT_PROBABILITY) {
+    try {
+      companionStatusBlock = await buildCompanionStatusPromptBlock(chatId);
+    } catch (error) {
+      console.warn('[buildChatSystemPrompt] 拉取小伙伴状态失败：', error);
+    }
+  }
+
             const characterAnalysisPromptBlock =
     buildCharacterAnalysisPromptBlock({
       enabled: chat.characterAnalysisEnabled === true,
@@ -1426,6 +1444,7 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
     summaryText: summaryText.length,
     todoText: todoText.length,
     diaryText: diaryText.length,
+    companionStatusBlock: companionStatusBlock.length,
         characterAnalysisPromptBlock: characterAnalysisPromptBlock.length,
     loveProfilePromptBlock: loveProfilePromptBlock.length,
     dailyLifeTopicBlock: dailyLifeTopicBlock.length,
@@ -1453,7 +1472,7 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
 【用户设定 (User Notes)】：
 - 用户称呼：${userName}
 - 用户专属人设背景：${userPersona}
-
+${companionStatusBlock}
 ${worldBooksText}
 ${keywordWorldBookText}
 ${summaryText}
