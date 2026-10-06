@@ -86,6 +86,8 @@ export const buildMatchResult = ({ table, players, stake, endReason, durationMs,
       }))
     : null;
   const userStanding = standings ? standings.find((s) => s.index === USER_SEAT) : null;
+  // 用户是在第几轮出局的（没出局过就是 null）。
+  const userBust = table.moments.find((m) => m.type === 'bust' && m.seat === USER_SEAT);
 
   return {
     gameId: GAME_ID_LIARS_DICE,
@@ -98,6 +100,7 @@ export const buildMatchResult = ({ table, players, stake, endReason, durationMs,
     rounds: table.roundNumber,
     durationSec: Math.round((durationMs || 0) / 1000),
     userRank: userStanding ? userStanding.rank : null,
+    userOutRound: userBust ? userBust.round : null,
     winnerIndex: finished ? table.winnerIndex : null,
     winnerId: finished ? players[table.winnerIndex].id : null,
     standings,
@@ -137,6 +140,9 @@ export const buildCharacterMessage = ({ result, players, selfSeat }) => {
     endLine = `打到最后只有${names[result.winnerIndex]}还剩骰子，${names[result.winnerIndex]}赢了，共打了${
       result.rounds
     }轮，用时 ${formatDuration(result.durationSec * 1000)}`;
+    if (result.winnerIndex !== USER_SEAT && result.userOutRound) {
+      endLine += `。用户在第${result.userOutRound}轮就出局了，最终排第${result.userRank}`;
+    }
   } else if (result.endReason === 'busted') {
     const alive = result.seats
       .filter((s) => !s.out)
@@ -179,6 +185,7 @@ export const buildCharacterMessage = ({ result, players, selfSeat }) => {
     if (result.winnerIndex === USER_SEAT) noticeBody = '你拿了第一';
     else if (result.winnerIndex === selfSeat) noticeBody = 'TA拿了第一';
     else noticeBody = `${players[result.winnerIndex].name}拿了第一`;
+    if (result.winnerIndex !== USER_SEAT && result.userRank) noticeBody += `，你排第${result.userRank}`;
   } else if (result.endReason === 'busted') {
     noticeBody = '你的骰子先用光了';
   } else {

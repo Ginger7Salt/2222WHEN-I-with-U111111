@@ -321,9 +321,18 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
   // 开骰时哪些骰子算数：叫的点数本身，叫的不是 1 时 1 点也算。
   const isHit = (value) => !!reveal && (value === reveal.bid.face || (reveal.bid.face !== 1 && value === 1));
 
+  // 用户是在刚刚这一轮出局的（这次摊牌停下来等用户点“继续旁观”）。
+  const justOut = inReveal && !!reveal && reveal.eliminated && reveal.loser === 0;
+
   const handleBack = () => {
     if (!m.sessionEnded && !m.matchOver) setConfirmLeave(true);
     else onExitToHall();
+  };
+
+  // 用户已经出局、正在旁观时离开：这一局直接算完，并照常告诉同桌的角色。
+  const leaveWhileSpectating = () => {
+    m.skipToEnd();
+    onExitToHall();
   };
 
   const renderSeat = (idx) => {
@@ -422,6 +431,12 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
         <BackIcon />
       </button>
 
+      {m.userOut && !m.matchOver && !m.showResult && (
+        <button type="button" className="tld-skip-btn" onClick={m.skipToEnd}>
+          跳过，直接看结果
+        </button>
+      )}
+
       <div className="tld-header">
         <span>第 {table.roundNumber} 轮</span>
         <span>桌上 {totalDice} 颗骰子</span>
@@ -430,13 +445,17 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
 
       {confirmLeave && (
         <div className="tld-confirm">
-          <p>中途离开会放弃下注的 {stake} 个筹码，这一局也不会留下记录。</p>
+          {m.userOut ? (
+            <p>你已经出局了。现在离开的话，这一局会直接算完，结果会告诉同桌的角色。</p>
+          ) : (
+            <p>中途离开会放弃下注的 {stake} 个筹码，这一局也不会留下记录。</p>
+          )}
           <div className="tgh-shared-actions">
             <button type="button" className="tgh-shared-btn tgh-shared-btn-primary" onClick={() => setConfirmLeave(false)}>
-              继续打
+              {m.userOut ? '继续旁观' : '继续打'}
             </button>
-            <button type="button" className="tgh-shared-btn" onClick={onExitToHall}>
-              仍然离开
+            <button type="button" className="tgh-shared-btn" onClick={m.userOut ? leaveWhileSpectating : onExitToHall}>
+              {m.userOut ? '直接出结果并离开' : '仍然离开'}
             </button>
           </div>
         </div>
@@ -512,7 +531,7 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
             </section>
           )}
 
-          {!inReveal && (
+          {!inReveal && !mySeat.out && (
             <section className="tld-sanctum">
               <div className="tld-sanctum-head">
                 <span className="tld-sanctum-title">你的骰盅（{mySeat.diceCount} 颗）</span>
@@ -537,6 +556,13 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
                   </button>
                 )}
               </div>
+            </section>
+          )}
+
+          {!inReveal && mySeat.out && (
+            <section className="tld-spectate">
+              <div className="tld-spectate-title">你已出局，正在旁观</div>
+              <p>剩下三位还在继续，打完才会出结果。想直接看结果，点右上角的“跳过”。</p>
             </section>
           )}
         </>
@@ -619,6 +645,16 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
             >
               {m.sessionEnded ? '查看结算' : '正在结算……'}
             </button>
+          ) : m.userOut ? (
+            justOut ? (
+              <div className="tgh-shared-actions">
+                <button type="button" className="tgh-shared-btn tgh-shared-btn-primary" onClick={m.nextRound}>
+                  继续旁观
+                </button>
+              </div>
+            ) : (
+              <p className="tld-spectate-note">旁观中，下一轮马上开始……</p>
+            )
           ) : (
             <div className="tgh-shared-actions">
               <button type="button" className="tgh-shared-btn tgh-shared-btn-primary" onClick={m.nextRound}>
