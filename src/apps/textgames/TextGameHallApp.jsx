@@ -18,6 +18,7 @@ import WitchsPoisonGame from './witchsPoison/WitchsPoisonGame';
 import UnoGame from './uno/UnoGame';
 import TexasHoldemGame from './texas/TexasHoldemGame';   // 新增
 import UndercoverGame from './undercover/UndercoverGame';
+import LiarsDiceGame from './liarsDice/LiarsDiceGame';
 import './textGameHall.css';
 
 const GAME_COMPONENTS = {
@@ -27,6 +28,7 @@ const GAME_COMPONENTS = {
   'uno': UnoGame,
   'texas-holdem': TexasHoldemGame,
   'undercover': UndercoverGame,
+  'liars-dice': LiarsDiceGame,
 };
 
 const ChevronIcon = () => (

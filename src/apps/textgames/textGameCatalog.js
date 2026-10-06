@@ -133,6 +133,15 @@ export const TEXT_GAME_CATALOG = [
     status: TEXT_GAME_STATUS.AVAILABLE,
   },
   {
+    id: 'liars-dice',
+    title: '吹牛骰子',
+    titleEn: 'Everyone is bluffing',
+    desc: '四个人一张桌子，骰子扣在碗里，叫点、质疑，看谁在吹牛。',
+    mode: '四人对战',
+    modeEmphasis: true,
+    status: TEXT_GAME_STATUS.AVAILABLE,
+  },
+  {
     id: 'scratch-card',
     title: '刮刮乐',
     titleEn: 'A scratch, a small reward',
