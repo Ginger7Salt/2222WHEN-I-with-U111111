@@ -7,6 +7,9 @@
  * ========================================================= */
 
 .pg-root {
+  --pg-accent-deep: #2D74AE; /* 比 --cp-accent 深一档，白字印在渐变按钮上才看得清 */
+  --pg-heart-deep: #D95F72;  /* 比 --cp-heart 深一档，同上 */
+
   position: relative;
   width: 100%;
   max-width: 430px;
@@ -22,7 +25,7 @@
   touch-action: none;
 }
 .pg-root *, .pg-root *::before, .pg-root *::after { box-sizing: border-box; }
-.pg-root button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+:where(.pg-root) button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 .pg-root button:focus-visible { outline: 3px solid var(--cp-accent); outline-offset: 2px; }
 .pg-ic { width: 1em; height: 1em; flex: none; }
 
@@ -107,7 +110,9 @@
 
 .pg-start-btn {
   position: relative; overflow: hidden; width: 100%; max-width: 280px; height: 52px; border-radius: 99px;
-  font-family: var(--cp-font-display); font-size: 17px; background: linear-gradient(135deg, var(--cp-accent), var(--cp-heart)); color: var(--cp-on-accent);
+  font-family: var(--cp-font-display); font-weight: 400; font-size: 18px; letter-spacing: 0.03em;
+  background: linear-gradient(135deg, var(--pg-accent-deep), var(--pg-heart-deep)); color: var(--cp-on-accent);
+  text-shadow: 0 1px 2px rgba(36, 65, 90, 0.35);
   box-shadow: 0 12px 18px -10px var(--cp-accent); display: flex; align-items: center; justify-content: center; gap: 8px;
   transition: transform 0.25s cubic-bezier(0.3, 1.7, 0.5, 1);
 }
@@ -152,12 +157,17 @@
 /* 按钮：沿用 fortune.css 调过的那套"描边 ghost + 渐变主按钮"质感 */
 .pg-btn {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 0; border-radius: 20px;
-  background: var(--cp-card); color: var(--cp-sky-fg); border: 2px solid var(--cp-sky-bg); font-size: 13.5px; font-weight: 800;
+  background: var(--cp-card); color: var(--cp-sky-fg); border: 2px solid var(--cp-sky-bg);
+  font-family: var(--cp-font-display); font-weight: 400; font-size: 15.5px; letter-spacing: 0.02em;
   box-shadow: 0 8px 14px -10px var(--cp-shadow); transition: transform 0.25s cubic-bezier(0.3, 1.7, 0.5, 1), background 0.2s;
 }
 .pg-btn:active { transform: scale(0.92); background: var(--cp-sky-bg); }
-.pg-btn.main { background: linear-gradient(135deg, var(--cp-accent), var(--cp-heart)); color: var(--cp-on-accent); border-color: transparent; box-shadow: 0 10px 16px -8px var(--cp-accent); }
-.pg-btn.main:active { background: var(--cp-accent); }
+.pg-btn.main {
+  background: linear-gradient(135deg, var(--pg-accent-deep), var(--pg-heart-deep)); color: var(--cp-on-accent); border-color: transparent;
+  text-shadow: 0 1px 2px rgba(36, 65, 90, 0.35);
+  box-shadow: 0 10px 16px -8px var(--cp-accent);
+}
+.pg-btn.main:active { background: var(--pg-accent-deep); }
 .pg-btn:disabled { opacity: 0.6; box-shadow: none; transform: none; }
 
 /* ================= 漂浮分数文字 / 粒子（接住零食的即时反馈） ================= */
