@@ -96,6 +96,9 @@ export const useLiarsDiceMatch = ({ characters, stake }) => {
   const [sessionEnded, setSessionEnded] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [chipBalance, setChipBalance] = useState(null);
+  // 全屏演出（摇骰 / 开骰）已经播完的轮次：演出播放期间暂停角色行动和倒计时。
+  const [shakeDoneRound, setShakeDoneRound] = useState(0);
+  const [revealDoneRound, setRevealDoneRound] = useState(0);
 
   const startedAtRef = useRef(0);
   const activeStakeRef = useRef(0);
@@ -236,6 +239,8 @@ export const useLiarsDiceMatch = ({ characters, stake }) => {
     setSessionResult(null);
     setSessionEnded(false);
     setShowResult(false);
+    setShakeDoneRound(0);
+    setRevealDoneRound(0);
     setRemainingMs(TURN_TIME_LIMIT_MS);
     startingRef.current = false;
     return { ok: true };
@@ -251,6 +256,20 @@ export const useLiarsDiceMatch = ({ characters, stake }) => {
           : 'open'
       }`
     : '';
+
+  // 摇骰、开骰两段全屏演出：演出由界面播放，播放期间角色不行动、用户的
+  // 倒计时不走，播完界面调 finishShake / finishReveal。用户已经出局、在旁观
+  // 时不播（保持正常节奏），但用户刚好是在这一轮出局的那次开骰要播。
+  const userIsOut = !!table && table.seats[0].out;
+  const lastReveal = table ? table.lastReveal : null;
+  const shakePending =
+    !!table && table.status === 'bidding' && !userIsOut && table.roundNumber !== shakeDoneRound;
+  const revealPending =
+    !!table &&
+    (table.status === 'reveal' || table.status === 'ended') &&
+    !!lastReveal &&
+    lastReveal.round !== revealDoneRound &&
+    (!userIsOut || (lastReveal.eliminated && lastReveal.loser === 0));
 
   // ---------- 角色行动 ----------
   const runAiStep = () => {
@@ -280,18 +299,18 @@ export const useLiarsDiceMatch = ({ characters, stake }) => {
   };
 
   useEffect(() => {
-    if (!table || table.status !== 'bidding' || table.currentIndex === 0) return undefined;
+    if (!table || table.status !== 'bidding' || table.currentIndex === 0 || shakePending) return undefined;
 
     const delay = AI_DELAY_MIN_MS + Math.random() * (AI_DELAY_MAX_MS - AI_DELAY_MIN_MS);
     aiTimerRef.current = setTimeout(runAiStep, delay);
     return () => clearTimeout(aiTimerRef.current);
     // runAiStep 读的是 tableRef，不依赖闭包里的 table。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turnKey, table?.status]);
+  }, [turnKey, table?.status, shakePending]);
 
   // ---------- 用户 20 秒倒计时 ----------
   useEffect(() => {
-    if (!table || table.status !== 'bidding' || table.currentIndex !== 0) return undefined;
+    if (!table || table.status !== 'bidding' || table.currentIndex !== 0 || shakePending) return undefined;
 
     const deadline = Date.now() + TURN_TIME_LIMIT_MS;
     setRemainingMs(TURN_TIME_LIMIT_MS);
@@ -314,7 +333,7 @@ export const useLiarsDiceMatch = ({ characters, stake }) => {
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turnKey, table?.status]);
+  }, [turnKey, table?.status, shakePending]);
 
   // ---------- 轮到用户：重置草稿 ----------
   useEffect(() => {
@@ -449,6 +468,10 @@ export const useLiarsDiceMatch = ({ characters, stake }) => {
     if (sessionEnded) setShowResult(true);
   };
 
+  // 全屏演出播完的回调（界面调用）。
+  const finishShake = (round) => setShakeDoneRound(round);
+  const finishReveal = (round) => setRevealDoneRound(round);
+
   // ---------- 用户出局后的旁观 ----------
   // 跳过：把剩下的对局在后台一口气算完，直接结算并显示结果页。只有用户
   // 已经出局才能用。结算不依赖界面的 effect，所以调用后立刻离开界面也会
@@ -488,6 +511,8 @@ export const useLiarsDiceMatch = ({ characters, stake }) => {
     if (state.status !== 'ended') return;
 
     settledRef.current = true;
+    setShakeDoneRound(state.roundNumber);
+    setRevealDoneRound(state.lastReveal ? state.lastReveal.round : 0);
     commit(state, []);
     settleMatch(state, 'finished').then(() => setShowResult(true));
   };
@@ -495,7 +520,7 @@ export const useLiarsDiceMatch = ({ characters, stake }) => {
   // 旁观时每轮摊牌停几秒让人看清，然后自动开下一轮。用户自己刚好是在这
   // 一轮出局的那次摊牌不自动继续，留给用户点“继续旁观”。
   useEffect(() => {
-    if (!table || table.status !== 'reveal' || !table.seats[0].out || settledRef.current) return undefined;
+    if (!table || table.status !== 'reveal' || !table.seats[0].out || settledRef.current || revealPending) return undefined;
     const lr = table.lastReveal;
     if (lr && lr.eliminated && lr.loser === 0) return undefined;
 
@@ -503,7 +528,7 @@ export const useLiarsDiceMatch = ({ characters, stake }) => {
     return () => clearTimeout(timer);
     // nextRound 读的是 tableRef，不依赖闭包里的 table。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table?.status, table?.roundNumber]);
+  }, [table?.status, table?.roundNumber, revealPending]);
 
   const momentLines = useMemo(() => {
     if (!sessionResult) return [];
@@ -523,6 +548,10 @@ export const useLiarsDiceMatch = ({ characters, stake }) => {
     bidOptions,
     matchOver,
     userOut,
+    shakePending,
+    revealPending,
+    finishShake,
+    finishReveal,
     sessionResult,
     sessionEnded,
     showResult,

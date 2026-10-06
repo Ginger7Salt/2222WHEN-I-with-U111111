@@ -21,8 +21,13 @@ import { SEAT_COUNT, TURN_TIME_LIMIT_MS, getTotalDice } from './liarsDiceEngine'
 import { formatDuration } from './liarsDiceMatchFormat';
 import { TABLE_CHARACTER_COUNT } from './liarsDiceNpcs';
 import { useLiarsDiceMatch } from './useLiarsDiceMatch';
+import { AltarDie, HandDice } from './Dice3D';
+import ShakeOverlay from './ShakeOverlay';
+import RevealOverlay from './RevealOverlay';
+import { OutOverlay, WinOverlay } from './EndOverlays';
 import '../textGameShared.css';
 import './liarsDice.css';
+import './liarsDiceFx.css';
 
 const BackIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -267,6 +272,8 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
   const [startError, setStartError] = useState('');
   const [peek, setPeek] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [outFxDone, setOutFxDone] = useState(0); // 已经播过“你出局”演出的那一轮
+  const [winFxDone, setWinFxDone] = useState(false); // 已经播过“你获胜”演出
 
   useEffect(() => {
     m.startSession()
@@ -323,6 +330,12 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
 
   // 用户是在刚刚这一轮出局的（这次摊牌停下来等用户点“继续旁观”）。
   const justOut = inReveal && !!reveal && reveal.eliminated && reveal.loser === 0;
+
+  // 全屏演出：摇骰 / 开骰由控制器判断该不该播（shakePending / revealPending），
+  // 播完回调 finishShake / finishReveal；出局、获胜演出接在开骰之后各播一次。
+  const showOutFx = justOut && !m.revealPending && outFxDone !== reveal.round;
+  const showWinFx =
+    status === 'ended' && table.winnerIndex === 0 && !m.revealPending && !winFxDone && !m.showResult;
 
   const handleBack = () => {
     if (!m.sessionEnded && !m.matchOver) setConfirmLeave(true);
@@ -478,9 +491,11 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
 
             {!inReveal && bid && (
               <div className="tld-bid-display">
-                <span className="tld-bid-count">{bid.quantity}</span>
+                <span className="tld-bid-count" key={`${bid.quantity}-${bid.face}`}>
+                  {bid.quantity}
+                </span>
                 <span className="tld-bid-times">x</span>
-                <Die value={bid.face} size="lg" />
+                <AltarDie value={bid.face} size={66} />
               </div>
             )}
             {!inReveal && !bid && <div className="tld-bid-empty">还没有人叫点</div>}
@@ -540,21 +555,23 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
                 </button>
               </div>
               <div className="tld-tray">
-                <div className="tld-hand-row">
-                  {mySeat.dice.map((v, i) => (
-                    <Die key={i} value={v} size="md" />
-                  ))}
-                </div>
-                {!showMyDice && (
-                  <button type="button" className="tld-cup" onClick={() => setPeek(true)}>
-                    <svg className="tld-cup-arch" viewBox="0 0 100 100" aria-hidden="true">
-                      <path d="M20 90 L20 40 Q50 5 80 40 L80 90 Z" />
-                      <line x1="50" y1="10" x2="50" y2="90" />
-                      <circle cx="50" cy="45" r="8" />
-                    </svg>
-                    <span>点一下揭开骰盅</span>
-                  </button>
-                )}
+                <HandDice dice={mySeat.dice} lifted={showMyDice} />
+                {/* key 里带上摇骰演出是否还在播：演出一结束，骰盅重新挂载，播“落下”动画 */}
+                <button
+                  type="button"
+                  key={`cup-${table.roundNumber}-${m.shakePending}`}
+                  className={`tld-cup ${showMyDice ? 'tld-cup-lifted' : ''}`}
+                  onClick={() => setPeek(true)}
+                  tabIndex={showMyDice ? -1 : 0}
+                  aria-hidden={showMyDice}
+                >
+                  <svg className="tld-cup-arch" viewBox="0 0 100 100" aria-hidden="true">
+                    <path d="M20 90 L20 40 Q50 5 80 40 L80 90 Z" />
+                    <line x1="50" y1="10" x2="50" y2="90" />
+                    <circle cx="50" cy="45" r="8" />
+                  </svg>
+                  <span>点一下揭开骰盅</span>
+                </button>
               </div>
             </section>
           )}
@@ -669,6 +686,19 @@ const LiarsDiceMatch = ({ characters, stake, onExitToHall, onBackToPicker }) => 
       )}
 
       {m.showResult && m.sessionResult && renderResult()}
+
+      {m.shakePending && <ShakeOverlay onDone={() => m.finishShake(table.roundNumber)} />}
+      {m.revealPending && reveal && (
+        <RevealOverlay
+          reveal={reveal}
+          names={table.seats.map((_, i) => m.nameOf(i))}
+          onDone={() => m.finishReveal(reveal.round)}
+        />
+      )}
+      {showOutFx && <OutOverlay onDone={() => setOutFxDone(reveal.round)} />}
+      {showWinFx && (
+        <WinOverlay amount={stake * (SEAT_COUNT - 1)} balance={m.chipBalance} onDone={() => setWinFxDone(true)} />
+      )}
     </div>
   );
 };
