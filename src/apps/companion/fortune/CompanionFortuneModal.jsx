@@ -17,10 +17,10 @@ import './fortune.css';
 import {
   STYLE_NAMES, IDLE_TEXT, GO_LABEL, POKE_LINES, WEEKDAYS,
   TAROT, ASTRO, RANKS,
-} from './fortuneData';
+} from './fortune/fortuneData';
 import {
   getFortuneState, drawFortune, savePreferredStyle, todayDateStr,
-} from './fortuneService';
+} from './fortune/fortuneService';
 
 /* ------------------------------------------------------------------ */
 /* 小工具                                                               */
