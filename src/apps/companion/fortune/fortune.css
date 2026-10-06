@@ -1,793 +1,417 @@
 /* =========================================================
- * fortune.css  —  宠物日签模态框
+ * fortune.css — 宠物日签模态框
  * 前缀约定：fo-（不与 cp- 冲突）
+ * 颜色变量：直接复用 companionPage.css 里 .cp-root 的 --cp-*
+ *   （本模态框始终渲染在 .cp-root 内部，继承这些变量）
  * 签级 tone 类：tone-da / tone-zhong / tone-xiao / tone-ji / tone-mo / tone-xiong
  * ========================================================= */
 
-/* ---- 变量（复用 companionPage.css 里的 --cp-* 变量） ---- */
+/* ---- 日签专属变量 ---- */
 .fo-root {
-  --fo-vermilion:      #C9373A;
-  --fo-vermilion-deep: #8B1A1C;
-  --fo-paper:          #FFF8F0;
-  --fo-font-brush:     'Noto Serif SC', 'STKaiti', 'KaiTi', serif;
-  --fo-peek:           140px;
+  --fo-vermilion: #EF7C86;
+  --fo-vermilion-deep: #D95F72;
+  --fo-paper: #FFFDF6;
+  --fo-font-brush: 'Ma Shan Zheng', 'STKaiti', 'KaiTi', 'Kaiti SC', serif;
+  --fo-peek: 160px;
+  --fo-p: 0;
 
-  /* tone 色 */
-  --tone-da:    #C9373A;
-  --tone-zhong: #C48A00;
-  --tone-xiao:  #2D8C4E;
-  --tone-ji:    #1865B5;
-  --tone-mo:    #7B52AB;
-  --tone-xiong: #636363;
-}
-
-/* ---- 全屏遮罩 ---- */
-.fo-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: rgba(0, 0, 0, 0.72);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-/* ---- 主容器：全屏卡 ---- */
-.fo-root {
   position: relative;
   width: 100%;
-  max-width: 480px;
-  height: 100dvh;
-  background: var(--fo-paper);
+  max-width: 430px;
+  height: min(860px, max(660px, calc(100dvh - 84px)));
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  isolation: isolate;
+  border-radius: 34px;
+  background: var(--cp-bg);
+  color: var(--cp-text);
+  font-family: var(--cp-font-body);
+  box-shadow: 0 30px 60px -30px rgba(36, 65, 90, 0.5), 0 0 0 6px #fff;
+  -webkit-tap-highlight-color: transparent;
 }
+.fo-root *, .fo-root *::before, .fo-root *::after { box-sizing: border-box; }
+.fo-root button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+.fo-root button:focus-visible { outline: 3px solid var(--cp-accent); outline-offset: 2px; }
+.fo-root [hidden] { display: none !important; }
+.fo-ic { width: 1em; height: 1em; flex: none; }
 
-/* 星星背景 */
-.fo-stars {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.fo-star {
-  position: absolute;
-  width: var(--s, 8px);
-  height: var(--s, 8px);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55);
-  animation: fo-twinkle 3s ease-in-out infinite;
-  animation-delay: var(--d, 0s);
-}
-@keyframes fo-twinkle {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
-  50%       { opacity: 1;   transform: scale(1.1); }
-}
+/* 签级配色：--r-fg 文字/描边，--r-bg 底色，--r-soft 浅底 */
+.fo-root .tone-da    { --r-fg: #E5577A; --r-bg: #FFE3EA; --r-soft: #FFF3F6; }
+.fo-root .tone-zhong { --r-fg: #C98A00; --r-bg: #FFF1BE; --r-soft: #FFFAE6; }
+.fo-root .tone-xiao  { --r-fg: #25967A; --r-bg: #D5F5EA; --r-soft: #EBFAF3; }
+.fo-root .tone-ji    { --r-fg: #2F86CC; --r-bg: #DCEEFF; --r-soft: #EEF6FF; }
+.fo-root .tone-mo    { --r-fg: #6F7BC4; --r-bg: #E4E8FF; --r-soft: #F2F4FF; }
+.fo-root .tone-xiong { --r-fg: #5E819C; --r-bg: #E3EBF3; --r-soft: #F2F6FA; }
 
-/* ---- 顶部栏 ---- */
-.fo-header {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px 8px;
-  flex-shrink: 0;
-}
-.fo-back {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: rgba(0, 0, 0, 0.06);
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  color: var(--text-main, #333);
-}
-.fo-back:hover { background: rgba(0, 0, 0, 0.12); }
-.fo-title {
-  font-family: var(--fo-font-brush);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-main, #333);
-}
-.fo-streak {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #ff8c00;
-  background: rgba(255, 140, 0, 0.1);
-  border: 1px solid rgba(255, 140, 0, 0.22);
-  border-radius: 20px;
-  padding: 3px 10px 3px 7px;
-  transition: transform 0.25s cubic-bezier(.22,1,.36,1);
-}
-.fo-streak.is-bump { animation: fo-bump 0.4s cubic-bezier(.22,1,.36,1); }
-@keyframes fo-bump {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.25); }
-  100% { transform: scale(1); }
-}
-.fo-streak svg { flex-shrink: 0; }
+/* =========================================================
+ * 1. 场景：神签（白天鸟居）/ 塔罗（黄昏）/ 星盘（夜空）
+ * ========================================================= */
+.fo-scene { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: var(--cp-bg); }
+.fo-sky { position: absolute; inset: 0; display: none; }
+.fo-root[data-style="omikuji"] .fo-sky[data-for="omikuji"],
+.fo-root[data-style="tarot"] .fo-sky[data-for="tarot"],
+.fo-root[data-style="astro"] .fo-sky[data-for="astro"] { display: block; animation: fo-fade 0.5s ease-out; }
+.fo-sky[data-for="omikuji"] { background: var(--cp-sky); }
+.fo-sky[data-for="tarot"] { background: linear-gradient(#AEB9F5 0%, #CFD6FA 34%, #EEEFFF 70%, #FFFFFF 100%); }
+.fo-sky[data-for="astro"] { background: linear-gradient(#4067AE 0%, #7CA0DD 42%, #C6DBF5 78%, #EAF3FD 100%); }
 
-/* ---- 风格切换 tabs ---- */
+/* 神签：日头 / 云 / 花瓣 / 地面 / 石径 */
+.fo-orb { position: absolute; right: 22%; top: 9%; width: 54px; height: 54px; border-radius: 50%; background: var(--cp-orb); box-shadow: 0 0 0 14px var(--cp-orb-glow), 0 0 50px 14px var(--cp-orb-glow); animation: fo-orb 6s ease-in-out infinite; }
+.fo-cloud { position: absolute; height: 26px; border-radius: 99px; background: var(--cp-cloud); filter: drop-shadow(0 6px 8px rgba(80, 130, 180, 0.14)); }
+.fo-cloud::before, .fo-cloud::after { content: ""; position: absolute; background: inherit; border-radius: 50%; }
+.fo-cloud::before { width: 34px; height: 34px; left: 14px; top: -16px; }
+.fo-cloud::after { width: 24px; height: 24px; left: 44px; top: -10px; }
+.fo-cloud.c1 { width: 84px; top: 20%; left: -100px; animation: fo-drift 46s linear infinite; }
+.fo-cloud.c2 { width: 62px; top: 31%; left: -100px; animation: fo-drift 62s linear -22s infinite; opacity: 0.8; }
+.fo-cloud.c3 { width: 70px; top: 14%; left: -100px; animation: fo-drift 74s linear -50s infinite; opacity: 0.7; }
+.fo-petal { position: absolute; top: -20px; width: 10px; height: 13px; border-radius: 70% 0 70% 0; background: #FFC9D6; opacity: 0; animation: fo-petal 12s linear infinite; }
+.fo-ground { position: absolute; left: -10%; right: -10%; bottom: 0; height: 52%; overflow: hidden; border-radius: 50% 50% 0 0 / 46px 46px 0 0; background: var(--cp-ground); }
+.fo-way { position: absolute; left: 50%; bottom: 0; width: 60%; height: 100%; transform: translateX(-50%); clip-path: polygon(37% 0, 63% 0, 100% 100%, 0 100%); background: repeating-linear-gradient(#EEF4FA 0 26px, #DFE9F3 26px 29px); }
+
+/* 鸟居（SVG）：位置在场景层，宠物站在它前面 */
+.fo-torii { position: absolute; left: 50%; top: 104px; width: min(118%, 460px); transform: translateX(-50%); filter: drop-shadow(0 12px 10px rgba(60, 120, 180, 0.22)); }
+.fo-lantern { transform-origin: var(--ox) 106px; animation: fo-lantern 4.4s ease-in-out infinite; }
+.fo-lantern.r { animation-delay: -2s; }
+
+/* 塔罗：月牙 / 星星 / 桌布 */
+.fo-moon { position: absolute; right: 15%; top: 11%; width: 48px; height: 48px; border-radius: 50%; box-shadow: inset -14px -4px 0 0 #FFF6D6; transform: rotate(-20deg); filter: drop-shadow(0 0 10px rgba(255, 246, 214, 0.9)); }
+.fo-stars { position: absolute; inset: 0 0 40% 0; }
+.fo-star { position: absolute; width: var(--s, 8px); height: var(--s, 8px); background: #fff; opacity: 0.9; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: fo-twinkle 3s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.fo-cloth { position: absolute; left: -10%; right: -10%; bottom: 0; height: 46%; border-radius: 50% 50% 0 0 / 46px 46px 0 0; background: radial-gradient(rgba(255, 255, 255, 0.55) 1.6px, transparent 2.2px) 0 0 / 26px 26px, linear-gradient(#DAD6F7, #C2BCEE); }
+
+/* 星盘：同心环 / 地平线光 */
+.fo-rings { position: absolute; left: 50%; top: 46%; width: 440px; height: 440px; margin: -220px 0 0 -220px; border-radius: 50%; background: radial-gradient(circle, transparent 0 40%, rgba(255, 255, 255, 0.3) 40.3% 40.8%, transparent 41% 56%, rgba(255, 255, 255, 0.24) 56.3% 56.8%, transparent 57%); animation: fo-spin 120s linear infinite; }
+.fo-glow { position: absolute; left: -20%; right: -20%; bottom: -30%; height: 60%; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, 0.85), transparent 68%); }
+
+/* =========================================================
+ * 2. 顶栏：返回 / 风格切换 / 连续天数 / 日期
+ * ========================================================= */
+.fo-round-btn {
+  position: absolute; top: 16px; left: 16px; z-index: 20; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 18px;
+  background: var(--cp-card); border: 2px solid var(--cp-border); color: var(--cp-text); box-shadow: 0 6px 12px -6px var(--cp-shadow);
+  transition: transform 0.25s cubic-bezier(0.3, 1.7, 0.5, 1);
+}
+.fo-round-btn:active { transform: scale(0.82) rotate(-8deg); }
+
 .fo-modes {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 20px;
-  padding: 3px;
-  margin: 0 16px 12px;
-  flex-shrink: 0;
+  position: absolute; top: 16px; left: 64px; right: 98px; height: 40px; z-index: 20; display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px;
+  border-radius: 99px; background: var(--cp-card); border: 2px solid var(--cp-border); box-shadow: 0 6px 12px -8px var(--cp-shadow);
 }
-.fo-mode-ind {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: calc(33.333% - 2px);
-  height: calc(100% - 6px);
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
-  transition: transform 0.28s cubic-bezier(.22,1,.36,1);
-  pointer-events: none;
-}
-.fo-modes button {
-  flex: 1;
-  position: relative;
-  z-index: 1;
-  border: none;
-  background: transparent;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted, #888);
-  padding: 6px 0;
-  border-radius: 16px;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-.fo-modes button.is-on { color: var(--text-main, #333); font-weight: 700; }
+.fo-modes .ind { position: absolute; left: 3px; top: 3px; bottom: 3px; width: calc((100% - 6px) / 3); border-radius: 99px; background: var(--cp-accent); box-shadow: 0 6px 10px -6px var(--cp-accent); transition: transform 0.45s cubic-bezier(0.3, 1.5, 0.5, 1); }
+.fo-modes button { position: relative; font-size: 13px; font-weight: 800; color: var(--cp-muted); transition: color 0.2s; }
+.fo-modes button.is-on { color: var(--cp-on-accent); }
 
-/* ---- 舞台区（三种风格各自的动态主视觉） ---- */
-.fo-stage-wrap {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+.fo-streak {
+  position: absolute; top: 16px; right: 16px; z-index: 20; height: 40px; padding: 0 12px 0 9px; border-radius: 99px; display: flex; align-items: center; gap: 4px;
+  background: var(--cp-card); border: 2px solid var(--cp-border); box-shadow: 0 6px 12px -8px var(--cp-shadow);
 }
+.fo-streak .fo-ic { font-size: 19px; color: #FFA43A; }
+.fo-streak b { font-family: var(--cp-font-display); font-weight: 400; font-size: 19px; line-height: 1; }
+.fo-streak small { font-size: 11px; font-weight: 800; color: var(--cp-sub); }
+.fo-streak.is-bump { animation: fo-pop 0.6s cubic-bezier(0.2, 1.8, 0.4, 1); }
+
+.fo-date {
+  position: absolute; left: 50%; top: 66px; transform: translateX(-50%); z-index: 12; display: flex; align-items: center; gap: 8px; padding: 4px 14px 4px 10px; border-radius: 99px;
+  background: rgba(255, 255, 255, 0.88); border: 2px solid var(--cp-border); font-size: 11.5px; font-weight: 800; color: var(--cp-sub); white-space: nowrap;
+}
+.fo-date i { width: 9px; height: 9px; background: var(--cp-butter-fg); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+
+/* =========================================================
+ * 3. 舞台：宠物 + 签筒 / 牌阵 / 星盘
+ * ========================================================= */
 .fo-stage {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: absolute; left: 0; right: 0; top: 104px; bottom: calc(var(--fo-peek) + 12px); z-index: 5; display: none; align-items: center; justify-content: center; padding: 0 12px;
+  transform-origin: 50% 40%; transform: translateY(calc(var(--fo-p) * -120px)) scale(calc(1 - var(--fo-p) * 0.3));
+  transition: transform 0.5s cubic-bezier(0.25, 1.3, 0.4, 1);
 }
+.fo-root[data-style="omikuji"] .fo-stage[data-stage="omikuji"],
+.fo-root[data-style="tarot"] .fo-stage[data-stage="tarot"],
+.fo-root[data-style="astro"] .fo-stage[data-stage="astro"] { display: flex; }
+.fo-zone { display: flex; flex-direction: column; align-items: center; width: 100%; min-width: 0; animation: fo-fade 0.45s ease-out; }
 
-/* 气泡（所有风格共用）*/
-.fo-bubble-row {
-  display: flex;
-  justify-content: center;
-  padding: 0 24px 4px;
-  flex-shrink: 0;
+.fo-bubble {
+  position: relative; max-width: 100%; margin-bottom: 16px; padding: 9px 14px; border-radius: 20px; background: var(--cp-card); border: 2px solid var(--cp-border);
+  box-shadow: 0 8px 14px -10px var(--cp-shadow); font-size: 13px; font-weight: 700; text-align: center; line-height: 1.4;
 }
-.bub {
-  font-size: 13px;
-  color: var(--text-sub, #666);
-  background: rgba(255,255,255,0.7);
-  border-radius: 16px;
-  padding: 6px 14px;
-  max-width: 280px;
-  text-align: center;
-  backdrop-filter: blur(4px);
-  animation: fo-bub-in 0.3s ease;
-}
-@keyframes fo-bub-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: none; }
-}
+.fo-bubble::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 12px; height: 12px; margin-left: -6px; background: var(--cp-card); border-right: 2px solid var(--cp-border); border-bottom: 2px solid var(--cp-border); border-radius: 0 0 5px 0; transform: rotate(45deg); }
+.fo-bubble span { display: inline-block; animation: fo-pop 0.45s cubic-bezier(0.2, 1.8, 0.4, 1); }
 
-/* ---- 神签：签筒 ---- */
-.fo-box {
-  position: relative;
-  width: 90px;
-  height: 130px;
-  cursor: pointer;
-  user-select: none;
-}
+/* 宠物 */
+.fo-pet-wrap { position: relative; width: 132px; height: 132px; flex: none; }
+.fo-pet-wrap::after { content: ""; position: absolute; left: 50%; bottom: -14px; width: 96px; height: 14px; margin-left: -48px; border-radius: 50%; background: radial-gradient(ellipse, rgba(30, 70, 110, 0.28), transparent 70%); animation: fo-shadowbreathe 3.2s ease-in-out infinite; }
+.fo-pet-wrap.mini { width: 92px; height: 92px; }
+.fo-pet-wrap.mini::after { width: 70px; margin-left: -35px; }
+.fo-pet { position: relative; display: block; width: 100%; height: 100%; border-radius: 50%; }
+.fo-pet-ring { position: absolute; inset: -6px; border-radius: 50%; border: 2.5px dashed var(--cp-accent); opacity: 0.5; animation: fo-spin 26s linear infinite; }
+.fo-pet-body { position: absolute; inset: 9px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 34% 28%, #fff, var(--cp-accent-soft)); border: 4px solid var(--cp-card); box-shadow: 0 0 0 2px var(--cp-border), 0 14px 22px -12px var(--cp-shadow); transform-origin: 50% 100%; animation: fo-breathe 3.2s ease-in-out infinite; }
+.fo-pet-body svg, .fo-pet-body img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.fo-orn { position: absolute; width: 13px; height: 13px; background: var(--cp-butter-fg); opacity: 0.9; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: fo-twinkle 2.8s ease-in-out infinite; }
+.fo-orn.a { right: 16px; top: -5px; width: 11px; height: 11px; background: var(--cp-sky-fg); animation-delay: -1.9s; }
+.fo-orn.b { right: -9px; top: 32px; width: 10px; height: 10px; background: var(--cp-accent); animation-delay: -1s; }
+.fo-pet.is-jelly { animation: fo-jelly 0.5s ease-out; }
+.fo-avatar { flex: none; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 34% 28%, #fff, var(--cp-accent-soft)); border: 3px solid var(--cp-card); box-shadow: 0 0 0 2px var(--cp-border); }
+.fo-avatar svg, .fo-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* 神签：宠物 + 签筒 */
+.fo-duo { display: flex; align-items: flex-end; gap: 22px; }
+.fo-box { position: relative; flex: none; width: 84px; height: 100px; margin-bottom: 2px; transform: rotate(5deg); transform-origin: 50% 100%; transition: transform 0.3s cubic-bezier(0.3, 1.7, 0.5, 1); }
+.fo-box:active { transform: rotate(5deg) scale(0.92); }
+.fo-box::after { content: ""; position: absolute; left: 50%; bottom: -12px; width: 78px; height: 12px; margin-left: -39px; border-radius: 50%; background: radial-gradient(ellipse, rgba(30, 70, 110, 0.28), transparent 70%); }
 .fo-box-body {
-  width: 100%;
-  height: 100%;
-  border-radius: 8px 8px 4px 4px;
-  background: linear-gradient(160deg, var(--fo-vermilion) 0%, var(--fo-vermilion-deep) 100%);
-  box-shadow: 0 4px 18px rgba(201,55,58,0.35), inset 0 0 0 2px rgba(255,255,255,0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; border-radius: 14px 14px 20px 20px; border: 3px solid #fff;
+  background: linear-gradient(90deg, #F3CE86, #FFE9B2 42%, #F2CB82);
+  box-shadow: 0 0 0 2px var(--cp-border), 0 14px 18px -12px var(--cp-shadow), inset 0 -6px 0 rgba(180, 120, 30, 0.14);
 }
-.fo-box-glyph {
-  font-family: var(--fo-font-brush);
-  font-size: 28px;
-  color: rgba(255,255,255,0.85);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  letter-spacing: 4px;
+.fo-box-band { position: absolute; left: -3px; right: -3px; height: 12px; border-radius: 6px; background: var(--fo-vermilion); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.08); }
+.fo-box-band.t { top: 9px; }
+.fo-box-band.b { bottom: 9px; }
+.fo-box-label { display: grid; place-items: center; width: 30px; height: 56px; border-radius: 8px; background: #fff; color: var(--fo-vermilion-deep); font-family: var(--fo-font-brush); font-size: 15px; line-height: 1.05; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 0.02em; }
+.fo-sticks { position: absolute; left: 8px; right: 8px; bottom: calc(100% - 8px); height: 50px; z-index: 1; }
+.fo-sticks i {
+  position: absolute; bottom: 0; left: calc(var(--k) * 10px); width: 8px; height: 50px; border-radius: 4px 4px 2px 2px; transform-origin: 50% 100%; transform: rotate(var(--rot));
+  background: linear-gradient(var(--tip) 0 10px, #FFF1C6 10px); box-shadow: 0 0 0 1.5px #fff;
 }
-.fo-stick {
-  position: absolute;
-  top: -18px;
-  left: 50%;
-  transform: translateX(-50%) translateY(18px);
-  width: 12px;
-  height: 52px;
-  background: #F5DEB3;
-  border-radius: 2px;
-  box-shadow: 1px 0 4px rgba(0,0,0,0.18);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 5px;
-  font-size: 8px;
-  color: #8B6914;
-  writing-mode: vertical-rl;
-  font-family: var(--fo-font-brush);
-  opacity: 0;
-  transition: opacity 0.3s, transform 0.5s cubic-bezier(.22,1,.36,1);
+.fo-box.is-shaking { animation: fo-shake 1s ease-in-out; }
+.fo-box.is-shaking .fo-sticks i { animation: fo-rattle 0.16s ease-in-out infinite alternate; animation-delay: calc(var(--k) * -0.03s); }
+.fo-stick-out {
+  position: absolute; left: 50%; bottom: calc(100% - 22px); z-index: 1; width: 12px; height: 74px; margin-left: -6px; border-radius: 5px 5px 2px 2px; opacity: 0; transform: translateY(46px);
+  background: linear-gradient(var(--fo-vermilion) 0 14px, #FFF1C6 14px); box-shadow: 0 0 0 2px #fff, 0 6px 10px -4px var(--cp-shadow);
 }
-.fo-box.has-stick .fo-stick {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-.fo-box.is-shaking {
-  animation: fo-shake 0.18s ease-in-out 5;
-}
-@keyframes fo-shake {
-  0%, 100% { transform: rotate(0deg); }
-  25%       { transform: rotate(-6deg); }
-  75%       { transform: rotate(6deg); }
-}
+.fo-box.has-stick .fo-stick-out { animation: fo-stick-up 0.8s cubic-bezier(0.2, 1.5, 0.4, 1) forwards; }
+.fo-stick-no { position: absolute; left: calc(100% + 8px); top: 22px; padding: 2px 9px; border-radius: 99px; background: #fff; border: 2px solid var(--cp-border); font-size: 11px; font-weight: 800; white-space: nowrap; color: var(--fo-vermilion-deep); }
 
-/* ---- 塔罗：扇形牌面 ---- */
-.fo-fan {
-  position: relative;
-  width: 200px;
-  height: 140px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
+/* 塔罗：三张牌 */
+.fo-fan { position: relative; width: 260px; height: 178px; margin-bottom: 14px; perspective: 900px; }
 .fo-card {
-  position: absolute;
-  bottom: 0;
-  width: 60px;
-  height: 96px;
-  border-radius: 8px;
-  cursor: pointer;
-  transform-origin: bottom center;
-  transition: transform 0.3s cubic-bezier(.22,1,.36,1);
-  background: linear-gradient(145deg, #2c1b6e, #1a0f3e);
-  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: absolute; left: 50%; top: 14px; width: 86px; height: 138px; margin-left: -43px; z-index: var(--z, 1);
+  transform: translateX(var(--tx)) rotate(var(--rot)); transform-origin: 50% 120%; transition: transform 0.55s cubic-bezier(0.25, 1.4, 0.4, 1), opacity 0.4s;
 }
-.fo-card:nth-child(1) { transform: rotate(-20deg) translateY(-6px); }
-.fo-card:nth-child(2) { transform: rotate(0deg); }
-.fo-card:nth-child(3) { transform: rotate(20deg) translateY(-6px); }
-.fo-card.is-dim  { opacity: 0.35; }
-.fo-card.is-picked { transform: rotate(0deg) translateY(-20px) !important; z-index: 2; }
-.fo-card-face { display: none; align-items: center; justify-content: center; flex-direction: column; gap: 4px; }
-.fo-card.is-flipped .fo-card-back { display: none; }
-.fo-card.is-flipped .fo-card-face { display: flex; }
-.fo-card-back {
-  width: 40px;
-  height: 60px;
-  border-radius: 4px;
-  background: repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 8px);
-}
-.fo-glyph {
-  width: 38px;
-  height: 38px;
-  color: #FFD27A;
-}
-.fo-card-face em {
-  font-size: 9px;
-  color: #FFD27A;
-  font-style: normal;
-  font-family: var(--fo-font-brush);
-}
-.fo-fan.is-shuffling .fo-card { animation: fo-shuffle 0.25s ease-in-out alternate 4; }
-@keyframes fo-shuffle {
-  from { transform: rotate(var(--base-r, 0deg)) translateY(0); }
-  to   { transform: rotate(var(--base-r, 0deg)) translateY(-8px); }
-}
+.fo-card:nth-child(1) { --tx: -68px; --rot: -12deg; }
+.fo-card:nth-child(2) { --tx: 0px; --rot: 0deg; --z: 2; }
+.fo-card:nth-child(3) { --tx: 68px; --rot: 12deg; }
+.fo-card:active:not(.is-picked) { transform: translateX(var(--tx)) translateY(-6px) rotate(var(--rot)) scale(0.96); }
+.fo-card.is-picked { z-index: 5; transform: translateX(0) translateY(-8px) rotate(0) scale(1.28); }
+.fo-card.is-dim { opacity: 0.4; transform: translateX(var(--tx)) translateY(12px) rotate(var(--rot)) scale(0.94); }
+.fo-fan.is-shuffling .fo-card { animation: fo-shuffle 0.95s ease-in-out; }
+.fo-card-in { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 0.8s cubic-bezier(0.3, 1.3, 0.4, 1); }
+.fo-card.is-flipped .fo-card-in { transform: rotateY(180deg); }
+.fo-face { position: absolute; inset: 0; border-radius: 14px; border: 3px solid #fff; box-shadow: 0 0 0 2px var(--cp-border), 0 12px 16px -10px var(--cp-shadow); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.fo-face.back { background: repeating-conic-gradient(from 0deg at 50% 50%, #3D9BEA 0 15deg, #63B2F2 15deg 30deg); }
+.fo-face.back::before { content: ""; position: absolute; left: 50%; top: 50%; width: 32px; height: 32px; margin: -16px 0 0 -16px; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+.fo-face.back::after { content: ""; position: absolute; inset: 6px; border: 2px dashed rgba(255, 255, 255, 0.85); border-radius: 9px; }
+.fo-face.front { transform: rotateY(180deg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: var(--fo-paper); }
+.fo-face.front em { font-style: normal; font-family: var(--cp-font-display); font-size: 15px; color: var(--cp-text); }
+.fo-glyph { width: 44px; height: 44px; color: var(--cp-accent); }
 
-/* ---- 星盘 ---- */
-.fo-wheel-wrap {
-  position: relative;
-  width: 180px;
-  height: 180px;
-  cursor: pointer;
-}
-.fo-wheel {
-  width: 100%;
-  height: 100%;
-  transition: transform 3.5s cubic-bezier(.2, .6, .4, 1);
-}
-.fo-pointer {
-  position: absolute;
-  top: 50%;
-  right: -14px;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 16px solid var(--fo-vermilion);
-  filter: drop-shadow(0 1px 3px rgba(201,55,58,0.5));
-}
-.w-disc  { fill: rgba(255,255,255,0.12); stroke: rgba(255,255,255,0.25); stroke-width: 1.5; }
-.w-dash  { fill: none; stroke: rgba(255,255,255,0.15); stroke-width: 1; stroke-dasharray: 4 3; }
-.w-label { font-size: 7.5px; fill: rgba(255,255,255,0.7); text-anchor: middle; font-family: var(--fo-font-brush); }
-.w-big   { font-size: 16px; fill: #fff; text-anchor: middle; dominant-baseline: central; font-family: var(--fo-font-brush); font-weight: 700; }
+/* 星盘：转盘 */
+.fo-wheel-wrap { position: relative; width: 236px; height: 236px; flex: none; }
+.fo-wheel, .fo-orbit { position: absolute; inset: 0; width: 100%; height: 100%; }
+.fo-wheel { transition: transform 3.4s cubic-bezier(0.12, 0.7, 0.15, 1); filter: drop-shadow(0 14px 14px rgba(20, 40, 90, 0.3)); }
+.fo-orbit { pointer-events: none; animation: fo-spin 38s linear infinite; }
+.fo-pointer { position: absolute; left: 50%; top: -12px; z-index: 3; width: 22px; height: 26px; margin-left: -11px; background: var(--cp-heart); clip-path: polygon(50% 100%, 0 0, 100% 0); filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.2)); }
+.fo-wheel-core { position: absolute; left: 50%; top: 50%; z-index: 2; width: 88px; height: 88px; margin: -44px 0 0 -44px; }
+.w-disc { fill: rgba(255, 255, 255, 0.94); stroke: #fff; stroke-width: 4; }
+.w-ring { fill: none; stroke: var(--cp-border); stroke-width: 2; }
+.w-dash { fill: none; stroke: var(--cp-accent); stroke-width: 2; stroke-dasharray: 3 6; opacity: 0.6; }
+.w-line { stroke: var(--cp-border); stroke-width: 2; stroke-linecap: round; }
+.w-txt { font: 800 11px var(--cp-font-body); fill: var(--cp-sub); text-anchor: middle; }
+.w-orbit { fill: none; stroke: rgba(255, 255, 255, 0.55); stroke-width: 1.5; stroke-dasharray: 2 5; }
+.w-big { font: 400 24px var(--cp-font-display); fill: var(--cp-text); text-anchor: middle; }
 
-/* ---- 底部抽屉 ---- */
+/* =========================================================
+ * 4. 底部抽屉：本周连签 + 主按钮，拉开看签架 / 徽章
+ * ========================================================= */
 .fo-sheet {
-  position: relative;
-  z-index: 2;
-  background: rgba(255,255,255,0.96);
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 24px rgba(0,0,0,0.1);
-  flex-shrink: 0;
-  max-height: var(--fo-peek);
-  overflow: hidden;
-  transition: max-height 0.4s cubic-bezier(.22,1,.36,1);
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 30; height: 58%; margin: 0 auto; display: flex; flex-direction: column;
+  border-radius: 34px 34px 0 0; background: var(--cp-card); border: 2px solid var(--cp-border); border-bottom: 0; box-shadow: 0 -14px 30px -18px var(--cp-shadow);
+  transform: translateY(calc(100% - var(--fo-peek))); transition: transform 0.5s cubic-bezier(0.25, 1.25, 0.4, 1);
 }
-.fo-sheet.is-open { max-height: 75dvh; }
-.fo-grabber-row {
-  padding: 10px 16px 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-}
-.fo-grabber-pill {
-  width: 36px;
-  height: 4px;
-  background: rgba(0,0,0,0.15);
-  border-radius: 2px;
-  margin: 0 auto;
-}
-.fo-date-row {
-  font-size: 12px;
-  color: var(--text-muted, #888);
-  font-family: var(--fo-font-brush);
-}
-.fo-week {
-  display: flex;
-  gap: 4px;
-  padding: 10px 16px 8px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-}
-.fo-week::-webkit-scrollbar { display: none; }
-.fo-day {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  scroll-snap-align: start;
-}
-.fo-day small {
-  font-size: 9px;
-  color: var(--text-muted, #888);
-  font-family: var(--fo-font-brush);
-}
+.fo-sheet.is-open { transform: none; }
+.fo-sheet-peek { flex: none; height: var(--fo-peek); padding: 0 16px calc(14px + env(safe-area-inset-bottom, 0px)); }
+.fo-grabber { display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%; height: 28px; }
+.fo-grabber i { width: 44px; height: 6px; border-radius: 9px; background: var(--cp-border); transition: width 0.3s, background 0.3s; }
+.fo-sheet.is-open .fo-grabber i { width: 60px; background: var(--cp-accent); }
+.fo-grabber::before, .fo-grabber::after { content: ""; width: 9px; height: 9px; background: var(--cp-butter-fg); opacity: 0.7; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: fo-twinkle 3s ease-in-out infinite; }
+.fo-grabber::after { animation-delay: -1.4s; background: var(--cp-accent); }
+
+.fo-week { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin: 2px 0 10px; }
+.fo-week::before { content: ""; position: absolute; left: 7%; right: 7%; top: 31px; border-top: 3px dashed var(--cp-border); }
+.fo-day { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.fo-day small { font-size: 10.5px; font-weight: 800; line-height: 12px; color: var(--cp-muted); }
 .fo-day-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.07);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-family: var(--fo-font-brush);
-  color: var(--text-muted, #888);
+  position: relative; z-index: 1; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--cp-soft); border: 3px solid #fff; box-shadow: 0 0 0 1.5px var(--cp-border);
+  font-family: var(--fo-font-brush); font-size: 15px; line-height: 1; color: var(--cp-muted);
 }
-.fo-day.is-done   .fo-day-dot { background: var(--day-color, #ccc); color: #fff; font-weight: 700; }
-.fo-day.is-today.is-new .fo-day-dot { animation: fo-day-pop 0.4s cubic-bezier(.22,1,.36,1); }
-@keyframes fo-day-pop {
-  from { transform: scale(0.6); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
-}
+.fo-day.is-done .fo-day-dot { background: var(--r-bg); color: var(--r-fg); box-shadow: 0 0 0 1.5px var(--r-fg); }
+.fo-day.is-today small { color: var(--cp-accent); }
+.fo-day.is-pending .fo-day-dot { background: #fff; border: 2.5px dashed var(--cp-accent); box-shadow: none; animation: fo-pulse 1.8s ease-in-out infinite; }
+.fo-day.is-pending .fo-day-dot::before { content: ""; width: 11px; height: 11px; background: var(--cp-accent); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+.fo-day.is-new .fo-day-dot { animation: fo-stampdot 0.7s cubic-bezier(0.2, 1.8, 0.4, 1); }
 
-/* tone 对应的颜色变量 */
-.tone-da    { --tone-c: var(--tone-da);    --day-color: var(--tone-da);    }
-.tone-zhong { --tone-c: var(--tone-zhong); --day-color: var(--tone-zhong); }
-.tone-xiao  { --tone-c: var(--tone-xiao);  --day-color: var(--tone-xiao);  }
-.tone-ji    { --tone-c: var(--tone-ji);    --day-color: var(--tone-ji);    }
-.tone-mo    { --tone-c: var(--tone-mo);    --day-color: var(--tone-mo);    }
-.tone-xiong { --tone-c: var(--tone-xiong); --day-color: var(--tone-xiong); }
-
-/* 抽签按钮 */
-.fo-go-row {
-  padding: 8px 16px 16px;
-  display: flex;
-  justify-content: center;
-}
 .fo-go {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--fo-vermilion);
-  color: #fff;
-  border: none;
-  border-radius: 24px;
-  padding: 13px 32px;
-  font-size: 15px;
-  font-family: var(--fo-font-brush);
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 3px 16px rgba(201,55,58,0.35);
-  transition: transform 0.15s, box-shadow 0.15s;
-  width: 100%;
-  max-width: 320px;
-  justify-content: center;
+  position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; border-radius: 99px;
+  font-family: var(--cp-font-display); font-size: 17px; background: var(--cp-accent); color: var(--cp-on-accent); box-shadow: 0 12px 18px -10px var(--cp-accent);
+  transition: transform 0.25s cubic-bezier(0.3, 1.7, 0.5, 1);
 }
-.fo-go:active { transform: scale(0.97); box-shadow: none; }
-.fo-go:disabled { opacity: 0.55; cursor: default; }
-.fo-go.is-done {
-  background: linear-gradient(135deg, #4CAF50, #388E3C);
-  box-shadow: 0 3px 16px rgba(56,142,60,0.3);
-}
+.fo-go::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40px; left: -60px; background: rgba(255, 255, 255, 0.4); transform: skewX(-20deg); animation: fo-shine 3.2s ease-in-out infinite; }
+.fo-go:active { transform: scale(0.94); }
+.fo-go.is-done { background: var(--cp-soft); color: var(--cp-sub); box-shadow: none; }
+.fo-go.is-done::after { display: none; }
+.fo-go .fo-ic { font-size: 18px; }
+.fo-root.is-busy .fo-go, .fo-root.is-busy .fo-modes { pointer-events: none; opacity: 0.7; }
 
-/* ---- 结果卡（overlay） ---- */
-.fo-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  animation: fo-overlay-in 0.25s ease;
-  backdrop-filter: blur(3px);
-}
-@keyframes fo-overlay-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+.fo-sheet-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 4px 16px 0; }
+.fo-tabs { position: relative; flex: none; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; margin-bottom: 12px; border-radius: 99px; background: var(--cp-soft); }
+.fo-tabs .ind { position: absolute; left: 4px; top: 4px; bottom: 4px; width: calc(50% - 4px); border-radius: 99px; background: var(--cp-card); box-shadow: 0 3px 8px -4px var(--cp-shadow); transition: transform 0.4s cubic-bezier(0.3, 1.5, 0.5, 1); }
+.fo-tabs button { position: relative; padding: 8px 0; font-size: 13px; font-weight: 800; color: var(--cp-muted); transition: color 0.2s; }
+.fo-tabs button.is-on { color: var(--cp-text); }
+.fo-panel-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 2px 24px; overscroll-behavior: contain; }
+
+/* 签架：绳子上挂着每天的签 */
+.fo-rack { overflow-x: auto; scrollbar-width: none; }
+.fo-rack::-webkit-scrollbar { display: none; }
+.fo-rack-line { position: relative; display: flex; gap: 14px; min-width: max-content; padding: 26px 8px 10px; }
+.fo-rack-line::before { content: ""; position: absolute; left: 0; right: 0; top: 14px; height: 4px; border-radius: 4px; background: repeating-linear-gradient(90deg, #E9C98E 0 8px, #D9B06A 8px 14px); }
+.fo-hang { position: relative; flex: none; width: 52px; display: flex; flex-direction: column; align-items: center; transform-origin: 50% -14px; animation: fo-swing 4.6s ease-in-out infinite; animation-delay: calc(var(--i) * -0.7s); }
+.fo-hang::before { content: ""; position: absolute; left: 50%; top: -12px; width: 2px; height: 14px; margin-left: -1px; background: #D9B06A; }
+.fo-hang .knot { width: 10px; height: 10px; margin-bottom: -4px; border-radius: 50%; background: #fff; border: 2.5px solid var(--cp-accent); z-index: 1; }
+.fo-hang-paper { display: grid; place-items: center; width: 42px; height: 92px; border-radius: 6px 6px 14px 14px; background: var(--r-soft); border: 2px solid var(--r-bg); color: var(--r-fg); font-family: var(--fo-font-brush); font-size: 18px; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 0.1em; }
+.fo-hang small { margin-top: 6px; font-size: 10.5px; font-weight: 800; color: var(--cp-muted); }
+.fo-hang.is-today small { color: var(--cp-accent); }
+.fo-hang.is-empty .fo-hang-paper { background: transparent; border: 2px dashed var(--cp-border); color: var(--cp-muted); font-size: 14px; }
+.fo-rack-note { margin: 4px 0 0; font-size: 11.5px; color: var(--cp-muted); text-align: center; line-height: 1.6; }
+
+/* 徽章占位（天数徽章功能下次再做，这里先留一个占位说明） */
+.fo-badge-placeholder { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 36px 20px; text-align: center; color: var(--cp-muted); }
+.fo-badge-placeholder .fo-ic { font-size: 30px; color: var(--cp-butter-fg); }
+.fo-badge-placeholder p { margin: 0; font-size: 12.5px; font-weight: 700; line-height: 1.6; }
+
+/* =========================================================
+ * 5. 抽签结果（签文卡）
+ * ========================================================= */
+.fo-overlay { position: absolute; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 0 16px; }
+.fo-overlay .fo-backdrop { position: absolute; inset: 0; background: var(--cp-overlay); animation: fo-fade 0.25s ease-out; }
 .fo-result {
-  position: relative;
-  width: 100%;
-  max-width: 480px;
-  background: var(--fo-paper);
-  border-radius: 24px 24px 0 0;
-  padding: 20px 20px 32px;
-  overflow-y: auto;
-  max-height: 92dvh;
-  animation: fo-result-up 0.4s cubic-bezier(.22,1,.36,1);
+  position: relative; z-index: 1; width: 100%; max-width: 344px; max-height: 92%; overflow-x: hidden; overflow-y: auto; border-radius: 26px; background: var(--fo-paper); border: 2px solid var(--cp-border);
+  box-shadow: 0 30px 50px -24px rgba(36, 65, 90, 0.55); transform-origin: 50% 0; animation: fo-unfurl 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both; scrollbar-width: none;
 }
-@keyframes fo-result-up {
-  from { transform: translateY(60px); opacity: 0; }
-  to   { transform: none; opacity: 1; }
-}
+.fo-result::-webkit-scrollbar { display: none; }
 
-/* 签头 */
-.fo-res-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
+.fo-res-head { position: relative; padding: 15px 18px 14px; border-bottom: 2px solid var(--cp-border); }
+.fo-result[data-style="omikuji"] .fo-res-head { background: radial-gradient(circle at 50% 100%, transparent 8px, #BCD8F3 8.5px 10px, transparent 10.5px 17px, #BCD8F3 17.5px 19px, transparent 19.5px) 0 0 / 38px 20px, var(--cp-accent-soft); }
+.fo-result[data-style="tarot"] .fo-res-head { background: radial-gradient(#fff 1.6px, transparent 2.2px) 0 0 / 22px 22px, linear-gradient(#C6CDFA, #DCE0FF); }
+.fo-result[data-style="astro"] .fo-res-head { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0 1px, transparent 1px 22px), linear-gradient(#9CBAEA, #C6DAF6); }
+.fo-res-kicker { margin: 0; font-family: var(--cp-font-display); font-size: 17px; line-height: 1.2; }
+.fo-res-date { margin: 3px 0 0; font-size: 11.5px; font-weight: 800; color: var(--cp-sub); }
+
 .fo-seal {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  border: 3px solid var(--tone-c, #C9373A);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  animation: fo-seal-spin 0.6s cubic-bezier(.22,1,.36,1);
+  position: absolute; right: 16px; top: 26px; z-index: 2; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 14px; background: var(--r-bg); color: var(--r-fg); border: 3px solid var(--r-fg);
+  box-shadow: inset 0 0 0 3px var(--r-bg), inset 0 0 0 4.5px var(--r-fg), 0 8px 12px -8px var(--cp-shadow); transform: rotate(-9deg);
+  font-family: var(--fo-font-brush); animation: fo-stamp 0.6s 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both;
 }
-@keyframes fo-seal-spin {
-  from { transform: rotate(-180deg) scale(0.5); opacity: 0; }
-  to   { transform: none; opacity: 1; }
-}
-.fo-seal .fo-rank-big {
-  font-family: var(--fo-font-brush);
-  font-size: 22px;
-  font-weight: 900;
-  color: var(--tone-c, #C9373A);
-  line-height: 1;
-}
-.fo-seal.is-single .fo-rank-big { font-size: 28px; }
-.fo-res-meta { flex: 1; min-width: 0; }
-.fo-res-date  { font-size: 12px; color: var(--text-muted, #888); margin-bottom: 2px; }
-.fo-res-kicker { font-size: 13px; font-family: var(--fo-font-brush); color: var(--text-sub, #666); }
+.fo-seal span { writing-mode: vertical-rl; text-orientation: upright; font-size: 25px; line-height: 1; letter-spacing: 0.04em; }
+.fo-seal.is-single span { font-size: 36px; }
 
-/* 神签诗 */
-.fo-poem {
-  display: flex;
-  flex-direction: row-reverse;
-  justify-content: center;
-  gap: 8px;
-  margin: 12px 0;
-}
+.fo-res-art { display: none; }
+.fo-result[data-style="omikuji"] .fo-res-art[data-art="omikuji"],
+.fo-result[data-style="tarot"] .fo-res-art[data-art="tarot"],
+.fo-result[data-style="astro"] .fo-res-art[data-art="astro"] { display: block; }
+
+.fo-poem { display: flex; flex-direction: row-reverse; justify-content: center; gap: 0; padding: 22px 0 8px; margin: 0 auto; width: 62%; }
 .fo-poem-line {
-  writing-mode: vertical-rl;
-  font-family: var(--fo-font-brush);
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-main, #333);
-  letter-spacing: 4px;
-  animation: fo-poem-in 0.4s ease both;
-  animation-delay: calc(var(--i, 0) * 80ms);
+  writing-mode: vertical-rl; text-orientation: upright; padding: 0 12px; font-family: var(--fo-font-brush); font-size: 22px; line-height: 1.1; letter-spacing: 0.1em; white-space: nowrap;
+  animation: fo-ink 0.6s ease-out both; animation-delay: calc(0.7s + var(--i) * 0.16s);
 }
-@keyframes fo-poem-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: none; }
-}
+.fo-poem-line:not(:last-child) { border-left: 1.5px dashed var(--cp-border); }
 
-/* 塔罗 + 星盘行 */
-.fo-trow {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 8px 0 12px;
-}
+.fo-trow { display: flex; align-items: center; gap: 16px; padding: 38px 18px 8px; }
+.fo-tface, .fo-rwheel { flex: none; }
 .fo-tface {
-  width: 64px;
-  height: 96px;
-  border-radius: 8px;
-  background: linear-gradient(145deg, #2c1b6e, #1a0f3e);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 84px; height: 136px; border-radius: 12px; background: #fff; border: 3px solid #fff;
+  box-shadow: 0 0 0 2px var(--cp-border), 0 12px 16px -10px var(--cp-shadow); transform: rotate(-4deg);
 }
-.fo-tface .fo-glyph { width: 40px; height: 40px; color: #FFD27A; }
-.fo-tface em { font-size: 9px; color: #FFD27A; font-style: normal; font-family: var(--fo-font-brush); }
-.fo-tinfo { flex: 1; }
-.fo-tinfo h4 { font-size: 16px; font-weight: 700; font-family: var(--fo-font-brush); color: var(--text-main, #333); margin-bottom: 2px; }
-.fo-tinfo .sub { font-size: 11px; color: var(--text-muted, #888); margin-bottom: 6px; }
-.fo-kws { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
-.fo-kws span { font-size: 11px; background: rgba(0,0,0,0.06); border-radius: 10px; padding: 2px 8px; color: var(--text-sub, #666); }
-.fo-tinfo .lines { font-size: 13px; color: var(--text-sub, #666); font-family: var(--fo-font-brush); line-height: 1.7; }
+.fo-tface em { font-style: normal; font-family: var(--cp-font-display); font-size: 15px; }
+.fo-rwheel { width: 112px; height: 112px; filter: drop-shadow(0 8px 8px rgba(60, 120, 180, 0.2)); }
+.fo-tinfo h4 { margin: 0; font-family: var(--cp-font-display); font-weight: 400; font-size: 22px; line-height: 1.2; }
+.fo-tinfo .sub { margin: 2px 0 8px; font-size: 11px; font-weight: 700; color: var(--cp-muted); }
+.fo-kws { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.fo-kws span { padding: 2px 9px; border-radius: 99px; background: var(--cp-butter-bg); color: var(--cp-butter-fg); font-size: 11px; font-weight: 800; }
+.fo-tinfo p.lines { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--cp-sub); }
 
-/* 星盘小轮 */
-.fo-rwheel { width: 80px; height: 80px; flex-shrink: 0; border-radius: 50%; background: linear-gradient(135deg, #1a1050, #0d0820); }
+.fo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 14px 0; }
+.fo-sec { --k-bg: var(--cp-soft); --k-fg: var(--cp-sub); padding: 9px 11px 10px; border-radius: 16px; background: var(--cp-soft); }
+.fo-sec.s-wish { --k-bg: var(--cp-heart-soft); --k-fg: var(--cp-heart); background: #FFF6F8; }
+.fo-sec.s-trip { --k-bg: var(--cp-sky-bg); --k-fg: var(--cp-sky-fg); background: #F1F8FF; }
+.fo-sec.s-people { --k-bg: var(--cp-mint-bg); --k-fg: var(--cp-mint-fg); background: #F0FBF6; }
+.fo-sec.s-tip { --k-bg: var(--cp-butter-bg); --k-fg: var(--cp-butter-fg); background: #FFFBEA; }
+.fo-sec b { display: inline-block; margin-bottom: 4px; padding: 1px 8px; border-radius: 99px; background: var(--k-bg); color: var(--k-fg); font-size: 10.5px; font-weight: 800; }
+.fo-sec p { margin: 0; font-size: 12px; line-height: 1.55; }
 
-/* 结果网格 */
-.fo-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 12px 0;
-}
-.fo-sec {
-  background: rgba(0,0,0,0.04);
-  border-radius: 12px;
-  padding: 10px 12px;
-}
-.fo-sec b { font-size: 11px; color: var(--text-muted, #888); display: block; margin-bottom: 3px; }
-.fo-sec p { font-size: 12px; color: var(--text-sub, #666); line-height: 1.5; }
+.fo-lucky, .fo-yiji { display: flex; gap: 8px; padding: 8px 14px 0; }
+.fo-chip { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 16px; background: var(--cp-soft); font-size: 12px; font-weight: 800; }
+.fo-chip small { display: block; font-size: 10px; font-weight: 700; color: var(--cp-muted); line-height: 1.2; }
+.fo-chip span.txt { min-width: 0; line-height: 1.3; }
+.fo-swatch { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1.5px var(--cp-border); }
+.fo-gem { flex: none; width: 24px; height: 24px; background: var(--cp-butter-fg); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+.fo-mark { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-family: var(--fo-font-brush); font-size: 14px; font-weight: 400; line-height: 1; }
+.fo-mark.yi { background: var(--cp-mint-bg); color: var(--cp-mint-fg); }
+.fo-mark.ji { background: var(--cp-heart-soft); color: var(--cp-heart); }
 
-/* 幸运 */
-.fo-lucky, .fo-yiji {
-  display: flex;
-  gap: 8px;
-  margin: 8px 0;
-}
-.fo-chip {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(0,0,0,0.04);
-  border-radius: 12px;
-  padding: 8px 12px;
-}
-.fo-gem {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #a8d8ea, #5ca6c4);
-  flex-shrink: 0;
-}
-.fo-swatch {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-.fo-chip .txt { display: flex; flex-direction: column; }
-.fo-chip .txt small { font-size: 9px; color: var(--text-muted, #888); }
-.fo-chip .txt span { font-size: 12px; color: var(--text-main, #333); font-weight: 600; }
-.fo-mark {
-  font-size: 12px;
-  font-weight: 700;
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.fo-mark.yi { background: #e8f5e9; color: #2D8C4E; }
-.fo-mark.ji { background: #fce4ec; color: #C9373A; }
+.fo-says { display: flex; align-items: center; gap: 10px; padding: 12px 14px 0; }
+.fo-says p { position: relative; flex: 1; margin: 0; padding: 9px 13px; border-radius: 6px 18px 18px 18px; background: var(--cp-soft); font-size: 12.5px; font-weight: 700; line-height: 1.5; }
+.fo-says p::before { content: ""; position: absolute; left: -7px; top: 14px; border: 6px solid transparent; border-left: 0; border-right-color: var(--cp-soft); }
+.fo-res-actions { display: flex; gap: 10px; padding: 14px 14px 16px; }
+.fo-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 0; border-radius: 20px; background: var(--cp-soft); color: var(--cp-sub); font-size: 14px; font-weight: 800; transition: transform 0.25s cubic-bezier(0.3, 1.7, 0.5, 1); }
+.fo-btn:active { transform: scale(0.9); }
+.fo-btn.main { background: var(--cp-accent); color: var(--cp-on-accent); box-shadow: 0 8px 14px -8px var(--cp-accent); }
+.fo-btn:disabled { opacity: 0.7; }
+.fo-btn .fo-ic { font-size: 14px; }
 
-/* 小伙伴的话 */
-.fo-says {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(0,0,0,0.04);
-  border-radius: 14px;
-  padding: 10px 14px;
-  margin: 8px 0 16px;
-}
-.fo-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: rgba(0,0,0,0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.fo-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.fo-avatar svg { width: 26px; height: 26px; opacity: 0.4; }
-.fo-says p { font-size: 12px; color: var(--text-sub, #666); line-height: 1.6; font-family: var(--fo-font-brush); }
-
-/* 结果操作按钮 */
-.fo-res-actions {
-  display: flex;
-  gap: 10px;
-}
-.fo-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 1.5px solid var(--divider, rgba(0,0,0,0.1));
-  background: transparent;
-  border-radius: 20px;
-  padding: 11px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-main, #333);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.fo-btn:hover { background: rgba(0,0,0,0.05); }
-.fo-btn.main {
-  background: var(--fo-vermilion);
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(201,55,58,0.3);
-}
-.fo-btn.main:hover { background: var(--fo-vermilion-deep); }
-.fo-ic { width: 16px; height: 16px; flex-shrink: 0; }
-
-/* ---- Toast ---- */
+/* 提示条 / 粒子 */
 .fo-toast {
-  position: absolute;
-  bottom: 100px;
-  left: 50%;
-  transform: translateX(-50%) translateY(12px);
-  background: rgba(30,30,30,0.88);
-  color: #fff;
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s, transform 0.25s;
-  z-index: 20;
+  position: absolute; left: 50%; top: 70px; z-index: 95; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 99px; background: var(--cp-text); color: #fff; font-size: 12.5px; font-weight: 800; white-space: nowrap;
+  box-shadow: 0 14px 20px -12px rgba(36, 65, 90, 0.6); opacity: 0; pointer-events: none; transform: translate(-50%, -14px) scale(0.9); transition: transform 0.4s cubic-bezier(0.2, 1.6, 0.4, 1), opacity 0.25s;
 }
-.fo-toast.is-show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
+.fo-toast.is-show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.fo-toast .fo-ic { font-size: 15px; color: #FFD878; }
+.fo-fx { position: absolute; inset: 0; z-index: 90; overflow: hidden; pointer-events: none; }
+.fo-p { position: absolute; left: var(--x); top: var(--y); pointer-events: none; }
+.fo-p.spark { width: 16px; height: 16px; margin: -8px; background: var(--cp-butter-fg); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: fo-burst 0.95s ease-out forwards; }
+.fo-p.heart { width: 16px; height: 14px; margin: -7px; background: var(--cp-heart); clip-path: path("M8 14C-4 6 1-3 8 3 15-3 20 6 8 14Z"); animation: fo-heartup 1.2s ease-out forwards; }
+.fo-p.conf { width: 9px; height: 14px; margin: -7px; border-radius: 2px; animation: fo-conf 1.5s cubic-bezier(0.2, 0.7, 0.4, 1) forwards; }
 
-/* ---- 粒子效果 ---- */
-.fo-fx {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 15;
-}
-.fo-p {
-  position: absolute;
-  left: var(--x);
-  top: var(--y);
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #FFD27A;
-  animation: fo-particle 0.8s ease-out forwards;
-  animation-delay: var(--delay, 0ms);
-}
-.fo-p.conf {
-  border-radius: 2px;
-  width: 8px;
-  height: 6px;
-}
-.fo-p.spark { background: #FFD27A; }
-.fo-p.heart {
-  background: transparent;
-  border-radius: 0;
-  width: 10px;
-  height: 10px;
-}
-.fo-p.heart::before,
-.fo-p.heart::after {
-  content: '';
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  background: #FF86A0;
-  border-radius: 50%;
-}
-.fo-p.heart::before { top: 0; left: 50%; }
-.fo-p.heart::after  { top: 50%; left: 0; }
-@keyframes fo-particle {
-  from { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-  to   { transform: translate(var(--dx), var(--dy)) rotate(var(--r, 360deg)); opacity: 0; }
-}
+/* =========================================================
+ * 6. 动画
+ * ========================================================= */
+@keyframes fo-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fo-pop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes fo-spin { to { transform: rotate(360deg); } }
+@keyframes fo-orb { 50% { transform: scale(1.06); } }
+@keyframes fo-drift { to { transform: translateX(calc(100vw + 220px)); } }
+@keyframes fo-petal { 0% { transform: translate(0, -20px) rotate(0); opacity: 0; } 8% { opacity: 0.9; } 50% { transform: translate(46px, 420px) rotate(200deg); } 92% { opacity: 0.8; } 100% { transform: translate(-14px, 860px) rotate(380deg); opacity: 0; } }
+@keyframes fo-lantern { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-4deg); } }
+@keyframes fo-twinkle { 0%, 100% { transform: scale(1) rotate(0); opacity: 0.9; } 50% { transform: scale(0.5) rotate(45deg); opacity: 0.4; } }
+@keyframes fo-breathe { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-3px) scale(1.025, 0.975); } }
+@keyframes fo-shadowbreathe { 50% { transform: scale(0.94); opacity: 0.8; } }
+@keyframes fo-jelly { 0% { transform: scale(1); } 22% { transform: scale(0.84, 1.14); } 48% { transform: scale(1.12, 0.88); } 72% { transform: scale(0.96, 1.04); } 100% { transform: scale(1); } }
+@keyframes fo-shake { 0%, 100% { transform: rotate(5deg); } 10% { transform: rotate(-14deg) translateY(-6px); } 22% { transform: rotate(16deg) translateY(-2px); } 34% { transform: rotate(-12deg) translateY(-8px); } 46% { transform: rotate(13deg); } 58% { transform: rotate(-9deg) translateY(-4px); } 72% { transform: rotate(8deg); } 86% { transform: rotate(-3deg); } }
+@keyframes fo-rattle { from { transform: rotate(calc(var(--rot) - 7deg)); } to { transform: rotate(calc(var(--rot) + 9deg)) translateY(-5px); } }
+@keyframes fo-stick-up { from { opacity: 0; transform: translateY(46px); } to { opacity: 1; transform: translateY(-34px); } }
+@keyframes fo-shuffle { 0% { transform: translateX(var(--tx)) rotate(var(--rot)); } 30% { transform: translateX(calc(var(--tx) * -1)) rotate(calc(var(--rot) * -1)); } 60% { transform: translateX(0) translateY(-16px) rotate(0); } 100% { transform: translateX(var(--tx)) rotate(var(--rot)); } }
+@keyframes fo-swing { 0%, 100% { transform: rotate(2.6deg); } 50% { transform: rotate(-2.6deg); } }
+@keyframes fo-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@keyframes fo-stampdot { 0% { transform: scale(2.2); opacity: 0; } 60% { transform: scale(0.9); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes fo-shine { 0%, 60% { left: -60px; } 100% { left: 120%; } }
+@keyframes fo-unfurl { 0% { transform: scale(0.7, 0.08); opacity: 0; } 55% { transform: scale(1.02, 1.03); opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes fo-stamp { 0% { transform: scale(2.6) rotate(-24deg); opacity: 0; } 60% { transform: scale(0.9) rotate(-9deg); opacity: 1; } 100% { transform: scale(1) rotate(-9deg); opacity: 1; } }
+@keyframes fo-ink { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes fo-burst { 0% { transform: translate(0, 0) scale(0.2) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(160deg); opacity: 0; } }
+@keyframes fo-heartup { 0% { transform: translate(0, 0) scale(0.3); opacity: 0; } 15% { transform: translate(0, -10px) scale(1.1); opacity: 1; } 100% { transform: translate(var(--dx), -90px) scale(0.8); opacity: 0; } }
+@keyframes fo-conf { 0% { transform: translate(0, 0) scale(0.4); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(1); opacity: 0; } }
 
-/* 小伙伴抖动动画（戳一戳）*/
-.fo-poke-target {
-  cursor: pointer;
+@media (max-height: 760px) {
+  .fo-bubble { margin-bottom: 10px; }
+  .fo-pet-wrap { width: 118px; height: 118px; }
 }
-.fo-poke-target.is-jelly {
-  animation: fo-jelly 0.5s cubic-bezier(.22,1,.36,1);
-}
-@keyframes fo-jelly {
-  0%   { transform: scale(1); }
-  20%  { transform: scale(1.15, 0.88); }
-  50%  { transform: scale(0.92, 1.1); }
-  75%  { transform: scale(1.06, 0.96); }
-  100% { transform: scale(1); }
-}
-
-/* ---- 背景根据风格微染色 ---- */
-.fo-root[data-style="omikuji"] { --fo-bg-tint: rgba(201, 55, 58, 0.04); }
-.fo-root[data-style="tarot"]   { --fo-bg-tint: rgba(44, 27, 110, 0.05); }
-.fo-root[data-style="astro"]   { --fo-bg-tint: rgba(30, 60, 120, 0.05); }
-.fo-root::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--fo-bg-tint, transparent);
-  pointer-events: none;
-  z-index: 0;
-  transition: background 0.4s;
+@media (prefers-reduced-motion: reduce) {
+  .fo-root *, .fo-root *::before, .fo-root *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }

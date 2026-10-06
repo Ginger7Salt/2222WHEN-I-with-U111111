@@ -73,7 +73,6 @@ export const SHOP_FOOD_ITEMS = [
   { id: 'food-honey-toast', name: '蜂蜜吐司', category: 'food', tier: FOOD_TIERS.COMMON, price: 11, effects: { satiety: 18, mood: 8 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/lDBZ/1376X1292/food_%287%29.png/webp' },
   { id: 'food-apple-slice', name: '苹果片', category: 'food', tier: FOOD_TIERS.COMMON, price: 5, effects: { satiety: 8 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/FF5O/1420X1569/food_%288%29.png/webp' },
   { id: 'food-matcha-cookie', name: '抹茶饼干', category: 'food', tier: FOOD_TIERS.COMMON, price: 8, effects: { mood: 10, satiety: 6 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/eUWE/1311X1050/food_%289%29.png/webp' },
-
   // ---- 稀有（需事件解锁）----
   { id: 'food-sakura-mochi', name: '樱花年糕', category: 'food', tier: FOOD_TIERS.RARE, price: 35, effects: { mood: 30 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/XrqL/803X702/food_%2810%29.png/webp' },
   { id: 'food-cream-puff', name: '奶油泡芙', category: 'food', tier: FOOD_TIERS.RARE, price: 40, effects: { satiety: 35, mood: 20 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/tXIj/762X827/food_%2811%29.png/webp' },
@@ -83,10 +82,10 @@ export const SHOP_FOOD_ITEMS = [
   { id: 'food-cheese-sweet-potato', name: '芝士焗红薯', category: 'food', tier: FOOD_TIERS.RARE, price: 48, effects: { satiety: 40, mood: 20 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/I6Za/838X735/food_%2815%29.png/webp' },
   { id: 'food-strawberry-daifuku', name: '草莓大福', category: 'food', tier: FOOD_TIERS.RARE, price: 40, effects: { satiety: 15, mood: 35 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/gJ4G/844X803/food_%2816%29.png/webp' },
   { id: 'food-rose-pudding', name: '玫瑰奶冻', category: 'food', tier: FOOD_TIERS.RARE, price: 50, effects: { mood: 40 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/zfZT/1626X1283/food_%286%29.png/webp' },
-  { id: 'food-honey-black-tea-cake', name: '蜂蜜红茶蛋糕', category: 'food', tier: FOOD_TIERS.RARE, price: 40, effects: { satiety: 25, mood: 20 }, url: '' },
-  { id: 'food-peach-blossom-cake', name: '蜜桃樱花糕', category: 'food', tier: FOOD_TIERS.RARE, price: 45, effects: { mood: 35 }, url: '' },
+  { id: 'food-honey-black-tea-cake', name: '蜂蜜红茶蛋糕', category: 'food', tier: FOOD_TIERS.RARE, price: 40, effects: { satiety: 25, mood: 20 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/sKcZ/1280X1280/1_%282%29.png/webp' },
+  { id: 'food-peach-blossom-cake', name: '蜜桃樱花糕', category: 'food', tier: FOOD_TIERS.RARE, price: 45, effects: { mood: 35 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/p4Lr/1499X1237/2026-10-06_154036.png/webp' },
   { id: 'food-earl-grey-pudding', name: '伯爵红茶布丁', category: 'food', tier: FOOD_TIERS.RARE, price: 38, effects: { satiety: 15, mood: 22 }, url: '' },
-  { id: 'food-mango-sticky-rice', name: '芒果糯米饭', category: 'food', tier: FOOD_TIERS.RARE, price: 44, effects: { satiety: 35, mood: 15 }, url: '' },
+  { id: 'food-mango-sticky-rice', name: '芒果糯米饭', category: 'food', tier: FOOD_TIERS.RARE, price: 44, effects: { satiety: 35, mood: 15 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/0S0L/1872X1411/2026-10-06_154004.png/webp' },
 
   // ---- 传说（只能靠事件获得，不能用心心买）----
   { id: 'food-starry-jelly', name: '星空果冻', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 40, mood: 40 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/IhXA/923X1103/food_%2818%29.png/webp' },
@@ -95,11 +94,12 @@ export const SHOP_FOOD_ITEMS = [
   { id: 'food-shooting-star-candy', name: '流星糖葫芦', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 30, mood: 30 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/U6rw/681X1175/food_%2820%29.png/webp' },
   { id: 'food-first-snow-matcha-roll', name: '初雪抹茶卷', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { mood: 50 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/Wt4r/900X938/food_%2821%29.png/webp' },
   { id: 'food-rainbow-honey-cake', name: '彩虹蜂蜜蛋糕', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 30, mood: 30 }, grantHearts: 20, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/BiQ0/889X986/food_%2822%29.png/webp' },
-  { id: 'food-time-cream-pudding', name: '时光奶油冻', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 50, mood: 50 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/Vy2E/881X868/food_%2823%29.png/webp' },
+  { id: 'food-time-cream-pudding', name: '时光奶油冻', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 50, mood: 50 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/1tRj/1395X1567/2026-10-06_154020.png/webp' },
   { id: 'food-lucky-cookie', name: '幸运饼干', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { mood: 15 }, triggersRandomEvent: true, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/xdZZ/986X687/food_%2824%29.png/webp' },
-  { id: 'food-moonlight-pudding', name: '月光布丁', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 20, mood: 45 }, url: '' },
-  { id: 'food-anniversary-tart', name: '周年纪念挞', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 40, mood: 40 }, grantHearts: 15, url: '' },
+  { id: 'food-moonlight-pudding', name: '月光布丁', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 20, mood: 45 }, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/nCe5/1778X1712/2026-10-06_153927.png/webp' },
+  { id: 'food-anniversary-tart', name: '周年纪念挞', category: 'food', tier: FOOD_TIERS.LEGENDARY, price: 0, effects: { satiety: 40, mood: 40 }, grantHearts: 15, url: 'https://img.pagehost.cn/autoupload/amqnh/20261006/c7zH/1297X1254/2026-10-06_153945.png/webp' },
 ];
+
 
 
 /*
