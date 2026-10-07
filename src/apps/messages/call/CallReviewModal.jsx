@@ -198,9 +198,11 @@ const CallReviewModal = ({ message, character, userName, onClose }) => {
   const turns = Array.isArray(metadata.turns) ? metadata.turns : [];
   const duration = formatCallDuration(metadata);
 
-  const audioTurns = turns.filter((turn) => turn.audio?.audioBlob);
+ const audioTurns = turns.filter((turn) => turn.audio?.audioBlob);
   const hasRetainedAudio = audioTurns.length > 0;
-  const needsRetentionChoice = metadata.mode === 'real'
+  // 真实语音模式、视频模式都会合成 char 的语音，挂断后都要问一次
+  // 要不要留在本地——跟语音通话是同一套"问一次就不再问"的机制。
+  const needsRetentionChoice = (metadata.mode === 'real' || metadata.mode === 'video')
     && !metadata.audioRetentionDecided
     && (hasRetainedAudio || turns.some((turn) => turn.audioStatus === 'ready' || turn.audioStatus === 'removed'));
 
@@ -355,15 +357,22 @@ const CallReviewModal = ({ message, character, userName, onClose }) => {
                   <span className="px-1 text-[9.5px] opacity-45">
                     {turn.by === 'ai' ? character?.name : (userName || '我')}
                   </span>
-                  <div
+                <div
                     className="max-w-[85%] rounded-2xl px-3 py-2 text-[12px] leading-relaxed"
                     style={{
                       background: turn.by === 'ai' ? 'var(--control-soft-bg)' : 'var(--card-bg-gradient)',
                       border: turn.by === 'user' ? '1px solid var(--card-border)' : 'none',
                     }}
                   >
+                    {turn.by === 'ai' && turn.actionText && (
+                      <p className="mb-0.5 italic opacity-60">{turn.actionText}</p>
+                    )}
                     {turn.content}
+                    {turn.by === 'ai' && turn.moodText && (
+                      <span className="ml-1.5 opacity-70">{turn.moodText}</span>
+                    )}
                   </div>
+ 
 
                   {turn.by === 'ai' && turn.audio?.audioBlob && (
                     <div className="w-full max-w-[85%]">

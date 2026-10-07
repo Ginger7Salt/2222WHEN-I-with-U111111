@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Volume2 } from 'lucide-react';
+import { Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Video, Volume2 } from 'lucide-react';
 
 import CallReviewModal from '../call/CallReviewModal';
 
@@ -34,16 +34,20 @@ const CallLogEntry = ({ message, isUser, character, userName, userAvatar }) => {
   const duration = formatCallDuration(metadata);
   const isMissedOrDeclined = status === 'ended' && declined;
 
+  // 视频通话的记录条文案跟语音通话区分开，其余（点开回看、记忆落地
+  // 等）走的都是同一套逻辑。
+  const callTypeLabel = mode === 'video' ? '视频通话' : '语音通话';
+ 
   let title;
   let subtitle;
   let Icon;
-
+ 
   if (status === 'ringing') {
-    title = '语音通话';
+    title = callTypeLabel;
     subtitle = direction === 'incoming' ? '来电响铃中...' : '正在呼叫...';
     Icon = direction === 'incoming' ? PhoneIncoming : PhoneOutgoing;
   } else if (status === 'active') {
-    title = '语音通话';
+    title = callTypeLabel;
      subtitle = '通话进行中...';
     Icon = Phone;
   } else if (isMissedOrDeclined) {
@@ -53,14 +57,15 @@ const CallLogEntry = ({ message, isUser, character, userName, userAvatar }) => {
     subtitle = null;
     Icon = PhoneMissed;
   } else if (duration) {
-    title = '语音通话';
+    title = callTypeLabel;
     subtitle = `通话时长 ${duration}`;
     Icon = direction === 'incoming' ? PhoneIncoming : PhoneOutgoing;
   } else {
-    title = '语音通话';
+    title = callTypeLabel;
     subtitle = '通话已结束';
     Icon = Phone;
   }
+ 
 
   const handleClick = () => {
     if (isLive) {
@@ -119,7 +124,9 @@ const CallLogEntry = ({ message, isUser, character, userName, userAvatar }) => {
               color: isMissedOrDeclined ? '#fff' : 'var(--accent-foreground)',
             }}
           >
-            {mode === 'real' && !isMissedOrDeclined ? (
+           {mode === 'video' && !isMissedOrDeclined ? (
+              <Video className="h-2.5 w-2.5" />
+            ) : mode === 'real' && !isMissedOrDeclined ? (
               <Volume2 className="h-2.5 w-2.5" />
             ) : (
               <Icon className="h-2.5 w-2.5" />

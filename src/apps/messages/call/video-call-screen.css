@@ -1,0 +1,521 @@
+/* =====================================================================
+   视频通话界面样式
+   布局：大屏=用户摄像头，右上角小窗=char 头像（FaceTime 翻转风格）
+   ===================================================================== */
+
+/* 用户摄像头大屏——铺满整个通话背景层 */
+.video-call__camera {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* 前置摄像头水平翻转，让用户看到"镜中的自己"，更自然 */
+  transform: scaleX(-1);
+  background: #000;
+}
+
+/* 你变成小窗（char 说话时）：同一个 video 元素，只换位置和尺寸 */
+.video-call__camera--pip {
+  inset: auto;
+  top: 0.5rem;
+  right: 0;
+  width: 96px;
+  height: 128px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  z-index: 11;
+}
+
+/* char 全屏舞台 */
+.video-call__char-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0b0b0d;
+}
+
+.video-call__char-stage-bg {
+  position: absolute;
+  inset: -10%;
+  width: 120%;
+  height: 120%;
+  object-fit: cover;
+  filter: blur(36px) brightness(0.55);
+}
+
+.video-call__char-stage-main {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-top: 12%;
+}
+
+.video-call__char-stage-avatar {
+  position: relative;
+  width: min(62%, 240px);
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 22px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+}
+
+.video-call__char-glow--stage {
+  inset: 6% 12% -4%;
+  border-radius: 28px;
+  z-index: 0;
+}
+
+.video-call__turn-btn {
+  min-width: 0;
+  flex: 1;
+  border-radius: 9999px;
+  padding: 0.75rem 1rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(8px);
+  transition: transform 0.15s ease;
+}
+
+.video-call__turn-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.video-call__turn-btn:disabled {
+  opacity: 0.4;
+}
+
+/* 摄像头载入前的占位背景 */
+.video-call__camera-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: #111;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+}
+
+/* 整体信息叠加层——浮在摄像头大屏上方 */
+.video-call__overlay {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* =====================
+   右上角 char 小窗
+   ===================== */
+.video-call__char-pip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 96px;
+  height: 128px;
+  border-radius: 14px;
+  overflow: visible; /* 光晕要溢出圆角 */
+  z-index: 10;
+  cursor: grab;
+  touch-action: none; /* 防止拖动时触发页面滚动 */
+  user-select: none;
+}
+
+.video-call__char-pip:active {
+  cursor: grabbing;
+}
+
+/* 小窗内的头像图片 */
+.video-call__char-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  display: block;
+}
+
+/* 头像缺省占位（文字首字） */
+.video-call__char-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, 'Songti SC', serif;
+  font-size: 2rem;
+  font-weight: 600;
+  color: #fff;
+  background: color-mix(in srgb, var(--accent-color) 55%, #333 45%);
+}
+
+/* 呼吸光晕圆环——绕着小窗呼吸 */
+.video-call__char-glow {
+  position: absolute;
+  inset: -8px;
+  border-radius: 20px;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--accent-color) 50%, transparent) 0%,
+    transparent 70%
+  );
+  filter: blur(12px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* char 名字标签，叠在小窗底部 */
+.video-call__char-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+  padding: 0 4px 4px;
+  border-radius: 0 0 12px 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), transparent);
+  pointer-events: none;
+}
+ 
+/* char 当前状态颜文字——挂在小窗右上角的小标签 */
+.video-call__mood-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  max-width: 120px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+ 
+/* char 全屏舞台时，状态颜文字挂在头像旁边，位置和尺寸不一样 */
+.video-call__mood-badge--stage {
+  top: 6%;
+  right: 8%;
+  max-width: 44%;
+  font-size: 13px;
+}
+
+/* =====================
+   顶部信息栏（状态 + 缩小按钮）
+   ===================== */
+.video-call__top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+}
+
+.video-call__status {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* =====================
+   通话内容滚动区（歌词感）
+   ===================== */
+.video-call__flow {
+  flex: 1;
+  overflow-y: auto;
+  /* 顶部留出 char 小窗的空间，底部自然消失 */
+  padding-top: 148px;
+  padding-bottom: 0.5rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* 顶部渐隐，旧的话飘远 */
+  mask-image: linear-gradient(to bottom, transparent 0%, black 28%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 28%, black 100%);
+}
+
+.video-call__flow::-webkit-scrollbar {
+  display: none;
+}
+
+/* char 的动作描写——比台词更小、更淡，跟台词本身拉开层次 */
+.video-call__action-text {
+  font-family: Georgia, 'Songti SC', 'Noto Serif SC', serif;
+  font-style: italic;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+  margin-bottom: 0.2rem;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+ 
+/* AI 说的话：衬线斜体，带阴影，更有"声音感" */
+.video-call__line--ai p {
+  font-family: Georgia, 'Songti SC', 'Noto Serif SC', serif;
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.35), 0 1px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* 用户说的话：更小、更淡 */
+.video-call__line--user p {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.65);
+  text-align: center;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* 复用 call-active 的逐字浮现动画 class（由 CallScreen.jsx 的打字机驱动） */
+.video-call__char-anim {
+  display: inline-block;
+  white-space: pre;
+}
+
+/* 思考中三点 */
+.video-call__thinking {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0.5rem 0;
+}
+
+.video-call__thinking span {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.75);
+  opacity: 0.4;
+}
+
+/* 版本切换控件，同 call-active 风格 */
+.video-call__turn-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: 0.4em;
+  vertical-align: middle;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.video-call__turn-controls:active {
+  opacity: 0.85;
+}
+
+.video-call__turn-version-count {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  opacity: 0.75;
+}
+
+.video-call__turn-control-btn {
+  display: inline-flex;
+  height: 16px;
+  width: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.12);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.video-call__turn-control-btn:disabled {
+  opacity: 0.3;
+}
+
+.video-call__turn-control-btn:active:not(:disabled) {
+  transform: scale(0.88);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* =====================
+   底部输入控制区
+   ===================== */
+.video-call__bottom {
+  flex-shrink: 0;
+}
+
+/* 装饰声波（同 call-active） */
+.video-call__ambient-wave {
+  height: 18px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  opacity: 0.45;
+  margin-bottom: 0.5rem;
+}
+
+.video-call__ambient-bar {
+  width: 3px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.video-call__input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.video-call__input {
+  min-width: 0;
+  flex: 1;
+  border-radius: 9999px;
+  padding: 0.7rem 1rem;
+  font-size: 13px;
+  outline: none;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  backdrop-filter: blur(8px);
+}
+
+.video-call__input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.video-call__mic-btn {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.video-call__mic-btn--recording {
+  background: rgba(239, 68, 68, 0.88);
+}
+
+/* =====================
+   视觉权限提示横幅
+   ===================== */
+.video-call__camera-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  max-width: 220px;
+  z-index: 5;
+}
+
+/* =====================
+   动画
+   ============================= */
+@media (prefers-reduced-motion: no-preference) {
+  .video-call__char-glow {
+    animation: vcall-glow-breathe 3.2s ease-in-out infinite;
+  }
+
+  .video-call__thinking span {
+    animation: vcall-thinking-bounce 1.2s ease-in-out infinite;
+  }
+
+  .video-call__thinking span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  .video-call__thinking span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  .video-call__ambient-bar {
+    animation: vcall-ambient-wave 1.6s ease-in-out infinite;
+  }
+
+  .video-call__char-anim {
+    animation: vcall-char-in 0.42s ease both;
+  }
+
+  .video-call__mic-btn--recording {
+    animation: vcall-mic-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes vcall-glow-breathe {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(0.93);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.07);
+  }
+}
+
+@keyframes vcall-thinking-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@keyframes vcall-ambient-wave {
+  0%, 100% { height: 5px; }
+  50% { height: 16px; }
+}
+
+@keyframes vcall-char-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes vcall-mic-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-call__char-glow,
+  .video-call__thinking span,
+  .video-call__ambient-bar,
+  .video-call__char-anim,
+  .video-call__mic-btn--recording {
+    animation: none;
+  }
+}

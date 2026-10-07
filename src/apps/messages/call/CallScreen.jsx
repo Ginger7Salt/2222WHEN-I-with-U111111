@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
+import db from '../../../db';
 import {
   acceptCall,
   declineCall,
@@ -10,6 +11,13 @@ import {
   sendCallTurn,
   switchCallTurnVersion,
 } from '../../../services/callService';
+
+import {
+  beginFrameSampling,
+  captureFrame,
+  endFrameSampling,
+  supportsVision,
+} from './videoCameraService';
 import {
   hasUsableMiniMaxAsrConfig,
   transcribeMiniMaxSpeech,
@@ -20,6 +28,7 @@ import { triggerGlobalToast } from '../../../components/NotificationToast';
 
 import CallRingingScreen from './CallRingingScreen';
 import CallActiveScreen from './CallActiveScreen';
+import VideoCallScreen from './VideoCallScreen';
 import VoicemailStage from './VoicemailStage';
 
 import './call-screen.css';
@@ -56,12 +65,26 @@ const CallScreen = ({ call, onMinimize }) => {
 
   const transcriptRef = useRef(null);
   const audioRef = useRef(null);
+  const videoRef = useRef(null);
   const lastPlayedTurnIdRef = useRef(null);
   const animatedTurnIdsRef = useRef(new Set());
   const revealTimerRef = useRef(null);
 
   const realVoiceAvailable = isRealVoiceAvailableForCharacter(character);
   const voiceInputAvailable = hasUsableMiniMaxAsrConfig(character?.voiceProfile);
+
+  // 检查当前配置的模型是否支持视觉输入，决定来电界面要不要显示视频接听按钮。
+  // apiConfig 是异步读取的，这里用一个 state 来存，默认 false（保守）。
+  const [videoVisionAvailable, setVideoVisionAvailable] = useState(false);
+
+  useEffect(() => {
+    db.settings.get('apiConfig').then((settings) => {
+      const modelName = settings?.value?.model || '';
+      setVideoVisionAvailable(supportsVision(modelName));
+    }).catch(() => {
+      setVideoVisionAvailable(false);
+    });
+  }, []);
   const {
     isRecording,
     start: startRecording,
@@ -77,7 +100,6 @@ const CallScreen = ({ call, onMinimize }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   useEffect(() => {
     if (status !== 'active' || !connectedAt) return undefined;
@@ -100,10 +122,10 @@ const CallScreen = ({ call, onMinimize }) => {
     }
   }, [turns.length, revealedText, aiThinking]);
 
-  // 真实语音模式下，新到达的 AI 语音轮次自动播放一次——通话本身就是
-  // 用户主动发起/接听的交互，不算是"未经许可自动出声"。
+ // 真实语音模式、视频模式下，新到达的 AI 语音轮次自动播放一次——
+  // 通话本身就是用户主动发起/接听的交互，不算是"未经许可自动出声"。
   useEffect(() => {
-    if (mode !== 'real' || !audioRef.current) return;
+    if ((mode !== 'real' && mode !== 'video') || !audioRef.current) return;
 
     const latestReadyTurn = [...turns].reverse().find((turn) => (
       turn.by === 'ai' && turn.audioStatus === 'ready' && turn.audio?.audioBlob
@@ -189,7 +211,14 @@ const CallScreen = ({ call, onMinimize }) => {
     setIsSending(true);
 
     try {
-      await sendCallTurn({ messageId: message.id, text });
+      // 视频模式下打字发送：没有录像，就取发送瞬间的 1 帧（只在内存里）。
+      const frame = mode === 'video' ? captureFrame(videoRef.current) : null;
+
+      await sendCallTurn({
+        messageId: message.id,
+        text,
+        frames: frame ? [frame] : [],
+      });
     } finally {
       setIsSending(false);
     }
@@ -205,6 +234,9 @@ const CallScreen = ({ call, onMinimize }) => {
 
     if (isRecording) {
       setIsTranscribing(true);
+
+      // 视频模式：结束录像，取说话期间的抽帧（只在内存里，不落库）。
+      const recordedFrames = mode === 'video' ? endFrameSampling() : [];
 
       try {
         const audioBlob = await stopRecording();
@@ -222,13 +254,19 @@ const CallScreen = ({ call, onMinimize }) => {
           return;
         }
 
-        const autoSend = normalizeVoiceProfile(character?.voiceProfile).voiceInputAutoSend;
+        // 视频模式：录完直接发出，轮到 char 回应；语音模式遵循角色设置。
+        const autoSend = mode === 'video'
+          || normalizeVoiceProfile(character?.voiceProfile).voiceInputAutoSend;
 
         if (autoSend) {
           setIsSending(true);
 
           try {
-            await sendCallTurn({ messageId: message.id, text });
+            await sendCallTurn({
+              messageId: message.id,
+              text,
+              frames: recordedFrames,
+            });
           } finally {
             setIsSending(false);
           }
@@ -249,6 +287,10 @@ const CallScreen = ({ call, onMinimize }) => {
 
     try {
       await startRecording();
+
+      if (mode === 'video') {
+        beginFrameSampling(videoRef.current);
+      }
     } catch (error) {
       triggerGlobalToast({
         title: '无法录音',
@@ -304,7 +346,29 @@ const CallScreen = ({ call, onMinimize }) => {
       </button>
 
       <div className="relative z-0 h-full px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-[calc(env(safe-area-inset-top,0px)+3.25rem)]">
-        {status === 'active' ? (
+        {status === 'active' && mode === 'video' ? (
+          <VideoCallScreen
+            character={character}
+            statusLabel={statusLabel}
+            turns={turns}
+            latestTurn={latestTurn}
+            revealedText={revealedText}
+            aiThinking={aiThinking}
+            transcriptRef={transcriptRef}
+            draftText={draftText}
+            onDraftChange={setDraftText}
+            onSend={handleSend}
+            isSending={isSending}
+            onHangUp={handleHangUp}
+            onRerollTurn={handleRerollTurn}
+            onSwitchTurnVersion={handleSwitchTurnVersion}
+            voiceInputAvailable={voiceInputAvailable}
+            isRecording={isRecording}
+            isTranscribing={isTranscribing}
+            onToggleVoiceInput={handleToggleVoiceInput}
+            videoRef={videoRef}
+          />
+        ) : status === 'active' ? (
           <CallActiveScreen
             character={character}
             statusLabel={statusLabel}
@@ -331,7 +395,8 @@ const CallScreen = ({ call, onMinimize }) => {
             direction={direction}
             statusLabel={statusLabel}
             realVoiceAvailable={realVoiceAvailable}
-                       onAccept={handleAccept}
+            videoVisionAvailable={videoVisionAvailable}
+            onAccept={handleAccept}
             onDecline={handleDecline}
             onCancel={handleHangUp}
             voicemailSlot={

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, PhoneOff, Volume2, Sparkles } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Volume2, Sparkles } from 'lucide-react';
 
 import './call-ringing-screen.css';
 
@@ -16,7 +16,8 @@ const CallRingingScreen = ({
   direction,
   statusLabel,
   realVoiceAvailable,
-   onAccept,
+  videoVisionAvailable,
+  onAccept,
   onDecline,
   onCancel,
   voicemailSlot,
@@ -115,6 +116,27 @@ const CallRingingScreen = ({
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   接听（由TA决定）
+                </button>
+              )}
+
+              {videoVisionAvailable ? (
+                <button
+                  type="button"
+                  onClick={() => onAccept('video')}
+                  className="call-ringing__pill flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[12px] font-semibold transition-transform active:scale-95"
+                >
+                  <Video className="h-3.5 w-3.5" />
+                  视频接听
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="call-ringing__pill flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[12px] font-semibold opacity-40 cursor-not-allowed"
+                  title="当前模型不支持视频，请在设置里换用支持视觉输入的模型"
+                >
+                  <VideoOff className="h-3.5 w-3.5" />
+                  视频（不支持）
                 </button>
               )}
             </div>
