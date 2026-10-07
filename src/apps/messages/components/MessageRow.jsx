@@ -378,7 +378,7 @@ const MessageRow = ({
       )}
 
       <div
-        className={`flex max-w-[85%] items-end gap-2 ${
+        className={`flex min-w-0 max-w-[85%] items-end gap-2 ${
           isUser ? 'flex-row-reverse' : 'flex-row'
         }`}
       >
@@ -500,10 +500,10 @@ const MessageRow = ({
               userAvatar={activeUserAvatar}
             />
           ) : (
-            <div
-              className={`relative p-3 shadow-sm transition-all chat-font ${
+                        <div
+              className={`relative min-w-0 max-w-full p-3 shadow-sm transition-all chat-font ${
                 isUser ? 'user-bubble' : 'ai-bubble'
-              }`}
+              }${isFreshBubble ? ' bubble-fresh' : ''}`}
               onPointerDown={handleBubblePointerDown}
               onPointerUp={handleBubblePointerRelease}
               onPointerLeave={handleBubblePointerRelease}

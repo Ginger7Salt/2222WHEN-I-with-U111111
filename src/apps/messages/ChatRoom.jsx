@@ -2520,7 +2520,7 @@ useLayoutEffect(() => {
       <section
         ref={scrollAreaRef}
         onScroll={handleMessagesScroll}
-        className={`min-h-0 flex-1 overflow-y-auto no-scrollbar ${
+        className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar ${
           chat?.mode === 'work' ? 'px-4 pt-14 pb-3' : 'px-4 py-3'
         }`}
       >

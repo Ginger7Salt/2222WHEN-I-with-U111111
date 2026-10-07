@@ -5,7 +5,10 @@ import remarkBreaks from 'remark-breaks';
 
 export const TextCard = ({ content = '' }) => {
   return (
-    <div className="markdown-content text-xs leading-relaxed tracking-wide font-sans break-words select-text">
+        <div
+      className="markdown-content max-w-full text-xs leading-relaxed tracking-wide font-sans break-words select-text"
+      style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
         components={{
@@ -14,7 +17,7 @@ export const TextCard = ({ content = '' }) => {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2"
+              className="underline underline-offset-2 break-all"
             >
               {children}
             </a>
@@ -25,7 +28,7 @@ export const TextCard = ({ content = '' }) => {
               return (
                 <code
                   {...props}
-                  className="rounded bg-black/10 px-1 py-0.5 font-mono"
+                  className="rounded bg-black/10 px-1 py-0.5 font-mono break-all"
                 >
                   {children}
                 </code>
@@ -33,7 +36,7 @@ export const TextCard = ({ content = '' }) => {
             }
 
             return (
-              <code {...props} className="font-mono text-[0.9em]">
+              <code {...props} className="font-mono text-[0.9em] break-all">
                 {children}
               </code>
             );
@@ -43,6 +46,28 @@ export const TextCard = ({ content = '' }) => {
             <pre className="my-2 max-w-full overflow-x-auto rounded-lg bg-black/10 p-3">
               {children}
             </pre>
+          ),
+
+          // GFM 表格天生按内容最小宽度排版，光靠父级 max-width 挡不住——
+          // 太宽的表格会把整个气泡、聊天窗一起撑开（这就是用户反馈的那个
+          // bug）。所以表格自己包一层横向滚动容器，撑不开的部分自己内部
+          // 滚，不连累外面的气泡和聊天窗。
+          table: ({ children }) => (
+            <div className="my-2 max-w-full overflow-x-auto rounded-lg">
+              <table className="text-left">{children}</table>
+            </div>
+          ),
+
+          th: ({ children }) => (
+            <th className="border border-current/20 px-2 py-1 font-bold">
+              {children}
+            </th>
+          ),
+
+          td: ({ children }) => (
+            <td className="border border-current/20 px-2 py-1">
+              {children}
+            </td>
           ),
 
           blockquote: ({ children }) => (

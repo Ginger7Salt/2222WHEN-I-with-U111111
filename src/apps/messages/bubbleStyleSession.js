@@ -113,7 +113,7 @@ ${historyText || '（暂无）'}
    [/CSS]
 
 写 CSS 的规则（不符合的内容会被系统直接丢掉）：
-- 选择器只能是 .user-bubble（用户的气泡）和 .ai-bubble（你的气泡），可以加 :hover、::before、::after，不能写别的选择器。
+- 选择器只能是 .user-bubble（用户的气泡）和 .ai-bubble（你的气泡），可以加 :hover、::before、::after，不能写别的选择器，不能写 .user-bubble 和 .ai-bubble 以外的任何东西（不能写 body、不能写标签名、不能写别的 class）。
 - 常用属性都可以用：background、color、border、border-radius、box-shadow、padding、font-*、letter-spacing、transform、transition、animation、filter、clip-path、content（只能是纯文字字符串）等。
 - 可以写最多 4 个 @keyframes 动画，然后在 animation 里引用。
 - 不能用 url()、@import、图片链接，也不能写 position:fixed。
@@ -121,7 +121,13 @@ ${historyText || '（暂无）'}
 - 文字必须保持看得清，不要让文字和背景颜色接近；不要用 Emoji。
 - 总长度不超过 ${MAX_BUBBLE_CSS_LENGTH} 个字符，保持简洁。
 
-只输出上面的标签内容，不要输出别的说明，不要用代码块围栏。`;
+严格按照上面的标签格式输出，不要有任何多余的话、不要加代码块围栏（\`\`\`）、不要用中文全角的【】或（）代替英文半角的 [ ]。下面是一个完整的输出例子，照着这个格式写，内容按你自己的想法换掉：
+[NAME: 暖阳絮语]
+[SAY: 想给我们的对话加一点暖色，你看喜欢吗]
+[CSS]
+.user-bubble { background: var(--accent-color); color: var(--accent-foreground); border-radius: 1.2rem 1.2rem 0.2rem 1.2rem; }
+.ai-bubble { background: #fff3e0; color: #5c3a1e; border: 1px solid rgba(255, 183, 94, 0.4); border-radius: 1.2rem 1.2rem 1.2rem 0.2rem; }
+[/CSS]`;
 };
 
 const callModel = async (systemPrompt) => {
@@ -159,14 +165,36 @@ const readTag = (text, tagName) => {
   return match ? match[1].trim() : '';
 };
 
+// 优先认 [CSS]...[/CSS]；角色没按格式写时还有两层兜底：一是常见的
+// ```css ... ``` 代码块围栏，二是直接从第一个 .user-bubble / .ai-bubble
+// 选择器开始、扫到花括号配对结束为止，尽量把角色写的内容抢救出来——
+// 抢救出来的内容仍然要过 sanitizeBubbleCss 这一关，格式不对还是会被丢掉，
+// 这里只是不让"没完全按标签格式"变成"什么都没发生"。
 const readCssBlock = (text) => {
-  const match = /\[CSS\]([\s\S]*?)\[\/CSS\]/i.exec(text);
-  if (!match) return '';
+  const tagged = /\[CSS\]([\s\S]*?)\[\/CSS\]/i.exec(text);
+  if (tagged) {
+    return tagged[1]
+      .replace(/^\s*```(?:css)?/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
+  }
 
-  return match[1]
-    .replace(/^\s*```(?:css)?/i, '')
-    .replace(/```\s*$/i, '')
-    .trim();
+  const fenced = /```(?:css)?\s*([\s\S]*?)```/i.exec(text);
+  if (fenced && /\.(user|ai)-bubble/.test(fenced[1])) {
+    return fenced[1].trim();
+  }
+
+  const startMatch = /\.(user|ai)-bubble/i.exec(text);
+  if (!startMatch) return '';
+
+  // 从第一个气泡选择器开始，切到文本里最后一个"}"为止，尽量把角色写的
+  // 所有规则（包括后面的 .ai-bubble、@keyframes）都包进来；不要求这段
+  // 本身大括号严格配对——不配对的话 sanitizeBubbleCss 会直接判定整段
+  // 作废，是安全的兜底，不会把半截内容当真。
+  const lastBraceIndex = text.lastIndexOf('}');
+  if (lastBraceIndex < startMatch.index) return '';
+
+  return text.slice(startMatch.index, lastBraceIndex + 1).trim();
 };
 
 const insertBubbleCssCard = async ({ chatId, character, css, name, say }) => {
