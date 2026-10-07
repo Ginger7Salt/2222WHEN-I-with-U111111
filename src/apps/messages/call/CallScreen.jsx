@@ -312,11 +312,15 @@ const CallScreen = ({ call, onMinimize }) => {
     return formatElapsed(elapsedSeconds);
   }, [status, direction, elapsedSeconds, metadata.unavailable]);
 
+// 视频通话进行中：整屏就是视频，不要聊天背景图，也不要通话页的内边距。
+  const isVideoActive = status === 'active' && mode === 'video';
+ 
   return (
     <div
       className="call-screen fixed inset-0 z-[59] overflow-hidden"
       style={{ color: '#fff' }}
     >
+      {!isVideoActive && (
       <div className="call-screen__backdrop absolute inset-0 -z-10" aria-hidden="true">
         {chat?.bgImage ? (
           <div
@@ -334,6 +338,7 @@ const CallScreen = ({ call, onMinimize }) => {
 
         <div className="call-screen__backdrop-veil absolute inset-0" />
       </div>
+      )}
 
       <audio ref={audioRef} />
 
@@ -348,8 +353,14 @@ const CallScreen = ({ call, onMinimize }) => {
         <ChevronDown className="h-4 w-4" />
       </button>
 
-      <div className="relative z-0 h-full px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-[calc(env(safe-area-inset-top,0px)+3.25rem)]">
-        {status === 'active' && mode === 'video' ? (
+      <div
+        className={
+          isVideoActive
+            ? 'relative z-0 h-full'
+            : 'relative z-0 h-full px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-[calc(env(safe-area-inset-top,0px)+3.25rem)]'
+        }
+      >
+        {isVideoActive ? (
           <VideoCallScreen
             character={character}
             statusLabel={statusLabel}

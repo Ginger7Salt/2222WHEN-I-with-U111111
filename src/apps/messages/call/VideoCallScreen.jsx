@@ -44,7 +44,7 @@ const VideoCallScreen = ({
   const videoRef = externalVideoRef || internalVideoRef;
 
   // char 小窗拖动状态
-  const [pipPos, setPipPos] = useState({ top: 0, right: 0 });
+ const [pipPos, setPipPos] = useState(null);
   const pipRef = useRef(null);
   const dragState = useRef(null); // { startX, startY, origTop, origRight }
 
@@ -240,7 +240,7 @@ const handleRerollClick = async (turnId) => {
         <div
           ref={pipRef}
           className="video-call__char-pip"
-          style={{ top: pipPos.top, right: pipPos.right }}
+          style={pipPos ? { top: pipPos.top, right: pipPos.right } : undefined}
           onMouseDown={handlePipPointerDown}
           onTouchStart={handlePipPointerDown}
           aria-label={`${character?.name || 'TA'} 的画面`}

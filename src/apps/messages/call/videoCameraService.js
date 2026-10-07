@@ -140,11 +140,29 @@ export const buildVisionUserContent = (text, frames) => {
 // 刷新页面或挂断后就消失。
 // ---------------------------------------------------------------------
 const SAMPLE_INTERVAL_MS = 1000;
-const MAX_SENT_FRAMES = 6;
+
+// 发给 AI 的帧数随说话时长增加：约每 3 秒多一张，起步 2 张，封顶 10 张
+// （封顶是为了控制 token 和请求体积，说得再久也不会无限涨）。
+const FRAMES_MIN = 2;
+const FRAMES_MAX = 10;
+const SECONDS_PER_EXTRA_FRAME = 3;
+
+// 内存里最多暂存的原始帧数。超过就隔一张丢一张、同时把抽帧间隔翻倍，
+// 这样不管录多久，暂存的帧始终覆盖整段录像，而不是只剩最后一分钟。
 const MAX_RAW_FRAMES = 60;
+
+export const getTargetFrameCount = (durationMs) => {
+  const seconds = Math.max(0, durationMs) / 1000;
+  const count = Math.round(seconds / SECONDS_PER_EXTRA_FRAME) + FRAMES_MIN;
+
+  return Math.min(FRAMES_MAX, Math.max(FRAMES_MIN, count));
+};
 
 let samplerTimer = null;
 let samplerVideo = null;
+let samplerStartedAt = 0;
+let samplerStride = 1;
+let samplerTick = 0;
 let rawFrames = [];
 
 const pickEvenly = (frames, max) => {
@@ -158,32 +176,51 @@ const pickEvenly = (frames, max) => {
   return [...indexes].map((index) => frames[index]);
 };
 
-const grabSample = () => {
+const pushSample = () => {
   const frame = captureFrame(samplerVideo, 0.6);
   if (!frame) return;
 
   rawFrames.push(frame);
-  if (rawFrames.length > MAX_RAW_FRAMES) rawFrames.shift();
+
+  if (rawFrames.length > MAX_RAW_FRAMES) {
+    rawFrames = rawFrames.filter((_, index) => index % 2 === 0);
+    samplerStride *= 2;
+  }
+};
+
+const handleSamplerTick = () => {
+  samplerTick += 1;
+  if (samplerTick % samplerStride !== 0) return;
+
+  pushSample();
 };
 
 export const beginFrameSampling = (videoElement) => {
   if (samplerTimer) window.clearInterval(samplerTimer);
 
   samplerVideo = videoElement;
+  samplerStartedAt = Date.now();
+  samplerStride = 1;
+  samplerTick = 0;
   rawFrames = [];
-  grabSample();
-  samplerTimer = window.setInterval(grabSample, SAMPLE_INTERVAL_MS);
+
+  pushSample();
+  samplerTimer = window.setInterval(handleSamplerTick, SAMPLE_INTERVAL_MS);
 };
 
 /**
- * 结束抽帧，返回最多 6 张按时间排序的截帧（含最后一张）。
+ * 结束抽帧，返回按时间排序的截帧（含最后一张）。
+ * 帧数按这段录像的时长算：说得越久，给 AI 的画面越多。
  */
 export const endFrameSampling = () => {
   if (samplerTimer) window.clearInterval(samplerTimer);
   samplerTimer = null;
 
-  grabSample();
-  const picked = pickEvenly(rawFrames, MAX_SENT_FRAMES);
+  const durationMs = Date.now() - samplerStartedAt;
+
+  // 结束时再补一张，保证最后一张就是说完那一刻的样子。
+  pushSample();
+  const picked = pickEvenly(rawFrames, getTargetFrameCount(durationMs));
 
   rawFrames = [];
   samplerVideo = null;

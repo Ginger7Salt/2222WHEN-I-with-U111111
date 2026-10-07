@@ -18,8 +18,8 @@
 /* 你变成小窗（char 说话时）：同一个 video 元素，只换位置和尺寸 */
 .video-call__camera--pip {
   inset: auto;
-  top: 0.5rem;
-  right: 0;
+top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  right: 1rem;
   width: 96px;
   height: 128px;
   border-radius: 14px;
@@ -116,12 +116,12 @@
    ===================== */
 .video-call__char-pip {
   position: absolute;
-  top: 0;
-  right: 0;
+ top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  right: 1rem;
   width: 96px;
   height: 128px;
   border-radius: 14px;
-  overflow: visible; /* 光晕要溢出圆角 */
+  overflow: visible;/* 光晕要溢出圆角 */
   z-index: 10;
   cursor: grab;
   touch-action: none; /* 防止拖动时触发页面滚动 */
@@ -225,9 +225,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 0;
+   min-height: 2.5rem;
+  /* 左侧让出缩小按钮的位置 */
+  padding: 0.25rem 0 0.25rem 2.75rem;
 }
-
+ 
 .video-call__status {
   font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 11px;
@@ -243,7 +245,7 @@
   flex: 1;
   overflow-y: auto;
   /* 顶部留出 char 小窗的空间，底部自然消失 */
-  padding-top: 148px;
+  padding-top: 6.5rem;
   padding-bottom: 0.5rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
