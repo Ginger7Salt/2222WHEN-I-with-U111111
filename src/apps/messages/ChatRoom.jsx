@@ -71,6 +71,9 @@ import ChatHeaderBar from './components/ChatHeaderBar';
 import ChatCalendarModal from './components/ChatCalendarModal';
 import MoreMenuPopover from './components/MoreMenuPopover';
 import BubbleCustomizer from './components/BubbleCustomizer';
+import { buildBubbleShapeCss } from './components/bubbleShapes';
+import { buildBubbleAnimationCss } from './components/bubbleAnimations';
+import { scopeBubbleCss } from './bubbleCssSanitizer';
 import ChatSettingsModal from './components/ChatSettingsModal';
 import ScheduledMessageArchive from './components/ScheduledMessageArchive';
 import McpToolApprovalModal from './mcp/McpToolApprovalModal';
@@ -585,6 +588,28 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
     return <style>{rules.join('\n')}</style>;
   }, [buttonDecorations]);
+
+  // 气泡形状 / 进场动画：跟配色（customCss）、气泡装饰（bubbleDecoration）
+  // 是互相独立的开关，各自存在 chats 表的 bubbleShape / bubbleAnimation
+  // 字段。选"跟随配色"/"无动画"（或字段不存在）时返回 null，不渲染任何
+  // 样式标签，对没用这个功能的聊天窗没有任何影响。
+  const bubbleShapeStyle = useMemo(() => {
+    const css = buildBubbleShapeCss(chat?.bubbleShape);
+    return css ? <style>{css}</style> : null;
+  }, [chat?.bubbleShape]);
+
+  const bubbleAnimationStyle = useMemo(() => {
+    const css = buildBubbleAnimationCss(chat?.bubbleAnimation);
+    return css ? <style>{css}</style> : null;
+  }, [chat?.bubbleAnimation]);
+
+  // 角色自己写的气泡 CSS（chats.bubbleCharCss，已经在写入前清洗过）。单独
+  // 一层叠在用户自己的配色（customCss）、形状、进场动画上面；没有时返回
+  // null，对没用这个功能的聊天窗没有任何影响。
+  const bubbleCharCssStyle = useMemo(() => {
+    const css = chat?.bubbleCharCss ? scopeBubbleCss(chat.bubbleCharCss) : '';
+    return css ? <style>{css}</style> : null;
+  }, [chat?.bubbleCharCss]);
 
   const loadChatData = useCallback(async () => {
     try {
@@ -1801,6 +1826,44 @@ useLayoutEffect(() => {
     });
   };
 
+  // 撤掉角色自己写的那一层气泡样式（设置页里点配色预设、或点"清除角色样式"
+  // 时调用）。不动用户自己的 customCss。
+  const handleClearCharBubbleCss = async () => {
+    setChat((previous) => ({
+      ...previous,
+      bubbleCharCss: '',
+      bubbleCharCssName: '',
+    }));
+
+    await db.chats.update(chatId, {
+      bubbleCharCss: '',
+      bubbleCharCssName: '',
+    });
+  };
+
+  // 气泡形状、进场动画同样是各自独立的字段，互不影响。
+  const handleSaveBubbleShape = async (shapeId) => {
+    setChat((previous) => ({
+      ...previous,
+      bubbleShape: shapeId,
+    }));
+
+    await db.chats.update(chatId, {
+      bubbleShape: shapeId,
+    });
+  };
+
+  const handleSaveBubbleAnimation = async (animationId) => {
+    setChat((previous) => ({
+      ...previous,
+      bubbleAnimation: animationId,
+    }));
+
+    await db.chats.update(chatId, {
+      bubbleAnimation: animationId,
+    });
+  };
+
   const handleUpdateBgImage = async (base64Img) => {
     setChat((previous) => ({
       ...previous,
@@ -2053,6 +2116,9 @@ useLayoutEffect(() => {
       {controlStylePresetStyle}
       {chatColorStyle}
       {decorationStyle}
+      {bubbleShapeStyle}
+      {bubbleAnimationStyle}
+      {bubbleCharCssStyle}
 
       <CheckInNotice
         delivery={checkInDelivery}
@@ -3012,6 +3078,13 @@ if (type === 'interaction_coupon') {
           onSave={handleSaveCustomCss}
           currentDecoration={chat?.bubbleDecoration || 'none'}
           onSaveDecoration={handleSaveBubbleDecoration}
+          currentShape={chat?.bubbleShape || 'none'}
+          onSaveShape={handleSaveBubbleShape}
+          currentAnimation={chat?.bubbleAnimation || 'none'}
+          onSaveAnimation={handleSaveBubbleAnimation}
+          hasCharCss={Boolean(chat?.bubbleCharCss)}
+          charCssName={chat?.bubbleCharCssName || ''}
+          onClearCharCss={handleClearCharBubbleCss}
           onClose={() => setShowBubbleCustomizer(false)}
         />
       )}

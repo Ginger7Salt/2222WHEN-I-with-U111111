@@ -19,6 +19,8 @@
 import db from '../../db';
 import { BUBBLE_STYLE_PRESETS } from './components/bubbleStylePresets';
 import { BUBBLE_DECORATION_LIST } from './components/bubbleDecorations';
+import { BUBBLE_SHAPES } from './components/bubbleShapes';
+import { BUBBLE_ANIMATIONS } from './components/bubbleAnimations';
 
 const BUBBLE_STYLE_TAG_PATTERN = /\s*\[BUBBLE_STYLE:\s*([^\]]*)\]\s*/i;
 
@@ -27,26 +29,26 @@ const decorationNames = BUBBLE_DECORATION_LIST
   .map((decoration) => decoration.name)
   .join('、');
 
+// 想换形状 / 进场动画 / 自己写 CSS：只在回复末尾写一个不带内容的
+// [BUBBLE_WANT]，系统马上再单独调用一次（bubbleStyleSession.js），完整的
+// 名单和写 CSS 的规则只在那一次里给，不放进每次都带的主聊天提示词。
+const BUBBLE_WANT_TAG_PATTERN = /\s*\[BUBBLE_WANT\]\s*/i;
+const BUBBLE_WANT_TAG_PATTERN_ALL = /\s*\[BUBBLE_WANT\]\s*/gi;
+
+// 常驻说明：只列配色和装饰的名字，形状 / 进场动画 / 自己写 CSS 合并成最后
+// 一句"想不想换"，不再带名单。
 export const BUBBLE_STYLE_PROMPT_NOTE = `
 【可选行为：切换聊天气泡风格】
-你可以随时自主决定给这个聊天窗换一套气泡的配色和装饰，不需要征求用户同意，
-也不用担心用得太频繁——挑一个你觉得当下气氛/心情最贴切的风格即可，不合适
-就不用换。
+你可以随时自主决定换这个聊天窗的气泡配色和装饰，不用征求用户同意，也不用担心换得太频繁；挑当下最贴切的，不合适就不换。
+配色（照抄名字，不要自己编）：${presetNames}
+装饰（照抄名字，不想加就写"无装饰"）：${decorationNames}
+要换就在回复正文最后单独一行写（用户看不到这行，系统会直接生效）：
+[BUBBLE_STYLE: 配色名 | 装饰名]
+装饰可以省略。不想换就不要写这个标签。
+如果你想换气泡的形状、进场动画，或者想自己写一段气泡 CSS，就在回复最后单独一行写 [BUBBLE_WANT]，系统会马上再单独问你具体想怎么换。`;
 
-可选配色预设（从下面名字里选一个，照抄名字，不要自己编）：
-${presetNames}
-
-可选装饰（从下面名字里选一个；不想加装饰就写"无装饰"）：
-${decorationNames}
-
-如果你决定换风格，请在回复正文的最后单独一行加上（用户不会看到这行原始
-文字，系统会直接把气泡样式换掉）：
-[BUBBLE_STYLE: 配色预设名字 | 装饰名字]
-
-装饰名字可以省略（只写配色，装饰保持不变），格式为：
-[BUBBLE_STYLE: 配色预设名字]
-
-如果这次不想换，就不要写这个标签，正常回复即可。`;
+// 保持原来的函数名和调用方式（aiService.js 里已经在用），不再按概率带名单。
+export const buildBubbleStylePromptNote = () => BUBBLE_STYLE_PROMPT_NOTE;
 
 const findPresetByName = (rawName) => {
   const name = String(rawName || '').trim();
@@ -81,40 +83,100 @@ const findDecorationByName = (rawName) => {
  * `new-local-message-inserted` 事件自动重新读取 chat 数据并刷新样式，
  * 不需要额外再加一个专门的刷新事件。
  */
+const findShapeByName = (rawName) => {
+  const name = String(rawName || '').trim();
+  if (!name) return null;
+
+  return (
+    BUBBLE_SHAPES.find((shape) => shape.name === name) ||
+    BUBBLE_SHAPES.find((shape) => (
+      name.includes(shape.name) || shape.name.includes(name)
+    )) ||
+    null
+  );
+};
+
+const findAnimationByName = (rawName) => {
+  const name = String(rawName || '').trim();
+  if (!name) return null;
+
+  return (
+    BUBBLE_ANIMATIONS.find((animation) => animation.name === name) ||
+    BUBBLE_ANIMATIONS.find((animation) => (
+      name.includes(animation.name) || animation.name.includes(name)
+    )) ||
+    null
+  );
+};
+
 export const applyBubbleStyleDirective = async ({ chatId, content }) => {
-  const original = String(content || '');
+  const rawContent = String(content || '');
+  // [BUBBLE_WANT] 一律从正文去掉；是否真的补一次调用由调用方（aiService.js）
+  // 根据 wantsChange 决定。
+  const wantsChange = BUBBLE_WANT_TAG_PATTERN.test(rawContent);
+  const original = rawContent.replace(BUBBLE_WANT_TAG_PATTERN_ALL, '');
   const match = BUBBLE_STYLE_TAG_PATTERN.exec(original);
   const strippedContent = original.replace(BUBBLE_STYLE_TAG_PATTERN, '').trim();
 
+  const nothingApplied = {
+    content: strippedContent,
+    wantsChange,
+    appliedPresetName: null,
+    appliedDecorationName: null,
+    appliedShapeName: null,
+    appliedAnimationName: null,
+  };
+
   if (!match) {
-    return { content: strippedContent, appliedPresetName: null, appliedDecorationName: null };
+    return nothingApplied;
   }
 
-  const [rawPresetPart, rawDecorationPart] = match[1].split('|');
+  // 四个位置：配色 | 装饰 | 形状 | 进场动画，每个位置都可以留空（空的
+  // 位置查不到名字，等于保持原样不动）。
+  const [
+    rawPresetPart,
+    rawDecorationPart,
+    rawShapePart,
+    rawAnimationPart,
+  ] = match[1].split('|');
 
   const preset = findPresetByName(rawPresetPart);
   const decoration = rawDecorationPart != null
     ? findDecorationByName(rawDecorationPart)
     : null;
+  const shape = rawShapePart != null ? findShapeByName(rawShapePart) : null;
+  const animation = rawAnimationPart != null
+    ? findAnimationByName(rawAnimationPart)
+    : null;
 
-  if (!preset && !decoration) {
-    return { content: strippedContent, appliedPresetName: null, appliedDecorationName: null };
+  if (!preset && !decoration && !shape && !animation) {
+    return nothingApplied;
   }
 
   const updates = {};
-  if (preset) updates.customCss = preset.code;
+  if (preset) {
+    updates.customCss = preset.code;
+    // 换了新的配色预设，之前角色自己写的那一层样式就撤掉，免得盖在新配色上面。
+    updates.bubbleCharCss = '';
+    updates.bubbleCharCssName = '';
+  }
   if (decoration) updates.bubbleDecoration = decoration.id;
+  if (shape) updates.bubbleShape = shape.id;
+  if (animation) updates.bubbleAnimation = animation.id;
 
   try {
     await db.chats.update(chatId, updates);
   } catch (error) {
     console.error('[BubbleStyle] 保存气泡风格失败:', error);
-    return { content: strippedContent, appliedPresetName: null, appliedDecorationName: null };
+    return nothingApplied;
   }
 
   return {
     content: strippedContent,
+    wantsChange,
     appliedPresetName: preset?.name || null,
     appliedDecorationName: decoration?.name || null,
+    appliedShapeName: shape?.name || null,
+    appliedAnimationName: animation?.name || null,
   };
 };

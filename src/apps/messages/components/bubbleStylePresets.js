@@ -250,6 +250,238 @@ export const BUBBLE_STYLE_PRESETS = [
   border-radius: 1.5rem 1.5rem 1.5rem 0.3rem;
 }
 .chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  // 2026-10 补充：用户反馈"装饰很多但气泡样式很少"，这批是纯新增
+  // 预设，照抄上面每一项的既有写法（.user-bubble / .ai-bubble /
+  // .chat-font 三选择器，尽量用主题变量兜底文字色），不改动任何
+  // 既有预设、不碰 BubbleCustomizer.jsx / bubbleStyleDirective.js ——
+  // 两边都是从这个数组动态读的，纯加数据就能让 AI 自主换风格的名单
+  // 和设置页的快选栏同时变多。
+  {
+    name: '柠檬气泡水',
+    code: `/* 柠檬气泡水 */
+.user-bubble {
+  background: linear-gradient(135deg, #fff066 0%, #c8f06b 100%);
+  color: #3a3608;
+  border-radius: 1.3rem 1.3rem 0.25rem 1.3rem;
+  font-weight: 500;
+}
+.ai-bubble {
+  background: rgba(255, 240, 102, 0.12);
+  color: var(--text-main);
+  border: 1px solid rgba(200, 240, 107, 0.4);
+  border-radius: 1.3rem 1.3rem 1.3rem 0.25rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  {
+    name: '雨后石板',
+    code: `/* 雨后石板 */
+.user-bubble {
+  background: #4a5560;
+  color: #eef3f6;
+  border-radius: 0.6rem 0.6rem 0.15rem 0.6rem;
+}
+.ai-bubble {
+  background: #e7ebee;
+  color: #333c44;
+  border: 1px solid rgba(74, 85, 96, 0.2);
+  border-radius: 0.6rem 0.6rem 0.6rem 0.15rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  {
+    name: '珊瑚浪尖',
+    code: `/* 珊瑚浪尖 */
+.user-bubble {
+  background: linear-gradient(135deg, #ff7e6b 0%, #ffb199 100%);
+  color: #3a1208;
+  border-radius: 1.6rem 1.6rem 0.3rem 1.6rem;
+  font-weight: 500;
+}
+.ai-bubble {
+  background: rgba(255, 126, 107, 0.1);
+  color: var(--text-main);
+  border: 1px solid rgba(255, 177, 153, 0.35);
+  border-radius: 1.6rem 1.6rem 1.6rem 0.3rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  {
+    name: '深海夜潜',
+    code: `/* 深海夜潜 */
+.user-bubble {
+  background: linear-gradient(135deg, #0d2b45 0%, #1a4a6e 100%);
+  color: #bfe6ff;
+  border-radius: 1rem 1rem 0.2rem 1rem;
+}
+.ai-bubble {
+  background: rgba(26, 74, 110, 0.1);
+  color: var(--text-main);
+  border: 1px solid rgba(26, 74, 110, 0.35);
+  border-radius: 1rem 1rem 1rem 0.2rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  {
+    name: '手账便签',
+    code: `/* 手账便签 */
+.user-bubble {
+  background: #fff9e6;
+  color: #4a3f1f;
+  border: 1px dashed #d9c27a;
+  border-radius: 0.3rem;
+  box-shadow: 2px 2px 0 rgba(217, 194, 122, 0.4);
+  font-family: Georgia, serif;
+}
+.ai-bubble {
+  background: #ffffff;
+  color: #4a3f1f;
+  border: 1px dashed #c9c0a8;
+  border-radius: 0.3rem;
+  box-shadow: 2px 2px 0 rgba(201, 192, 168, 0.35);
+  font-family: Georgia, serif;
+}
+.chat-font { font-size: 0.78rem; line-height: 1.6; }`
+  },
+  {
+    name: '荧光糖果',
+    code: `/* 荧光糖果 */
+.user-bubble {
+  background: #ff2e9f;
+  color: #fff;
+  border-radius: 1.5rem 1.5rem 0.25rem 1.5rem;
+  font-weight: 700;
+  box-shadow: 0 0 14px rgba(255, 46, 159, 0.45);
+}
+.ai-bubble {
+  background: #141021;
+  color: #7cffcb;
+  border: 1px solid rgba(124, 255, 203, 0.4);
+  border-radius: 1.5rem 1.5rem 1.5rem 0.25rem;
+  box-shadow: 0 0 10px rgba(124, 255, 203, 0.25);
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  {
+    name: '纸莎草米',
+    code: `/* 纸莎草米 */
+.user-bubble {
+  background: #d8c7a1;
+  color: #3e2f1c;
+  border-radius: 0.4rem 0.4rem 0.1rem 0.4rem;
+  font-family: Georgia, serif;
+}
+.ai-bubble {
+  background: #f3ead8;
+  color: #3e2f1c;
+  border: 1px solid rgba(216, 199, 161, 0.6);
+  border-radius: 0.4rem 0.4rem 0.4rem 0.1rem;
+  font-family: Georgia, serif;
+}
+.chat-font { font-size: 0.78rem; line-height: 1.6; }`
+  },
+  {
+    name: '极简线框',
+    code: `/* 极简线框 */
+.user-bubble {
+  background: transparent;
+  color: var(--text-main);
+  border: 1.5px solid var(--text-main);
+  border-radius: 0.5rem;
+}
+.ai-bubble {
+  background: transparent;
+  color: var(--text-main);
+  border: 1.5px dashed var(--divider);
+  border-radius: 0.5rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  {
+    name: '熔岩暗夜',
+    code: `/* 熔岩暗夜 */
+.user-bubble {
+  background: linear-gradient(135deg, #ff4e00 0%, #8e0e00 100%);
+  color: #fff3e6;
+  border-radius: 0.8rem 0.8rem 0.15rem 0.8rem;
+  font-weight: 500;
+}
+.ai-bubble {
+  background: #1a1a1a;
+  color: #ffb088;
+  border: 1px solid rgba(255, 78, 0, 0.3);
+  border-radius: 0.8rem 0.8rem 0.8rem 0.15rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  {
+    name: '薄荷冰沙',
+    code: `/* 薄荷冰沙 */
+.user-bubble {
+  background: #a8e6cf;
+  color: #1c4a37;
+  border-radius: 1.3rem 1.3rem 0.25rem 1.3rem;
+}
+.ai-bubble {
+  background: #eafaf4;
+  color: #1c4a37;
+  border: 1px solid rgba(168, 230, 207, 0.9);
+  border-radius: 1.3rem 1.3rem 1.3rem 0.25rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  {
+    name: '皇家丝绒',
+    code: `/* 皇家丝绒 */
+.user-bubble {
+  background: linear-gradient(135deg, #3d1e6d 0%, #6a2c91 100%);
+  color: #f3e6ff;
+  border-radius: 1.2rem 1.2rem 0.2rem 1.2rem;
+  font-weight: 500;
+}
+.ai-bubble {
+  background: rgba(106, 44, 145, 0.08);
+  color: var(--text-main);
+  border: 1px solid rgba(106, 44, 145, 0.3);
+  border-radius: 1.2rem 1.2rem 1.2rem 0.2rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  {
+    name: '便利贴黄',
+    code: `/* 便利贴黄 */
+.user-bubble {
+  background: #ffe066;
+  color: #4a3b00;
+  border-radius: 0.2rem;
+  box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.12);
+  transform: rotate(-0.5deg);
+}
+.ai-bubble {
+  background: #fff8d6;
+  color: #4a3b00;
+  border-radius: 0.2rem;
+  box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.08);
+  transform: rotate(0.5deg);
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
+  },
+  {
+    name: '星海蓝调',
+    code: `/* 星海蓝调 */
+.user-bubble {
+  background: radial-gradient(circle at 30% 20%, #4361ee 0%, #1b1f3b 70%);
+  color: #e6ecff;
+  border-radius: 1.3rem 1.3rem 0.25rem 1.3rem;
+}
+.ai-bubble {
+  background: rgba(67, 97, 238, 0.08);
+  color: var(--text-main);
+  border: 1px solid rgba(67, 97, 238, 0.3);
+  border-radius: 1.3rem 1.3rem 1.3rem 0.25rem;
+}
+.chat-font { font-size: 0.75rem; line-height: 1.5; }`
   }
 ];
 

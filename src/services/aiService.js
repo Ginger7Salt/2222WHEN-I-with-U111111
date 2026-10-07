@@ -43,7 +43,8 @@ import { getLocationPromptContext } from '../apps/location/locationPromptContext
 import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
 import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/companion/companionOfferService';
 import { buildCompanionStatusPromptBlock } from '../apps/companion/companionStatusPrompt';
-import { BUBBLE_STYLE_PROMPT_NOTE, applyBubbleStyleDirective } from '../apps/messages/bubbleStyleDirective';
+import { buildBubbleStylePromptNote, applyBubbleStyleDirective } from '../apps/messages/bubbleStyleDirective';
+import { runBubbleStyleSession } from '../apps/messages/bubbleStyleSession';
 import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
 import { CONFIRM_CARD_PROMPT_NOTE, applyConfirmCardDirective } from '../apps/messages/confirmCardDirective';
 import { getAvatarHistorySwitchNote, applyAvatarHistorySwitchDirective } from '../apps/messages/avatarHistoryDirective';
@@ -590,9 +591,17 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
       handled: options.orderRequestHandled === true,
     });
   }
-
     if (msg.type === 'companion_offer') {
     return `[你之前提议过一起养小伙伴: ${msg.content || ''}]`;
+  }
+
+  if (msg.type === 'bubble_css_card') {
+    const statusText = msg.metadata?.status === 'saved'
+      ? '用户已保存'
+      : msg.metadata?.status === 'reverted'
+        ? '用户已还原'
+        : '用户还在试用';
+    return `[你自己给聊天气泡写了一套样式「${msg.metadata?.name || ''}」，${statusText}]`;
   }
 
   if (msg.type === 'challenge_complete') {
@@ -2705,7 +2714,7 @@ const { content: contentAfterCompanionOffer, offerMessage: companionOfferMessage
 // 装饰名字只要能匹配上已知名单就直接落库生效，不需要额外的"是否交出过
 // 选项"校验（这个功能本身就不设限制，参见 bubbleStyleDirective.js 顶部
 // 注释）。
-const { content: contentAfterBubbleStyle } = await applyBubbleStyleDirective({
+const { content: contentAfterBubbleStyle, wantsChange: wantsBubbleChange } = await applyBubbleStyleDirective({
   chatId,
   content: contentAfterCompanionOffer,
 });
@@ -3065,11 +3074,22 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
       }
 
 
+      
+      // 角色写了 [BUBBLE_WANT]：回复已经写入后，立刻补一次单独的调用，
+      // 让它具体决定换形状 / 进场动画 / 自己写 CSS（完整提示词只在那一次里
+      // 给）。不等待结果，失败也不影响已经保存的回复。
+      if (wantsBubbleChange && messageIds.length > 0) {
+        void runBubbleStyleSession({
+          chatId,
+          character,
+          triggerReply: safeParsedMessages.find((message) => message.type === 'text')?.content || '',
+        });
+      }
+
       preview = safeParsedMessages.find((message) => message.type === 'text')?.content
         || safeParsedMessages[0]?.content
         || '发来了一条消息';
     }
-
     await db.chats.update(chatId, {
       updatedAt: nowIso
     });

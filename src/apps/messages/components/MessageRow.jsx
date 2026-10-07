@@ -49,6 +49,7 @@ import PhotoCard from './cards/PhotoCard';
 import McpUsageTraceCard from './cards/McpUsageTraceCard';
 import ApiFallbackHint from './cards/ApiFallbackHint';
 import CompanionOfferCard from './cards/CompanionOfferCard';
+import BubbleCssCard from './cards/BubbleCssCard';
 import ConfirmCard from './cards/ConfirmCard';
 
 import McdOrderCard from './cards/McdOrderCard';
@@ -483,6 +484,8 @@ const MessageRow = ({
               chatId={msg.chatId}
               onAccept={() => onOpenCompanionOffer?.()}
             />
+                   ) : msg.type === 'bubble_css_card' ? (
+            <BubbleCssCard message={msg} />
           ) : msg.type === 'confirm_card' ? (
             <ConfirmCard
               message={msg}
