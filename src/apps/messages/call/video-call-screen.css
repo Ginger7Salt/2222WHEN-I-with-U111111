@@ -44,16 +44,21 @@ top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
   filter: blur(36px) brightness(0.55);
 }
 
+/* 头像宽度集中放一个变量里，文字区的顶部留白按它算，保证文字在头像下面 */
+.video-call__char-stage {
+  --vc-avatar-w: min(46vw, 170px);
+}
+ 
 .video-call__char-stage-main {
   position: relative;
   display: flex;
   justify-content: center;
-  padding-top: 12%;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
 }
 
 .video-call__char-stage-avatar {
   position: relative;
-  width: min(62%, 240px);
+  width: var(--vc-avatar-w);
   aspect-ratio: 3 / 4;
   object-fit: cover;
   border-radius: 22px;
@@ -254,6 +259,38 @@ top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 28%, black 100%);
 }
 
+/* char 全屏时：文字区从头像下面开始（头像高度 = 宽度 x 4/3），
+   并且顶部渐隐收窄，不把刚出现的第一行吃掉 */
+.video-call__flow--char {
+  --vc-avatar-w: min(46vw, 170px);
+  padding-top: calc(var(--vc-avatar-w) * 4 / 3 + 1.75rem);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 100%);
+}
+ 
+/* 每句话下面的语音状态 */
+.video-call__audio-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-bottom: 0.15rem;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+}
+ 
+.video-call__audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.14);
+}
+ 
 .video-call__flow::-webkit-scrollbar {
   display: none;
 }

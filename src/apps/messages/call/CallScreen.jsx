@@ -148,6 +148,17 @@ const CallScreen = ({ call, onMinimize }) => {
     });
   }, [turns, mode]);
 
+  // 手动播放某一句的语音：自动播放被浏览器拦住时的备用入口。
+  const handlePlayTurnAudio = (turn) => {
+    if (!audioRef.current || !turn?.audio?.audioBlob) return;
+ 
+    const objectUrl = URL.createObjectURL(turn.audio.audioBlob);
+    audioRef.current.src = objectUrl;
+    audioRef.current.play().catch((error) => {
+      console.warn('[CallScreen] 手动播放通话语音失败：', error);
+    });
+  };
+ 
   // 打字机效果：只对"刚刚"到达的 AI 轮次生效。旧轮次（翻看历史、
   // 缩小再展开悬浮球触发的重新渲染）直接整句显示，不重播动画。
   useEffect(() => {
@@ -380,7 +391,8 @@ const CallScreen = ({ call, onMinimize }) => {
             isRecording={isRecording}
             isTranscribing={isTranscribing}
             onToggleVoiceInput={handleToggleVoiceInput}
-            videoRef={videoRef}
+          videoRef={videoRef}
+            onPlayTurnAudio={handlePlayTurnAudio}
           />
         ) : status === 'active' ? (
           <CallActiveScreen

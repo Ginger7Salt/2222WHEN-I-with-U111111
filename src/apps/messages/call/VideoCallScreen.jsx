@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, Mic, MicOff, PhoneOff, RotateCw, Send, VideoOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Mic, MicOff, PhoneOff,RotateCw, Send, VideoOff, Volume2, VolumeX }from 'lucide-react';
 
 import { startCamera } from './videoCameraService';
 import './video-call-screen.css';
@@ -34,8 +34,10 @@ const VideoCallScreen = ({
   voiceInputAvailable,
   isRecording,
   isTranscribing,
-  onToggleVoiceInput,
-  // 父组件通过这个 ref 拿到 <video> 元素来截帧
+ onToggleVoiceInput,
+  // 点一下重新播放某一句的语音（自动播放被浏览器拦住时的备用入口）
+  onPlayTurnAudio,
+  // 父组件通过这个 ref拿到 <video> 元素来截帧
   videoRef: externalVideoRef,
 }) => {
   const [cameraError, setCameraError] = useState(null);
@@ -162,7 +164,18 @@ const handleRerollClick = async (turnId) => {
   // char 当前的状态颜文字——取最新一条 AI 轮次自带的 moodText，挂在
   // char 头像（舞台或小窗）旁边，跟台词本身的逐字动画无关，不参与
   // 打字机效果，一次性直接显示。
-  const latestMoodText = latestTurn?.by === 'ai' ? latestTurn.moodText : null;
+  // 最近一条带状态的 AI 轮次：一次回复拆成几句时状态只挂在其中一句上，
+  // 不能只看最后一条轮次。
+  const latestMoodText = [...turns].reverse().find((turn) => (
+    turn.by === 'ai' && turn.moodText
+  ))?.moodText || null;
+ 
+  // 视频通话只显示"最近这一轮"：从最后一条用户发言起往后的内容。更早的
+  // 对话还在通话记录里，只是不再堆在画面上盖住头像。
+  const lastUserIndex = turns.reduce((found, turn, index) => (
+    turn.by === 'user' ? index : found
+  ), -1);
+  const visibleTurns = lastUserIndex > 0 ? turns.slice(lastUserIndex) : turns;
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -277,9 +290,9 @@ const handleRerollClick = async (turnId) => {
         {/* 通话内容滚动区 */}
         <div
           ref={transcriptRef}
-          className="video-call__flow"
+          className={`video-call__flow ${phase === 'char' ? 'video-call__flow--char' : ''}`}
         >
-          {turns.map((turn) => {
+          {visibleTurns.map((turn) => {
             const isLatestAi = turn.id === latestTurn?.id && turn.by === 'ai';
             const displayText = isLatestAi ? revealedText : turn.content;
 
@@ -288,8 +301,37 @@ const handleRerollClick = async (turnId) => {
                 key={turn.id}
                 className={`mb-5 text-center ${turn.by === 'ai' ? 'video-call__line--ai' : 'video-call__line--user'}`}
               >
-                {turn.by === 'ai' && turn.actionText && (
+                 {turn.by === 'ai' && turn.actionText && (
                   <p className="video-call__action-text">{turn.actionText}</p>
+                )}
+ 
+                {turn.by === 'ai' && turn.mode === 'video' && turn.audioStatus && turn.audioStatus !== 'removed' && (
+                  <div className="video-call__audio-state">
+                    {turn.audioStatus === 'pending' && (
+                      <>
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        <span>语音生成中</span>
+                      </>
+                    )}
+                    {turn.audioStatus === 'ready' && onPlayTurnAudio && (
+                      <button
+                        type="button"
+                        onClick={() => onPlayTurnAudio(turn)}
+                        className="video-call__audio-btn"
+                        aria-label="播放语音"
+                        title="播放语音"
+                      >
+                        <Volume2 className="h-2.5 w-2.5" />
+                        <span>播放语音</span>
+                      </button>
+                    )}
+                    {turn.audioStatus === 'failed' && (
+                      <>
+                        <VolumeX className="h-2.5 w-2.5" />
+                        <span>语音未生成</span>
+                      </>
+                    )}
+                  </div>
                 )}
  
                 <p>
