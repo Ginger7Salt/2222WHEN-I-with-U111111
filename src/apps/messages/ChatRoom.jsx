@@ -24,7 +24,8 @@ import {
   Plus,
   PawPrint,
   Ticket,
-  Phone,
+Phone,
+  Video,
   BookHeart,
   Forward,
   Trash2,
@@ -58,6 +59,7 @@ import {
   startOutgoingCall,
   isRealVoiceAvailableForCharacter,
 } from '../../services/callService';
+import { isVideoCallAvailable } from '../../services/videoCallApiService';
 
 import {
   recordAlmanacEvent,
@@ -248,6 +250,22 @@ export const ChatRoom = ({
   const [showWorkNotebook, setShowWorkNotebook] = useState(false);
   const [showWorkAssistantSettings, setShowWorkAssistantSettings] = useState(false);
   const [showCallModeMenu, setShowCallModeMenu] = useState(false);
+  const [videoCallAvailable, setVideoCallAvailable] = useState(false);
+ 
+  // 每次打开通话菜单时重新检查一次视频通话能不能用（用户可能刚去设置里
+  // 配好了视频 API），不在聊天室加载时白白查一遍。
+  useEffect(() => {
+    if (!showCallModeMenu) return undefined;
+ 
+    let isMounted = true;
+    void isVideoCallAvailable().then((available) => {
+      if (isMounted) setVideoCallAvailable(available);
+    });
+ 
+    return () => {
+      isMounted = false;
+    };
+  }, [showCallModeMenu]);
   const [showCalendar, setShowCalendar] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
@@ -2328,8 +2346,8 @@ useLayoutEffect(() => {
                     background: 'var(--control-soft-bg)',
                     color: 'var(--text-main)',
                   }}
-                  title="发起语音通话"
-                  aria-label="发起语音通话"
+                 title="发起通话"
+                  aria-label="发起通话"
                 >
                   <Phone className="h-4 w-4" />
                 </button>
@@ -2370,10 +2388,24 @@ useLayoutEffect(() => {
                           }}
                           className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
                         >
-                          <Volume2 className="h-4 w-4" />
+                         <Volume2 className="h-4 w-4" />
                           <span>真实语音通话</span>
                         </button>
                       )}
+ 
+                      <button
+                        type="button"
+                        disabled={!videoCallAvailable}
+                        onClick={() => {
+                          setShowCallModeMenu(false);
+                          handleStartCall('video');
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        title={videoCallAvailable ? undefined : '当前模型不支持视频，请在设置里配置视频通话 API'}
+                      >
+                        <Video className="h-4 w-4" />
+                        <span>{videoCallAvailable ? '视频通话' : '视频通话（未配置）'}</span>
+                      </button>
                     </div>
                   </>
                 )}

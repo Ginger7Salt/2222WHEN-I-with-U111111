@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
-import db from '../../../db';
+
 import {
   acceptCall,
   declineCall,
@@ -16,8 +16,8 @@ import {
   beginFrameSampling,
   captureFrame,
   endFrameSampling,
-  supportsVision,
 } from './videoCameraService';
+import { isVideoCallAvailable } from '../../../services/videoCallApiService';
 import {
   hasUsableMiniMaxAsrConfig,
   transcribeMiniMaxSpeech,
@@ -73,17 +73,20 @@ const CallScreen = ({ call, onMinimize }) => {
   const realVoiceAvailable = isRealVoiceAvailableForCharacter(character);
   const voiceInputAvailable = hasUsableMiniMaxAsrConfig(character?.voiceProfile);
 
-  // 检查当前配置的模型是否支持视觉输入，决定来电界面要不要显示视频接听按钮。
-  // apiConfig 是异步读取的，这里用一个 state 来存，默认 false（保守）。
+   // 能不能视频接听：配置了视频通话 API 就可以，否则看主 API 的模型名
+  // 像不像支持视觉的。异步读取，默认 false（保守）。
   const [videoVisionAvailable, setVideoVisionAvailable] = useState(false);
-
+ 
   useEffect(() => {
-    db.settings.get('apiConfig').then((settings) => {
-      const modelName = settings?.value?.model || '';
-      setVideoVisionAvailable(supportsVision(modelName));
-    }).catch(() => {
-      setVideoVisionAvailable(false);
+    let isMounted = true;
+ 
+    void isVideoCallAvailable().then((available) => {
+      if (isMounted) setVideoVisionAvailable(available);
     });
+ 
+    return () => {
+      isMounted = false;
+    };
   }, []);
   const {
     isRecording,

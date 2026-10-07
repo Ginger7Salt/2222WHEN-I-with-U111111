@@ -49,6 +49,7 @@ import { registerCloudPush } from '../../services/cloudPushService';
 import soundService from '../../services/soundService';
 
 import VisionApiSettings from '../../components/settings/VisionApiSettings';
+import VideoApiSettings from '../../components/settings/VideoApiSettings';
 
 
 
@@ -2045,6 +2046,7 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
       </GlassCard>
 
       <VisionApiSettings />
+      <VideoApiSettings />
       {/* 5. 今日留物设置组件（已装配） */}
       <DailyOfferingSettings />
 

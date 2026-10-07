@@ -133,7 +133,7 @@ const CallRingingScreen = ({
                   type="button"
                   disabled
                   className="call-ringing__pill flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[12px] font-semibold opacity-40 cursor-not-allowed"
-                  title="当前模型不支持视频，请在设置里换用支持视觉输入的模型"
+                 title="当前模型不支持视频，请在设置里配置视频通话 API（需要支持图片输入的模型）"
                 >
                   <VideoOff className="h-3.5 w-3.5" />
                   视频（不支持）
