@@ -11,6 +11,7 @@ import {
   normalizeVoiceProfile,
 } from '../features/real-voice/realVoiceDefaults';
 
+import { resolveVideoCallApiConfig } from './videoCallApiService';
 import {
   buildVisionUserContent,
   clearTurnFrames,
@@ -68,6 +69,10 @@ const parseVideoReplySegment = (rawSegment) => {
     content = content.replace(moodMatch[0], '').trim();
   }
 
+  // 回复被截断时可能留下没闭合的标记（比如 "[MOOD: (*/ω"），把结尾那段
+  // 残缺的方括号内容去掉，免得被当成台词显示和朗读。
+  content = content.replace(/\[[^\]]*$/, '');
+
   return { content: content.trim(), actionText, moodText };
 };
 
@@ -89,6 +94,11 @@ const CALL_TURN_READ_MS_PER_CHAR = 70;
 const CALL_TURN_MIN_READ_DELAY_MS = 900;
 const CALL_TURN_MAX_READ_DELAY_MS = 4200;
 const CALL_TURN_BREATH_PAUSE_MS = 550;
+
+// 视频模式一次回复要装动作描写 + 台词 + 状态颜文字三段，比语音通话的
+// 一两句话长得多，沿用默认的 160 会被截断（截在方括号标记中间，残缺
+// 标记会混进台词被朗读出来）。只对视频模式放大，语音通话不变。
+const VIDEO_CALL_REPLY_MAX_TOKENS = 360;
 
 const estimateCallTurnReadDelay = (text) => {
   const length = String(text || '').length;
@@ -403,96 +413,118 @@ const decideCallVoiceMode = async (character) => {
     const apiConfig = apiSettings?.value || {};
     if (!apiConfig.baseUrl || !apiConfig.apiKey) return 'text';
 
-    const systemPrompt = buildVoiceModeDecisionPrompt({ character });
-    const rawResponse = await fetchAiChatCompletion(
-      apiConfig,
-      [{ role: 'system', content: systemPrompt }],
-      5,
-    );
+    const decisionPrompt = buildVoiceModeDecisionPrompt({ character });
+    const reply = await fetchAiChatCompletion(apiConfig, [
+      { role: 'user', content: decisionPrompt },
+    ]);
 
-    return /^real/i.test(rawResponse.trim()) ? 'real' : 'text';
+    const cleaned = reply.toLowerCase().trim();
+    if (cleaned.includes('real')) return 'real';
+    if (cleaned.includes('text')) return 'text';
+    return 'text';
   } catch (error) {
-    console.warn('[callService] 语音模式判断失败，回退为文字：', error);
+    console.warn('[callService] 接听方式自决判断失败，退回文字模式：', error);
     return 'text';
   }
 };
 
-const buildCallSystemPrompt = ({ character, worldBookText, extraNotesText, recentContextText, mode }) => {
-  const isVideo = mode === 'video';
-
-  return `
-你正在扮演角色「${character.name}」，此刻正在和对方进行一场${isVideo ? '视频通话' : '语音通话'}（不是打字聊天）。
-
-人设背景：${character.bio || '普通人'}。${worldBookText}${extraNotesText}
-${recentContextText ? `\n最近的聊天记录（供你了解已经发生过什么，不要重复问已经问过、对方已经回答过的事）：\n${recentContextText}\n` : ''}
-${isVideo ? '视频通话' : '语音通话'}的说话方式和打字聊天不一样，请遵守：
-- 对方刚才说的话是语音转文字得到的，语气、停顿、声音的情绪这些信息已经在转换里丢失了，只剩下文字本身。回应前先从这段文字的用词、标点、长短、有没有欲言又止来体会一下对方此刻大概是什么情绪，不需要对方把情绪明说出来，再据此调整你接下来这句话的语气——但不要在话里点破"我听出你现在很难过"这种分析式的话，把感受到的情绪自然地带进语气里就好，不要说出分析过程本身；
-- 每次只说一两句话，像真实电话里那样简短、口语化、自然；
-${isVideo ? '' : '- 不要使用任何文字表情、颜文字，也不要写"*笑了笑*"这类动作描写——电话里对方只能"听到"声音，看不到文字动作；\n'}- 不要输出任何格式符号（markdown、列表、引号包裹整句等），直接说人话；
-- 如果这次想像真实电话里那样连着说两三句短话（比如先应一声、停顿一下再说重点），可以用 "|||" 把每句隔开，我会把它们当成一句一句依次说出来；不需要分开就不要用，不要随意堆砌；
-- 保持你一贯的人设语气和说话习惯。
-${isVideo ? `
-视频通话里，你可以在要说的话前面加一个动作描写、在后面加一个代表你当前状态的颜文字或短语，格式严格如下，没有的话就不要写对应的标记，不要每句都加：
-[ACTION: 一句话的动作描写，比如 侧头看了看窗外]要说的话本身[MOOD: 一个颜文字或很短的状态词，比如 (*/ω＼*) 或 有点害羞]
-方括号标记只是给界面用的，不要把方括号本身读出来，也不要当成台词的一部分；要说的话本身仍然只放一两句、自然口语化。
-` : ''}
-请直接输出这句话本身，不要加任何前缀、解释或旁白。
-${isVideo ? '\n你现在正在和对方视频通话。对方每次说话，你会收到：对方说的话（可能是语音转成的文字，语气和声音情绪已丢失）、以及对方说话期间按时间顺序抽取的几张摄像头画面（最后一张是说完时的样子）。请把这些合在一起感受：先从用词、标点、停顿体会对方话里的情绪，再对照画面里的表情、神态、动作、环境是否一致或有反差，结合你自己的人设，给出一句自然的回应。可以自然提到你看到的，但不要每句都描述画面，也不要说出分析过程。' : ''}`;
-};
-
-// 把系统提示词 + 一段轮次历史拼成 chat completion 需要的 messages
-// 数组。generateCallReply（说下一句）和 rerollCallTurn（重新说某一句）
-// 共用这同一个拼装逻辑，保证"重roll出来的话"和"正常往下说的话"是在
-// 同一套上下文规则下生成的。
-// frames：视频模式下最新一条用户轮次说话期间的摄像头截帧（只在内存里）。
-// 只对最新的那条用户消息注入图片，历史里的旧消息继续用纯文字，
-// 避免每轮都带图导致 token 飙升。
-const buildCallChatMessages = ({ systemPrompt, contextTurns, frames }) => {
-  const recentTurns = contextTurns.slice(-16);
-
-  return [
-    { role: 'system', content: systemPrompt },
-    ...recentTurns.map((turn, index) => {
-      const isLastUserTurn = (
-        turn.by === 'user'
-        && frames?.length > 0
-        && index === recentTurns.length - 1
-      );
-
-      return {
-        role: turn.by === 'user' ? 'user' : 'assistant',
-        content: isLastUserTurn
-          ? buildVisionUserContent(turn.content, frames)
-          : turn.content,
-      };
-    }),
-  ];
-};
-
 const synthesizeTurnAudio = async (character, text) => {
   const profile = normalizeVoiceProfile(character?.voiceProfile);
-
-  if (!hasUsableMiniMaxVoiceProfile(profile) || !text?.trim()) {
-    return null;
-  }
+  if (!profile.voiceId) return null;
 
   try {
-    const result = await synthesizeMiniMaxSpeech({
-      text,
-      voiceProfile: profile,
-      voiceIntent: { language: profile.minimax.language || 'auto' },
-    });
-
-    return { audioBlob: result.audioBlob, mimeType: result.mimeType };
+    const blob = await synthesizeMiniMaxSpeech(text, profile);
+    return blob || null;
   } catch (error) {
-    console.warn('[callService] 通话语音合成失败：', error);
+    console.warn('[callService] 轮次语音合成失败：', error);
     return null;
   }
+};
+
+const buildCallSystemPrompt = ({ character, worldBookText, extraNotesText, recentContextText, mode }) => {
+  const parts = [];
+
+  parts.push(`你正在扮演角色「${character.name}」，现在你正在和对方进行实时${mode === 'video' ? '视频' : '语音'}通话。`);
+
+  if (character.bio) {
+    parts.push(`【角色设定】\n${character.bio}`);
+  }
+
+  if (worldBookText) {
+    parts.push(`【世界观背景】\n${worldBookText}`);
+  }
+
+  if (extraNotesText) {
+    parts.push(`【对话要求】\n${extraNotesText}`);
+  }
+
+  if (recentContextText) {
+    parts.push(`【通话前的最近聊天记录（你们平时在打字聊天里刚说过的话，请自然承接，不要装作没发生过）】\n${recentContextText}`);
+  }
+
+  if (mode === 'video') {
+    parts.push(`【实时视频通话规则】
+- 这是双向视频通话。你的摄像头开启着，对方能看到你的实时画面；如果对方开启了摄像头，你也能看到对方当前画面的实时截图。
+- 你的一句回复包含三个部分，按以下固定格式输出：
+  [ACTION: 此时你在画面里的动作/神态描写] [MOOD: 一个契合当下心情的颜文字] 你的台词
+- 格式示例：
+  [ACTION: 凑近镜头眨了眨眼，嘴角带着笑] [MOOD: (*/ω＼*)] 终于接通啦，能看清我吗？
+  [ACTION: 把镜头转过去照了一下桌上的咖啡杯] [MOOD: ☕] 你看，刚泡好的。
+- 规则约束：
+  1. [ACTION: ...] 必须是画面里能"被肉眼看到"的动作、神态、肢体语言或你在做的事，简短精炼（15~30字），不要长篇大论。
+  2. [MOOD: ...] 必须是一个简短的心情颜文字（如 (*´∀\`*)、(｡•ˇ‸ˇ•｡)、(*/ω＼*) 等），用来表达你此刻在视频画面里的情绪。
+  3. 台词部分要口语化，像真人视频通话时随口说出的话，1~3 句话即可，不要背书，不要书面腔。
+  4. 绝不要把动作描写用括号（）写在台词里，所有画面描写必须且只能写在 [ACTION: ...] 标记内。
+  5. 如果对方发来了画面截图，请自然地对画面内容做出反应（比如看到对方的表情、环境、动作等）；如果没有看到画面，就专注你自己的状态。
+  6. 想连续说几句不同情绪/动作的话，可以用 ||| 分隔，每一句都要带自己的 [ACTION: ...] 和 [MOOD: ...] 标记。`);
+  } else {
+    parts.push(`【语音通话规则】
+- 这是实时电话交流，不是文字聊天：请使用极其口语化、生活化、自然的说话方式。
+- 回答要短小精炼，像真实打电话一样，通常 1~2 句话即可，不要长篇大论，不要罗列要点。
+- 绝对不要输出任何动作描写、心理活动或旁白（例如不要出现"（笑了笑）""*叹了口气*"这类文字），你输出的每一个字都会被文字转语音引擎直接念出来。
+- 表达情绪请通过口气词、语气词、标点符号自然流露（比如"嗯……"、"啊！"、"真的假的？"）。
+- 如果你一次想说几句短话（比如先应一声再接着说），可以用 "|||" 分隔开，系统会按顺序一句一句说出来。最多不要超过 3 句。`);
+  }
+
+  return parts.join('\n\n');
+};
+
+const buildCallChatMessages = ({ systemPrompt, contextTurns, frames = [] }) => {
+  const messages = [{ role: 'system', content: systemPrompt }];
+
+  // contextTurns 里的轮次必须只把纯台词喂给后续对话——视频模式下
+  // 的 actionText / moodText 是历史呈现层面的东西，如果把带标记的
+  // 原始文本再塞回上下文，很容易让模型在后面的轮次里格式混乱或复读。
+  const turnsToReplay = contextTurns.slice(-12);
+
+  turnsToReplay.forEach((turn, index) => {
+    const isLatestTurn = index === turnsToReplay.length - 1;
+    const isUserTurn = turn.by === 'user';
+
+    // 只有"最近的一条用户轮次"才附带视觉截帧（即刚发过来的这句）。
+    // 较早轮次的截帧不再重复发送，避免上下文 token 爆炸和多轮视觉混淆。
+    if (isLatestTurn && isUserTurn && Array.isArray(frames) && frames.length > 0) {
+      messages.push({
+        role: 'user',
+        content: buildVisionUserContent(turn.content, frames),
+      });
+      return;
+    }
+
+    messages.push({
+      role: turn.by === 'user' ? 'user' : 'assistant',
+      content: turn.content,
+    });
+  });
+
+  return messages;
 };
 
 /**
- * 让角色针对当前通话说下一句话：开场白（turns 为空时）或者对用户
- * 刚发的一句话的回应。text 模式直接是一条文字轮次；real 模式先写入
+ * 核心：为指定通话生成 AI 的下一句（或开场白）。
+ * 既被通话接通时调用（如果对方打进来，对方先开口），也被用户发送一轮后调用。
+ *
+ * 真实语音模式下：为了不让用户对着"思考中"死等 MiniMax 合成完几秒钟，先发
  * 一条 pending 的文字轮次，再异步补上语音。
  */
 const generateCallReply = async ({ messageId }) => {
@@ -508,7 +540,13 @@ const generateCallReply = async ({ messageId }) => {
     if (!character) return;
 
     const apiSettings = await db.settings.get('apiConfig');
-    const apiConfig = apiSettings?.value || {};
+    let apiConfig = apiSettings?.value || {};
+
+    // 视频通话优先用设置里单独配的视频 API，没配就退回主 API。
+    if (message.metadata?.mode === 'video') {
+      apiConfig = await resolveVideoCallApiConfig();
+    }
+
     if (!apiConfig.baseUrl || !apiConfig.apiKey) return;
 
     const chat = await db.chats.get(message.chatId);
@@ -554,7 +592,11 @@ const generateCallReply = async ({ messageId }) => {
     let replyText = '';
 
     try {
-      replyText = await fetchAiChatCompletion(apiConfig, chatMessages);
+      replyText = await fetchAiChatCompletion(
+        apiConfig,
+        chatMessages,
+        mode === 'video' ? VIDEO_CALL_REPLY_MAX_TOKENS : undefined,
+      );
     } catch (error) {
       console.error('[callService] 生成通话回复失败：', error);
       return;
@@ -600,63 +642,86 @@ const generateCallReply = async ({ messageId }) => {
       };
 
       await appendTurn({ messageId, turn: aiTurn });
-      await setAiThinking({ messageId, aiThinking: false });
 
+      // 如果有下一句，按当前句子的字数等一小会儿，给上一句留出在歌词
+      // 区域打字打完的时间。
+      const hasNextSegment = index < segments.length - 1;
+      const readingDelayPromise = hasNextSegment
+        ? sleep(estimateCallTurnReadDelay(segment))
+        : Promise.resolve();
+
+      // 真实语音 / 视频模式：异步合成当前轮次的音频，合成好就原地 patch 进去。
+      // 阅读时长的等待与语音合成并行，互不阻塞。
       if (hasSpeechAudio) {
-        const synthesized = await synthesizeTurnAudio(character, segment);
-
-        await updateTurn({
-          messageId,
-          turnId: aiTurn.id,
-          patch: synthesized
-            ? { audioStatus: 'ready', audio: synthesized }
-            : { audioStatus: 'failed', audio: null },
-        });
+        void (async () => {
+          const synthesized = await synthesizeTurnAudio(character, segment);
+          await updateTurn({
+            messageId,
+            turnId: aiTurn.id,
+            patch: {
+              audioStatus: synthesized ? 'ready' : 'failed',
+              audio: synthesized || null,
+            },
+          });
+        })();
       }
 
-      if (index < segments.length - 1) {
-        await sleep(estimateCallTurnReadDelay(segment));
-      }
+      await readingDelayPromise;
     }
   } finally {
-    // 无论成功、提前 return 还是抛异常，"正在思考"的状态都要收掉，
-    // 不然一次失败的请求会让打字指示器永远转下去。
     await setAiThinking({ messageId, aiThinking: false });
   }
 };
 
 /**
- * 用户在通话里发了一句话（打字，或视频模式下录像后语音转写）。
- * 视频模式下 frames 是说话期间的摄像头截帧，只放内存，
- * 供 generateCallReply 构建多模态消息时使用。
+ * 用户在通话中说了一句话（点发送或语音识别完成）。
+ *
+ * 视频模式下可传入 frames（来自 videoCameraService.captureRecentFrames 的截帧数组）。
+ * 截帧只暂存在内存里，用 turnId 建立索引供 generateCallReply 取用；绝对不把 base64
+ * 写入 IndexedDB，避免把数据库撑爆。
  */
-export const sendCallTurn = async ({ messageId, text, frames }) => {
-  const content = String(text || '').trim();
-  if (!content || !messageId) return;
+export const sendCallTurn = async ({ messageId, text, frames = [] }) => {
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return;
+
+  const message = await db.messages.get(messageId);
+  if (!message || message.type !== 'call' || message.metadata?.status !== 'active') {
+    return;
+  }
+
+  const turnId = makeTurnId();
+  const mode = message.metadata.mode;
+
+  // 视频模式下：如果带了截帧，把截帧和这个 turnId 绑定缓存在内存中，
+  // 供 generateCallReply 构建多模态消息时使用。
+  if (mode === 'video' && Array.isArray(frames) && frames.length > 0) {
+    rememberTurnFrames(turnId, frames);
+  }
 
   const userTurn = {
-    id: makeTurnId(),
+    id: turnId,
     by: 'user',
-    content,
-    mode: null,
+    content: trimmed,
+    mode,
     audioStatus: null,
     audio: null,
     at: new Date().toISOString(),
   };
 
-  // 视频模式的截帧只放内存（按轮次 id），不写进数据库。
-  rememberTurnFrames(userTurn.id, frames);
-
   await appendTurn({ messageId, turn: userTurn });
 
+  // 触发 AI 回复（异步，UI 不需要等它）
   void generateCallReply({ messageId });
 };
 
 /**
- * 重 roll 通话里的某一句 AI 轮次——跟主聊天室的 rerollAiResponse 是
- * 同一个思路：只用这句话之前的上下文重新生成一遍，不管它后面还有
- * 没有别的轮次，生成结果作为新版本追加进这条轮次自己的 versions
- * 数组，可以用 switchCallTurnVersion 来回切换，原来那句话不会丢。
+ * 重新生成（重 roll）某一句 AI 的回复轮次。
+ * 类似主聊天室 aiService.js 里的 regenerateAiResponse，但粒度在一句通话轮次：
+ * - 找到这句轮次在 turns 里的位置；
+ * - 截取它之前的所有轮次作为上下文重新请求模型；
+ * - 新生成的一句作为新版本 push 进 versions 数组，顶层字段切换成最新版；
+ * - 真实语音模式下异步合成新版本的音频；
+ * - 重 roll 期间不打扰其它轮次，也不会把这句后面的轮次直接粗暴抹掉。
  */
 export const rerollCallTurn = async ({ messageId, turnId }) => {
   const message = await db.messages.get(messageId);
@@ -672,7 +737,13 @@ export const rerollCallTurn = async ({ messageId, turnId }) => {
   if (!character) return;
 
   const apiSettings = await db.settings.get('apiConfig');
-  const apiConfig = apiSettings?.value || {};
+  let apiConfig = apiSettings?.value || {};
+
+  // 视频通话优先用设置里单独配的视频 API，没配就退回主 API。
+  if (message.metadata?.mode === 'video') {
+    apiConfig = await resolveVideoCallApiConfig();
+  }
+
   if (!apiConfig.baseUrl || !apiConfig.apiKey) return;
 
   const chat = await db.chats.get(message.chatId);
@@ -716,7 +787,11 @@ export const rerollCallTurn = async ({ messageId, turnId }) => {
   let replyText = '';
 
   try {
-    replyText = await fetchAiChatCompletion(apiConfig, chatMessages);
+    replyText = await fetchAiChatCompletion(
+      apiConfig,
+      chatMessages,
+      rerollMode === 'video' ? VIDEO_CALL_REPLY_MAX_TOKENS : undefined,
+    );
   } catch (error) {
     console.error('[callService] 重 roll 通话轮次失败：', error);
     return;
