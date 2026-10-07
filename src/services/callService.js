@@ -454,8 +454,14 @@ const synthesizeTurnAudio = async (character, rawText, { video = false } = {}) =
   }
 
   try {
-    const blob = await synthesizeMiniMaxSpeech(text, profile);
-    return blob || null;
+    const result = await synthesizeMiniMaxSpeech({ text, voiceProfile: profile });
+
+    if (!result?.audioBlob) return null;
+
+    return {
+      audioBlob: result.audioBlob,
+      mimeType: result.mimeType || result.audioBlob.type || 'audio/mpeg',
+    };
   } catch (error) {
     console.warn('[callService] 轮次语音合成失败：', error);
     return null;
