@@ -44,37 +44,49 @@ const sleep = (ms) => new Promise((resolve) => {
   window.setTimeout(resolve, ms);
 });
 
-// 视频模式下，AI 回复里可能带 [ACTION: ...]（动作描写）和 [MOOD: ...]
-// （状态颜文字）两个方括号标记——跟主聊天室 aiService.js 里 [TRANSFER: ...]
-// 这类标记是同一个思路，但只在通话轮次内部解析，不走共享的
-// parseAiResponseToMessages 正则。解析完把标记从台词里摘出来，
-// 剩下的纯文字才是真正要朗读、要在歌词区逐字显示的那句话。
-const VIDEO_ACTION_TAG_RE = /\[ACTION:\s*([^\]]+)\]/i;
-const VIDEO_MOOD_TAG_RE = /\[MOOD:\s*([^\]]+)\]/i;
+// 标记写法放宽：方括号可能是 [ ] 也可能是全角的 【 】 ［ ］，冒号可能是
+// 半角 : 也可能是全角 ：，标签名也可能被写成中文（动作 / 状态 / 心情）。
+// 模型偶尔不按格式来，标记没被摘掉就会让颜文字混进台词、还被拿去合成语音。
+const VIDEO_ACTION_TAG_RE = /[\[【［]\s*(?:ACTION|动作)\s*[:：]\s*([^\]】］]*)[\]】］]/gi;
+const VIDEO_MOOD_TAG_RE = /[\[【［]\s*(?:MOOD|状态|心情)\s*[:：]\s*([^\]】］]*)[\]】］]/gi;
 
-const parseVideoReplySegment = (rawSegment) => {
-  let content = String(rawSegment || '');
+// 对整段回复（拆 "|||" 之前）一次性摘标记：标记可能单独占一段、
+// 也可能出现在不同段里，按段摘会把只有标记的段整个丢掉，状态就丢了。
+// 动作描写取第一个，状态颜文字取最后一个（最新的状态）。
+const extractVideoTags = (rawText) => {
+  let text = String(rawText || '');
   let actionText = null;
   let moodText = null;
 
-  const actionMatch = content.match(VIDEO_ACTION_TAG_RE);
-  if (actionMatch) {
-    actionText = actionMatch[1].trim();
-    content = content.replace(actionMatch[0], '').trim();
-  }
+  text = text.replace(VIDEO_ACTION_TAG_RE, (_, inner) => {
+    const value = String(inner || '').trim();
+    if (value && !actionText) actionText = value;
+    return '';
+  });
 
-  const moodMatch = content.match(VIDEO_MOOD_TAG_RE);
-  if (moodMatch) {
-    moodText = moodMatch[1].trim();
-    content = content.replace(moodMatch[0], '').trim();
-  }
+  text = text.replace(VIDEO_MOOD_TAG_RE, (_, inner) => {
+    const value = String(inner || '').trim();
+    if (value) moodText = value;
+    return '';
+  });
 
   // 回复被截断时可能留下没闭合的标记（比如 "[MOOD: (*/ω"），把结尾那段
   // 残缺的方括号内容去掉，免得被当成台词显示和朗读。
-  content = content.replace(/\[[^\]]*$/, '');
+  text = text.replace(/[\[【［][^\]】］]*$/, '');
 
-  return { content: content.trim(), actionText, moodText };
+  return { text: text.trim(), actionText, moodText };
 };
+
+// 朗读用的文字：把台词里残留的括号内容（动作、颜文字、舞台说明）去掉，
+// 只留真正要说出口的话。只用于视频通话，其他通话模式不动。
+const toSpeechText = (text) => (
+  String(text || '')
+    .replace(/[\[【［][^\]】］]*[\]】］]/g, '')
+    .replace(/[（(][^）)]*[）)]/g, '')
+    .replace(/\*[^*]+\*/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+);
 
 // AI 一次回复里如果想连着说好几句短话，用主聊天室同款的 "|||" 分隔符
 // 隔开——parseAiResponseToMessages 里对普通文字消息就是这么拆的，
@@ -428,9 +440,18 @@ const decideCallVoiceMode = async (character) => {
   }
 };
 
-const synthesizeTurnAudio = async (character, text) => {
+const synthesizeTurnAudio = async (character, rawText, { video = false } = {}) => {
   const profile = normalizeVoiceProfile(character?.voiceProfile);
-  if (!profile.voiceId) return null;
+  const text = video ? toSpeechText(rawText) : rawText;
+
+  if (!hasUsableMiniMaxVoiceProfile(profile)) {
+    console.warn('[callService] 通话语音没有生成：这个角色没有可用的 MiniMax 音色配置');
+    return null;
+  }
+
+  if (!text?.trim()) {
+    return null;
+  }
 
   try {
     const blob = await synthesizeMiniMaxSpeech(text, profile);
@@ -602,7 +623,9 @@ const generateCallReply = async ({ messageId }) => {
       return;
     }
 
-    const segments = splitCallReplySegments(replyText);
+    // 视频模式：先对整段回复摘掉 [ACTION] / [MOOD] 标记，再拆 "|||"。
+    const videoTags = mode === 'video' ? extractVideoTags(replyText) : null;
+    const segments = splitCallReplySegments(videoTags ? videoTags.text : replyText);
     if (segments.length === 0) return;
 
     // 一次回复可能被 "|||" 拆成好几句——依次追加成独立的轮次，句间
@@ -617,10 +640,13 @@ const generateCallReply = async ({ messageId }) => {
       }
 
       const rawSegment = segments[index];
-      // 视频模式：把 [ACTION: ...] / [MOOD: ...] 从台词里摘出来单独存，
-      // 朗读和歌词区显示只用剩下的纯台词。
-      const parsed = mode === 'video'
-        ? parseVideoReplySegment(rawSegment)
+      // 视频模式：动作描写挂在第一句，状态颜文字挂在最后一句。
+      const parsed = videoTags
+        ? {
+          content: rawSegment,
+          actionText: index === 0 ? videoTags.actionText : null,
+          moodText: index === segments.length - 1 ? videoTags.moodText : null,
+        }
         : { content: rawSegment, actionText: null, moodText: null };
       const segment = parsed.content;
 
@@ -654,7 +680,7 @@ const generateCallReply = async ({ messageId }) => {
       // 阅读时长的等待与语音合成并行，互不阻塞。
       if (hasSpeechAudio) {
         void (async () => {
-          const synthesized = await synthesizeTurnAudio(character, segment);
+          const synthesized = await synthesizeTurnAudio(character, segment, { video: mode === 'video' });
           await updateTurn({
             messageId,
             turnId: aiTurn.id,
@@ -800,13 +826,14 @@ export const rerollCallTurn = async ({ messageId, turnId }) => {
   // 重 roll 只针对这一句轮次本身，就算模型这次又用 "|||" 说了好几句，
   // 也只取第一句——真想让它连着说好几句，应该重 roll 之后再手动继续
   // 通话，而不是让一次重 roll 意外多出好几条新轮次。
-  const [rawNewContent] = splitCallReplySegments(replyText);
-  if (!rawNewContent) return;
-
   const mode = targetTurn.mode;
   // 视频模式：reroll 出来的这句也要摘出 [ACTION: ...] / [MOOD: ...]。
-  const parsedReroll = mode === 'video'
-    ? parseVideoReplySegment(rawNewContent)
+  const rerollTags = mode === 'video' ? extractVideoTags(replyText) : null;
+  const [rawNewContent] = splitCallReplySegments(rerollTags ? rerollTags.text : replyText);
+  if (!rawNewContent) return;
+
+  const parsedReroll = rerollTags
+    ? { content: rawNewContent, actionText: rerollTags.actionText, moodText: rerollTags.moodText }
     : { content: rawNewContent, actionText: null, moodText: null };
   const newContent = parsedReroll.content;
   if (!newContent) return;
@@ -854,7 +881,7 @@ export const rerollCallTurn = async ({ messageId, turnId }) => {
   });
 
   if (hasSpeechAudio) {
-    const synthesized = await synthesizeTurnAudio(character, newContent);
+    const synthesized = await synthesizeTurnAudio(character, newContent, { video: mode === 'video' });
 
     await db.transaction('rw', db.messages, async () => {
       const latestMessage = await db.messages.get(messageId);
@@ -1186,6 +1213,7 @@ export const recordMissedCloudCall = async ({ chatId, characterId, characterName
 
   return messageId;
 };
+
 export const acceptCall = async ({ messageId, mode }) => {
   const message = await db.messages.get(messageId);
   if (!message || message.metadata?.status !== 'ringing') return;
@@ -1216,8 +1244,6 @@ export const acceptCall = async ({ messageId, mode }) => {
     void generateCallReply({ messageId });
   }
 };
-
-
 
 export const declineCall = async ({ messageId }) => {
   const message = await db.messages.get(messageId);
