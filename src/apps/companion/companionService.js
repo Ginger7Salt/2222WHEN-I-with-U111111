@@ -230,6 +230,7 @@ export const adoptCompanion = async ({ chatId, characterId, name, avatarUrl }) =
     satiety: 80,
     cleanliness: 100,
     hearts: 0,
+    freeActionDaily: { dateStr: todayDateStr(), feed: 0, clean: 0, play: 0 },
     equippedOutfit: null,
     background: null,
     lastInteractionAt: now,
@@ -341,6 +342,13 @@ const applyTimeDecay = async (companion) => {
 
 // ---- 直接互动：喂食 / 清洁 / 玩耍 ----
 
+// 免费互动（喂食/清洁/玩耍）每天各限 1 次的文案，用户点超额时提示用。
+const FREE_ACTION_EXHAUSTED_MESSAGE = {
+  feed: '今天的免费喂食已经用过啦，明天再来吧，或者去背包里看看有没有吃的。',
+  clean: '今天已经免费清洁过啦，明天再来吧。',
+  play: '今天已经免费玩耍过啦，明天再来吧。',
+};
+
 export const performFreeAction = async (companionId, actionType) => {
   const effect = FREE_ACTION_EFFECT[actionType];
   if (!effect) return null;
@@ -348,6 +356,17 @@ export const performFreeAction = async (companionId, actionType) => {
   let companion = await db.companions.get(companionId);
   if (!companion) return null;
   companion = await applyTimeDecay(companion);
+
+  const dateStr = todayDateStr();
+  const dailyProgress = companion.freeActionDaily?.dateStr === dateStr
+    ? companion.freeActionDaily
+    : { dateStr, feed: 0, clean: 0, play: 0 };
+
+  if ((dailyProgress[actionType] || 0) >= 1) {
+    throw new Error(FREE_ACTION_EXHAUSTED_MESSAGE[actionType] || '今天这个互动已经用过啦，明天再来吧。');
+  }
+
+  const newDailyProgress = { ...dailyProgress, [actionType]: (dailyProgress[actionType] || 0) + 1 };
 
   const now = Date.now();
   const newMood = clamp100(companion.mood + effect.mood);
@@ -364,6 +383,7 @@ export const performFreeAction = async (companionId, actionType) => {
     cleanActionCount: (companion.cleanActionCount || 0) + (actionType === 'clean' ? 1 : 0),
     // 心情"连续满格"计数：这次也满格就+1，否则清零（见稀有解锁事件 2）。
     moodFullStreak: newMood >= 100 ? (companion.moodFullStreak || 0) + 1 : 0,
+    freeActionDaily: newDailyProgress,
   };
 
   await db.companions.put(updated);

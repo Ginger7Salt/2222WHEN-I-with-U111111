@@ -480,7 +480,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
         setLogs(await getRecentLogs(companion.id));
       }
     } catch (error) {
-      showFeedback('这次没成功，稍后再试试。');
+      showFeedback(error.message || '这次没成功，稍后再试试。');
     } finally {
       setIsActing(false);
     }

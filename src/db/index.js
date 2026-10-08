@@ -4768,4 +4768,41 @@ db.version(79).stores({
   }
 });
 
+// ============================================================
+// v80：免费互动（喂食/清洁/玩耍）改成每天各 1 次。
+//
+// 跟 chatHeartProgress 的存法一致：companions.freeActionDaily 是
+// { dateStr, feed, clean, play } 的普通对象字段，不新建表、不加索引。
+// dateStr 对不上今天就代表翻篇了，companionService.js 里判断时直接
+// 当成"今天还没用过"处理，不需要这里的 upgrade 钩子帮忙按天重置——
+// 这里只负责给老数据补一个初始结构，避免字段是 undefined。
+// ============================================================
+db.version(80).stores({
+  companions: `
+    ++id,
+    &chatId,
+    characterId,
+    createdAt,
+    updatedAt
+  `,
+}).upgrade(async (tx) => {
+  try {
+    const companionsTable = tx.table('companions');
+    const all = await companionsTable.toArray();
+
+    for (const companion of all) {
+      if (!companion.freeActionDaily) {
+        // eslint-disable-next-line no-await-in-loop
+        await companionsTable.update(companion.id, {
+          freeActionDaily: { dateStr: '', feed: 0, clean: 0, play: 0 },
+        });
+      }
+    }
+
+    console.log(`[db v80 迁移] 已给 ${all.length} 个小伙伴补上免费互动每日计数初始结构。`);
+  } catch (error) {
+    console.error('[db v80 迁移] 补充免费互动每日计数失败：', error);
+  }
+});
+
 export default db;
