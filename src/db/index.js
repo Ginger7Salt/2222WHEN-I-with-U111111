@@ -4734,4 +4734,38 @@ db.version(78).stores({
   catchPlays: '++id, companionId, dateStr, createdAt, [companionId+dateStr]',
 });
 
+// ============================================================
+// v79：小伙伴新增"清洁度"数值（companions.cleanliness，0-100）。
+//
+// 不新增索引字段——跟 satiety/mood 一样是非索引字段，直接整行读写。
+// 这里只是升版本号挂一个 upgrade 钩子，给已存在的小伙伴补上默认值
+// 100（全新领养的小伙伴走 adoptCompanion 的 record 初始化，不经过
+// 这个钩子）。
+// ============================================================
+db.version(79).stores({
+  companions: `
+    ++id,
+    &chatId,
+    characterId,
+    createdAt,
+    updatedAt
+  `,
+}).upgrade(async (tx) => {
+  try {
+    const companionsTable = tx.table('companions');
+    const all = await companionsTable.toArray();
+
+    for (const companion of all) {
+      if (companion.cleanliness === undefined) {
+        // eslint-disable-next-line no-await-in-loop
+        await companionsTable.update(companion.id, { cleanliness: 100 });
+      }
+    }
+
+    console.log(`[db v79 迁移] 已给 ${all.length} 个小伙伴补上清洁度默认值。`);
+  } catch (error) {
+    console.error('[db v79 迁移] 补充清洁度默认值失败：', error);
+  }
+});
+
 export default db;

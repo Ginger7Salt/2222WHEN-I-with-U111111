@@ -345,10 +345,12 @@ const CompanionPage = ({ chatId, character, onBack }) => {
 
     const satietyDelta = Math.round(after.satiety - before.satiety);
     const moodDelta = Math.round(after.mood - before.mood);
+    const cleanlinessDelta = Math.round((after.cleanliness ?? 100) - (before.cleanliness ?? 100));
     const heartsDelta = Math.round((after.hearts - before.hearts) * 10) / 10;
 
     if (satietyDelta !== 0) spawnFloater('satiety', `${satietyDelta > 0 ? '+' : ''}${satietyDelta}`);
     if (moodDelta !== 0) spawnFloater('mood', `${moodDelta > 0 ? '+' : ''}${moodDelta}`);
+    if (cleanlinessDelta !== 0) spawnFloater('cleanliness', `${cleanlinessDelta > 0 ? '+' : ''}${cleanlinessDelta}`);
     if (heartsDelta !== 0) spawnFloater('hearts', `${heartsDelta > 0 ? '+' : ''}${heartsDelta}`);
   };
 
@@ -661,6 +663,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     if (!companion) return '';
     if (companion.satiety < 30) return '好像有点饿了呀……';
     if (companion.mood < 30) return '看起来不太开心，需要陪陪它。';
+    if ((companion.cleanliness ?? 100) < 30) return '身上有点脏了，该清洁一下啦。';
     return '状态很不错，暖暖的。';
   }, [companion]);
 
@@ -869,7 +872,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
 
   // ================= 主页 =================
   const bubbleText = feedback || statusLine;
-  const lowStat = companion.satiety < 30 || companion.mood < 30;
+  const lowStat = companion.satiety < 30 || companion.mood < 30 || (companion.cleanliness ?? 100) < 30;
 
   return (
     <div className={ROOT_CLASS} style={ROOT_STYLE} ref={rootRef}>
@@ -971,8 +974,9 @@ const CompanionPage = ({ chatId, character, onBack }) => {
               aria-hidden={!showStats}
               className={`cp-stat-pop ${showStats ? 'is-open' : ''}`}
             >
-              <StatBar icon={UtensilsCrossed} label="饱食度" value={companion.satiety} floaters={floaters} anchor="satiety" tone="satiety" />
+                          <StatBar icon={UtensilsCrossed} label="饱食度" value={companion.satiety} floaters={floaters} anchor="satiety" tone="satiety" />
               <StatBar icon={Sparkles} label="心情" value={companion.mood} floaters={floaters} anchor="mood" tone="mood" />
+              <StatBar icon={Droplets} label="清洁度" value={companion.cleanliness ?? 100} floaters={floaters} anchor="cleanliness" tone="cleanliness" />
             </div>
 
             <input

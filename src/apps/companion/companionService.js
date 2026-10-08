@@ -13,14 +13,14 @@ import { findShopItem, FOOD_TIERS } from './companionShopData';
 import { checkCompanionEvents, getActiveEvents } from './companionEventService';
 
 // ---- 数值状态衰减（参照 habitatService.js 的 applyTimeDecay）----
-const DECAY_PER_HOUR = { satiety: 4, mood: 2 };
+const DECAY_PER_HOUR = { satiety: 4, mood: 2, cleanliness: 1 };
 const MIN_DECAY_HOURS = 0.25; // 不到 15 分钟不结算，省计算
 
 // ---- 直接互动（喂食/清洁/玩耍）的即时加成，含 ❤️ ----
 const FREE_ACTION_EFFECT = {
-  feed: { satiety: 25, mood: 5, hearts: 2 },
-  clean: { satiety: 0, mood: 12, hearts: 2 },
-  play: { satiety: -5, mood: 18, hearts: 2 },
+  feed: { satiety: 25, mood: 5, hearts: 2, cleanliness: -2 },
+  clean: { satiety: 0, mood: 12, hearts: 2, cleanliness: 30 },
+  play: { satiety: -5, mood: 18, hearts: 2, cleanliness: -5 },
 };
 
 // 从数组里随机挑一条，戳一戳和喂食/清洁/玩耍的反馈文案共用这一个小工具。
@@ -226,8 +226,9 @@ export const adoptCompanion = async ({ chatId, characterId, name, avatarUrl }) =
     characterId,
     name: String(name || '小伙伴').slice(0, 20),
     avatarUrl: avatarUrl || null,
-    mood: 80,
+     mood: 80,
     satiety: 80,
+    cleanliness: 100,
     hearts: 0,
     equippedOutfit: null,
     background: null,
@@ -330,6 +331,7 @@ const applyTimeDecay = async (companion) => {
     ...companion,
     satiety: clamp100(companion.satiety - hoursElapsed * DECAY_PER_HOUR.satiety),
     mood: clamp100(companion.mood - hoursElapsed * DECAY_PER_HOUR.mood),
+    cleanliness: clamp100((companion.cleanliness ?? 100) - hoursElapsed * DECAY_PER_HOUR.cleanliness),
     lastDecayedAt: now,
   };
 
@@ -353,6 +355,7 @@ export const performFreeAction = async (companionId, actionType) => {
     ...companion,
     satiety: clamp100(companion.satiety + effect.satiety),
     mood: newMood,
+    cleanliness: clamp100((companion.cleanliness ?? 100) + (effect.cleanliness || 0)),
     hearts: Math.round((companion.hearts + effect.hearts) * 10) / 10,
     lastInteractionAt: now,
     updatedAt: now,
