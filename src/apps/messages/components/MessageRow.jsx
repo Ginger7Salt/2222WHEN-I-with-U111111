@@ -121,6 +121,13 @@ const MessageRow = ({
     && Number.isFinite(messageTimestampMs)
     && (Date.now() - messageTimestampMs) < RECENT_MESSAGE_EFFECT_WINDOW_MS;
 
+  // 气泡进场动画：沿用上面"刚到的消息才播"的约定（每次渲染重新算，不用
+  // ref 防重播）。这里只给刚到达的气泡加 bubble-fresh 类；具体播哪种动画
+  // 由 ChatRoom.jsx 按 chat.bubbleAnimation 注入的样式决定，没选动画时
+  // 没有任何规则命中这个类，所以对没用这个功能的聊天窗没有任何影响。
+  const isFreshBubble = Number.isFinite(messageTimestampMs)
+    && (Date.now() - messageTimestampMs) < RECENT_MESSAGE_EFFECT_WINDOW_MS;
+
   const canReact = !isErrorMsg
     && msg.type !== 'interaction'
     && msg.type !== 'offline_invite'
