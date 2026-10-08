@@ -142,6 +142,15 @@ export const TEXT_GAME_CATALOG = [
     status: TEXT_GAME_STATUS.AVAILABLE,
   },
   {
+    id: 'skull',
+    title: '骷髅牌',
+    titleEn: 'Roses, and one skull',
+    desc: '每人三朵蔷薇、一个骷髅，靠叫数和虚张声势，赌别人先翻到骷髅。',
+    mode: '四人对战',
+    modeEmphasis: true,
+    status: TEXT_GAME_STATUS.AVAILABLE,
+  },
+  {
     id: 'scratch-card',
     title: '刮刮乐',
     titleEn: 'A scratch, a small reward',

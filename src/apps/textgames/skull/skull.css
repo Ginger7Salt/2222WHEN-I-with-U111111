@@ -1,0 +1,962 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+SC:wght@600;700&display=swap');
+
+/* ============================================================
+   骷髅牌——竖屏对局界面，白色为主。底色是纸白，文字和主按钮用墨黑，
+   墨绿和绯红只留给牌面（蔷薇是绿、骷髅是红），翻牌那一刻才有颜色。
+   对局画面是一个最宽 440px 的竖向舞台，手机上直接铺满，不需要旋转。
+   选同桌角色那一屏用的是大厅自己的 tgh-ttt-* 样式，只补了几条 skull-
+   前缀的规则放在文件最后。
+   标题字体（Cinzel / Noto Serif SC）是联网加载的，离线时退回系统字体，
+   排版不受影响。
+   ============================================================ */
+
+.skull-root {
+  --skull-paper: #fbfbfa;
+  --skull-white: #ffffff;
+  --skull-mist: #eff1f3;
+  --skull-line: #d8dde3;
+  --skull-ink: #14171c;
+  --skull-ink-soft: #4a525e;
+  --skull-silver: #8b95a2;
+  --skull-emerald: #0f7a57;
+  --skull-emerald-bg: #eaf5f0;
+  --skull-crimson: #b4163b;
+  --skull-crimson-bg: #fbecef;
+  --skull-display: 'Cinzel', 'Noto Serif SC', 'Songti SC', serif;
+  --skull-head: 'Noto Serif SC', 'Songti SC', 'Cinzel', serif;
+  --skull-tile: 62px;
+
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  background: #eceef0;
+  color: var(--skull-ink);
+  font-family: -apple-system, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif;
+  padding: max(8px, env(safe-area-inset-top, 0px)) 8px max(8px, env(safe-area-inset-bottom, 0px));
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.skull-root *,
+.skull-root *::before,
+.skull-root *::after {
+  box-sizing: border-box;
+}
+
+/* :where() 让这条规则的优先级为 0，不会盖掉各个按钮自己写的 color。 */
+:where(.skull-root) button {
+  font: inherit;
+  color: inherit;
+}
+
+.skull-root button:focus-visible {
+  outline: 2px solid var(--skull-ink);
+  outline-offset: 2px;
+}
+
+/* ---------- 舞台 ---------- */
+.skull-stage {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  background: var(--skull-paper);
+  border: 1px solid var(--skull-line);
+  border-radius: 22px;
+  padding: 14px 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  overflow: clip;
+}
+
+/* 淡淡的点阵底纹，只在舞台中间可见。 */
+.skull-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(20, 23, 28, 0.07) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 42%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 50% 42%, #000 20%, transparent 75%);
+}
+
+.skull-stage > * {
+  position: relative;
+}
+
+.skull-stage--shake {
+  animation: skull-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes skull-shake {
+  10%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  80% {
+    transform: translateX(4px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-6px);
+  }
+  40%,
+  60% {
+    transform: translateX(6px);
+  }
+}
+
+/* ---------- 顶栏 ---------- */
+.skull-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.skull-top-left,
+.skull-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 78px;
+}
+
+.skull-top-right {
+  justify-content: flex-end;
+}
+
+.skull-roundbtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--skull-line);
+  background: var(--skull-white);
+  display: grid;
+  place-items: center;
+  color: var(--skull-ink-soft);
+  cursor: pointer;
+  padding: 0;
+}
+
+.skull-roundbtn--off {
+  color: var(--skull-silver);
+  text-decoration: line-through;
+}
+
+.skull-title {
+  text-align: center;
+  line-height: 1.15;
+}
+
+.skull-title b {
+  font-family: var(--skull-head);
+  font-size: 17px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+
+.skull-title i {
+  display: block;
+  font-family: var(--skull-display);
+  font-style: normal;
+  font-size: 10px;
+  color: var(--skull-silver);
+  letter-spacing: 0.18em;
+  margin-top: 2px;
+}
+
+.skull-shards {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skull-shard {
+  width: 12px;
+  height: 12px;
+  transform: rotate(45deg);
+  border: 1.5px solid var(--skull-ink);
+  background: transparent;
+  transition: background 0.3s;
+}
+
+.skull-shard--on {
+  background: var(--skull-ink);
+}
+
+/* ---------- 对手席位 ---------- */
+.skull-seats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding-top: 30px;
+}
+
+.skull-seat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 4px 10px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: default;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.skull-seat--on {
+  border-color: var(--skull-ink);
+  background: var(--skull-white);
+}
+
+.skull-seat--out {
+  opacity: 0.38;
+}
+
+.skull-seat--pick {
+  cursor: pointer;
+  background: var(--skull-white);
+  border-color: var(--skull-line);
+}
+
+.skull-seat--pick:hover {
+  border-color: var(--skull-ink);
+}
+
+.skull-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--skull-head);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--skull-ink);
+  background: var(--skull-mist);
+  border: 1.5px solid var(--skull-ink);
+  object-fit: cover;
+}
+
+.skull-seat--on .skull-avatar {
+  box-shadow: 0 0 0 3px rgba(20, 23, 28, 0.12);
+}
+
+.skull-name {
+  font-size: 12px;
+  font-weight: 600;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skull-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 12px;
+}
+
+.skull-pips {
+  display: flex;
+  gap: 3px;
+}
+
+.skull-pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--skull-silver);
+}
+
+.skull-pip--on {
+  background: var(--skull-ink);
+  border-color: var(--skull-ink);
+}
+
+.skull-mini-shards {
+  display: flex;
+  gap: 4px;
+}
+
+.skull-mini-shards i {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  border: 1px solid var(--skull-ink);
+}
+
+.skull-mini-shards i.on {
+  background: var(--skull-ink);
+}
+
+.skull-chip {
+  min-height: 21px;
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--skull-line);
+  color: var(--skull-ink-soft);
+  background: var(--skull-white);
+  white-space: nowrap;
+}
+
+.skull-chip--bid {
+  background: var(--skull-ink);
+  color: #fff;
+  border-color: var(--skull-ink);
+  font-weight: 600;
+}
+
+.skull-chip--pass {
+  color: var(--skull-silver);
+  border-style: dashed;
+}
+
+.skull-chip--pick {
+  border-color: var(--skull-ink);
+  color: var(--skull-ink);
+  font-weight: 600;
+}
+
+.skull-chip--blank {
+  visibility: hidden;
+}
+
+.skull-bubble {
+  position: absolute;
+  top: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--skull-ink);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.35;
+  padding: 5px 10px;
+  border-radius: 12px;
+  width: max-content;
+  max-width: 132px;
+  z-index: 5;
+  animation: skull-pop 0.18s ease-out;
+}
+
+.skull-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 8px;
+  height: 8px;
+  background: var(--skull-ink);
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 1px;
+}
+
+@keyframes skull-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+/* ---------- 牌堆与骨牌 ---------- */
+.skull-pile {
+  position: relative;
+  width: var(--skull-tile);
+  height: calc(var(--skull-tile) + 22px);
+}
+
+.skull-count {
+  position: absolute;
+  right: -4px;
+  bottom: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--skull-ink);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  z-index: 20;
+}
+
+.skull-tile {
+  position: absolute;
+  left: 0;
+  width: var(--skull-tile);
+  height: var(--skull-tile);
+  border-radius: 50%;
+  transform-style: preserve-3d;
+  transform: rotate(var(--skull-rot, 0deg));
+  transition: transform 0.5s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.25s;
+  box-shadow: 0 5px 10px rgba(20, 23, 28, 0.16), 0 0 0 1px rgba(20, 23, 28, 0.1);
+}
+
+.skull-tile--flipped {
+  transform: rotateY(180deg);
+}
+
+.skull-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.skull-face svg {
+  width: 62%;
+  height: 62%;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.skull-face--back {
+  background: radial-gradient(circle at 50% 40%, #ffffff 0%, #f1f3f5 100%);
+  border: 2px solid var(--skull-ink);
+}
+
+.skull-face--back::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--skull-line);
+}
+
+.skull-face--back svg {
+  stroke: var(--skull-silver);
+  width: 70%;
+  height: 70%;
+  stroke-width: 1.2;
+}
+
+.skull-face--rose {
+  background: var(--skull-emerald-bg);
+  border: 2px solid var(--skull-emerald);
+  transform: rotateY(180deg);
+}
+
+.skull-face--rose svg {
+  stroke: var(--skull-emerald);
+}
+
+.skull-face--skull {
+  background: var(--skull-crimson-bg);
+  border: 2px solid var(--skull-crimson);
+  transform: rotateY(180deg);
+}
+
+.skull-face--skull svg {
+  stroke: var(--skull-crimson);
+}
+
+.skull-mark {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.skull-mark--rose {
+  background: var(--skull-emerald);
+}
+
+.skull-mark--skull {
+  background: var(--skull-crimson);
+}
+
+.skull-tile--glow {
+  box-shadow: 0 0 0 3px rgba(20, 23, 28, 0.18), 0 8px 16px rgba(20, 23, 28, 0.22);
+}
+
+.skull-tile--hit {
+  box-shadow: 0 0 0 3px rgba(180, 22, 59, 0.35), 0 8px 18px rgba(180, 22, 59, 0.28);
+}
+
+/* 平放的牌：手牌托盘和弃牌选择里，不翻转。 */
+.skull-tile--flat {
+  position: relative;
+  transform: none;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.skull-tile--flat .skull-face {
+  transform: none;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+
+.skull-tile--sel {
+  transform: translateY(-14px);
+  box-shadow: 0 0 0 3px var(--skull-ink), 0 10px 16px rgba(20, 23, 28, 0.2);
+}
+
+.skull-tile--dim {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ---------- 中央宣告圈 ---------- */
+.skull-herald {
+  align-self: center;
+  width: 100%;
+  max-width: 330px;
+  border-radius: 26px;
+  background: var(--skull-white);
+  border: 1px solid var(--skull-line);
+  padding: 14px 18px 15px;
+  text-align: center;
+  margin: 2px 0;
+}
+
+.skull-herald::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 2px;
+  background: var(--skull-ink);
+  margin: 0 auto 9px;
+  border-radius: 2px;
+}
+
+.skull-herald--warn::before {
+  background: var(--skull-crimson);
+}
+
+.skull-herald--good::before {
+  background: var(--skull-emerald);
+}
+
+.skull-h-phase {
+  font-size: 11px;
+  color: var(--skull-silver);
+  margin-bottom: 4px;
+}
+
+.skull-h-title {
+  font-family: var(--skull-head);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.skull-h-desc {
+  font-size: 12px;
+  color: var(--skull-ink-soft);
+  line-height: 1.6;
+  margin-top: 5px;
+}
+
+.skull-h-bid {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.skull-h-bid b {
+  font-family: var(--skull-display);
+  font-size: 34px;
+  line-height: 1;
+}
+
+.skull-h-bid span {
+  font-size: 12px;
+  color: var(--skull-ink-soft);
+}
+
+.skull-progress {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.skull-progress i {
+  width: 18px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--skull-mist);
+  border: 1px solid var(--skull-line);
+}
+
+.skull-progress i.on {
+  background: var(--skull-emerald);
+  border-color: var(--skull-emerald);
+}
+
+.skull-progress i.bad {
+  background: var(--skull-crimson);
+  border-color: var(--skull-crimson);
+}
+
+.skull-timer {
+  height: 3px;
+  background: var(--skull-mist);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.skull-timer i {
+  display: block;
+  height: 100%;
+  background: var(--skull-ink);
+  transition: width 0.1s linear;
+}
+
+.skull-timer--hurry i {
+  background: var(--skull-crimson);
+}
+
+/* ---------- 自己的区域 ---------- */
+.skull-me {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.skull-me-label {
+  font-size: 11px;
+  color: var(--skull-silver);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.skull-me-label b {
+  color: var(--skull-ink);
+  font-weight: 600;
+}
+
+.skull-me-field {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+}
+
+.skull-me-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.skull-me-board--pick {
+  cursor: pointer;
+}
+
+.skull-me-board small {
+  font-size: 10px;
+  color: var(--skull-silver);
+}
+
+.skull-rack {
+  display: flex;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--skull-white);
+  border: 1px solid var(--skull-line);
+  border-radius: 50px;
+  transition: opacity 0.2s;
+}
+
+.skull-rack--locked {
+  opacity: 0.5;
+}
+
+.skull-slot {
+  position: relative;
+  width: 52px;
+  height: 52px;
+}
+
+.skull-slot .skull-tile {
+  --skull-tile: 52px;
+}
+
+.skull-slot--gone .skull-face--back {
+  opacity: 0.35;
+}
+
+/* ---------- 操作区 ---------- */
+.skull-dock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 44px;
+}
+
+.skull-btn {
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 1.5px solid var(--skull-ink);
+  background: var(--skull-ink);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+:where(.skull-root) .skull-btn {
+  color: #fff;
+}
+
+.skull-btn--ghost {
+  background: transparent;
+  color: var(--skull-ink);
+  border-color: var(--skull-line);
+}
+
+:where(.skull-root) .skull-btn--ghost {
+  color: var(--skull-ink);
+}
+
+.skull-btn--ghost:hover:not(:disabled) {
+  border-color: var(--skull-ink);
+}
+
+.skull-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.skull-stepper {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid var(--skull-ink);
+  border-radius: 999px;
+  background: var(--skull-white);
+  height: 42px;
+  padding: 0 4px;
+}
+
+.skull-stepper button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.skull-stepper button:hover:not(:disabled) {
+  background: var(--skull-mist);
+}
+
+.skull-stepper button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.skull-stepper b {
+  font-family: var(--skull-display);
+  font-size: 18px;
+  min-width: 34px;
+  text-align: center;
+}
+
+.skull-hint {
+  min-height: 16px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--skull-silver);
+}
+
+/* ---------- 弹层 ---------- */
+.skull-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(251, 251, 250, 0.82);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.skull-plaque {
+  width: 100%;
+  max-width: 400px;
+  max-height: 100%;
+  overflow-y: auto;
+  background: var(--skull-white);
+  border: 1.5px solid var(--skull-ink);
+  border-radius: 24px;
+  padding: 24px 22px 20px;
+  text-align: center;
+}
+
+.skull-plaque h3 {
+  font-family: var(--skull-head);
+  font-size: 24px;
+  margin: 0;
+}
+
+.skull-plaque p {
+  font-size: 12px;
+  color: var(--skull-ink-soft);
+  line-height: 1.7;
+  margin: 6px 0 0;
+}
+
+.skull-plaque .skull-dock {
+  margin-top: 14px;
+}
+
+.skull-rank {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.skull-rank > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 2px;
+  border-bottom: 1px dashed var(--skull-line);
+}
+
+.skull-rank > div:first-child {
+  font-weight: 700;
+}
+
+.skull-rank span:last-child {
+  color: var(--skull-ink-soft);
+  white-space: nowrap;
+}
+
+.skull-log-title {
+  margin: 12px 0 0;
+  font-family: var(--skull-head);
+  font-size: 14px;
+  text-align: left;
+}
+
+.skull-log {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  max-height: 150px;
+  overflow-y: auto;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--skull-ink-soft);
+}
+
+.skull-log li {
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--skull-line);
+}
+
+.skull-log + p {
+  margin-top: 12px;
+}
+
+.skull-plaque .skull-hint {
+  margin-top: 10px;
+}
+
+.skull-choices {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+}
+
+.skull-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.skull-choice small {
+  font-size: 10px;
+  color: var(--skull-silver);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skull-stage--shake,
+  .skull-bubble {
+    animation: none;
+  }
+  .skull-tile {
+    transition: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .skull-root {
+    --skull-tile: 54px;
+  }
+  .skull-slot,
+  .skull-slot .skull-tile {
+    width: 46px;
+    height: 46px;
+  }
+  .skull-slot .skull-tile {
+    --skull-tile: 46px;
+  }
+  .skull-me-field {
+    gap: 10px;
+  }
+}
+
+/* ---------- 选同桌那一屏（在大厅的浅色页面里） ---------- */
+.skull-picked {
+  border-color: var(--tgh-ink, #121212) !important;
+  box-shadow: 0 0 0 2px var(--tgh-ink, #121212);
+}
+
+.skull-picker-hint {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--tgh-ink-faint, #888);
+}
