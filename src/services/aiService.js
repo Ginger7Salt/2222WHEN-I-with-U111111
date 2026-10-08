@@ -2527,7 +2527,7 @@ const companionOfferNote = options.ignoreAway
 
 // #3 气泡风格：角色任何一次回复都能自主决定换配色+装饰，不设概率/冷却
 // 限制（跟小伙伴邀请不同），只在 ignoreAway 时跟其它"可选行为"一样收起。
-const bubbleStyleNote = options.ignoreAway ? '' : BUBBLE_STYLE_PROMPT_NOTE;
+const bubbleStyleNote = options.ignoreAway ? '' : buildBubbleStylePromptNote();
 
 // 背景图切换：跟气泡风格同一套"不设限制"的约定，只有这个聊天窗配置了
 // 背景图库（带注释）时才会往提示词里加字，否则 buildBackgroundSwitchPromptNote
