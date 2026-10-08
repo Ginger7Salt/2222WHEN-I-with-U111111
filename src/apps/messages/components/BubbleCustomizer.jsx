@@ -1,7 +1,16 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
-  X, Check, Code, Sparkles, Wand2, Gem, 
-  Square, Play, RotateCcw, Trash2, SlidersHorizontal 
+  X, 
+  Check, 
+  Code, 
+  Sparkles, 
+  Wand2, 
+  Gem, 
+  Square, 
+  Play, 
+  RotateCcw,
+  Sliders,
+  Palette
 } from 'lucide-react';
 import { getSavedBubbleStyles, deleteSavedBubbleStyle } from '../bubbleCustomStyleService';
 import { BUBBLE_DECORATION_LIST, BubbleDecorationOverlay } from './bubbleDecorations';
@@ -25,8 +34,7 @@ export const BubbleCustomizer = ({
 }) => {
   const presets = BUBBLE_STYLE_PRESETS;
 
-  // 状态定义
-  const [customCss, setCustomCss] = useState(currentCss || presets[0]?.code || '');
+  const [customCss, setCustomCss] = useState(currentCss || presets[0].code);
   const [justAppliedName, setJustAppliedName] = useState('');
   const [decoration, setDecoration] = useState(currentDecoration || 'none');
   const [shape, setShape] = useState(currentShape || 'none');
@@ -34,49 +42,52 @@ export const BubbleCustomizer = ({
   const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const [savedStyles, setSavedStyles] = useState([]);
 
-  // 工艺模块选项卡状态：presets | appearance | motion | code
-  const [activeTab, setActiveTab] = useState('presets');
+  // 工艺台当前选中的选项卡
+  const [activeTab, setActiveTab] = useState('preset');
 
-  // 判断各模块是否可用
-  const hasAppearanceTab = Boolean(onSaveShape || BUBBLE_DECORATION_LIST.length > 0);
-  const hasMotionTab = Boolean(onSaveAnimation);
-
-  // 加载用户保存过的角色样式库
   useEffect(() => {
     if (!onClearCharCss) return undefined;
     let cancelled = false;
     getSavedBubbleStyles().then((list) => {
-      if (!cancelled && list) setSavedStyles(list);
+      if (!cancelled) setSavedStyles(list);
     });
     return () => { cancelled = true; };
   }, [onClearCharCss]);
 
-  // 选预设
-  const handlePickPreset = (preset) => {
-    setCustomCss(preset.code);
-    onSave(preset.code);
-    if (hasCharCss) onClearCharCss?.();
-    triggerToast(preset.name);
+  // 可用选项卡动态配置（根据是否有回调动态展示）
+  const availableTabs = useMemo(() => {
+    const list = [
+      { id: 'preset', label: '配色配方', icon: Palette },
+      { id: 'craft', label: '轮廓与材质', icon: Gem },
+    ];
+    if (onSaveAnimation) {
+      list.push({ id: 'motion', label: '进场动效', icon: Play });
+    }
+    list.push({ id: 'code', label: 'CSS刻蚀', icon: Code });
+    return list;
+  }, [onSaveAnimation]);
+
+  const showNotification = (name) => {
+    setJustAppliedName(name);
+    window.clearTimeout(showNotification._t);
+    showNotification._t = window.setTimeout(() => setJustAppliedName(''), 2000);
   };
 
-  // 选样式库项
   const handlePickSavedStyle = (style) => {
     setCustomCss(style.css);
     onSave(style.css);
     onClearCharCss?.();
-    triggerToast(style.name);
+    showNotification(style.name);
   };
 
-  const handleDeleteSavedStyle = async (e, styleId) => {
-    e.stopPropagation();
+  const handleDeleteSavedStyle = async (styleId) => {
     await deleteSavedBubbleStyle(styleId);
     setSavedStyles((list) => list.filter((item) => item.id !== styleId));
   };
 
-  const triggerToast = (name) => {
-    setJustAppliedName(name);
-    window.clearTimeout(handlePickPreset._t);
-    handlePickPreset._t = window.setTimeout(() => setJustAppliedName(''), 2200);
+  const handleSave = () => {
+    onSave(customCss);
+    onClose();
   };
 
   const handlePickDecoration = (decorationId) => {
@@ -92,418 +103,380 @@ export const BubbleCustomizer = ({
   const handlePickAnimation = (animationId) => {
     setAnimation(animationId);
     onSaveAnimation?.(animationId);
-    setPreviewReplayKey((k) => k + 1);
+    setPreviewReplayKey((key) => key + 1);
   };
 
-  const handleSave = () => {
-    onSave(customCss);
-    onClose();
+  const handlePickPreset = (preset) => {
+    setCustomCss(preset.code);
+    onSave(preset.code);
+    if (hasCharCss) onClearCharCss?.();
+    showNotification(preset.name);
   };
 
-  // 形状和动画 CSS 注入计算
-  const shapeCss = useMemo(() => buildBubbleShapeCss(shape, '.preview-scope'), [shape]);
-  const animationCss = useMemo(() => buildBubbleAnimationCss(animation, '.preview-scope'), [animation]);
+  const isPresetActive = (preset) => customCss === preset.code;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 animate-fade-in">
-      {/* 极简磨砂遮罩 */}
-      <div 
-        className="fixed inset-0 bg-black/25 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 bg-zinc-950/40 backdrop-blur-sm animate-fade-in">
+      {/* 遮罩背景点击关闭 */}
+      <div className="fixed inset-0" onClick={onClose} />
 
-      {/* 工坊主结构容器 */}
-      <div className="relative w-full max-w-4xl h-[92vh] md:h-[650px] max-h-[820px] bg-white rounded-2xl md:rounded-3xl shadow-2xl border border-zinc-200/80 flex flex-col overflow-hidden text-zinc-900 z-10 transition-all">
+      {/* 工坊主面板 */}
+      <div className="relative w-full max-w-4xl h-[90vh] md:h-[620px] max-h-[820px] bg-white rounded-3xl border border-zinc-200/80 shadow-2xl flex flex-col md:flex-row overflow-hidden z-10 text-zinc-900">
         
-        {/* 顶部标尺与控制头 */}
-        <header className="shrink-0 h-14 px-4 md:px-6 border-b border-zinc-100 flex items-center justify-between bg-white z-20">
-          <div className="flex items-center gap-2.5">
-            <span className="w-2 h-2 rounded-full bg-zinc-950"></span>
-            <h2 className="text-xs md:text-sm font-semibold tracking-tight uppercase">气泡工坊 / Bubble Atelier</h2>
-            <span className="hidden sm:inline-block font-mono text-[10px] text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded">
-              SPEC V2.4
-            </span>
+        {/* ================= 左侧：试作观测台（Workbench Stage） ================= */}
+        <div className="w-full md:w-5/12 flex flex-col bg-zinc-50/70 border-b md:border-b-0 md:border-r border-zinc-200 relative shrink-0 min-h-[220px] md:min-h-0">
+          
+          {/* 精密点阵工程背景 */}
+          <div 
+            className="absolute inset-0 pointer-events-none opacity-60"
+            style={{
+              backgroundImage: 'radial-gradient(#d4d4d8 1px, transparent 1px)',
+              backgroundSize: '16px 16px'
+            }}
+          />
+
+          {/* 观测台顶部状态栏 */}
+          <div className="px-4 py-3 flex items-center justify-between border-b border-zinc-200/60 bg-white/70 backdrop-blur-sm relative z-10">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-mono text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                Workbench / 试作台
+              </span>
+            </div>
+            
+            <button
+              type="button"
+              onClick={() => setPreviewReplayKey((key) => key + 1)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-zinc-200 shadow-2xs font-mono text-[10px] text-zinc-700 hover:text-black hover:border-zinc-400 active:scale-95 transition-all"
+              title="重新播放进场动画"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>动效重播</span>
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full border border-transparent hover:border-zinc-200 hover:bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-zinc-900 transition-all"
-            title="关闭工坊"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </header>
+          {/* 注入样式的样式作用域 */}
+          <style>{`
+            .preview-scope ${customCss}
+          `}</style>
+          <style>{`
+            ${buildBubbleShapeCss(shape, '.preview-scope')}
+            ${buildBubbleAnimationCss(animation, '.preview-scope')}
+          `}</style>
 
-        {/* 核心工坊：桌面端左右分栏 / 移动端上下堆叠 */}
-        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
-          
-          {/* ================= 左侧 / 移动端顶部：试作观测台 (Workbench Stage) ================= */}
-          <section className="relative w-full md:w-[46%] h-[210px] sm:h-[240px] md:h-full shrink-0 border-b md:border-b-0 md:border-r border-zinc-100 bg-[#FAFAFC] flex flex-col justify-between overflow-hidden">
-            {/* 精密点阵底纹 */}
-            <div 
-              className="absolute inset-0 pointer-events-none opacity-45"
-              style={{
-                backgroundImage: 'radial-gradient(#d4d4d8 1px, transparent 1px)',
-                backgroundSize: '16px 16px'
-              }}
-            />
-
-            {/* 试作台状态头 */}
-            <div className="relative z-10 p-3 sm:p-4 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-400 uppercase tracking-wider">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-                <span>Live View / 实时试作</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPreviewReplayKey((k) => k + 1)}
-                className="font-mono text-[10px] px-2.5 py-1 rounded-full bg-white border border-zinc-200 hover:border-zinc-950 text-zinc-700 hover:text-zinc-950 shadow-xs active:scale-95 transition-all flex items-center gap-1"
-                title="重新播放当前入场动画"
-              >
-                <Play className="w-2.5 h-2.5" />
-                <span>动效试播</span>
-              </button>
-            </div>
-
-            {/* 动态注入样式作用域 */}
-            <style>{`.preview-scope ${customCss}`}</style>
-            <style>{`${shapeCss} ${animationCss}`}</style>
-
-            {/* 气泡展示区域 */}
-            <div className="preview-scope relative z-10 px-4 sm:px-6 py-2 flex flex-col justify-center gap-3 overflow-hidden">
-              {/* AI/伴侣 气泡 */}
+          {/* 气泡展示观测区（防截断，支持平滑滚动与居中） */}
+          <div className="flex-1 p-5 md:p-6 overflow-y-auto flex flex-col justify-center gap-5 relative z-10 preview-scope">
+            
+            {/* AI 消息模块：外置标头 */}
+            <div className="flex flex-col items-start gap-1 max-w-[92%] sm:max-w-[85%]">
+              <span className="font-mono text-[9px] font-medium text-zinc-400 pl-1 uppercase tracking-wider select-none">
+                AI PARTNER · 09:41
+              </span>
               <div
                 key={`ai-${previewReplayKey}`}
-                className="relative ai-bubble bubble-fresh chat-font max-w-[85%] self-start text-xs p-3 rounded-2xl bg-white border border-zinc-200 shadow-sm"
+                className="relative ai-bubble bubble-fresh chat-font p-3 text-left break-words shadow-xs select-none transition-all duration-300"
               >
                 <BubbleDecorationOverlay decoration={decoration} isUser={false} />
-                <div className="font-mono text-[9px] text-zinc-400 mb-1">PARTNER</div>
-                <div>每一套气泡风格，都是工坊中雕琢出的微型器物。</div>
+                <span>「气泡工坊」已就绪，所有材质与动效均可在此实时观测。</span>
               </div>
+            </div>
 
-              {/* 用户 气泡 */}
+            {/* 用户消息模块：外置标头 */}
+            <div className="flex flex-col items-end gap-1 max-w-[92%] sm:max-w-[85%] ml-auto">
+              <span className="font-mono text-[9px] font-medium text-zinc-400 pr-1 uppercase tracking-wider select-none">
+                YOU · 09:42
+              </span>
               <div
                 key={`user-${previewReplayKey}`}
-                className="relative user-bubble bubble-fresh chat-font max-w-[85%] self-end text-xs p-3 rounded-2xl bg-zinc-900 text-white shadow-md text-left"
+                className="relative user-bubble bubble-fresh chat-font p-3 text-right break-words shadow-xs select-none transition-all duration-300"
               >
                 <BubbleDecorationOverlay decoration={decoration} isUser />
-                <div className="font-mono text-[9px] text-zinc-400 mb-1 text-right">YOU</div>
-                <div>极简黑白，纯粹优雅。</div>
+                <span>简约黑白，克制而高级。</span>
               </div>
             </div>
 
-            {/* 试作台底部状态栏 (桌面端显示完整，移动端精简) */}
-            <div className="relative z-10 px-4 py-2 border-t border-zinc-100/80 bg-white/60 backdrop-blur-xs font-mono text-[9px] text-zinc-400 flex items-center justify-between">
-              <span className="truncate max-w-[50%]">SHAPE: {shape}</span>
-              <span className="truncate max-w-[50%]">MOTION: {animation}</span>
-            </div>
-          </section>
+          </div>
 
-          {/* ================= 右侧 / 移动端下方：工艺控制台 (Craft Console) ================= */}
-          <section className="flex-1 flex flex-col min-h-0 bg-white">
+          {/* 观测台底部参数微标签（仅桌面端显示） */}
+          <div className="hidden md:flex px-4 py-2 border-t border-zinc-200/60 bg-white/60 font-mono text-[9px] text-zinc-400 justify-between relative z-10">
+            <span>DECOR: {decoration}</span>
+            <span>SHAPE: {shape}</span>
+          </div>
+        </div>
+
+        {/* ================= 右侧：工艺控制台（Craft Console） ================= */}
+        <div className="w-full md:w-7/12 flex flex-col bg-white min-h-0 flex-1">
+          
+          {/* 控制台顶栏：标题与关闭 */}
+          <div className="px-5 py-3.5 flex items-center justify-between border-b border-zinc-200">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-black rounded-full" />
+              <h2 className="text-xs font-bold tracking-tight text-zinc-900 uppercase">
+                Bubble Atelier / 气泡工坊
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* 控制台切换标签页（手机端横向滚动） */}
+          <div className="flex px-4 border-b border-zinc-100 gap-1 overflow-x-auto no-scrollbar shrink-0 bg-white">
+            {availableTabs.map((tab) => {
+              const TabIcon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 py-2.5 px-3 font-medium text-xs border-b-2 transition-all whitespace-nowrap ${
+                    isActive 
+                      ? 'border-black text-black font-semibold' 
+                      : 'border-transparent text-zinc-400 hover:text-zinc-700'
+                  }`}
+                >
+                  <TabIcon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 控制台滚动内容面板 */}
+          <div className="flex-1 p-5 overflow-y-auto space-y-5">
             
-            {/* 控制台导航选项卡 (支持移动端横向划动) */}
-            <div className="shrink-0 flex items-center px-3 sm:px-6 border-b border-zinc-100 overflow-x-auto no-scrollbar gap-1 pt-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab('presets')}
-                className={`px-3 py-2 text-xs font-medium border-b-2 whitespace-nowrap transition-all ${
-                  activeTab === 'presets'
-                    ? 'border-zinc-950 text-zinc-950 font-semibold'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-600'
-                }`}
-              >
-                01 配色预设
-              </button>
-
-              {hasAppearanceTab && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('appearance')}
-                  className={`px-3 py-2 text-xs font-medium border-b-2 whitespace-nowrap transition-all ${
-                    activeTab === 'appearance'
-                      ? 'border-zinc-950 text-zinc-950 font-semibold'
-                      : 'border-transparent text-zinc-400 hover:text-zinc-600'
-                  }`}
-                >
-                  02 轮廓与装饰
-                </button>
-              )}
-
-              {hasMotionTab && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('motion')}
-                  className={`px-3 py-2 text-xs font-medium border-b-2 whitespace-nowrap transition-all ${
-                    activeTab === 'motion'
-                      ? 'border-zinc-950 text-zinc-950 font-semibold'
-                      : 'border-transparent text-zinc-400 hover:text-zinc-600'
-                  }`}
-                >
-                  03 进场动效
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('code')}
-                className={`px-3 py-2 text-xs font-medium border-b-2 whitespace-nowrap transition-all ${
-                  activeTab === 'code'
-                    ? 'border-zinc-950 text-zinc-950 font-semibold'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-600'
-                }`}
-              >
-                04 CSS刻蚀
-              </button>
-            </div>
-
-            {/* 可滚动的参数配置区 */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-              
-              {/* TAB 1: 配色预设与样式库 */}
-              {activeTab === 'presets' && (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between font-mono text-[10px] text-zinc-400 uppercase tracking-wider">
-                      <span className="flex items-center gap-1.5">
-                        <Wand2 className="w-3 h-3 text-zinc-950" />
-                        PRESETS / 官方调配预设
-                      </span>
-                      <span>点击直接套用</span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {presets.map((p, idx) => {
-                        const active = customCss === p.code;
-                        return (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => handlePickPreset(p)}
-                            className={`px-3 py-1.5 rounded-full text-xs transition-all active:scale-95 flex items-center gap-1.5 border ${
-                              active
-                                ? 'bg-zinc-950 text-white border-zinc-950 shadow-sm'
-                                : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border-zinc-200/80 hover:border-zinc-300'
-                            }`}
-                          >
-                            {active && <Check className="w-3 h-3" />}
-                            <span>{p.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 角色写的样式库 */}
-                  {onClearCharCss && (hasCharCss || savedStyles.length > 0) && (
-                    <div className="space-y-2.5 pt-4 border-t border-zinc-100">
-                      <div className="flex items-center justify-between font-mono text-[10px] text-zinc-400 uppercase tracking-wider">
-                        <span className="flex items-center gap-1.5">
-                          <Sparkles className="w-3 h-3 text-zinc-950" />
-                          CHARACTER RECIPES / 角色样式库
-                        </span>
-                        {hasCharCss && (
-                          <button
-                            type="button"
-                            onClick={() => onClearCharCss?.()}
-                            className="font-sans text-[10px] text-zinc-500 hover:text-zinc-900 border border-zinc-200 px-2 py-0.5 rounded-full"
-                          >
-                            清除当前{charCssName ? `「${charCssName}」` : '角色样式'}
-                          </button>
-                        )}
-                      </div>
-
-                      {savedStyles.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {savedStyles.map((style) => (
-                            <div
-                              key={style.id}
-                              className="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 hover:border-zinc-300 text-xs text-zinc-800 overflow-hidden"
-                            >
-                              <button
-                                type="button"
-                                onClick={() => handlePickSavedStyle(style)}
-                                className="pl-3 pr-1.5 py-1.5 active:scale-95"
-                              >
-                                {style.name}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => handleDeleteSavedStyle(e, style.id)}
-                                className="pr-2.5 py-1.5 text-zinc-400 hover:text-zinc-900"
-                                title="删除"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="font-mono text-[11px] text-zinc-400 py-2">暂无收藏的角色配方</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 2: 几何轮廓与装饰 */}
-              {activeTab === 'appearance' && (
-                <div className="space-y-6 animate-fade-in">
-                  {onSaveShape && (
-                    <div className="space-y-2.5">
-                      <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-400 uppercase tracking-wider">
-                        <Square className="w-3 h-3 text-zinc-950" />
-                        <span>GEOMETRIC SHAPE / 气泡轮廓形状</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {BUBBLE_SHAPES.map((s) => {
-                          const active = shape === s.id;
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => handlePickShape(s.id)}
-                              className={`px-3 py-1.5 rounded-full text-xs transition-all active:scale-95 flex items-center gap-1.5 border ${
-                                active
-                                  ? 'bg-zinc-950 text-white border-zinc-950 shadow-sm'
-                                  : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border-zinc-200/80 hover:border-zinc-300'
-                              }`}
-                            >
-                              {active && <Check className="w-3 h-3" />}
-                              <span>{s.name}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-2.5 pt-4 border-t border-zinc-100">
-                    <div className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-400 uppercase tracking-wider">
-                      <Gem className="w-3 h-3 text-zinc-950" />
-                      <span>SURFACE DECORATION / 表面材质工艺</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {BUBBLE_DECORATION_LIST.map((d) => {
-                        const active = decoration === d.id;
-                        return (
-                          <button
-                            key={d.id}
-                            type="button"
-                            onClick={() => handlePickDecoration(d.id)}
-                            className={`px-3 py-1.5 rounded-full text-xs transition-all active:scale-95 flex items-center gap-1.5 border ${
-                              active
-                                ? 'bg-zinc-950 text-white border-zinc-950 shadow-sm'
-                                : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border-zinc-200/80 hover:border-zinc-300'
-                            }`}
-                          >
-                            {active && <Check className="w-3 h-3" />}
-                            <span>{d.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 3: 进场动效 */}
-              {activeTab === 'motion' && onSaveAnimation && (
-                <div className="space-y-4 animate-fade-in">
-                  <div className="flex items-center justify-between font-mono text-[10px] text-zinc-400 uppercase tracking-wider">
-                    <span className="flex items-center gap-1.5">
-                      <Play className="w-3 h-3 text-zinc-950" />
-                      <span>ENTRANCE DYNAMICS / 消息抵达动效</span>
+            {/* === 面板 1：配色预设 & 角色库 === */}
+            {activeTab === 'preset' && (
+              <div className="space-y-5 animate-fade-in">
+                {/* 经典预设 */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                      <Wand2 className="w-3 h-3 text-zinc-500" /> CLASSIC PRESETS / 点击即刻应用
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewReplayKey((k) => k + 1)}
-                      className="text-zinc-600 hover:text-zinc-950 border border-zinc-200 px-2 py-0.5 rounded-full"
-                    >
-                      重新播放
-                    </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {BUBBLE_ANIMATIONS.map((a) => {
-                      const active = animation === a.id;
+                    {presets.map((p, idx) => {
+                      const active = isPresetActive(p);
                       return (
                         <button
-                          key={a.id}
+                          key={idx}
                           type="button"
-                          onClick={() => handlePickAnimation(a.id)}
-                          className={`px-3 py-1.5 rounded-full text-xs transition-all active:scale-95 flex items-center gap-1.5 border ${
+                          onClick={() => handlePickPreset(p)}
+                          className={`px-3 py-1.5 rounded-full border text-xs transition-all active:scale-95 flex items-center gap-1.5 ${
                             active
-                              ? 'bg-zinc-950 text-white border-zinc-950 shadow-sm'
-                              : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border-zinc-200/80 hover:border-zinc-300'
+                              ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm'
+                              : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border-zinc-200'
                           }`}
                         >
                           {active && <Check className="w-3 h-3" />}
-                          <span>{a.name}</span>
+                          <span>{p.name}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
-              )}
 
-              {/* TAB 4: CSS 源码刻蚀 */}
-              {activeTab === 'code' && (
-                <div className="space-y-3 animate-fade-in">
-                  <div className="flex items-center justify-between font-mono text-[10px] text-zinc-400 uppercase tracking-wider">
-                    <span className="flex items-center gap-1.5">
-                      <Code className="w-3 h-3 text-zinc-950" />
-                      <span>CSS SOURCE / 源码刻蚀</span>
-                    </span>
-                    <span>支持标准 CSS 注入</span>
-                  </div>
-
-                  <div className="border border-zinc-200 rounded-xl overflow-hidden bg-zinc-50/50 focus-within:border-zinc-950 transition-colors">
-                    <div className="px-3 py-1.5 bg-zinc-100/70 border-b border-zinc-200 font-mono text-[10px] text-zinc-400 flex justify-between">
-                      <span>SCOPE: .preview-scope</span>
-                      <span>CSS 3.0</span>
+                {/* 角色专属样式库 */}
+                {onClearCharCss && (hasCharCss || savedStyles.length > 0) && (
+                  <div className="space-y-2 pt-2 border-t border-zinc-100">
+                    <div className="flex items-center justify-between font-mono text-[10px] text-zinc-400">
+                      <span className="flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-zinc-500" /> CHARACTER ARCHIVES / 角色配方库
+                      </span>
+                      {hasCharCss && (
+                        <button
+                          type="button"
+                          onClick={() => onClearCharCss?.()}
+                          className="px-2 py-0.5 rounded-full border border-zinc-200 hover:border-zinc-300 text-[10px] text-zinc-600 active:scale-95 transition-all"
+                        >
+                          清除当前{charCssName ? `「${charCssName}」` : '角色样式'}
+                        </button>
+                      )}
                     </div>
-                    <textarea
-                      rows={7}
-                      value={customCss}
-                      onChange={(e) => setCustomCss(e.target.value)}
-                      placeholder="/* 在此输入或微调气泡 CSS */"
-                      className="w-full p-3 font-mono text-xs leading-relaxed bg-transparent outline-none resize-none text-zinc-800"
-                    />
+                    {savedStyles.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {savedStyles.map((style) => (
+                          <span
+                            key={style.id}
+                            className="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 text-xs text-zinc-700 shadow-2xs"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handlePickSavedStyle(style)}
+                              className="pl-3 pr-1.5 py-1 hover:text-black active:scale-95 font-medium"
+                            >
+                              {style.name}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSavedStyle(style.id)}
+                              aria-label={`删除样式 ${style.name}`}
+                              className="pr-2.5 py-1 text-zinc-400 hover:text-zinc-900"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-
-            </div>
-
-            {/* 控制台底部行动栏 */}
-            <footer className="shrink-0 p-3 sm:p-5 border-t border-zinc-100 bg-white flex items-center justify-between gap-3">
-              {/* 状态轻提示 */}
-              <div className="min-w-0 flex items-center gap-1.5 font-mono text-[11px] text-zinc-600 truncate">
-                {justAppliedName ? (
-                  <span className="text-zinc-950 font-medium flex items-center gap-1 animate-fade-in">
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    已应用「{justAppliedName}」
-                  </span>
-                ) : (
-                  <span className="text-zinc-400 text-[10px]">工艺已就绪</span>
                 )}
               </div>
+            )}
 
-              {/* 固化配方主按钮 */}
-              <button
-                type="button"
-                onClick={handleSave}
-                className="px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white font-medium text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>保存规则</span>
-              </button>
-            </footer>
+            {/* === 面板 2：几何轮廓与表面装饰 === */}
+            {activeTab === 'craft' && (
+              <div className="space-y-5 animate-fade-in">
+                {/* 气泡形状 */}
+                {onSaveShape && (
+                  <div className="space-y-2">
+                    <span className="font-mono text-[10px] text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                      <Square className="w-3 h-3 text-zinc-500" /> GEOMETRY / 几何轮廓
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {BUBBLE_SHAPES.map((s) => {
+                        const active = shape === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => handlePickShape(s.id)}
+                            className={`px-3 py-1.5 rounded-full border text-xs transition-all active:scale-95 flex items-center gap-1.5 ${
+                              active
+                                ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm'
+                                : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border-zinc-200'
+                            }`}
+                          >
+                            {active && <Check className="w-3 h-3" />}
+                            <span>{s.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-          </section>
+                {/* 气泡装饰 */}
+                <div className="space-y-2 pt-2 border-t border-zinc-100">
+                  <span className="font-mono text-[10px] text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    <Gem className="w-3 h-3 text-zinc-500" /> SURFACE TEXTURE / 表面工艺
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {BUBBLE_DECORATION_LIST.map((d) => {
+                      const active = decoration === d.id;
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => handlePickDecoration(d.id)}
+                          className={`px-3 py-1.5 rounded-full border text-xs transition-all active:scale-95 flex items-center gap-1.5 ${
+                            active
+                              ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm'
+                              : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border-zinc-200'
+                          }`}
+                        >
+                          {active && <Check className="w-3 h-3" />}
+                          <span>{d.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* === 面板 3：进场动效 === */}
+            {activeTab === 'motion' && onSaveAnimation && (
+              <div className="space-y-3 animate-fade-in">
+                <span className="font-mono text-[10px] text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                  <Play className="w-3 h-3 text-zinc-500" /> ENTRANCE MOTION / 进场动力学
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {BUBBLE_ANIMATIONS.map((a) => {
+                    const active = animation === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => handlePickAnimation(a.id)}
+                        className={`px-3 py-1.5 rounded-full border text-xs transition-all active:scale-95 flex items-center gap-1.5 ${
+                          active
+                            ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm'
+                            : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border-zinc-200'
+                        }`}
+                      >
+                        {active && <Check className="w-3 h-3" />}
+                        <span>{a.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* === 面板 4：CSS 刻蚀编辑器 === */}
+            {activeTab === 'code' && (
+              <div className="space-y-2 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[10px] text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    <Code className="w-3 h-3 text-zinc-500" /> CSS ETCHING / 规则微调
+                  </span>
+                  <span className="font-mono text-[10px] text-zinc-400">实时编译</span>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 overflow-hidden bg-zinc-50/50">
+                  <div className="px-3 py-1.5 border-b border-zinc-200 bg-zinc-100/60 font-mono text-[9px] text-zinc-500 flex justify-between">
+                    <span>STYLESHEET</span>
+                    <span>CSS 3.0</span>
+                  </div>
+                  <textarea
+                    rows={8}
+                    value={customCss}
+                    onChange={(e) => setCustomCss(e.target.value)}
+                    placeholder="输入或修改 CSS 代码..."
+                    className="w-full p-3 font-mono text-[11px] outline-none resize-none bg-transparent text-zinc-900 placeholder:text-zinc-400 leading-relaxed"
+                  />
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          {/* 控制台底栏：即时反馈与保存 */}
+          <div className="px-5 py-3.5 border-t border-zinc-200 bg-zinc-50/40 flex items-center justify-between gap-3">
+            
+            {/* 状态徽标 */}
+            <div className="min-w-0">
+              {justAppliedName ? (
+                <div className="inline-flex items-center gap-1.5 text-xs text-zinc-900 font-medium animate-fade-in truncate">
+                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">已应用「{justAppliedName}」</span>
+                </div>
+              ) : (
+                <span className="font-mono text-[10px] text-zinc-400 hidden sm:inline">
+                  配方随时就绪
+                </span>
+              )}
+            </div>
+
+            {/* 保存主按钮 */}
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-black text-white text-xs font-semibold shadow-sm hover:shadow active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+            >
+              <Check className="w-4 h-4" />
+              <span>保存规则</span>
+            </button>
+          </div>
 
         </div>
+
       </div>
     </div>
   );
