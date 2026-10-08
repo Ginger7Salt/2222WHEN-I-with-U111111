@@ -33,7 +33,7 @@
   background: #eceef0;
   color: var(--skull-ink);
   font-family: -apple-system, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif;
-  padding: max(8px, env(safe-area-inset-top, 0px)) 8px max(8px, env(safe-area-inset-bottom, 0px));
+  padding: 0;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
@@ -61,13 +61,16 @@
   position: relative;
   width: 100%;
   max-width: 440px;
+  /* 撑满整个屏幕高度；内容不够高时，各块之间的空隙自动拉开。 */
+  min-height: 100%;
   margin: 0 auto;
   background: var(--skull-paper);
   border: 1px solid var(--skull-line);
   border-radius: 22px;
-  padding: 14px 14px 18px;
+  padding: max(14px, env(safe-area-inset-top, 0px)) 14px max(18px, env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 10px;
   overflow: hidden;
   overflow: clip;
@@ -918,6 +921,22 @@
 .skull-choice small {
   font-size: 10px;
   color: var(--skull-silver);
+}
+
+/* 手机和平板竖屏（宽度不超过 768px）上整个舞台铺满屏幕，不留边、不要
+   圆角；只有更宽的屏幕（桌面浏览器）才是居中的一张卡片。 */
+@media (max-width: 768px) {
+  .skull-stage {
+    max-width: none;
+    border: none;
+    border-radius: 0;
+  }
+}
+
+@media (min-width: 769px) {
+  .skull-root {
+    padding: 8px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -14,7 +14,12 @@ import {
   parseSkullLines,
 } from './skullLinesParse';
 
-const REQUEST_TIMEOUT_MS = 12000;
+// 单次请求最长等多久才放弃。骷髅牌要一次生成八种场合的台词，比较长，
+// 慢一点的模型（尤其是带思考的）经常超过 12 秒，所以放宽到 60 秒。
+const REQUEST_TIMEOUT_MS = 60000;
+// 开局前最多等这么久：超过就先用通用台词开局，请求不会被掐断，继续在后台
+// 跑，成功后照样缓存进 character.skullLines，下一局就能用上。
+export const TABLE_MAX_WAIT_MS = 15000;
 
 // 返回带上 skullLines 的角色对象（失败时原样返回）。
 export const ensureSkullLines = async (character) => {
@@ -76,6 +81,26 @@ export const ensureSkullLines = async (character) => {
   }
 };
 
-// 几位真人角色一起准备，互不拖累。NPC 原样返回。
-export const ensureSkullLinesForTable = async (characters) =>
-  Promise.all((characters || []).map((c) => ensureSkullLines(c)));
+// 几位真人角色一起准备，互不拖累。NPC 原样返回。最多等 maxWaitMs：超时的
+// 角色这一局先用通用台词，它的请求会在后台继续，下一局就能用上专属台词。
+export const ensureSkullLinesForTable = async (
+  characters,
+  { maxWaitMs = TABLE_MAX_WAIT_MS } = {}
+) =>
+  Promise.all(
+    (characters || []).map((character) => {
+      let timer = null;
+      const timeout = new Promise((resolve) => {
+        timer = setTimeout(() => {
+          if (!hasCompleteSkullLines(character) && !character?.isNpc) {
+            console.info('[SkullLines] 台词还没生成完，这一局先用通用台词，生成会在后台继续。');
+          }
+          resolve(character);
+        }, maxWaitMs);
+      });
+      // ensureSkullLines 内部已经 try/catch，不会 reject。
+      return Promise.race([ensureSkullLines(character), timeout]).finally(() => {
+        if (timer) clearTimeout(timer);
+      });
+    })
+  );

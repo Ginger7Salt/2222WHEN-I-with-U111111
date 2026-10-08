@@ -577,7 +577,7 @@ const SkullGame = ({ onExitToHall }) => {
                 }
               }}
             >
-              {preparing ? '正在准备台词……' : '开局'}
+              {preparing ? '正在准备台词（最多等 15 秒）……' : '开局'}
             </button>
           </div>
         </>
