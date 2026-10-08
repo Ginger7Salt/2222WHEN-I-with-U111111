@@ -1157,10 +1157,11 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
             <label className="mb-2 block opacity-60">空间底色 (Select Theme)</label>
             <div className="grid grid-cols-2 gap-2 text-xs">
               {[
-                { id: 'mono-mist', name: 'Mono Mist (水墨灰)' },
-                { id: 'cream-latte', name: 'Cream Latte (奶油咖)' },
-                { id: 'obsidian-dark', name: 'Obsidian (曜石黑)' },
-                { id: 'rose-quartz', name: 'Quartz (暮色粉)' },
+               { id: 'mono-mist', name: 'Mono Mist (水墨灰)' },
+{ id: 'cream-latte', name: 'Cream Latte (奶油咖)' },
+{ id: 'obsidian-dark', name: 'Obsidian (曜石黑)' },
+{ id: 'cyber-velvet', name: 'Cyber Velvet (赛博紫)' },
+{ id: 'rose-quartz', name: 'Quartz (暮色粉)' },
               ].map((theme) => (
                 <button
                   key={theme.id}

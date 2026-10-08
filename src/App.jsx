@@ -183,6 +183,7 @@ const THEME_COLORS = {
   'cream-latte': '#f8f5ee',
   'obsidian-dark': '#121212',
   'cyber-velvet': '#171321',
+  'rose-quartz': '#fdf8f8',
 };
 
 const CHAT_APPS = [

@@ -205,6 +205,51 @@
   --dice-shadow-color: rgba(5, 2, 9, 0.46);
 }
 
+:root[data-theme="rose-quartz"] {
+  --bg-main: #fdf8f8;
+  --bg-surface: #f9eeee;
+  --bg-surface-strong: #f0dcdc;
+
+  --bg-blob-1: #e8c4c8;
+  --bg-blob-2: #f7e3e4;
+  --bg-blob-3: #d4a5ac;
+
+  --card-bg: #fffafa;
+  --card-bg-gradient: linear-gradient(145deg, #fffafa 0%, #f9e9ea 100%);
+  --card-border: #ecd6d8;
+  --card-shadow: 0 16px 42px rgba(110, 56, 66, 0.08);
+
+  --modal-bg: #fffafa;
+  --modal-border: #e6cdd0;
+  --modal-overlay: rgba(246, 230, 232, 0.84);
+  --modal-shadow: 0 24px 70px rgba(110, 56, 66, 0.17);
+
+  --ink-card-bg: linear-gradient(145deg, #6b3a45 0%, #3a1c24 100%);
+  --ink-card-border: #8a5461;
+  --ink-card-shadow: 0 16px 34px rgba(58, 28, 36, 0.18);
+  --ink-a: #6b3a45;
+  --ink-b: #3a1c24;
+
+  --text-main: #3a1f27;
+  --text-sub: #6e515a;
+  --text-muted: #96767f;
+  --text-on-ink: #fff8f9;
+  --text-on-ink-muted: rgba(255, 248, 249, 0.72);
+
+  --accent-color: #8a4a5a;
+  --accent-foreground: #fff8f9;
+  --control-soft-bg: #f5e6e8;
+  --control-soft-hover: #ecd6d9;
+  --divider: #e9d3d6;
+
+  --dice-face: #fff6f7;
+  --dice-face-edge: #dcbcc1;
+  --dice-ink: #7a4150;
+  --star-color: #d99aa8;
+  --star-bright: #fff5f7;
+  --dice-shadow-color: rgba(90, 40, 52, 0.21);
+}
+
 /* Preloader */
 
 .preloader {
