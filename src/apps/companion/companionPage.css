@@ -208,11 +208,13 @@
 .cp-stat-top { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; font-size: 12px; font-weight: 800; color: var(--cp-sub); }
 .cp-stat-row.satiety .cp-stat-top .cp-ic { color: var(--cp-butter-fg); }
 .cp-stat-row.mood .cp-stat-top .cp-ic { color: var(--cp-heart); }
+.cp-stat-row.cleanliness .cp-stat-top .cp-ic { color: #5CB8E8; }
 .cp-stat-val { position: relative; margin-left: auto; color: var(--cp-text); }
 .cp-track { height: 10px; border-radius: 99px; background: var(--cp-soft); overflow: hidden; }
 .cp-fill { display: block; height: 100%; border-radius: 99px; transition: width 0.8s cubic-bezier(0.3, 1.5, 0.5, 1); }
 .cp-stat-row.satiety .cp-fill { background: linear-gradient(90deg, #FFD878, #FFB650); }
 .cp-stat-row.mood .cp-fill { background: linear-gradient(90deg, #FFB0C2, #FF86A0); }
+.cp-stat-row.cleanliness .cp-fill { background: linear-gradient(90deg, #8ED4F0, #4FA8DC); }
 
 /* 名牌 */
 .cp-nameplate {
