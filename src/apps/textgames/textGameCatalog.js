@@ -94,7 +94,7 @@ export const TEXT_GAME_CATALOG = [
     desc: '说三句话，让对方猜出哪一句是假的。',
     mode: '双人对战',
     modeEmphasis: false,
-    status: TEXT_GAME_STATUS.COMING_SOON,
+    status: TEXT_GAME_STATUS.AVAILABLE,
   },
   {
     id: 'mystery-script-duo',
