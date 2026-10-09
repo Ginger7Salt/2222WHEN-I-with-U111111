@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Droplets, Gamepad2, Package, UtensilsCrossed } from 'lucide-react';
+import { Droplets, Gamepad2, ShoppingBasket, UtensilsCrossed } from 'lucide-react';
 
 import { COMPANION_STAT_LABELS, FOOD_TIERS } from '../companionShopData';
 
@@ -67,9 +67,9 @@ const CompanionBackpackModal = ({ items, onUse, onClose }) => {
       <div className="cp-backdrop" onClick={onClose} />
 
       <div className="cp-panel bottom cp-stall">
-        <div className="cp-awning">
+               <div className="cp-awning">
           <span className="cp-heart-pill cp-stall-hearts">
-            <Package className="cp-ic" />
+            <ShoppingBasket className="cp-ic" />
             背包
           </span>
         </div>

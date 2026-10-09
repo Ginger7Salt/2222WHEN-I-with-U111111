@@ -7,11 +7,11 @@ import {
   Gamepad2,
   Heart,
   HelpCircle,
-  Package,
   Palette,
   Pencil,
   Shirt,
   ShoppingBag,
+  ShoppingBasket,
   Sparkles,
   Store,
   Upload,
@@ -1124,14 +1124,14 @@ const CompanionPage = ({ chatId, character, onBack }) => {
               </span>
               商店
             </button>
-            <button
+                        <button
               type="button"
               onClick={() => setShowBackpack(true)}
               className="cp-dock-btn"
               aria-label="背包"
             >
               <span className="cp-dock-ico">
-                <Package className="cp-ic" />
+                <ShoppingBasket className="cp-ic" />
                 {backpackItems.length > 0 && <b className="cp-badge">{backpackItems.length}</b>}
               </span>
               背包
