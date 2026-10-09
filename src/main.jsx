@@ -3,7 +3,13 @@ import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import OnboardingGate from './components/OnboardingGate.jsx';
 import OnboardingIntro from './components/OnboardingIntro.jsx';
+import { requestPersistentStorage } from './db/storageUtils.js';
 import './index.css';
+
+// 2026-10：启动时悄悄申请一次"持久化存储"，降低浏览器在设备存储紧张时
+// 静默驱逐 IndexedDB 数据的概率（见 storageUtils.js 内注释）。不阻塞渲染，
+// 批准与否不影响任何功能，失败也不提示用户。
+requestPersistentStorage();
 
 const rootElement = document.getElementById('root');
 

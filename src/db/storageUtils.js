@@ -1,3 +1,37 @@
+// 2026-10：请求"持久化存储"权限。
+//
+// 背景：这个 App 把角色头像/语音/图片/聊天记录全部放在 IndexedDB 里，
+// 但如果从没调用过 navigator.storage.persist()，浏览器（尤其是移动端、
+// 存储空间紧张时）会把这个源的存储视为"best-effort"，在设备存储紧张时
+// 有权不经提示就清空 IndexedDB 数据——用户感知为"东西突然没了"，而且
+// 导出备份时自然也会发现对应字段/记录缺失，因为数据在导出之前就已经被
+// 系统清掉了。调用 persist() 之后（如果浏览器批准），数据会被当作
+// "持久存储"对待，不会被自动驱逐，只能由用户手动清除网站数据。
+//
+// 这个函数只负责"去问一次"，批准与否完全由浏览器自己判断（通常跟是否
+// 已装为 PWA、历史访问频率等因素有关），拒绝也不报错，静默返回 false。
+export const requestPersistentStorage = async () => {
+  if (!navigator.storage || !navigator.storage.persist) {
+    return { supported: false, persisted: false };
+  }
+
+  try {
+    const alreadyPersisted = navigator.storage.persisted
+      ? await navigator.storage.persisted()
+      : false;
+
+    if (alreadyPersisted) {
+      return { supported: true, persisted: true };
+    }
+
+    const granted = await navigator.storage.persist();
+    return { supported: true, persisted: granted };
+  } catch (error) {
+    console.warn('[storageUtils] 持久化存储请求失败：', error);
+    return { supported: true, persisted: false };
+  }
+};
+
 // 本地存储空间估算
 export const estimateStorageUsage = async () => {
   if (navigator.storage && navigator.storage.estimate) {
@@ -140,6 +174,7 @@ export const convertFileToBase64 = (file) => {
 };
 
 export default {
+  requestPersistentStorage,
   convertFileToBase64,
   estimateStorageUsage,
   getStorageUsageBytes,

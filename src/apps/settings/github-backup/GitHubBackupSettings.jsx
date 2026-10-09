@@ -101,11 +101,16 @@ export const GitHubBackupSettings = () => {
     setIsBackingUp(true);
     showStatus('info', '正在打包并同步本地记忆至 GitHub…');
 
-    try {
-      const nowTime = await backupToGitHub();
+       try {
+      const { nowTime, warningCount } = await backupToGitHub();
       setLastTime(nowTime);
       setLastStatus('success');
-      showStatus('success', '记忆存档上传成功。');
+      showStatus(
+        warningCount > 0 ? 'error' : 'success',
+        warningCount > 0
+          ? `记忆存档已上传，但有 ${warningCount} 项内容（图片/语音等）因本地存储已损坏被跳过，其余内容正常。`
+          : '记忆存档上传成功。',
+      );
       triggerGlobalToast({
         title: '云端备份完成',
         content: '本地数字资产已在个人仓库保存成功。',
@@ -124,9 +129,15 @@ export const GitHubBackupSettings = () => {
     setIsRestoring(true);
     showStatus('info', '正在下载云端副本并重塑本地记忆…');
 
-    try {
-      await restoreFromGitHub();
-      showStatus('success', '恢复就绪。请刷新页面以重载完整设定。');
+       try {
+      const { restoreWarnings } = await restoreFromGitHub();
+      const warningCount = restoreWarnings?.length || 0;
+      showStatus(
+        warningCount > 0 ? 'error' : 'success',
+        warningCount > 0
+          ? `恢复完成，但有 ${warningCount} 项内容（图片/语音等）因云端备份内数据已损坏被跳过，其余内容正常。请刷新页面以重载完整设定。`
+          : '恢复就绪。请刷新页面以重载完整设定。',
+      );
       triggerGlobalToast({
         title: '云端记忆重塑',
         content: '数据库重构已全部完成，请手动刷新页面。',

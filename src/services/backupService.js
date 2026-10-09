@@ -20,13 +20,27 @@ const dataUrlToBlob = async (
   return new Blob([blob], { type: blob.type || fallbackType });
 };
 
-export const serializeBackupValue = async (value) => {
+// 2026-10：序列化失败的占位标记——不是正常的数据内容，只是告诉恢复逻辑
+// "这里原本有东西，但导出时读取失败了"，避免恢复时把它当成一段正常文字/
+// 空对象悄悄保留下来，也方便排查到底是哪类内容在用户的设备上读取失败。
+const BLOB_READ_FAILURE_MARKER = '__whenIWithUBlobReadFailed';
+
+export const serializeBackupValue = async (value, warnings = null) => {
   if (value instanceof Blob) {
-    return {
-      __whenIWithUType: 'blob',
-      type: value.type || 'application/octet-stream',
-      dataUrl: await readBlobAsDataUrl(value),
-    };
+    try {
+      return {
+        __whenIWithUType: 'blob',
+        type: value.type || 'application/octet-stream',
+        dataUrl: await readBlobAsDataUrl(value),
+      };
+    } catch (error) {
+      // 本地存储里的这一份二进制内容已经读不出来了（常见于浏览器已经
+      // 把底层数据驱逐/损坏，但记录本身的引用还在）。不让这一个字段
+      // 拖垮整次导出——跳过它，记一条警告，其余内容正常导出。
+      console.warn('[backupService] Blob 读取失败，已跳过：', error);
+      warnings?.push({ type: 'blob-read-failed', message: error?.message || String(error) });
+      return { __whenIWithUType: BLOB_READ_FAILURE_MARKER };
+    }
   }
 
   if (value instanceof Date) {
@@ -37,13 +51,13 @@ export const serializeBackupValue = async (value) => {
   }
 
   if (Array.isArray(value)) {
-    return Promise.all(value.map((item) => serializeBackupValue(item)));
+    return Promise.all(value.map((item) => serializeBackupValue(item, warnings)));
   }
 
   if (value && typeof value === 'object') {
     const serializedObject = {};
     for (const [key, nestedValue] of Object.entries(value)) {
-      serializedObject[key] = await serializeBackupValue(nestedValue);
+      serializedObject[key] = await serializeBackupValue(nestedValue, warnings);
     }
     return serializedObject;
   }
@@ -51,14 +65,29 @@ export const serializeBackupValue = async (value) => {
   return value;
 };
 
-export const restoreBackupValue = async (value) => {
+export const restoreBackupValue = async (value, warnings = null) => {
   if (Array.isArray(value)) {
-    return Promise.all(value.map((item) => restoreBackupValue(item)));
+    return Promise.all(value.map((item) => restoreBackupValue(item, warnings)));
   }
 
   if (value && typeof value === 'object') {
+    if (value.__whenIWithUType === BLOB_READ_FAILURE_MARKER) {
+      // 导出时就已经读不到这份二进制内容了，恢复时自然也没有东西可还原——
+      // 原样传回这个标记，而不是伪装成一个能用的空 Blob。
+      return null;
+    }
+
     if (value.__whenIWithUType === 'blob' && typeof value.dataUrl === 'string') {
-      return dataUrlToBlob(value.dataUrl, value.type);
+      try {
+        return await dataUrlToBlob(value.dataUrl, value.type);
+      } catch (error) {
+        // 备份文件里这一段 dataUrl 本身已经损坏/不完整（比如用户手动编辑过
+        // 导出的 JSON，或者传输过程中被截断）。不让这一个字段拖垮整次恢复，
+        // 跳过它、记一条警告，其余字段正常恢复。
+        console.warn('[backupService] 备份内的 Blob 数据已损坏，已跳过：', error);
+        warnings?.push({ type: 'blob-restore-failed', message: error?.message || String(error) });
+        return null;
+      }
     }
 
     if (value.__whenIWithUType === 'date' && typeof value.value === 'string') {
@@ -67,7 +96,7 @@ export const restoreBackupValue = async (value) => {
 
     const restoredObject = {};
     for (const [key, nestedValue] of Object.entries(value)) {
-      restoredObject[key] = await restoreBackupValue(nestedValue);
+      restoredObject[key] = await restoreBackupValue(nestedValue, warnings);
     }
 
     return restoredObject;
@@ -79,22 +108,58 @@ export const restoreBackupValue = async (value) => {
 /**
  * 动态抓取当前定义的所有 Dexie 表并导出备份
  * 自动剔除敏感的 GitHub Token
+ *
+ * 2026-10 加固：单条记录（甚至整张表）读取/序列化失败不再让整次导出直接
+ * 报错中断——跳过出问题的部分，记一条警告，其余数据正常导出完整返回。
+ * 调用方可以看 backup.exportWarnings 来判断要不要提醒用户。
  */
 export const generateBackupData = async () => {
   const data = {};
+  const warnings = [];
   const allTables = db.tables.map((t) => t.name);
 
   for (const tableName of allTables) {
-    let records = await db.table(tableName).toArray();
+    try {
+      let records = await db.table(tableName).toArray();
 
-    // 安全隔离：导出时绝不泄露 GitHub Token 的设定
-    if (tableName === 'settings') {
-      records = records.filter((r) => r.key !== 'github_backup_token');
+      // 安全隔离：导出时绝不泄露 GitHub Token 的设定
+      if (tableName === 'settings') {
+        records = records.filter((r) => r.key !== 'github_backup_token');
+      }
+
+      const results = await Promise.allSettled(
+        records.map((record) => serializeBackupValue(record, warnings)),
+      );
+
+      const serializedRecords = [];
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          serializedRecords.push(result.value);
+        } else {
+          console.warn(
+            `[backupService] 表 ${tableName} 第 ${index} 条记录导出失败，已跳过：`,
+            result.reason,
+          );
+          warnings.push({
+            type: 'record-export-failed',
+            table: tableName,
+            message: result.reason?.message || String(result.reason),
+          });
+        }
+      });
+
+      data[tableName] = serializedRecords;
+    } catch (error) {
+      // 整张表读取本身失败了（比较罕见，比如该表已损坏）——跳过这张表，
+      // 其余表继续正常导出，而不是让用户拿到一个完全空的备份文件。
+      console.warn(`[backupService] 表 ${tableName} 整体读取失败，已跳过：`, error);
+      warnings.push({
+        type: 'table-export-failed',
+        table: tableName,
+        message: error?.message || String(error),
+      });
+      data[tableName] = [];
     }
-
-    data[tableName] = await Promise.all(
-      records.map((record) => serializeBackupValue(record)),
-    );
   }
 
   return {
@@ -102,6 +167,7 @@ export const generateBackupData = async () => {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     data,
+    exportWarnings: warnings,
   };
 };
 
@@ -128,16 +194,39 @@ export const restoreBackupData = async (backup) => {
   }
 
   const restoredData = {};
+  const restoreWarnings = [];
   const importTables = Object.keys(backup.data);
   const currentTables = db.tables.map((t) => t.name);
 
   // 1. 预解析需要导入的各表记录
+  // 2026-10 加固：单条记录解析失败（比如备份文件里某段数据已损坏）不再让
+  // 整张表的恢复直接报错中断——跳过那一条，其余记录正常恢复。
   for (const tableName of importTables) {
     if (!currentTables.includes(tableName)) continue; // 丢弃不属于当前客户端架构的多余表
 
-    restoredData[tableName] = await Promise.all(
-      backup.data[tableName].map((record) => restoreBackupValue(record)),
+    const sourceRecords = Array.isArray(backup.data[tableName]) ? backup.data[tableName] : [];
+    const results = await Promise.allSettled(
+      sourceRecords.map((record) => restoreBackupValue(record, restoreWarnings)),
     );
+
+    const restoredRecords = [];
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        restoredRecords.push(result.value);
+      } else {
+        console.warn(
+          `[backupService] 表 ${tableName} 第 ${index} 条记录恢复失败，已跳过：`,
+          result.reason,
+        );
+        restoreWarnings.push({
+          type: 'record-restore-failed',
+          table: tableName,
+          message: result.reason?.message || String(result.reason),
+        });
+      }
+    });
+
+    restoredData[tableName] = restoredRecords;
   }
 
   // 2. 提取并保留当前的 GitHub 备份状态参数，防止在事务清空时被洗掉
@@ -176,4 +265,6 @@ export const restoreBackupData = async (backup) => {
       await db.settings.bulkPut(preservedGitSettings);
     }
   });
+
+  return { restoreWarnings };
 };

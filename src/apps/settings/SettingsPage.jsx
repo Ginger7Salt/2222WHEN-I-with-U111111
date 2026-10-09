@@ -974,12 +974,16 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
       downloadLink.href = downloadUrl;
       downloadLink.download = `when-i-with-u-backup-${timestamp}.json`;
 
-      document.body.appendChild(downloadLink);
+            document.body.appendChild(downloadLink);
       downloadLink.click();
 
+      const warningCount = backup.exportWarnings?.length || 0;
+
       setDataStatus({
-        type: 'success',
-        message: '数据已安全导出到本地，请妥善保管导出的 JSON 文件。',
+        type: warningCount > 0 ? 'error' : 'success',
+        message: warningCount > 0
+          ? `数据已导出，但有 ${warningCount} 项内容（图片/语音等）因本地存储已损坏或读取失败被跳过，其余内容正常。详情见控制台。`
+          : '数据已安全导出到本地，请妥善保管导出的 JSON 文件。',
       });
     } catch (error) {
       console.error('Database export failed:', error);
@@ -1030,15 +1034,18 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
     setIsProcessing(true);
     setConfirmDialog(null);
 
-    try {
-      await restoreBackupData(pendingImport);
+       try {
+      const { restoreWarnings } = await restoreBackupData(pendingImport);
+      const warningCount = restoreWarnings?.length || 0;
 
       setPendingImport(null);
       await updateStorageEstimate();
 
       setDataStatus({
-        type: 'success',
-        message: '备份已恢复。请刷新页面以重新加载全部设置。',
+        type: warningCount > 0 ? 'error' : 'success',
+        message: warningCount > 0
+          ? `备份已恢复，但有 ${warningCount} 项内容（图片/语音等）因备份文件内数据已损坏被跳过，其余内容正常。请刷新页面以重新加载全部设置。`
+          : '备份已恢复。请刷新页面以重新加载全部设置。',
       });
     } catch (error) {
       console.error('Database import failed:', error);
