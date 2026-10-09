@@ -127,10 +127,39 @@ const formatWeeks = (weeks) => {
 const scheduleMatchesDay = (schedule, day, week) => {
   if (!schedule.isRepeating) return schedule.date === day.dateStr;
   if (Number(schedule.dayOfWeek) !== day.dayOfWeek) return false;
+
+  // 单次撕下某一周 / 勾选撕下若干周 留下的"排除清单"，三种类型通用
+  if (Array.isArray(schedule.excludedWeeks) && schedule.excludedWeeks.includes(week)) {
+    return false;
+  }
+
+  // "撕下本周及以后" 对无固定周次上限的工作/日常日程留下的截止周
+  if (Number.isFinite(schedule.repeatEndWeek) && week > schedule.repeatEndWeek) {
+    return false;
+  }
+
   if (schedule.category === 'course') {
     return Array.isArray(schedule.weeks) && schedule.weeks.includes(week);
   }
   return true;
+};
+
+/** 课程类日程当前仍然生效的周次（排除掉已被撕下的周） */
+const getActiveCourseWeeks = (schedule) => {
+  const weeks = Array.isArray(schedule.weeks) ? schedule.weeks : [];
+  const excluded = Array.isArray(schedule.excludedWeeks) ? schedule.excludedWeeks : [];
+  return weeks.filter((w) => !excluded.includes(w));
+};
+
+/** 由"学期第几周 + 星期几"反推出具体日期，用于撕下单周时清理对应的批注 */
+const getDateStrForWeekDay = (termStartDate, week, dayOfWeek) => {
+  if (!termStartDate) return '';
+  const start = parseDateStr(termStartDate);
+  if (Number.isNaN(start.getTime())) return '';
+
+  const d = getMonday(start);
+  d.setDate(d.getDate() + (Number(week) - 1) * 7 + (Number(dayOfWeek) - 1));
+  return formatDateStr(d);
 };
 
 const isExpiredOnce = (schedule, todayStr) =>
@@ -169,6 +198,8 @@ const normalizeImportedItem = (item, index, ownerId) => {
     isRepeating: repeating,
     date,
     weeks,
+    excludedWeeks: [],
+    repeatEndWeek: null,
     location: String(item.location || '').trim(),
     teacher: String(item.teacher || '').trim(),
     category,
@@ -209,6 +240,8 @@ const buildScheduleFromForm = (form, ownerId) => {
     isRepeating: repeating,
     date: repeating ? '' : form.singleDate,
     weeks,
+    excludedWeeks: [],
+    repeatEndWeek: null,
     location: form.location.trim(),
     teacher: form.teacher.trim(),
     category: form.category,
@@ -539,7 +572,9 @@ function TicketCard({
   const repeatLabel = !item.isRepeating
     ? `单次 · ${item.date}`
     : item.category === 'course' && item.weeks?.length > 0
-    ? `第 ${formatWeeks(item.weeks)} 周`
+    ? `第 ${formatWeeks(getActiveCourseWeeks(item))} 周`
+    : item.repeatEndWeek
+    ? `每周重复 · 至第 ${item.repeatEndWeek} 周`
     : '每周重复';
 
   return (
@@ -936,6 +971,146 @@ function ConfirmDialog({ target, onCancel, onConfirm }) {
   );
 }
 
+const DELETE_SCOPE_OPTIONS = [
+  { value: 'single', label: '仅撕下今天这一次', hint: '只去掉当前查看的这一周，其余周次照常保留。' },
+  { value: 'from_week_onward', label: '撕下今天及以后', hint: '从这一周开始的之后全部不再出现，之前的周次保留。' },
+  { value: 'custom', label: '勾选要撕下的周次', hint: '自由挑选若干周单独撕下，不要求连续。' },
+  { value: 'all', label: '撕下整条循环日程', hint: '连同所有周次、所有批注一起撕掉，无法撤销。' }
+];
+
+/** 循环日程的删除范围选择框：今天 / 今天及以后 / 自选周次 / 全部 */
+function DeleteScopeDialog({ target, onCancel, onConfirm }) {
+  const { item, week } = target;
+
+  const [scope, setScope] = useState('single');
+  const [customSelected, setCustomSelected] = useState(() => new Set());
+  const [customText, setCustomText] = useState('');
+
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onCancel();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  const candidateWeeks = useMemo(() => {
+    const excluded = Array.isArray(item.excludedWeeks) ? item.excludedWeeks : [];
+
+    if (item.category === 'course') {
+      return getActiveCourseWeeks(item);
+    }
+
+    return Array.from({ length: 16 }, (_, i) => week + i).filter(
+      (w) => !excluded.includes(w)
+    );
+  }, [item, week]);
+
+  const toggleWeek = (w) => {
+    setCustomSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(w)) next.delete(w);
+      else next.add(w);
+      return next;
+    });
+  };
+
+  const handleConfirm = () => {
+    if (scope === 'custom') {
+      const extra = parseWeeksInput(customText);
+      const weeks = [...new Set([...customSelected, ...extra])];
+      if (weeks.length === 0) return;
+      onConfirm({ scope, weeks });
+      return;
+    }
+    onConfirm({ scope });
+  };
+
+  const confirmDisabled =
+    scope === 'custom' && customSelected.size === 0 && parseWeeksInput(customText).length === 0;
+
+  return (
+    <div className="rh-backdrop" onClick={onCancel}>
+      <div
+        className="rh-dialog rh-dialog--wide"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="rh-scope-dialog-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="rh-dialog-head">
+          <AlertCircle size={18} />
+          <h2 id="rh-scope-dialog-title">撕下《{item.title}》</h2>
+        </div>
+
+        <p>这是一条循环日程，想撕下的范围是？</p>
+
+        <div className="rh-scope-options" role="radiogroup" aria-label="撕下范围">
+          {DELETE_SCOPE_OPTIONS.map((opt) => (
+            <label key={opt.value} className="rh-scope-option">
+              <input
+                type="radio"
+                name="rh-delete-scope"
+                checked={scope === opt.value}
+                onChange={() => setScope(opt.value)}
+              />
+              <span className="rh-scope-option-body">
+                <strong>{opt.label}</strong>
+                <em>{opt.hint}</em>
+              </span>
+            </label>
+          ))}
+        </div>
+
+        {scope === 'custom' && (
+          <div className="rh-week-pick">
+            {candidateWeeks.length > 0 ? (
+              <div className="rh-week-grid">
+                {candidateWeeks.map((w) => (
+                  <label key={w} className="rh-week-chip">
+                    <input
+                      type="checkbox"
+                      checked={customSelected.has(w)}
+                      onChange={() => toggleWeek(w)}
+                    />
+                    <span>{w}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="rh-hint">这条日程暂时没有可勾选的未来周次，可以在下方手动输入。</p>
+            )}
+
+            <div className="rh-field">
+              <label htmlFor="rh-scope-extra">其他周次（如 20 或 20,22-24）</label>
+              <input
+                id="rh-scope-extra"
+                type="text"
+                className="rh-input"
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                placeholder="不在上面列表里的周次可以手动补充"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="rh-dialog-actions">
+          <button type="button" className="rh-btn rh-btn--ghost" onClick={onCancel}>
+            保留
+          </button>
+          <button
+            type="button"
+            className="rh-btn rh-btn--danger"
+            onClick={handleConfirm}
+            disabled={confirmDisabled}
+          >
+            撕下
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* =====================================================================
  * 四、页面主体
  * ===================================================================== */
@@ -1072,7 +1247,71 @@ export default function RhythmApp({ onBackHub, currentCharacterId, currentChatId
     }
   };
 
-  const handleConfirmDelete = async () => {
+  /** 处理循环日程的"仅今天 / 今天及以后 / 自选周次 / 全部"四种撕下范围 */
+  const applyRepeatingDeletion = async (target, payload) => {
+    const { item, week } = target;
+    const scope = payload?.scope || 'single';
+
+    const deleteWhole = async () => {
+      await db.schedules.delete(item.id);
+      await db.rhythmNotes.where('scheduleId').equals(item.id).delete();
+    };
+
+    const deleteNoteForWeek = async (w) => {
+      const d = getDateStrForWeekDay(termStartDate, w, item.dayOfWeek);
+      if (d) await db.rhythmNotes.where({ scheduleId: item.id, date: d }).delete();
+    };
+
+    if (scope === 'all') {
+      await deleteWhole();
+      flash('success', '已撕下整条循环日程');
+      return;
+    }
+
+    if (scope === 'single') {
+      const nextExcluded = [...new Set([...(item.excludedWeeks || []), week])];
+      await db.schedules.update(item.id, { excludedWeeks: nextExcluded });
+      await deleteNoteForWeek(week);
+      flash('success', '已撕下这一周的日程');
+      return;
+    }
+
+    if (scope === 'from_week_onward') {
+      if (item.category === 'course') {
+        const remaining = getActiveCourseWeeks(item).filter((w) => w < week);
+        if (remaining.length === 0) {
+          await deleteWhole();
+        } else {
+          await db.schedules.update(item.id, { weeks: remaining });
+        }
+      } else if (week - 1 < 1) {
+        await deleteWhole();
+      } else {
+        await db.schedules.update(item.id, { repeatEndWeek: week - 1 });
+      }
+      flash('success', '已撕下本周及以后的日程');
+      return;
+    }
+
+    if (scope === 'custom') {
+      const weeksToExclude = payload?.weeks || [];
+      if (weeksToExclude.length === 0) return;
+
+      const nextExcluded = [...new Set([...(item.excludedWeeks || []), ...weeksToExclude])];
+      const activeWeeks = item.category === 'course' ? getActiveCourseWeeks(item) : null;
+
+      if (activeWeeks && activeWeeks.every((w) => nextExcluded.includes(w))) {
+        await deleteWhole();
+      } else {
+        await db.schedules.update(item.id, { excludedWeeks: nextExcluded });
+      }
+
+      for (const w of weeksToExclude) await deleteNoteForWeek(w);
+      flash('success', `已撕下选中的 ${weeksToExclude.length} 周`);
+    }
+  };
+
+  const handleConfirmDelete = async (payload) => {
     if (!deleteTarget) return;
 
     try {
@@ -1080,6 +1319,8 @@ export default function RhythmApp({ onBackHub, currentCharacterId, currentChatId
         await db.schedules.delete(deleteTarget.id);
         await db.rhythmNotes.where('scheduleId').equals(deleteTarget.id).delete();
         flash('success', '已撕下这条日程');
+      } else if (deleteTarget.type === 'repeating') {
+        await applyRepeatingDeletion(deleteTarget, payload);
       } else {
         const expired = schedules.filter((s) => isExpiredOnce(s, todayStr));
 
@@ -1209,11 +1450,17 @@ export default function RhythmApp({ onBackHub, currentCharacterId, currentChatId
                     isGenerating={generatingKey === key}
                     onGenerate={() => handleGenerateNote(item, activeDayInfo.dateStr)}
                     onDelete={() =>
-                      setDeleteTarget({
-                        type: 'single',
-                        id: item.id,
-                        title: item.title
-                      })
+                      item.isRepeating
+                        ? setDeleteTarget({
+                            type: 'repeating',
+                            item,
+                            week: selectedWeek
+                          })
+                        : setDeleteTarget({
+                            type: 'single',
+                            id: item.id,
+                            title: item.title
+                          })
                     }
                   />
                 );
@@ -1248,13 +1495,19 @@ export default function RhythmApp({ onBackHub, currentCharacterId, currentChatId
         </div>
       )}
 
-      {deleteTarget && (
+      {deleteTarget && deleteTarget.type === 'repeating' ? (
+        <DeleteScopeDialog
+          target={deleteTarget}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={handleConfirmDelete}
+        />
+      ) : deleteTarget ? (
         <ConfirmDialog
           target={deleteTarget}
           onCancel={() => setDeleteTarget(null)}
           onConfirm={handleConfirmDelete}
         />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -1838,6 +2091,63 @@ const STYLES = `
   gap: 8px;
   padding-top: 12px;
   border-top: 1px dashed var(--rh-line);
+}
+
+/* ---------- 循环日程的撕下范围选择框 ---------- */
+.rh-dialog--wide { max-width: 400px; max-height: 86vh; overflow-y: auto; }
+
+.rh-scope-options { display: flex; flex-direction: column; gap: 6px; }
+.rh-scope-option { position: relative; display: block; cursor: pointer; }
+.rh-scope-option input {
+  position: absolute;
+  top: 14px;
+  left: 12px;
+  margin: 0;
+}
+.rh-scope-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px 10px 34px;
+  border: 1px solid var(--rh-line);
+  border-radius: var(--rh-r-control);
+  background: var(--rh-bg);
+}
+.rh-scope-option-body strong { font-size: 13px; color: var(--rh-text); }
+.rh-scope-option-body em { font-style: normal; font-size: 12px; color: var(--rh-sub); }
+.rh-scope-option input:checked + .rh-scope-option-body {
+  border-color: var(--rh-accent);
+  background: var(--rh-soft);
+}
+
+.rh-week-pick { display: flex; flex-direction: column; gap: 10px; }
+.rh-week-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 2px;
+}
+.rh-week-chip { position: relative; cursor: pointer; }
+.rh-week-chip input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.rh-week-chip span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  border: 1px solid var(--rh-line);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--rh-sub);
+  font-variant-numeric: tabular-nums;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.rh-week-chip input:checked + span {
+  background: var(--rh-accent);
+  color: var(--rh-accent-fg);
+  border-color: var(--rh-accent);
+  font-weight: 600;
 }
 
 /* ---------- 动画 ---------- */

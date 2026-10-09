@@ -446,21 +446,27 @@ const MessageRow = ({
         <div className="flex flex-col gap-1">
           {isErrorMsg ? (
             <div
-              className="space-y-2 rounded-2xl border p-3 shadow-sm chat-font"
+              className="min-w-0 max-w-full space-y-2 rounded-2xl border p-3 shadow-sm chat-font"
               style={{
                 background: 'rgba(239, 68, 68, 0.08)',
                 borderColor: 'rgba(239, 68, 68, 0.3)',
                 color: 'var(--text-main)',
               }}
             >
-              <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-red-500">
+              <div className="flex min-w-0 items-center gap-1.5 font-mono text-[11px] font-bold text-red-500">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                <span>
+                <span
+                  className="min-w-0"
+                  style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                >
                   API 报错: {msg.metadata?.errorCode || 'ERROR'}
                 </span>
               </div>
 
-              <p className="text-[11px] opacity-90">
+              <p
+                className="text-[11px] opacity-90"
+                style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+              >
                 {msg.content}
               </p>
 
