@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Lock, Shirt, Sparkles, UtensilsCrossed } from 'lucide-react';
 
-import { COMPANION_STAT_LABELS, FOOD_TIERS, SHOP_CLOTHING_ITEMS, SHOP_FOOD_ITEMS, SHOP_TOOL_ITEMS } from './companionShopData';
+import { COMPANION_STAT_LABELS, FOOD_TIERS, SHOP_CLEAN_ITEMS, SHOP_CLOTHING_ITEMS, SHOP_FOOD_ITEMS, SHOP_TOOL_ITEMS, SHOP_TOY_ITEMS } from './companionShopData';
 import CompanionHeartIcon from './CompanionHeartIcon';
 
 const TIER_LABELS = {
@@ -40,6 +40,8 @@ const CompanionShopModal = ({
   hearts,
   ownedClothingIds,
   unlockedRareFoodIds = [],
+  unlockedRareCleanIds = [],
+  unlockedRareToyIds = [],
   legendaryStock = {},
   onBuy,
   onUseLegendary,
@@ -64,11 +66,19 @@ const CompanionShopModal = ({
     ? SHOP_FOOD_ITEMS.filter((item) => item.tier !== FOOD_TIERS.LEGENDARY)
     : tab === 'clothing'
       ? SHOP_CLOTHING_ITEMS
-      : SHOP_TOOL_ITEMS;
+      : [...SHOP_TOOL_ITEMS, ...SHOP_CLEAN_ITEMS, ...SHOP_TOY_ITEMS];
 
   const legendaryOwned = SHOP_FOOD_ITEMS.filter(
     (item) => item.tier === FOOD_TIERS.LEGENDARY && (legendaryStock[item.id] || 0) > 0
   );
+
+  // 不同类别的稀有商品解锁状态，分别查各自独立的字段，不混用。
+  const isRareLocked = (item) => {
+    if (item.tier !== FOOD_TIERS.RARE) return false;
+    if (item.category === 'clean') return !unlockedRareCleanIds.includes(item.id);
+    if (item.category === 'toy') return !unlockedRareToyIds.includes(item.id);
+    return !unlockedRareFoodIds.includes(item.id);
+  };
 
   // 一个商品当前的状态：已拥有 / 稀有未解锁 / 买不起
   const getFlags = (item, source = 'shop') => {
@@ -77,8 +87,9 @@ const CompanionShopModal = ({
     }
     return {
       owned: tab === 'clothing' && ownedClothingIds.includes(item.id),
-      locked: tab === 'food' && item.tier === FOOD_TIERS.RARE && !unlockedRareFoodIds.includes(item.id),
-      // 道具可叠加购买，不判断 owned
+      // 道具（含清洁/玩具）可叠加购买，不判断 owned；只有食物 tab 的
+      // 稀有锁要看，clean/toy 商品不管在哪个 tab 展示，稀有锁都要判断。
+      locked: (tab === 'food' || item.category === 'clean' || item.category === 'toy') && isRareLocked(item),
       canAfford: hearts >= item.price,
     };
   };

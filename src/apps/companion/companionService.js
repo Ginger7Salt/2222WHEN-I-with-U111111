@@ -11,6 +11,7 @@ import db from '../../db';
 import { generateAutonomousCareNote } from './companionAiService';
 import { findShopItem, FOOD_TIERS } from './companionShopData';
 import { checkCompanionEvents, getActiveEvents } from './companionEventService';
+import { addToBackpack } from './backpack/companionBackpackService';
 
 // ---- 数值状态衰减（参照 habitatService.js 的 applyTimeDecay）----
 const DECAY_PER_HOUR = { satiety: 4, mood: 2, cleanliness: 1 };
@@ -215,6 +216,7 @@ export const openCompanionSession = async (chatId) => {
 
 export { getActiveEvents };
 export { claimCompanionEvent, resolveCompanionChoiceEvent } from './companionEventService';
+export { getBackpack, useBackpackItem } from './backpack/companionBackpackService';
 
 export const adoptCompanion = async ({ chatId, characterId, name, avatarUrl }) => {
   const existing = await db.companions.where('chatId').equals(chatId).first();
@@ -247,6 +249,8 @@ export const adoptCompanion = async ({ chatId, characterId, name, avatarUrl }) =
     lastEventRollAt: null,
     lastLegendaryGrantAt: null,
     unlockedRareFoodIds: [],
+    unlockedRareCleanIds: [],
+    unlockedRareToyIds: [],
     legendaryStock: {},
     firedMilestoneEventIds: [],
     activeEvents: [],
@@ -562,26 +566,43 @@ export const buyShopItem = async (companionId, itemId) => {
       throw new Error('心心不够啦');
     }
 
-    const effects = item.effects || {};
-    const updated = {
-      ...companion,
+    await db.companions.update(companionId, {
       hearts: Math.round((companion.hearts - item.price) * 10) / 10,
-      satiety: clamp100(companion.satiety + (effects.satiety || 0)),
-      mood: clamp100(companion.mood + (effects.mood || 0)),
-      lastInteractionAt: now,
       updatedAt: now,
-      feedCount: (companion.feedCount || 0) + 1,
-      totalInteractionCount: (companion.totalInteractionCount || 0) + 1,
-    };
-    await db.companions.put(updated);
+    });
+    await addToBackpack(companionId, item.id, 'food');
     await db.companionLogs.add({
       companionId,
       logType: 'user_action',
       actionType: 'shop_food',
-      content: `在商店买了「${item.name}」给它吃。`,
+      content: `在商店买了「${item.name}」，放进了背包。`,
       timestamp: now,
     });
-    return updated;
+    return await db.companions.get(companionId);
+  }
+
+  if (item.category === 'clean' || item.category === 'toy') {
+    const unlockedField = item.category === 'clean' ? 'unlockedRareCleanIds' : 'unlockedRareToyIds';
+    if (item.tier === FOOD_TIERS.RARE && !(companion[unlockedField] || []).includes(item.id)) {
+      throw new Error('这件稀有道具还没解锁，先触发对应的特殊事件吧。');
+    }
+    if (companion.hearts < item.price) {
+      throw new Error('心心不够啦');
+    }
+
+    await db.companions.update(companionId, {
+      hearts: Math.round((companion.hearts - item.price) * 10) / 10,
+      updatedAt: now,
+    });
+    await addToBackpack(companionId, item.id, item.category);
+    await db.companionLogs.add({
+      companionId,
+      logType: 'user_action',
+      actionType: item.category === 'clean' ? 'shop_clean' : 'shop_toy',
+      content: `在商店买了「${item.name}」，放进了背包。`,
+      timestamp: now,
+    });
+    return await db.companions.get(companionId);
   }
 
   if (item.category === 'scene') {

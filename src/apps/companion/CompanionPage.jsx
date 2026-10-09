@@ -7,6 +7,7 @@ import {
   Gamepad2,
   Heart,
   HelpCircle,
+  Package,
   Palette,
   Pencil,
   Shirt,
@@ -24,6 +25,7 @@ import {
   claimCompanionEvent,
   equipOutfit,
   getActiveEvents,
+  getBackpack,
   getCompanionByChat,
   getInventory,
   getRecentLogs,
@@ -34,6 +36,7 @@ import {
   resolveCompanionChoiceEvent,
   setCompanionScene,
   updateCompanionAvatar,
+  useBackpackItem,
   useLegendaryFood,
 } from './companionService';
 import { DEFAULT_AVATARS, findScene, findShopItem, getAllSceneOptions } from './companionShopData';
@@ -44,6 +47,7 @@ import CompanionHeartsInfoModal from './CompanionHeartsInfoModal';
 import CompanionHeartIcon from './CompanionHeartIcon';
 import CompanionFortuneModal from './fortune/CompanionFortuneModal';
 import CompanionCatchGameModal from './play/CompanionCatchGameModal';
+import CompanionBackpackModal from './backpack/CompanionBackpackModal';
 import './companionPage.css';
 
 /*
@@ -215,6 +219,8 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const [feedback, setFeedback] = useState('');
   const [isActing, setIsActing] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showBackpack, setShowBackpack] = useState(false);
+  const [backpackItems, setBackpackItems] = useState([]);
   const [showScenePicker, setShowScenePicker] = useState(false);
   const [showHeartsInfo, setShowHeartsInfo] = useState(false);
   const [showFortune, setShowFortune] = useState(false);
@@ -266,12 +272,14 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     setCompanion(found);
 
     if (found) {
-      const [recentLogs, ownedItems] = await Promise.all([
+      const [recentLogs, ownedItems, backpackRows] = await Promise.all([
         getRecentLogs(found.id),
         getInventory(found.id),
+        getBackpack(found.id),
       ]);
       setLogs(recentLogs);
       setInventory(ownedItems);
+      setBackpackItems(backpackRows);
 
       // 新出现的事件，自动弹一个详情（只弹第一个，另一个留在横幅里点开看）。
       if (newEvents.length > 0) {
@@ -515,6 +523,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     setCompanion(updated);
     setInventory(await getInventory(companion.id));
     setLogs(await getRecentLogs(companion.id));
+    setBackpackItems(await getBackpack(companion.id));
   };
 
   const handleBuyTool = async (itemId) => {
@@ -648,6 +657,16 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     setLogs(await getRecentLogs(companion.id));
   };
 
+  const handleUseBackpackItem = async (itemId) => {
+    if (!companion) return null;
+    const before = companion;
+    const result = await useBackpackItem(companion.id, itemId);
+    spawnDeltaFloaters(before, result.companion);
+    setCompanion(result.companion);
+    setLogs(await getRecentLogs(companion.id));
+    setBackpackItems(await getBackpack(companion.id));
+    return result;
+  };
   const handleBuyScene = async (itemId) => {
     if (!companion) return;
     const updated = await buyShopItem(companion.id, itemId);
@@ -1094,7 +1113,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
                 {label}
               </button>
             ))}
-            <button
+                        <button
               type="button"
               onClick={() => setShowShop(true)}
               className="cp-dock-btn shop"
@@ -1104,6 +1123,18 @@ const CompanionPage = ({ chatId, character, onBack }) => {
                 <b className="cp-badge">{companion.hearts}</b>
               </span>
               商店
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowBackpack(true)}
+              className="cp-dock-btn"
+              aria-label="背包"
+            >
+              <span className="cp-dock-ico">
+                <Package className="cp-ic" />
+                {backpackItems.length > 0 && <b className="cp-badge">{backpackItems.length}</b>}
+              </span>
+              背包
             </button>
             <button
               type="button"
@@ -1218,6 +1249,8 @@ const CompanionPage = ({ chatId, character, onBack }) => {
           hearts={companion.hearts}
           ownedClothingIds={ownedClothingNames.map((item) => item.id)}
           unlockedRareFoodIds={companion.unlockedRareFoodIds || []}
+          unlockedRareCleanIds={companion.unlockedRareCleanIds || []}
+          unlockedRareToyIds={companion.unlockedRareToyIds || []}
           legendaryStock={companion.legendaryStock || {}}
           onBuy={handleBuy}
           onUseLegendary={handleUseLegendaryFood}
@@ -1225,6 +1258,14 @@ const CompanionPage = ({ chatId, character, onBack }) => {
           onClose={() => setShowShop(false)}
           shopkeeperUrl={companion.avatarUrl}
           shopkeeperName={companion.name}
+        />
+      )}
+
+      {showBackpack && (
+        <CompanionBackpackModal
+          items={backpackItems}
+          onUse={handleUseBackpackItem}
+          onClose={() => setShowBackpack(false)}
         />
       )}
 

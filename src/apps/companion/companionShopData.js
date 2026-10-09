@@ -44,6 +44,7 @@ export const DEFAULT_AVATARS = [
 export const COMPANION_STAT_LABELS = {
   satiety: '饱食',
   mood: '心情',
+  cleanliness: '清洁',
 };
 
 export const FOOD_TIERS = {
@@ -113,10 +114,113 @@ export const SHOP_CLOTHING_ITEMS = [
   { id: 'outfit-cap', name: '毛线小帽', category: 'clothing', price: 15 },
 ];
 
+/*
+ * 分级规则跟 FOOD_TIERS 完全一致：
+ *   - common：心心直接买，买 = 放进背包，之后点击使用。
+ *   - rare：心心买，但要先在 companion.unlockedRareCleanIds /
+ *     unlockedRareToyIds 里解锁才能买。
+ * 道具不做 legendary 档——目前没有对应的事件设计，先不加。
+ *
+ * 清洁道具 effects.cleanliness 是使用时的即时加成；
+ * 玩具 effects.mood 是使用时的即时加成，同时跟免费玩耍一样会扣
+ * 清洁度（固定 -5，走 companionBackpackService.js 里的统一逻辑，
+ * 不需要每个玩具自己写一遍）。
+ *
+ * useLine：每个道具自己专属的"使用后"气泡文案，不传就在
+ * companionBackpackService.js 里退回通用兜底文案。
+ */
+export const SHOP_CLEAN_ITEMS = [
+  { 
+    id: 'clean-bubble-soap', 
+    name: '泡泡沐浴液', 
+    category: 'clean', 
+    tier: FOOD_TIERS.COMMON, 
+    price: 10, 
+    effects: { cleanliness: 35 }, 
+    useLine: '洗得干干净净，闻起来泡泡香香的。', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261009/SR9Q/1173X1903/daoju_%284%29.jpg/webp' 
+  },
+  { 
+    id: 'clean-soft-towel', 
+    name: '柔软小毛巾', 
+    category: 'clean', 
+    tier: FOOD_TIERS.COMMON, 
+    price: 8, 
+    effects: { cleanliness: 25 }, 
+    useLine: '被轻轻擦干了，舒服地眯起眼睛。', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261009/gq7K/1642X1521/daoju_%285%29.jpg/webp' 
+  },
+  { 
+    id: 'clean-mint-spray', 
+    name: '薄荷清新喷雾', 
+    category: 'clean', 
+    tier: FOOD_TIERS.RARE, 
+    price: 30, 
+    effects: { cleanliness: 50, mood: 10 }, 
+    useLine: '喷上去凉凉的，整只都清爽了起来。', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261009/6lVa/765X1816/daoju_%283%29.jpg/webp' 
+  },
+  { 
+    id: 'clean-golden-comb', 
+    name: '黄金顺毛梳', 
+    category: 'clean', 
+    tier: FOOD_TIERS.RARE, 
+    price: 35, 
+    effects: { cleanliness: 45, mood: 15 }, 
+    useLine: '梳理得毛发顺顺的，自己还蹭了蹭梳子。', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261009/ksx5/1371X1841/daoju_%282%29.jpg/webp' 
+  },
+];
+
+export const SHOP_TOY_ITEMS = [
+  { 
+    id: 'toy-yarn-ball', 
+    name: '毛线球', 
+    category: 'toy', 
+    tier: FOOD_TIERS.COMMON, 
+    price: 10, 
+    effects: { mood: 15 }, 
+    useLine: '追着毛线球滚来滚去，怎么都玩不腻。', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261009/emVL/1978X1938/daoju_%288%29.jpg/webp' 
+  },
+  { 
+    id: 'toy-feather-stick', 
+    name: '逗逗羽毛棒', 
+    category: 'toy', 
+    tier: FOOD_TIERS.COMMON, 
+    price: 9, 
+    effects: { mood: 12 }, 
+    useLine: '扑来扑去地追着羽毛棒，兴奋得不行。', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261009/CR1R/1919X2009/daoju_%287%29.jpg/webp' 
+  },
+  { 
+    id: 'toy-squeaky-mouse', 
+    name: '会叫的小老鼠', 
+    category: 'toy', 
+    tier: FOOD_TIERS.RARE, 
+    price: 32, 
+    effects: { mood: 30 }, 
+    useLine: '咬一下就会叫，吓了自己一跳，接着又继续咬。', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261009/WFq9/1812X1772/daoju_%281%29.jpg/webp' 
+  },
+  { 
+    id: 'toy-puzzle-box', 
+    name: '益智解谜盒', 
+    category: 'toy', 
+    tier: FOOD_TIERS.RARE, 
+    price: 38, 
+    effects: { mood: 35 }, 
+    useLine: '琢磨了好一会儿才打开，开心得直转圈。', 
+    url: 'https://img.pagehost.cn/autoupload/amqnh/20261009/m3Ma/1912X1970/daoju_%286%29.jpg/webp' 
+  },
+];
+
 export const findShopItem = (itemId) => (
   SHOP_FOOD_ITEMS.find((item) => item.id === itemId)
   || SHOP_CLOTHING_ITEMS.find((item) => item.id === itemId)
   || SHOP_SCENE_ITEMS.find((item) => item.id === itemId)
+  || SHOP_CLEAN_ITEMS.find((item) => item.id === itemId)
+  || SHOP_TOY_ITEMS.find((item) => item.id === itemId)
   || null
 );
 

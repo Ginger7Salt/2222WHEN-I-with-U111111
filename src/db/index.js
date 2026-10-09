@@ -4805,4 +4805,45 @@ db.version(80).stores({
   }
 });
 
+// ============================================================
+// v81：背包系统——食物（common/rare）、清洁道具、玩具购买后不再
+// 立即生效，改成放进背包，点击使用才生效。
+//
+// companionBackpack：一个 companionId + itemId 一行，quantity（非
+// 索引字段）记数量，用完数量归零就物理删除这一行，不留 0 的空行
+// （思路跟 textGameMatches"只保留最近10局"一样：配额/数量直接从
+// 实际记录算，不额外维护汇总字段）。[companionId+itemId] 复合索引
+// 从建表第一天就加上，因为最常见的查询就是"这个小伙伴的某个道具还
+// 有几个"。category 只是为了背包 UI 分栏展示方便，不是查询条件，
+// 但加上也不费事，一起索引了。
+//
+// 稀有清洁道具/玩具的解锁状态，复用跟 unlockedRareFoodIds 一样的
+// 思路，但不共用同一个字段（避免解锁食物顺带解锁了道具）：
+// companions.unlockedRareCleanIds / unlockedRareToyIds，两个独立
+// 的字符串数组字段，不建索引，整行读写。
+// ============================================================
+db.version(81).stores({
+  companionBackpack: '++id, companionId, itemId, category, [companionId+itemId]',
+}).upgrade(async (tx) => {
+  try {
+    const companionsTable = tx.table('companions');
+    const all = await companionsTable.toArray();
+
+    for (const companion of all) {
+      const patch = {};
+      if (!companion.unlockedRareCleanIds) patch.unlockedRareCleanIds = [];
+      if (!companion.unlockedRareToyIds) patch.unlockedRareToyIds = [];
+
+      if (Object.keys(patch).length > 0) {
+        // eslint-disable-next-line no-await-in-loop
+        await companionsTable.update(companion.id, patch);
+      }
+    }
+
+    console.log(`[db v81 迁移] 已给 ${all.length} 个小伙伴补上清洁道具/玩具解锁状态初始结构。`);
+  } catch (error) {
+    console.error('[db v81 迁移] 补充清洁道具/玩具解锁状态失败：', error);
+  }
+});
+
 export default db;
