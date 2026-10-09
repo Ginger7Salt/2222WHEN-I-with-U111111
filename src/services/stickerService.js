@@ -104,6 +104,17 @@ export const DEFAULT_STICKERS = [
 { name: '左思', url: 'https://u2.fukit.cn/24Bhq2tPg', category: 'preset' },
 { name: '右想', url: 'https://u2.fukit.cn/zdKDLye85', category: 'preset' },
 
+  { name: '打电话', url: 'https://u2.fukit.cn/DU9Glwktu', category: 'preset' },
+  { name: '机智', url: 'https://u2.fukit.cn/RqvB024Mu', category: 'preset' },
+  { name: '趴屏幕', url: 'https://u2.fukit.cn/S0F4sDeeO', category: 'preset' },
+  { name: '充满信心', url: 'https://u2.fukit.cn/dIMX2uw46', category: 'preset' },
+  { name: '着急哭了', url: 'https://u2.fukit.cn/FI5oFBCI0', category: 'preset' },
+  { name: '喜欢花花', url: 'https://u2.fukit.cn/263FhmGO5', category: 'preset' },
+  { name: '你好呀伸爪', url: 'https://u2.fukit.cn/YXWxpwzSF', category: 'preset' },
+  { name: '洗澡', url: 'https://u2.fukit.cn/OLIp07iVF', category: 'preset' },
+  { name: '我是小国王', url: 'https://u2.fukit.cn/ov8Xckdy0', category: 'preset' },
+  { name: '变成问号', url: 'https://u2.fukit.cn/gbL2VM51I', category: 'preset' },
+
 ];
 
 
