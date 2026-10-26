@@ -15,6 +15,7 @@ import { GLOBAL_SCREEN_EFFECT_SCOPE } from './apps/messages/screenEffects/screen
 import { maybeTriggerStartupFocusText } from './apps/messages/screenEffects/birthdayService';
 
 import HubHeader from './apps/hub/HubHeader';
+import NewThingsBar from './apps/hub/NewThingsBar';
 import QuickBoard from './apps/hub/QuickBoard';
 
 import AppGrid from './apps/hub/AppGrid';
@@ -1166,8 +1167,13 @@ const isFictionApp = currentApp === 'fiction';
           <DailyOfferingHubGate
             onOpenSettings={() => openApp('settings')}
           >
+
                         <ErrorBoundary>
               <HubHeader />
+            </ErrorBoundary>
+
+            <ErrorBoundary>
+              <NewThingsBar delay={260} />
             </ErrorBoundary>
 
             <ErrorBoundary>

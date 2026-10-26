@@ -5127,4 +5127,10 @@ db.version(103).stores({
   fictionImageFiles: '++id',
 });
 
+// 新东西订阅条（src/apps/hub/NewThingsBar.jsx）：后台自动功能更新的轻量提醒，
+// 用完即删——不做"已读"状态，收下时直接物理删除这一行。
+db.version(104).stores({
+  backgroundUpdates: '++id, source, chatId, createdAt',
+});
+
 export default db;

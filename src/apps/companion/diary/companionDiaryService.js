@@ -18,6 +18,7 @@
 
 import db from '../../../db';
 import { generateDiaryText } from './companionDiaryAiService';
+import { addBackgroundUpdate } from '../../hub/newThingsService';
 
 const MAX_COMMENT_LENGTH = 200;
 
@@ -82,8 +83,17 @@ export const generateDiaryEntry = async (companionId, { triggerDefId = null, tri
       commentedAt: null,
     };
 
-    const id = await db.companionDiaries.add(record);
+        const id = await db.companionDiaries.add(record);
     record.id = id;
+
+    await addBackgroundUpdate({
+      source: 'diary',
+      chatId: companion.chatId,
+      title: '小伙伴写了新日记',
+      sub: content.length > 40 ? `${content.slice(0, 40)}…` : content,
+      extra: null,
+    });
+
     return record;
   } catch (error) {
     console.error('[CompanionDiary] 生成日记失败:', error);

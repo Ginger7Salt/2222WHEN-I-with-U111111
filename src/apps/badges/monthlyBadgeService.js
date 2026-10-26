@@ -27,6 +27,7 @@ import {
   getSeasonKey,
   MONTHLY_BADGE_SEASONS,
 } from './monthlyBadgeCatalog';
+import { addBackgroundUpdate } from '../hub/newThingsService';
 
 const toMs = (value) => {
   const ms = new Date(value).getTime();
@@ -190,7 +191,15 @@ export const checkAndUnlockSeason = async (chatId, seasonKey) => {
     unlockedConditionIds: allConditionIds,
   };
 
-  await db.monthlyBadgeUnlocks.put(updated);
+    await db.monthlyBadgeUnlocks.put(updated);
+
+  await addBackgroundUpdate({
+    source: 'badge',
+    chatId,
+    title: `解锁徽章「${seasonDef.seasonTitle}」`,
+    sub: `${seasonDef.badges.length} 枚图标已放进徽章墙`,
+    extra: null,
+  });
 
   return { ...updated, conditionResults, justUnlocked: true };
 };

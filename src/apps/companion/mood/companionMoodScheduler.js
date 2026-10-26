@@ -21,6 +21,8 @@ import db from '../../../db';
 import { getCompanionByChat } from '../companionService';
 import { getTodayDateStr, toDateStr, setCharMood } from './companionMoodService';
 import { judgeCharMood } from './companionMoodAiService';
+import { MOOD_DEFS } from './companionMoodIcons';
+import { addBackgroundUpdate } from '../../hub/newThingsService';
 
 const NIGHT_HOUR = 22;
 const MAX_MESSAGES_FOR_MOOD = 24;
@@ -59,9 +61,18 @@ const processChat = async (chat, todayStr) => {
     todayMessages,
   });
 
-  if (!moodKey) return; // AI 没判断出来就不写，不瞎编一个
+    if (!moodKey) return; // AI 没判断出来就不写，不瞎编一个
 
   await setCharMood(companion.id, todayStr, moodKey);
+
+  const moodLabel = MOOD_DEFS.find((def) => def.key === moodKey)?.label || moodKey;
+  await addBackgroundUpdate({
+    source: 'mood',
+    chatId: chat.id,
+    title: 'TA 今天的心情定了',
+    sub: `「${moodLabel}」，已记进日历`,
+    extra: { mood: moodLabel },
+  });
 };
 
 export const checkCompanionMoods = async (providedChats = null) => {
