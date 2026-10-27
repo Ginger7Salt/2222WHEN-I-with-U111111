@@ -1,0 +1,381 @@
+/* ============================================================
+   星光小竖琴 —— 样式。
+   颜色全部来自 src/styles/themes.css 的主题变量：先在 .harp-page 上
+   定义一层 --hp-* 别名（跟 .divination-scope 的 --interaction-* 别名
+   同一个做法），下面的类只引用别名，不写任何具体色值。
+   竖琴本体是 <canvas>，它的颜色在 harpTheme.js 里读同一批主题变量。
+   ============================================================ */
+
+.harp-page {
+  --hp-bg: var(--bg-main);
+  --hp-card: var(--card-bg);
+  --hp-border: var(--card-border);
+  --hp-text: var(--text-main);
+  --hp-sub: var(--text-sub);
+  --hp-muted: var(--text-muted);
+  --hp-accent: var(--accent-color);
+  --hp-accent-fg: var(--accent-foreground);
+  --hp-soft: var(--control-soft-bg);
+  --hp-soft-hover: var(--control-soft-hover);
+  --hp-divider: var(--divider);
+  --hp-serif: Georgia, 'Times New Roman', serif;
+
+  color: var(--hp-text);
+}
+
+.harp-page .hp-scroll {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 悬浮的圆形返回按钮，跟温室同一个位置和样子 */
+.harp-page .hp-back {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: 16px;
+  z-index: 20;
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hp-border);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--hp-text);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.harp-page .hp-back:active {
+  transform: scale(0.95);
+}
+
+.harp-page .hp-inner {
+  display: flex;
+  max-width: 440px;
+  margin: 0 auto;
+  flex-direction: column;
+  gap: 24px;
+  padding: calc(28px + env(safe-area-inset-top, 0px)) 16px calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+/* 标题区 */
+.harp-page .hp-header {
+  text-align: center;
+}
+
+.harp-page .hp-eyebrow {
+  margin: 0 0 8px;
+  color: var(--hp-muted);
+  font-family: var(--hp-serif);
+  font-size: 11px;
+  font-style: italic;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.harp-page .hp-title {
+  margin: 0 0 0 0.28em;
+  color: var(--hp-text);
+  font-family: var(--hp-serif);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+}
+
+.harp-page .hp-ornament {
+  display: flex;
+  max-width: 200px;
+  align-items: center;
+  gap: 12px;
+  margin: 14px auto 12px;
+}
+
+.harp-page .hp-ornament::before,
+.harp-page .hp-ornament::after {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, transparent, var(--hp-divider));
+  content: '';
+}
+
+.harp-page .hp-ornament::after {
+  transform: scaleX(-1);
+}
+
+.harp-page .hp-ornament i {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--hp-sub);
+  transform: rotate(45deg);
+}
+
+.harp-page .hp-lede {
+  margin: 0;
+  color: var(--hp-sub);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* 角色在场 */
+.harp-page .hp-who {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--hp-sub);
+  font-size: 12px;
+}
+
+.harp-page .hp-avatar {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--hp-border);
+  border-radius: 50%;
+  background: var(--hp-soft);
+  color: var(--hp-text);
+  font-family: var(--hp-serif);
+  font-size: 13px;
+}
+
+.harp-page .hp-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 竖琴 */
+.harp-page .hp-harp-wrap {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.harp-page .hp-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1.12;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.harp-page .hp-hint {
+  margin: 2px 0 0;
+  color: var(--hp-muted);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-align: center;
+}
+
+/* 刚才弹的 */
+.harp-page .hp-trail {
+  padding: 12px 4px 10px;
+  border-top: 1px solid var(--hp-divider);
+  border-bottom: 1px solid var(--hp-divider);
+  text-align: center;
+}
+
+.harp-page .hp-trail-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--hp-muted);
+  font-size: 12px;
+  text-align: left;
+}
+
+.harp-page .hp-trail-text {
+  min-height: 34px;
+  color: var(--hp-text);
+  font-family: var(--hp-serif);
+  font-size: 19px;
+  letter-spacing: 0.16em;
+  line-height: 34px;
+  overflow-wrap: anywhere;
+}
+
+/* 控制区 */
+.harp-page .hp-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.harp-page .hp-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.harp-page .hp-field {
+  min-width: 0;
+  min-height: 44px;
+  flex: 1 1 160px;
+  padding: 0 18px;
+  border: 1px solid var(--hp-border);
+  border-radius: 999px;
+  background: var(--hp-soft);
+  color: var(--hp-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.harp-page .hp-field::placeholder {
+  color: var(--hp-muted);
+}
+
+.harp-page .hp-field:focus-visible,
+.harp-page .hp-btn:focus-visible,
+.harp-page .hp-back:focus-visible {
+  outline: 2px solid var(--hp-accent);
+  outline-offset: 2px;
+}
+
+.harp-page .hp-btn {
+  min-height: 44px;
+  padding: 10px 20px;
+  border: 1px solid var(--hp-border);
+  border-radius: 999px;
+  background: var(--hp-soft);
+  color: var(--hp-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s, transform 0.15s;
+}
+
+.harp-page .hp-btn:hover {
+  background: var(--hp-soft-hover);
+}
+
+.harp-page .hp-btn:active {
+  transform: scale(0.97);
+}
+
+.harp-page .hp-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.harp-page .hp-btn-primary {
+  border-color: transparent;
+  background: var(--hp-accent);
+  color: var(--hp-accent-fg);
+  font-weight: 600;
+}
+
+.harp-page .hp-btn-primary:hover {
+  background: var(--hp-accent);
+  opacity: 0.88;
+}
+
+.harp-page .hp-btn-small {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+
+.harp-page .hp-status {
+  min-height: 20px;
+  margin: 0;
+  color: var(--hp-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* 收藏列表 */
+.harp-page .hp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.harp-page .hp-section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  color: var(--hp-text);
+  font-family: var(--hp-serif);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+}
+
+.harp-page .hp-rule {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, var(--hp-divider), transparent);
+}
+
+.harp-page .hp-empty {
+  margin: 0;
+  color: var(--hp-muted);
+  font-size: 12px;
+}
+
+.harp-page .hp-melodies {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.harp-page .hp-melody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--hp-divider);
+}
+
+.harp-page .hp-melody-name {
+  color: var(--hp-text);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.harp-page .hp-melody-by {
+  margin-left: 8px;
+  padding: 0 9px;
+  border: 1px solid var(--hp-border);
+  border-radius: 999px;
+  color: var(--hp-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.harp-page .hp-melody-by-ta {
+  border-color: var(--hp-accent);
+  color: var(--hp-sub);
+}
+
+.harp-page .hp-melody-text {
+  grid-column: 1;
+  color: var(--hp-sub);
+  font-family: var(--hp-serif);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  overflow-wrap: anywhere;
+}
+
+.harp-page .hp-melody-actions {
+  display: flex;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  gap: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .harp-page .hp-back,
+  .harp-page .hp-btn {
+    transition: none;
+  }
+}
