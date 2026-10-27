@@ -51,7 +51,8 @@ export const sendMelodyToCharacter = async ({ chatId, melody }) => {
   };
 
   const id = await db.messages.add(record);
-  await db.chats.update(chatId, { updatedAt: timestamp });
+  // harpEnabled：之后这个聊天的系统提示词里才会带上 [HARP] 标签说明（见 harpPromptBlock.js）
+  await db.chats.update(chatId, { updatedAt: timestamp, harpEnabled: true });
   dispatchLocalMessageEvent(chatId);
 
   // 立刻让角色回一条；失败不影响旋律已经写进聊天这件事

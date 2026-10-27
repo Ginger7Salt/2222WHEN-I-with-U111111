@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 
+import db from '../../db';
 import HarpCanvas from './HarpCanvas';
+import HarpGuideModal from './HarpGuideModal';
 import { ensureHarpAudio, releaseHarpAudio } from './harpAudio';
 import {
   MAX_MELODY_NOTES,
@@ -29,6 +31,7 @@ import './harp.css';
 // ============================================================
 
 const PHRASE_PREVIEW_LIMIT = 16;
+const GUIDE_SEEN_KEY = 'harpGuideSeen';
 
 const HarpPage = ({ chatId, character, onBack }) => {
   const harpRef = useRef(null);
@@ -47,6 +50,7 @@ const HarpPage = ({ chatId, character, onBack }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [isSending, setIsSending] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const characterName = character?.name || 'TA';
 
@@ -68,6 +72,27 @@ const HarpPage = ({ chatId, character, onBack }) => {
       cancelled = true;
     };
   }, [chatId]);
+
+  // ---------- 玩法说明：第一次进竖琴弹一次 ----------
+  useEffect(() => {
+    let cancelled = false;
+    db.settings
+      .get(GUIDE_SEEN_KEY)
+      .then((row) => {
+        if (!cancelled && !row) setShowGuide(true);
+      })
+      .catch((error) => console.warn('[harp] 读取说明状态失败:', error));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const closeGuide = useCallback(() => {
+    setShowGuide(false);
+    db.settings
+      .put({ key: GUIDE_SEEN_KEY, value: { seen: true, seenAt: new Date().toISOString() } })
+      .catch((error) => console.warn('[harp] 保存说明状态失败:', error));
+  }, []);
 
   // ---------- 页面卸载：清掉所有定时器，关掉音频 ----------
   useEffect(
@@ -268,6 +293,16 @@ const HarpPage = ({ chatId, character, onBack }) => {
           <ArrowLeft className="h-4 w-4" />
         </button>
 
+        <button
+          type="button"
+          onClick={() => setShowGuide(true)}
+          title="玩法说明"
+          aria-label="玩法说明"
+          className="hp-help"
+        >
+          ?
+        </button>
+
         <div className="hp-inner">
           <header className="hp-header">
             <p className="hp-eyebrow">Starlight Harp</p>
@@ -398,6 +433,8 @@ const HarpPage = ({ chatId, character, onBack }) => {
           </section>
         </div>
       </div>
+
+      {showGuide && <HarpGuideModal characterName={characterName} onClose={closeGuide} />}
     </div>
   );
 };

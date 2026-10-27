@@ -136,6 +136,7 @@ import { buildChatImageGenPromptNote } from '../apps/messages/chatImageGen/chatI
 import { runChatImageGeneration } from '../apps/messages/chatImageGen/chatImageGenService';
 import { describeMelodyForPrompt } from '../apps/harp/harpDescribe';
 import { parseHarpTagPayload } from '../apps/harp/harpTagParser';
+import { buildHarpPromptBlock } from '../apps/harp/harpPromptBlock';
 import {
   countPendingUserCoupons,
   containsCouponRedeemRequest,
@@ -1429,7 +1430,8 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   // 神秘快递：根据这个聊天当前的快递状态，只把真正用得上的那一个
   // 标签（PARCEL_START 或 PARCEL_NOTE）介绍给角色，已经准备好等用户
   // 拆的时候则完全不提——这件事已经做完了。
-  const parcelPromptBlock = buildParcelPromptBlock(chat);
+    const parcelPromptBlock = buildParcelPromptBlock(chat);
+  const harpPromptBlock = buildHarpPromptBlock(chat);
 
   // 和好券：用户发给角色的券，角色是持有方，这里让角色"知道"自己手上
   // 还攥着几张没兑现的，并且可以自己决定什么时候用 [COUPON_REDEEM] 兑现
@@ -1628,9 +1630,8 @@ ${stickerInstruction}
 - 赠送实体礼物：[GIFT: 礼物名称 | 寄语与选礼理由 | 金额(可选)]
 - 代点温馨外卖：[FOOD: 餐饮名称 | 商家名称 | 预计送达时间 | 叮嘱留言]
 - 开通亲属额度卡：[KINSHIP: 额度数字 | 周期(如:每月) | 卡片寄语]
-- 发送本地表情包：[STICKER: 表情包名称]
-- 在"星光小竖琴"里弹一段旋律给用户听：[HARP: 旋律名 | 简谱 | 节奏(可选)]（简谱只能用 1 2 3 5 6 五个音，用空格隔开，高八度前面加 ^，例如 3 5 5 6 ^1 6 5，3 到 20 个音；节奏可写 轻快/适中/舒缓；想用琴声表达心情、哄用户、回应用户刚弹的旋律时可以用，没有冷却限制，你自己判断合适的时机，不要每次都用）
-- 主动送用户一张和好券/心意兑换券：[COUPON: 券名称 | 可以兑换的具体内容]（没有冷却限制，你自己判断合适的时机）
+- 发送本地表情包：[STICKER: 表情包名称${harpPromptBlock}- 主动送用户一张和好券/心意兑换券：[COUPON:]
+ 券名称 | 可以兑换的具体内容]（没有冷却限制，你自己判断合适的时机）
 - 重新布置你的DIY小屋：[DIYAREA_REQUEST: 确认]（用户这次聊天里提出想让你换一下/重新收拾/重新设计小屋，无论说法多随意都要用，比如"DIY一下你的小屋""换个风格布置小屋""你小屋能不能换个样子""去收拾一下你的房间"；只是闲聊小屋、没有真的要求你改就不要用。用了之后不要在正文里描述新布置的样子，小屋会单独更新，像平时一样简短回应一句"好呀""我去弄弄"就行，别假装自己正在做某个具体动作）
 ${diyPromptBlock}
 ${parcelPromptBlock}
