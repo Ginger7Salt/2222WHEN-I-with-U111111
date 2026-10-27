@@ -134,6 +134,7 @@ import { getSharedWorldPromptBlock } from '../apps/shared-world/sharedWorldServi
 import { maybeUpdateProfileCard } from '../apps/messages/profile/profileCardService';
 import { buildChatImageGenPromptNote } from '../apps/messages/chatImageGen/chatImageGenDirective';
 import { runChatImageGeneration } from '../apps/messages/chatImageGen/chatImageGenService';
+import { describeMelodyForPrompt } from '../apps/harp/harpDescribe';
 import {
   countPendingUserCoupons,
   containsCouponRedeemRequest,
@@ -677,6 +678,10 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
     }
 
     return `[像素衣橱里的一件礼物：「${label}」]`;
+  }
+
+    if (msg.type === 'harp_melody') {
+    return describeMelodyForPrompt(msg);
   }
 
   if (msg.type === 'challenge_complete') {

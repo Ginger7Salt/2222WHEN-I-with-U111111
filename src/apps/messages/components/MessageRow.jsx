@@ -18,6 +18,7 @@ import ChatPokeNotice from '../interactions/ChatPokeNotice';
 import MoodUpdateNotice from '../mood/MoodUpdateNotice';
 import ChatDiyUpdateNotice from '../diy/ChatDiyUpdateNotice';
 import ChallengeCompletionNotice from '../../challenges/ChallengeCompletionNotice';
+import HarpMelodyNotice from '../../harp/HarpMelodyNotice';
 import PixelDollGiftNotice from '../../pixelDoll/PixelDollGiftNotice';
 import TextGameResultNotice from '../../textgames/TextGameResultNotice';
 import ChatParcelArrivedNotice from '../parcel/ChatParcelArrivedNotice';
@@ -68,6 +69,7 @@ import NeteaseMusicCard from './cards/NeteaseMusicCard';
 import { DidiRideCard } from './cards/DidiRideCard';
 import WeatherCard from './cards/WeatherCard';
 import WebSearchResultCard from './cards/WebSearchResultCard';
+
 
 // 长按多久才算"长按"、弹出反应面板。太短容易跟正常点击冲突，
 // 太长又会显得迟钝，420ms 是比较常见的手感。
@@ -309,6 +311,10 @@ const MessageRow = ({
     return <ChallengeCompletionNotice message={msg} />;
   }
 
+  // 星光小竖琴旋律卡片，可点击重听。
+  if (msg.type === 'harp_melody') {
+    return <HarpMelodyNotice message={msg} />;
+  }
   // 像素衣橱——送礼/角色回应/角色主动送礼留在聊天记录里的痕迹，同样是
   // 居中系统提示行，不可点击，具体穿戴情况去"像素衣橱"面板里看。
   if (msg.type === 'pixel_doll_gift') {

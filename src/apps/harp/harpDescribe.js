@@ -1,0 +1,48 @@
+import { formatMelodyText } from './harpNotes';
+
+// ============================================================
+// 星光小竖琴 —— 旋律的文字描述（纯函数，不碰数据库、不碰 aiService）。
+// 单独成文件是为了 aiService.js 能引用它而不形成循环依赖。
+// 角色听不到音频，这段描述就是它"听到"的全部内容。
+// ============================================================
+
+// 平均间隔 -> 节奏说法
+const describeTempo = (delays) => {
+  const gaps = (delays || []).slice(1).filter((value) => Number.isFinite(value) && value > 0);
+  if (!gaps.length) return '节奏平缓';
+  const average = gaps.reduce((sum, value) => sum + value, 0) / gaps.length;
+  if (average < 320) return '节奏轻快';
+  if (average < 700) return '节奏适中';
+  return '节奏舒缓';
+};
+
+// 音符编号 -> 音域说法（0-4 低八度，5-9 高八度）
+const describeRange = (notes) => {
+  const list = notes || [];
+  if (!list.length) return '';
+  const high = list.filter((index) => index >= 5).length;
+  if (high === 0) return '音域偏低';
+  if (high === list.length) return '音域偏高';
+  return high / list.length >= 0.5 ? '音域偏高' : '高低音都有';
+};
+
+export const describeMelody = ({ notes, delays }) => {
+  const count = (notes || []).length;
+  return `${count} 个音，${describeTempo(delays)}，${describeRange(notes)}`;
+};
+
+// 给 aiService.js 的 formatMsgContentForPrompt 用：把一条 harp_melody 消息
+// 变成一句话。sender 为 user 是用户弹给角色听，为 character 是角色弹给用户听。
+export const describeMelodyForPrompt = (msg) => {
+  const meta = msg?.metadata || {};
+  const notes = Array.isArray(meta.notes) ? meta.notes : [];
+  const name = meta.name || '无名旋律';
+  const summary = describeMelody({ notes, delays: meta.delays });
+  const score = formatMelodyText(notes);
+
+  if (msg?.sender === 'character') {
+    return `[你在"星光小竖琴"里为用户弹了一段旋律「${name}」：${summary}。简谱（5 音阶，1 2 3 5 6，带 ↑ 的是高八度）：${score}]`;
+  }
+
+  return `[用户在"星光小竖琴"里弹了一段旋律给你听，名字是「${name}」：${summary}。简谱（5 音阶，1 2 3 5 6，带 ↑ 的是高八度）：${score}。你听不到声音，只能根据这些描述去感受，请自然地回应这段旋律。]`;
+};

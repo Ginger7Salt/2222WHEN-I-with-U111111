@@ -10,6 +10,7 @@ import {
   buildMelodyFromPhrase,
   formatMelodyText,
 } from './harpNotes';
+import { sendMelodyToCharacter } from './harpChatService';
 import { deleteHarpMelody, getHarpMelodies, saveHarpMelody } from './harpService';
 import './harp.css';
 
@@ -17,11 +18,11 @@ import './harp.css';
 // 星光小竖琴 —— 整页（聊天窗"更多入口"菜单进来，挂在这个聊天上）。
 //
 // Slice A：用户自己弹、自己收藏、自己重听。
+// Slice B："弹给TA听"——刚弹的一段或收藏里的旋律，写成一条聊天消息，TA 立刻回应。
 //   - 弹一段：停手 PHRASE_CLOSE_MS 之后算"一段"，至少 MIN_PHRASE_NOTES 个
 //     音才能收藏。弹奏过程只存在这个组件的内存里，关掉页面就没了；只有点
 //     "收藏"才会写进 harpMelodies。
-//   - 还没有的（后面的切片）："弹给TA听"写回聊天、TA 的回应、角色自己
-//     弹给用户听。这个文件里没有任何 AI 调用，也不往聊天里写消息。
+//   - 还没有的（后面的切片）：角色自己弹给用户听。
 //
 // 版面跟温室/异地任务挑战同一个做法：没有整条顶栏，只有一个悬浮的圆形
 // 返回按钮；颜色全部用 themes.css 的主题变量（见 harp.css 顶部的别名）。
@@ -45,6 +46,7 @@ const HarpPage = ({ chatId, character, onBack }) => {
   const [status, setStatus] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [isSending, setIsSending] = useState(false);
 
   const characterName = character?.name || 'TA';
 
@@ -190,6 +192,30 @@ const HarpPage = ({ chatId, character, onBack }) => {
     }
   };
 
+  // ---------- 弹给 TA 听 ----------
+  const sendToCharacter = async (melody, label) => {
+    if (isSending || playingRef.current) return;
+    setIsSending(true);
+    try {
+      const sent = await sendMelodyToCharacter({ chatId, melody });
+      setStatus(sent ? `已弹给 ${characterName} 听${label ? `：「${label}」` : ''}` : '发送失败，请再试一次。');
+    } catch (error) {
+      console.warn('[harp] 弹给TA听失败:', error);
+      setStatus('发送失败，请再试一次。');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleSendPhrase = () => {
+    if (phraseRef.current.length < MIN_PHRASE_NOTES) return;
+    clearTimeout(closeTimerRef.current);
+    closedRef.current = true;
+    setClosed(true);
+    const built = buildMelodyFromPhrase(phraseRef.current);
+    void sendToCharacter({ ...built, name: nameDraft }, nameDraft.trim());
+  };
+
   const handleDelete = async (id) => {
     if (pendingDeleteId !== id) {
       setPendingDeleteId(id);
@@ -299,6 +325,14 @@ const HarpPage = ({ chatId, character, onBack }) => {
               <button
                 type="button"
                 className="hp-btn"
+                onClick={handleSendPhrase}
+                disabled={!canSend || isSending}
+              >
+                弹给 TA 听
+              </button>
+              <button
+                type="button"
+                className="hp-btn"
                 onClick={handleClear}
                 disabled={count === 0 || playing}
               >
@@ -339,6 +373,14 @@ const HarpPage = ({ chatId, character, onBack }) => {
                         disabled={playing}
                       >
                         重听
+                      </button>
+                      <button
+                        type="button"
+                        className="hp-btn hp-btn-small"
+                        onClick={() => sendToCharacter(melody, melody.name)}
+                        disabled={isSending || playing}
+                      >
+                        弹给 TA
                       </button>
                       <button
                         type="button"
