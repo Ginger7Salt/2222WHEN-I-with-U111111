@@ -237,6 +237,7 @@ const MemoirPage = lazy(() => import('../memoir/MemoirPage'));
 // 角色的DIY小屋，同样只有用户点开 🐾 更多入口里的入口才加载
 const CharacterDiyPage = lazy(() => import('./diy/CharacterDiyPage'));
 const ChallengeBoardPage = lazy(() => import('../challenges/ChallengeBoardPage'));
+const HarpPage = lazy(() => import('../harp/HarpPage'));
 
 // 神秘快递页面，同样只有用户点开 🐾 更多入口里的入口、或者点了快递
 // 到达提示才加载
