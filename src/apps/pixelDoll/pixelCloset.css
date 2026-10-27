@@ -29,7 +29,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 .pd-root *, .pd-root *::before, .pd-root *::after { box-sizing: border-box; }
-.pd-root button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; touch-action: manipulation; }
+/* 用 :where() 把重置的优先级压到最低，否则它（0,1,1）会盖掉 .pd-btn / .pd-chip /
+   .pd-send 等单类名按钮自己写的 padding、border、background（0,1,0），
+   导致按钮文字紧贴边框。 */
+:where(.pd-root) button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; touch-action: manipulation; }
 .pd-root button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
 .pd-root [hidden] { display: none !important; }
 
