@@ -5133,4 +5133,9 @@ db.version(104).stores({
   backgroundUpdates: '++id, source, chatId, createdAt',
 });
 
+// 星光小竖琴（src/apps/harp/）：每个聊天自己的收藏旋律（只存音符编号和间隔，不存音频）。
+db.version(105).stores({
+  harpMelodies: '++id, chatId, createdBy, createdAt, [chatId+createdAt]',
+});
+
 export default db;

@@ -33,7 +33,8 @@ Phone,
   Stamp,
     Mic,
   Hand,
-  Shirt,
+    Shirt,
+  Music2,
 } from 'lucide-react';
 
 import {
@@ -236,6 +237,7 @@ const MemoirPage = lazy(() => import('../memoir/MemoirPage'));
 // 角色的DIY小屋，同样只有用户点开 🐾 更多入口里的入口才加载
 const CharacterDiyPage = lazy(() => import('./diy/CharacterDiyPage'));
 const ChallengeBoardPage = lazy(() => import('../challenges/ChallengeBoardPage'));
+
 // 神秘快递页面，同样只有用户点开 🐾 更多入口里的入口、或者点了快递
 // 到达提示才加载
 const ParcelPage = lazy(() => import('./parcel/ParcelPage'));
@@ -357,7 +359,8 @@ const [showCompanionPage, setShowCompanionPage] = useState(false);
   const [showMemoirPage, setShowMemoirPage] = useState(false);
   const [showCharacterDiy, setShowCharacterDiy] = useState(false);
   const [showParcelPage, setShowParcelPage] = useState(false);
-   const [showChallengeBoard, setShowChallengeBoard] = useState(false);
+  const [showChallengeBoard, setShowChallengeBoard] = useState(false);
+  const [showHarp, setShowHarp] = useState(false);
   const [showPixelCloset, setShowPixelCloset] = useState(false);
   // 挂件要不要出现：只读 pixelDollProfiles.widgetEnabled 这一个字段（见下面
   // 的 useEffect），不 import pixelDoll 文件夹，所以这个聊天没开通衣橱时
@@ -1341,7 +1344,8 @@ void openChatAndMarkMessagesAsRead();
   showMemoirPage,
   showCharacterDiy,
   showParcelPage,
-  showChallengeBoard,
+    showChallengeBoard,
+  showHarp,
   activeOfflineSessionId,
 ]);
 
@@ -2192,12 +2196,27 @@ const handleCancelAiResponse = () => {
         character={character}
         onBack={() => {
   hasScrolledToLatestRef.current = false;
-  setShowChallengeBoard(false);
+   setShowChallengeBoard(false);
 }}
       />
     </Suspense>
   );
 }
+
+  if (showHarp) {
+    return (
+      <Suspense fallback={null}>
+        <HarpPage
+          chatId={chatId}
+          character={character}
+          onBack={() => {
+            hasScrolledToLatestRef.current = false;
+            setShowHarp(false);
+          }}
+        />
+      </Suspense>
+    );
+  }
 
 
 
@@ -2502,8 +2521,20 @@ const handleCancelAiResponse = () => {
                         }}
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
                       >
-                        <Stamp className="h-4 w-4" />
+                                                <Stamp className="h-4 w-4" />
                         <span>异地任务挑战</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowHarp(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Music2 className="h-4 w-4" />
+                        <span>星光小竖琴</span>
                       </button>
                     </div>
                   </>
