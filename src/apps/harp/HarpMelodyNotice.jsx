@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Music2, Play } from 'lucide-react';
 
 import { ensureHarpAudio, playHarpNote } from './harpAudio';
+import db from '../../db';
 import { formatMelodyText } from './harpNotes';
+import { saveHarpMelody } from './harpService';
 
 // 星光小竖琴 —— 聊天记录里的旋律卡片。
 // 用户弹给角色听（sender:'user'）和角色弹给用户听（sender:'character'）
@@ -16,6 +18,7 @@ const HarpMelodyNotice = ({ message }) => {
   const timersRef = useRef([]);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [playing, setPlaying] = useState(false);
+  const [saveState, setSaveState] = useState(meta.collected ? 'saved' : 'idle');
 
   useEffect(
     () => () => {
@@ -48,6 +51,29 @@ const HarpMelodyNotice = ({ message }) => {
       }, elapsed + 900)
     );
     timersRef.current = timers;
+  };
+
+    // TA 弹的旋律可以收藏进这个聊天的收藏列表（createdBy:'character'）
+  const handleCollect = async (event) => {
+    event.stopPropagation();
+    if (saveState !== 'idle') return;
+    setSaveState('saving');
+    try {
+      const saved = await saveHarpMelody({
+        chatId: message.chatId,
+        name: meta.name,
+        notes,
+        delays,
+        createdBy: 'character',
+      });
+      if (saved && message?.id) {
+        await db.messages.update(message.id, { metadata: { ...meta, collected: true } });
+      }
+      setSaveState(saved ? 'saved' : 'idle');
+    } catch (error) {
+      console.warn('[harp] 收藏TA的旋律失败:', error);
+      setSaveState('idle');
+    }
   };
 
   const tokens = formatMelodyText(notes).split(' ');
@@ -103,7 +129,23 @@ const HarpMelodyNotice = ({ message }) => {
           <Play className="h-3 w-3" />
           <span>{playing ? '正在播放…' : '点一下再听一遍'}</span>
         </div>
-      </button>
+           </button>
+      {!isUser && (
+        <button
+          type="button"
+          onClick={handleCollect}
+          disabled={saveState !== 'idle'}
+          className="ml-2 self-end rounded-full px-3 py-1 text-[11px]"
+          style={{
+            background: 'var(--control-soft-bg)',
+            color: 'var(--text-sub)',
+            border: '1px solid var(--card-border)',
+            opacity: saveState === 'idle' ? 1 : 0.6,
+          }}
+        >
+          {saveState === 'saved' ? '已收藏' : '收藏'}
+        </button>
+      )}
     </div>
   );
 };
