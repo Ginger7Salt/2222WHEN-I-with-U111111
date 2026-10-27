@@ -1,0 +1,130 @@
+/* 星光小竖琴 —— 玩法说明弹窗。颜色全部来自 .harp-page 上的 --hp-* 别名。 */
+
+.harp-page .hp-help {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  right: 16px;
+  z-index: 20;
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hp-border);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--hp-text);
+  font-family: var(--hp-serif);
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.harp-page .hp-help:active {
+  transform: scale(0.95);
+}
+
+.harp-page .hp-help:focus-visible,
+.harp-page .hg-close:focus-visible {
+  outline: 2px solid var(--hp-accent);
+  outline-offset: 2px;
+}
+
+.harp-page .hg-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  background: color-mix(in srgb, var(--hp-bg) 70%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.harp-page .hg-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  max-height: 88dvh;
+  overflow-y: auto;
+  padding: 28px 22px 22px;
+  border: 1px solid var(--hp-border);
+  border-radius: 20px;
+  background: var(--hp-card);
+  color: var(--hp-text);
+}
+
+.harp-page .hg-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: var(--hp-soft);
+  color: var(--hp-sub);
+  cursor: pointer;
+}
+
+.harp-page .hg-eyebrow {
+  margin: 0 0 6px;
+  color: var(--hp-muted);
+  font-family: var(--hp-serif);
+  font-size: 11px;
+  font-style: italic;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.harp-page .hg-title {
+  margin: 0 0 16px;
+  color: var(--hp-text);
+  font-family: var(--hp-serif);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+
+.harp-page .hg-list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+}
+
+.harp-page .hg-list li {
+  color: var(--hp-sub);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.harp-page .hg-list strong {
+  display: block;
+  color: var(--hp-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.harp-page .hg-note {
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--hp-divider);
+  color: var(--hp-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.harp-page .hg-ok {
+  width: 100%;
+  margin-top: 18px;
+}
