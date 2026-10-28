@@ -25,6 +25,7 @@ import { announceGreetingReady } from './greetingNotify';
 import GreetingCover from './GreetingCover';
 import GreetingUnwrap from './GreetingUnwrap';
 import GreetingAskSheet from './GreetingAskSheet';
+import PopupBookShelf from './PopupBookShelf';
 import './greeting.css';
 
 const FILTERS = [
@@ -51,7 +52,10 @@ const GreetingApp = ({ onBackHub }) => {
   const [showAsk, setShowAsk] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [askError, setAskError] = useState('');
-  const [stageIndex, setStageIndex] = useState(0);
+    const [stageIndex, setStageIndex] = useState(0);
+  const [tab, setTab] = useState('cards');
+  const [showBookAsk, setShowBookAsk] = useState(false);
+  const [bookCount, setBookCount] = useState(0);
 
   const charactersById = useMemo(
     () => Object.fromEntries(characters.map((character) => [character.id, character])),
@@ -207,11 +211,15 @@ const GreetingApp = ({ onBackHub }) => {
           type="button"
           className="gc-ask-btn"
           onClick={() => {
+            if (tab === 'books') {
+              setShowBookAsk(true);
+              return;
+            }
             setAskError('');
             setShowAsk(true);
           }}
         >
-          <Plus size={14} /> 请 TA 做一张
+          <Plus size={14} /> {tab === 'books' ? '请 TA 做一本' : '请 TA 做一张'}
         </button>
       </div>
 
@@ -221,14 +229,23 @@ const GreetingApp = ({ onBackHub }) => {
       </div>
 
       <div className="gc-tabs">
-        <button type="button" className="is-on">
+               <button type="button" className={tab === 'cards' ? 'is-on' : ''} onClick={() => setTab('cards')}>
           贺卡<i>{String(readyCount).padStart(2, '0')}</i>
         </button>
-        <button type="button" disabled>
-          立体书<em>SOON</em>
+        <button type="button" className={tab === 'books' ? 'is-on' : ''} onClick={() => setTab('books')}>
+          立体书<i>{String(bookCount).padStart(2, '0')}</i>
         </button>
       </div>
 
+         {tab === 'books' && (
+        <PopupBookShelf
+          showAsk={showBookAsk}
+          onCloseAsk={() => setShowBookAsk(false)}
+          onCountChange={setBookCount}
+        />
+      )}
+
+      {tab === 'cards' && (
       <div className="gc-filters">
         {FILTERS.map((item) => (
           <button
@@ -239,15 +256,14 @@ const GreetingApp = ({ onBackHub }) => {
           >
             {item.label}
           </button>
-        ))}
-      </div>
-
-      {loaded && visibleCards.length === 0 ? (
+             ) : (
+        tab === 'cards' && <div className="gc-rack">{visibleCards.map(renderSlot)}</div>
+      )}
         <div className="gc-empty">
           {cards.length === 0 ? '这里还空着。让 TA 为你做第一张吧。' : '这一格还空着'}
         </div>
-      ) : (
-        <div className="gc-rack">{visibleCards.map(renderSlot)}</div>
+           ) : (
+        tab === 'cards' && <div className="gc-rack">{visibleCards.map(renderSlot)}</div>
       )}
 
       <GreetingAskSheet

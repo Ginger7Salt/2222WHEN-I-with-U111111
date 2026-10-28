@@ -5142,4 +5142,9 @@ db.version(106).stores({
   greetingCards: '++id, characterId, status, source, createdAt, revealAt, [characterId+createdAt]',
 });
 
+// 立体书（src/apps/greeting/popupBook*.js）：和贺卡同一个收藏夹，独立一张表。
+db.version(107).stores({
+  popupBooks: '++id, characterId, status, source, createdAt, revealAt, [characterId+createdAt]',
+});
+
 export default db;
