@@ -52,7 +52,7 @@ const GreetingApp = ({ onBackHub }) => {
   const [showAsk, setShowAsk] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [askError, setAskError] = useState('');
-    const [stageIndex, setStageIndex] = useState(0);
+  const [stageIndex, setStageIndex] = useState(0);
   const [tab, setTab] = useState('cards');
   const [showBookAsk, setShowBookAsk] = useState(false);
   const [bookCount, setBookCount] = useState(0);
@@ -229,7 +229,7 @@ const GreetingApp = ({ onBackHub }) => {
       </div>
 
       <div className="gc-tabs">
-               <button type="button" className={tab === 'cards' ? 'is-on' : ''} onClick={() => setTab('cards')}>
+        <button type="button" className={tab === 'cards' ? 'is-on' : ''} onClick={() => setTab('cards')}>
           贺卡<i>{String(readyCount).padStart(2, '0')}</i>
         </button>
         <button type="button" className={tab === 'books' ? 'is-on' : ''} onClick={() => setTab('books')}>
@@ -237,7 +237,7 @@ const GreetingApp = ({ onBackHub }) => {
         </button>
       </div>
 
-         {tab === 'books' && (
+      {tab === 'books' && (
         <PopupBookShelf
           showAsk={showBookAsk}
           onCloseAsk={() => setShowBookAsk(false)}
@@ -256,13 +256,15 @@ const GreetingApp = ({ onBackHub }) => {
           >
             {item.label}
           </button>
-             ) : (
-        tab === 'cards' && <div className="gc-rack">{visibleCards.map(renderSlot)}</div>
+        ))}
+      </div>
       )}
+
+      {tab === 'cards' && loaded && visibleCards.length === 0 ? (
         <div className="gc-empty">
           {cards.length === 0 ? '这里还空着。让 TA 为你做第一张吧。' : '这一格还空着'}
         </div>
-           ) : (
+      ) : (
         tab === 'cards' && <div className="gc-rack">{visibleCards.map(renderSlot)}</div>
       )}
 
