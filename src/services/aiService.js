@@ -56,6 +56,7 @@ import {
 } from '../apps/messages/screenEffects/screenEffectDirective';
 import { runScreenEffectSession } from '../apps/messages/screenEffects/screenEffectSession';
 import { runBubbleStyleSession } from '../apps/messages/bubbleStyleSession';
+import { buildGreetingPromptNote, applyGreetingDirective } from '../apps/greeting/greetingDirective';
 import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
 import { CONFIRM_CARD_PROMPT_NOTE, applyConfirmCardDirective } from '../apps/messages/confirmCardDirective';
 import { getAvatarHistorySwitchNote, applyAvatarHistorySwitchDirective } from '../apps/messages/avatarHistoryDirective';
@@ -2651,6 +2652,10 @@ const companionOfferNote = options.ignoreAway
 // 限制（跟小伙伴邀请不同），只在 ignoreAway 时跟其它"可选行为"一样收起。
 const bubbleStyleNote = options.ignoreAway ? '' : buildBubbleStylePromptNote();
 
+const greetingNote = options.ignoreAway
+  ? ''
+  : await buildGreetingPromptNote({ characterId: character.id });
+
 // 分享地方：跟气泡风格同一套"不设限制"的约定，角色任何一次回复都能
 // 自主决定分享一个地方，只在 ignoreAway 时跟其它"可选行为"一样收起。
 const characterPlaceNote = options.ignoreAway ? '' : buildCharacterPlacePromptNote();
@@ -2713,6 +2718,8 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   companionOfferNote ? `\n\n${companionOfferNote}` : ''
 }${
   bubbleStyleNote ? `\n\n${bubbleStyleNote}` : ''
+}${
+  greetingNote ? `\n\n${greetingNote}` : ''
 }${
   characterPlaceNote ? `\n\n${characterPlaceNote}` : ''
 }${
@@ -2890,11 +2897,17 @@ const { content: contentAfterBubbleStyle, wantsChange: wantsBubbleChange } = awa
   content: contentAfterScreenEffect,
 });
 
+const {
+  content: contentAfterGreeting,
+  wantsCard: wantsGreetingCard,
+  occasion: greetingOccasion,
+} = applyGreetingDirective({ content: contentAfterBubbleStyle });
+
 // 取出角色的 [SHARE_PLACE...] 标签（一律从正文去掉）；跟气泡风格同一套
 // "不设限制"的约定，只负责摘标签并告诉调用方"角色想分享一个地方"，
 // 真正的挑选/写入在回复落库之后由 runCharacterPlaceSession 单独完成。
 const { content: contentAfterCharacterPlace, wantsShare: wantsCharacterPlace } = applyCharacterPlaceDirective({
-  content: contentAfterBubbleStyle,
+  content: contentAfterGreeting,
 });
 
 // 取出角色的 [SWITCH_BACKGROUND: ...] 标签（一律从正文去掉）；标签里写的
@@ -3284,6 +3297,15 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
           character,
           triggerReply: safeParsedMessages.find((message) => message.type === 'text')?.content || '',
         });
+      }
+
+      if (wantsGreetingCard && messageIds.length > 0) {
+        const greetingTrigger = safeParsedMessages.find((m) => m.type === 'text')?.content || '';
+        void import('../apps/greeting/greetingSession')
+          .then(({ runGreetingSession }) => runGreetingSession({
+            chatId, character, triggerReply: greetingTrigger, occasion: greetingOccasion,
+          }))
+          .catch((error) => console.warn('[GreetingSession] 加载失败：', error));
       }
 
       // 角色想分享一个地方：回复已经写入后，再单独补一次调用去挑选/落库，
