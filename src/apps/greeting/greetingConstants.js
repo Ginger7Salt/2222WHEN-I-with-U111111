@@ -102,3 +102,10 @@ export const MAKING_STALE_MS = 10 * 60 * 1000;
 
 // "制作中"卡片上轮换显示的进度文字。
 export const MAKING_STAGES = ['裁切', '上色', '写字', '封口'];
+
+// 角色主动送：同一个角色两次主动送之间至少隔这么久（毫秒）。冷却期内聊天
+// 提示词里不会带"想送贺卡就写 [CARD_WANT]"那段说明，所以不占 token。
+export const PROACTIVE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+
+// 主动送的贺卡默认用积木库（款式稳定，不容易失败）。
+export const PROACTIVE_DEFAULT_MODE = GREETING_MODE.BLOCKS;

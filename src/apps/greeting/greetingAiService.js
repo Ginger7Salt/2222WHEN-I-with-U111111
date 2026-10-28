@@ -239,10 +239,21 @@ export const buildGreetingSystemPrompt = async ({
   occasion = 'any',
   userNote = '',
   mode = GREETING_MODE.BLOCKS,
+  context = null,
 }) => {
   const occasionInfo = getOccasion(occasion);
   const worldBooksText = await getEnabledWorldBooksText();
   const note = cleanText(userNote, 120);
+  const contextText = context
+    ? `
+【这次的来由】
+这不是用户要求的，是你刚才和用户聊天时自己想送一张贺卡。
+最近的聊天：
+${String(context.history || '').slice(0, 1200) || '（暂无）'}
+你刚才说的那句话：${cleanText(context.trigger, 200) || '（无）'}
+卡片内容要和这段聊天有呼应，但不要照搬原话，也不要提"聊天记录"。
+`
+    : '';
 
   return `你现在正扮演「${character?.name || '未命名角色'}」。
 
@@ -254,7 +265,7 @@ ${worldBooksText}
 你要亲手为用户做一张贺卡。
 场合：${occasionInfo.label}。${occasionInfo.hint}。
 ${note ? `用户留了一句话：「${note}」。` : '用户没有留话，由你自己决定写什么。'}
-
+${contextText}
 【写作要求】
 - 用你自己的口吻写，具体、克制，像一个真实的人会写的话。不要客服式安慰，不要鸡汤，不要堆砌形容词。
 - 正文 2 到 6 行，每行一句完整的话，每行不超过 28 个汉字。
@@ -277,8 +288,9 @@ export const generateGreetingContent = async ({
   occasion = 'any',
   userNote = '',
   mode = GREETING_MODE.BLOCKS,
+  context = null,
 }) => {
-  const systemPrompt = await buildGreetingSystemPrompt({ character, occasion, userNote, mode });
+  const systemPrompt = await buildGreetingSystemPrompt({ character, occasion, userNote, mode, context });
   const userPrompt = '请现在就做这张贺卡，严格按指定格式输出。';
 
   // 最多尝试两次：第一次格式不对时再要一次。网络/配置类错误由 generateResponse 直接抛出。

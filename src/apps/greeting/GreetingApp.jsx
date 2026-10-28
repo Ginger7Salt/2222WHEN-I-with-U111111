@@ -11,7 +11,6 @@ import { ArrowLeft, Plus, Trash2, RotateCw } from 'lucide-react';
 
 import db from '../../db';
 import ConfirmModal from '../../components/ConfirmModal';
-import { triggerGlobalToast } from '../../components/NotificationToast';
 import {
   deleteGreetingCard,
   listGreetingCards,
@@ -22,6 +21,7 @@ import {
   subscribeGreetingCards,
 } from './greetingService';
 import { GREETING_SOURCE, GREETING_STATUS, MAKING_STAGES } from './greetingConstants';
+import { announceGreetingReady } from './greetingNotify';
 import GreetingCover from './GreetingCover';
 import GreetingUnwrap from './GreetingUnwrap';
 import GreetingAskSheet from './GreetingAskSheet';
@@ -38,26 +38,6 @@ const matchesFilter = (card, filter) => {
   if (filter === 'all') return true;
   if (filter === 'unread') return card.status === GREETING_STATUS.READY && !card.isRead;
   return card.source === filter;
-};
-
-// 贺卡送到时的系统通知（只有用户已经授权过才会弹，不在这里主动申请权限）。
-const showSystemNotification = (characterName, avatar) => {
-  if (
-    typeof window === 'undefined' ||
-    !('Notification' in window) ||
-    Notification.permission !== 'granted'
-  ) {
-    return;
-  }
-  try {
-    new Notification(`${characterName} 做好了一张贺卡`, {
-      body: '去收藏夹拆开看看',
-      icon: avatar || '/favicon.ico',
-      tag: 'greeting-card-ready',
-    });
-  } catch (error) {
-    console.warn('贺卡通知未能显示：', error);
-  }
 };
 
 const GreetingApp = ({ onBackHub }) => {
@@ -100,13 +80,7 @@ const GreetingApp = ({ onBackHub }) => {
         if (!alive) return;
         for (const card of ready) {
           const character = await db.characters.get(card.characterId);
-          const name = character?.name || 'TA';
-          triggerGlobalToast({
-            title: `${name} 做好了一张贺卡`,
-            content: '去收藏夹拆开看看',
-            iconType: 'bell',
-          });
-          showSystemNotification(name, character?.avatar);
+          announceGreetingReady(character);
         }
       } catch (error) {
         console.warn('推进贺卡状态失败：', error);

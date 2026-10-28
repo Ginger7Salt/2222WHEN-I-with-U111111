@@ -12,11 +12,15 @@
 //   生成失败              -> status 'failed'，error 里是可以直接展示的原因
 // 生成完成后不立刻送到，是为了让"TA 在做"有时间感（见 MAKE_DELAY_RANGE_MS）。
 //
-// 切片 A 只做"用户点名做"，没有定时器/推送/主动送；reconcile 只在贺卡页面
-// 挂载期间由页面自己的定时器驱动。主动送和后台推送属于后续切片。
+// 两条来源：
+//   - 用户点名做（source requested）：走上面的"制作中 -> 延迟 -> 送到"，reconcile
+//     只在贺卡页面挂载期间由页面自己的定时器驱动。
+//   - 角色在聊天里主动送（source proactive，instant:true）：没有定时器。生成一完成就
+//     直接改成 ready 并弹提示，失败则静默删除这一行。触发入口见 greetingDirective.js。
 
 import db from '../../db';
 import { generateGreetingContent } from './greetingAiService';
+import { announceGreetingReady } from './greetingNotify';
 import {
   GREETING_MODE,
   GREETING_SOURCE,
@@ -92,6 +96,7 @@ const runGeneration = async (cardId) => {
       occasion: card.occasion,
       userNote: card.userNote,
       mode: card.mode,
+      context: card.context || null,
     });
 
     // 生成期间用户可能已经把这张卡删了，这时候不要把它"复活"。
@@ -105,10 +110,22 @@ const runGeneration = async (cardId) => {
       generatedAt: Date.now(),
       error: '',
     });
+
+    // 主动送的卡不走"制作中"的展示延迟：生成完就是送到了。
+    if (card.instant) {
+      await db.greetingCards.update(cardId, {
+        status: GREETING_STATUS.READY,
+        revealAt: Date.now(),
+      });
+      announceGreetingReady(character);
+    }
   } catch (error) {
     console.warn('贺卡生成失败：', error);
     const stillThere = await db.greetingCards.get(cardId).catch(() => null);
-    if (stillThere) {
+    if (stillThere && stillThere.instant) {
+      // 用户没要过的卡，失败了就悄悄删掉，不在书架上留"失败"的残骸。
+      await db.greetingCards.delete(cardId);
+    } else if (stillThere) {
       await db.greetingCards.update(cardId, {
         status: GREETING_STATUS.FAILED,
         error: String(error?.message || '贺卡没有做成。'),
@@ -127,6 +144,8 @@ export const requestGreetingCard = async ({
   userNote = '',
   mode = GREETING_MODE.BLOCKS,
   source = GREETING_SOURCE.REQUESTED,
+  instant = false,
+  context = null,
 }) => {
   const character = await db.characters.get(characterId);
   if (!character) {
@@ -142,8 +161,10 @@ export const requestGreetingCard = async ({
     userNote: String(userNote || '').trim().slice(0, 120),
     status: GREETING_STATUS.MAKING,
     createdAt: now,
-    revealAt: now + randomRevealDelay(),
+    revealAt: instant ? now : now + randomRevealDelay(),
     isRead: 0,
+    instant: Boolean(instant),
+    context: context || null,
   });
 
   notify();
