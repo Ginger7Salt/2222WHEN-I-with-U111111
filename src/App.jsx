@@ -128,7 +128,8 @@ const PebblingApp = lazyWithRetry(() => import('./apps/pebbling/PebblingApp'), '
 const ImaginariumApp = lazyWithRetry(() => import('./apps/imaginarium/ImaginariumApp'), 'ImaginariumApp');
 const BubbleApp = lazyWithRetry(() => import('./apps/bubble/BubbleApp'), 'BubbleApp');
 const RpApp = lazyWithRetry(() => import('./apps/rp/RpApp'), 'RpApp');
-  const ImageStudioApp = lazyWithRetry(() => import('./apps/imagestudio/ImageStudioApp'), 'ImageStudioApp');
+  const GreetingApp = lazyWithRetry(() => import('./apps/greeting/GreetingApp'), 'GreetingApp');
+const ImageStudioApp = lazyWithRetry(() => import('./apps/imagestudio/ImageStudioApp'), 'ImageStudioApp');
 const HabitatApp = lazyWithRetry(() => import('./apps/habitat/HabitatApp'), 'HabitatApp');
 const EphemeraApp = lazyWithRetry(() => import('./apps/ephemera/EphemeraApp'), 'EphemeraApp');
 
@@ -225,6 +226,7 @@ const REGISTERED_APPS = [
   'bubble',
   'habitat',
      'rp',
+     'greeting',
     'imagestudio',
     'ephemera',
   'askbox',
@@ -1339,6 +1341,14 @@ const isFictionApp = currentApp === 'fiction';
             </React.Suspense>
           </ErrorBoundary>
         )}
+
+          {currentApp === 'greeting' && (
+    <ErrorBoundary>
+      <React.Suspense fallback={<AppLoadingFallback />}>
+        <GreetingApp onBackHub={() => openApp('hub')} />
+      </React.Suspense>
+    </ErrorBoundary>
+  )}
 
         {currentApp === 'footprintMap' && (
           <ErrorBoundary>

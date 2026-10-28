@@ -5138,4 +5138,8 @@ db.version(105).stores({
   harpMelodies: '++id, chatId, createdBy, createdAt, [chatId+createdAt]',
 });
 
+db.version(106).stores({
+  greetingCards: '++id, characterId, status, source, createdAt, revealAt, [characterId+createdAt]',
+});
+
 export default db;
