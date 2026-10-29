@@ -21,6 +21,7 @@
 import db from '../../db';
 import { generateGreetingContent } from './greetingAiService';
 import { announceGreetingReady } from './greetingNotify';
+import { GIFT_KIND, postGiftMessage } from './greetingGift';
 import {
   GREETING_MODE,
   GREETING_SOURCE,
@@ -118,6 +119,7 @@ const runGeneration = async (cardId) => {
         revealAt: Date.now(),
       });
       announceGreetingReady(character);
+      await postGiftMessage({ kind: GIFT_KIND.CARD, itemId: cardId });
     }
   } catch (error) {
     console.warn('贺卡生成失败：', error);
@@ -204,6 +206,7 @@ export const reconcileGreetingCards = async (now = Date.now()) => {
   for (const card of makingCards) {
     if (card.generatedAt && card.revealAt <= now) {
       await db.greetingCards.update(card.id, { status: GREETING_STATUS.READY });
+      await postGiftMessage({ kind: GIFT_KIND.CARD, itemId: card.id });
       becameReady.push({ ...card, status: GREETING_STATUS.READY });
       changed = true;
     } else if (!card.generatedAt && now - card.createdAt > MAKING_STALE_MS) {

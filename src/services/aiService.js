@@ -700,6 +700,14 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
     return `[像素衣橱里的一件礼物：「${label}」]`;
   }
 
+  if (msg.type === 'greeting_gift') {
+  const isBook = msg.metadata?.kind === 'book';
+  const thing = `${isBook ? '一本立体书' : '一张贺卡'}${msg.metadata?.title ? `「${msg.metadata.title}」` : ''}`;
+  const how = msg.metadata?.source === 'proactive' ? '你自己主动做了' : '你按用户的点名做好了';
+  const seen = msg.metadata?.opened ? '用户已经打开看过了' : '用户还没打开看';
+  return `[${how}${thing}送给用户，已经放在聊天里和收藏夹里，${seen}]`;
+}
+
     if (msg.type === 'harp_melody') {
     return describeMelodyForPrompt(msg);
   }

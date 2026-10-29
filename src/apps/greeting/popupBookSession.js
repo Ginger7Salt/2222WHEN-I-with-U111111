@@ -49,6 +49,7 @@ export const runPopupBookSession = async ({ chatId, character, triggerReply, kin
       instant: true,
       context: {
         history,
+        chatId,
         trigger: String(triggerReply || '').slice(0, 200),
       },
     });

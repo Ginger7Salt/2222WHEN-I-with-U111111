@@ -13,6 +13,7 @@
 
 import db from '../../db';
 import { generatePopupBookContent, loadBookContext } from './popupBookAiService';
+import { GIFT_KIND, postGiftMessage } from './greetingGift';
 import {
   BOOK_KIND,
   BOOK_MAKE_DELAY_RANGE_MS,
@@ -167,6 +168,7 @@ const runGeneration = async (bookId) => {
     if (book.instant) {
       await db.popupBooks.update(bookId, { status: BOOK_STATUS.READY, revealAt: Date.now() });
       announcePopupBookReady(character);
+      await postGiftMessage({ kind: GIFT_KIND.BOOK, itemId: bookId });
     }
   } catch (error) {
     console.warn('立体书生成失败：', error);
@@ -246,6 +248,7 @@ export const reconcilePopupBooks = async (now = Date.now()) => {
   for (const book of makingBooks) {
     if (book.generatedAt && book.revealAt <= now) {
       await db.popupBooks.update(book.id, { status: BOOK_STATUS.READY });
+      await postGiftMessage({ kind: GIFT_KIND.BOOK, itemId: book.id });
       becameReady.push({ ...book, status: BOOK_STATUS.READY });
       changed = true;
     } else if (!book.generatedAt && now - book.createdAt > BOOK_MAKING_STALE_MS) {

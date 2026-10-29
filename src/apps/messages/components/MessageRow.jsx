@@ -20,6 +20,7 @@ import ChatDiyUpdateNotice from '../diy/ChatDiyUpdateNotice';
 import ChallengeCompletionNotice from '../../challenges/ChallengeCompletionNotice';
 import HarpMelodyNotice from '../../harp/HarpMelodyNotice';
 import PixelDollGiftNotice from '../../pixelDoll/PixelDollGiftNotice';
+import GreetingGiftNotice from '../../greeting/GreetingGiftNotice';
 import TextGameResultNotice from '../../textgames/TextGameResultNotice';
 import ChatParcelArrivedNotice from '../parcel/ChatParcelArrivedNotice';
 import ChatParallelOrbitNotice from './ChatParallelOrbitNotice';
@@ -320,6 +321,11 @@ const MessageRow = ({
   if (msg.type === 'pixel_doll_gift') {
     return <PixelDollGiftNotice message={msg} />;
   }
+
+     // 贺卡 / 立体书——角色送来的礼物小卡片，可点：就地拆开 / 翻开。
+   if (msg.type === 'greeting_gift') {
+     return <GreetingGiftNotice message={msg} />;
+   }
 
   // 文字游戏大厅——跟角色对弈完一局之后留在聊天记录里的痕迹，同样
   // 是居中系统提示行，不可点击，具体棋盘/规则都在大厅里回看不了

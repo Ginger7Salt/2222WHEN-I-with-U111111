@@ -49,6 +49,7 @@ export const runGreetingSession = async ({ chatId, character, triggerReply, occa
       instant: true,
       context: {
         history,
+        chatId,
         trigger: String(triggerReply || '').slice(0, 200),
       },
     });
