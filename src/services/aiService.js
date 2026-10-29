@@ -2915,6 +2915,7 @@ const {
   content: contentAfterBook,
   wantsBook,
   kind: bookKind,
+   mode: bookMode,
 } = applyBookDirective({ content: contentAfterGreeting });
 
 // 取出角色的 [SHARE_PLACE...] 标签（一律从正文去掉）；跟气泡风格同一套
@@ -3326,7 +3327,7 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
         const bookTrigger = safeParsedMessages.find((m) => m.type === 'text')?.content || '';
         void import('../apps/greeting/popupBookSession')
           .then(({ runPopupBookSession }) => runPopupBookSession({
-            chatId, character, triggerReply: bookTrigger, kind: bookKind,
+            chatId, character, triggerReply: bookTrigger, kind: bookKind, mode: bookMode,
           }))
           .catch((error) => console.warn('[PopupBookSession] 加载失败:', error));
       }

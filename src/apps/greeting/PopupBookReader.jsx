@@ -11,7 +11,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
-import { getBookKind } from './popupBookConstants';
+import { BOOK_MODE, getBookKind } from './popupBookConstants';
+import PopupBookFreeReader from './PopupBookFreeReader';
 import './popupBook.css';
 
 const parseRgb = (value) => {
@@ -77,7 +78,7 @@ const TextFallback = ({ book }) => (
   </div>
 );
 
-const PopupBookReader = ({ book, onClose, onOpened }) => {
+const BlocksReader = ({ book, onClose, onOpened }) => {
   const canvasRef = useRef(null);
   const sceneRef = useRef(null);
   const [visible, setVisible] = useState(false);
@@ -213,5 +214,9 @@ const PopupBookReader = ({ book, onClose, onOpened }) => {
 
   return createPortal(body, document.body);
 };
+
+// 自由发挥的书走沙箱阅读器，其余走积木库的 three 场景。
+const PopupBookReader = (props) =>
+  props.book?.mode === BOOK_MODE.FREE ? <PopupBookFreeReader {...props} /> : <BlocksReader {...props} />;
 
 export default PopupBookReader;

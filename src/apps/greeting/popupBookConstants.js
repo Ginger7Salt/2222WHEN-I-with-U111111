@@ -101,3 +101,20 @@ export const BOOK_PROACTIVE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 // 角色写了 [BOOK_WANT] 但没写类型（或写的认不出来）时用哪一种。
 export const BOOK_PROACTIVE_DEFAULT_KIND = BOOK_KIND.CHEER;
+
+// 书的做法：blocks = 积木库（现在的双页书）；free = 自由发挥（角色写整本书的 three.js 代码，跑在隔离沙箱里）。
+export const BOOK_MODE = {
+  BLOCKS: 'blocks',
+  FREE: 'free',
+};
+
+export const normalizeBookMode = (value) => (value === BOOK_MODE.FREE ? BOOK_MODE.FREE : BOOK_MODE.BLOCKS);
+
+// 自由模式的限制。代码长度是存库和提示词的上限；试跑超时只代表"没等到结果"，不算失败。
+export const FREE_BOOK_LIMITS = {
+  codeMin: 200,
+  codeMax: 14000,
+  dryRunTimeoutMs: 9000,
+  readerReadyTimeoutMs: 12000,
+  attempts: 3,
+};

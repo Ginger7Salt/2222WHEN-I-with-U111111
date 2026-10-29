@@ -16,11 +16,13 @@ import { generatePopupBookContent, loadBookContext } from './popupBookAiService'
 import {
   BOOK_KIND,
   BOOK_MAKE_DELAY_RANGE_MS,
+  BOOK_MODE,
   BOOK_MAKING_STALE_MS,
   BOOK_SOURCE,
   BOOK_STATUS,
   DEFAULT_SPREAD_COUNT,
   getBookKind,
+  normalizeBookMode,
 } from './popupBookConstants';
 
 /* ------------------------------ 变更订阅 ------------------------------ */
@@ -124,14 +126,29 @@ const runGeneration = async (bookId) => {
           }
         : null;
 
-    const content = await generatePopupBookContent({
-      character,
-      kind: book.kind,
-      userNote: book.userNote,
-      context,
-      moment,
-      spreadCount: DEFAULT_SPREAD_COUNT,
-    });
+    const isFree = normalizeBookMode(book.mode) === BOOK_MODE.FREE;
+
+    let content;
+    if (isFree) {
+      // 自由发挥：整本书是角色写的 three.js 代码。重模块动态加载，积木库模式不付这个代价。
+      const { generateFreeBookContent } = await import('./popupBookFreeAiService');
+      content = await generateFreeBookContent({
+        character,
+        kind: book.kind,
+        userNote: book.userNote,
+        context,
+        moment,
+      });
+    } else {
+      content = await generatePopupBookContent({
+        character,
+        kind: book.kind,
+        userNote: book.userNote,
+        context,
+        moment,
+        spreadCount: DEFAULT_SPREAD_COUNT,
+      });
+    }
 
     // 生成期间用户可能已经把这本书删了，这时候不要把它"复活"。
     const stillThere = await db.popupBooks.get(bookId);
@@ -142,6 +159,7 @@ const runGeneration = async (bookId) => {
       palette: content.palette,
       sign: content.sign,
       spreads: content.spreads,
+      freeCode: isFree ? content.freeCode : null,
       generatedAt: Date.now(),
       error: '',
     });
@@ -174,6 +192,7 @@ export const requestPopupBook = async ({
   source = BOOK_SOURCE.REQUESTED,
   instant = false,
   context = null,
+  mode = BOOK_MODE.BLOCKS,
 }) => {
   const character = await db.characters.get(characterId);
   if (!character) {
@@ -186,6 +205,7 @@ export const requestPopupBook = async ({
     source,
     kind: getBookKind(kind).id,
     userNote: String(userNote || '').trim().slice(0, 120),
+    mode: normalizeBookMode(mode),
     status: BOOK_STATUS.MAKING,
     createdAt: now,
     revealAt: instant ? now : now + randomRevealDelay(),

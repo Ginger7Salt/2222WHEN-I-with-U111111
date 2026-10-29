@@ -163,3 +163,37 @@
 @media (prefers-reduced-motion: reduce) {
   .pb-hint, .pb-rotate__icon { animation: none; }
 }
+
+/* ------------------------------ 自由发挥的书（沙箱） ------------------------------ */
+
+.pb-freeframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #1b1a18;
+}
+
+.pb-freeframe.is-hidden { visibility: hidden; }
+
+.pb-status--free { z-index: 2; }
+
+.pb-freeerr {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px;
+  text-align: center;
+  font-family: var(--pb-serif);
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+.pb-freeerr p { margin: 0; font-size: 14px; line-height: 1.8; }
+.pb-freeerr small { font-family: var(--pb-mono); font-size: 10px; color: var(--text-muted); letter-spacing: .08em; }

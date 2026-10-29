@@ -32,7 +32,7 @@ import {
 
 const EMOJI_RE = /[\p{Extended_Pictographic}️‍]/gu;
 
-const cleanText = (value, maxChars) =>
+export const cleanText = (value, maxChars) =>
   String(value || '')
     .replace(/<[^>]*>/g, '')
     .replace(EMOJI_RE, '')
@@ -40,7 +40,7 @@ const cleanText = (value, maxChars) =>
     .trim()
     .slice(0, maxChars);
 
-const pickEnum = (value, allowed, fallback) => {
+export const pickEnum = (value, allowed, fallback) => {
   const key = String(value || '').trim().toLowerCase();
   return allowed.includes(key) ? key : fallback;
 };
@@ -103,7 +103,7 @@ export const normalizeAccent = (value) => {
 
 /* ------------------------------- 解析回复 ------------------------------- */
 
-const grabTag = (text, tag) => {
+export const grabTag = (text, tag) => {
   const match = String(text || '').match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'i'));
   return match ? match[1].trim() : '';
 };
@@ -270,7 +270,7 @@ const stringify = (value) => {
   }
 };
 
-const getCharacterContext = (character) =>
+export const getCharacterContext = (character) =>
   `【你的角色设定】
 - 姓名：${stringify(character?.name)}
 - 称呼 / Handle：${stringify(character?.handle)}
@@ -279,7 +279,7 @@ const getCharacterContext = (character) =>
 - 状态列表 / Status List：${stringify(character?.statusList)}
 - 你对用户的了解（用户人设）：${stringify(character?.userPersona)}`;
 
-const getEnabledWorldBooksText = async () => {
+export const getEnabledWorldBooksText = async () => {
   try {
     const books = await db.worldBooks.where('isEnabled').equals(1).toArray();
     if (!books.length) return '';
@@ -289,6 +289,24 @@ ${books.map((book, index) => `- ${book.title || `世界书 ${index + 1}`}：${bo
     console.warn('读取世界书失败（立体书会继续，只是少一段背景）：', error);
     return '';
   }
+};
+
+// 主动送的书：说明由来。trigger 是角色刚才在聊天里的那句回复，history 是最近几句。
+// 积木库和自由模式共用。
+export const buildMomentText = (moment) => {
+  if (!moment) return '';
+  const momentTrigger = cleanText(moment.trigger, 200);
+  const momentHistory = String(moment.history || '')
+    .split('\n')
+    .map((line) => cleanText(line, CONTEXT_MESSAGE_CHARS))
+    .filter(Boolean)
+    .join('\n');
+  return `
+【这本书的由来】
+这不是用户要你做的，是你刚才聊天时自己想亲手做一本送给TA。${momentTrigger ? `\n你刚才说的是：「${momentTrigger}」` : ''}${
+    momentHistory ? `\n当时最近的几句话（只作背景，不要照搬原话）：\n${momentHistory}` : ''
+  }
+`;
 };
 
 const modelSpecText = () =>
@@ -316,23 +334,7 @@ ${context}
 `
     : '';
 
-  // 主动送的书：说明由来。trigger 是角色刚才在聊天里的那句回复，history 是最近几句。
-  const momentTrigger = moment ? cleanText(moment.trigger, 200) : '';
-  const momentHistory = moment
-    ? String(moment.history || '')
-        .split('\n')
-        .map((line) => cleanText(line, CONTEXT_MESSAGE_CHARS))
-        .filter(Boolean)
-        .join('\n')
-    : '';
-  const momentText = moment
-    ? `
-【这本书的由来】
-这不是用户要你做的，是你刚才聊天时自己想亲手做一本送给TA。${momentTrigger ? `\n你刚才说的是：「${momentTrigger}」` : ''}${
-        momentHistory ? `\n当时最近的几句话（只作背景，不要照搬原话）：\n${momentHistory}` : ''
-      }
-`
-    : '';
+  const momentText = buildMomentText(moment);
 
   return `你现在正扮演「${character?.name || '未命名角色'}」。
 

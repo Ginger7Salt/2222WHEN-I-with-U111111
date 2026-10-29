@@ -11,7 +11,7 @@ import Dexie from 'dexie';
 import db from '../../db';
 import { requestPopupBook } from './popupBookService';
 import { canSendProactiveBook } from './popupBookDirective';
-import { BOOK_PROACTIVE_DEFAULT_KIND, BOOK_SOURCE } from './popupBookConstants';
+import { BOOK_MODE, BOOK_PROACTIVE_DEFAULT_KIND, BOOK_SOURCE } from './popupBookConstants';
 
 const HISTORY_LIMIT = 8;
 const HISTORY_LINE_MAX = 120;
@@ -34,7 +34,7 @@ const getRecentHistoryText = async (chatId, character) => {
     .join('\n');
 };
 
-export const runPopupBookSession = async ({ chatId, character, triggerReply, kind }) => {
+export const runPopupBookSession = async ({ chatId, character, triggerReply, kind, mode }) => {
   try {
     if (!chatId || !character) return { sent: false };
     if (!(await canSendProactiveBook(character.id))) return { sent: false, reason: 'cooldown' };
@@ -44,6 +44,7 @@ export const runPopupBookSession = async ({ chatId, character, triggerReply, kin
     await requestPopupBook({
       characterId: character.id,
       kind: kind || BOOK_PROACTIVE_DEFAULT_KIND,
+      mode: mode || BOOK_MODE.BLOCKS,
       source: BOOK_SOURCE.PROACTIVE,
       instant: true,
       context: {

@@ -19,7 +19,7 @@ import {
   retryPopupBook,
   subscribePopupBooks,
 } from './popupBookService';
-import { BOOK_MAKING_STAGES, BOOK_SOURCE, BOOK_STATUS, getBookKind } from './popupBookConstants';
+import { BOOK_MAKING_STAGES, BOOK_MODE, BOOK_SOURCE, BOOK_STATUS, getBookKind } from './popupBookConstants';
 import { formatBookNo } from './greetingFormat';
 import GreetingCover from './GreetingCover';
 import PopupBookAskSheet from './PopupBookAskSheet';
@@ -155,6 +155,7 @@ const PopupBookShelf = ({ showAsk, onCloseAsk }) => {
           <span>
             {unread ? '未翻 / ' : ''}
             {book.source === BOOK_SOURCE.PROACTIVE ? 'TA 主动送 / ' : ''}
+            {book.mode === BOOK_MODE.FREE ? '自由 / ' : ''}
             {getBookKind(book.kind).label}
           </span>
         </div>

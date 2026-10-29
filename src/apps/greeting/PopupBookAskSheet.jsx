@@ -7,12 +7,13 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check } from 'lucide-react';
 
-import { BOOK_KINDS } from './popupBookConstants';
+import { BOOK_KINDS, BOOK_MODE } from './popupBookConstants';
 
 const PopupBookAskSheet = ({ open, characters, submitting, error, onClose, onSubmit }) => {
   const [characterId, setCharacterId] = useState(null);
   const [kind, setKind] = useState(BOOK_KINDS[0].id);
   const [note, setNote] = useState('');
+  const [free, setFree] = useState(false);
   const [shown, setShown] = useState(false);
 
   useEffect(() => {
@@ -23,6 +24,7 @@ const PopupBookAskSheet = ({ open, characters, submitting, error, onClose, onSub
     setCharacterId(characters.length === 1 ? characters[0].id : null);
     setKind(BOOK_KINDS[0].id);
     setNote('');
+    setFree(false);
     const raf = requestAnimationFrame(() => setShown(true));
     return () => cancelAnimationFrame(raf);
   }, [open, characters]);
@@ -35,7 +37,7 @@ const PopupBookAskSheet = ({ open, characters, submitting, error, onClose, onSub
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!canSubmit) return;
-    onSubmit({ characterId, kind, userNote: note });
+    onSubmit({ characterId, kind, userNote: note, mode: free ? BOOK_MODE.FREE : BOOK_MODE.BLOCKS });
   };
 
   const sheet = (
@@ -93,6 +95,21 @@ const PopupBookAskSheet = ({ open, characters, submitting, error, onClose, onSub
           ))}
         </div>
         <p className="gc-sheet__hint">{activeKind?.hint}</p>
+
+        <span className="gc-field-label">做法</span>
+        <div className="gc-chip-row">
+          <button type="button" className={`gc-chip${free ? '' : ' is-on'}`} onClick={() => setFree(false)}>
+            积木库
+          </button>
+          <button type="button" className={`gc-chip${free ? ' is-on' : ''}`} onClick={() => setFree(true)}>
+            自由发挥
+          </button>
+        </div>
+        <p className="gc-sheet__hint">
+          {free
+            ? 'TA 自己写整本书的画面，想怎么做就怎么做。更费时间，偶尔会没做成，可以重试。'
+            : '用现成的积木拼，稳定好看。'}
+        </p>
 
         <textarea
           rows={2}

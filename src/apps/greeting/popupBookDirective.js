@@ -14,6 +14,7 @@
 import db from '../../db';
 import {
   BOOK_KINDS,
+  BOOK_MODE,
   BOOK_PROACTIVE_COOLDOWN_MS,
   BOOK_PROACTIVE_DEFAULT_KIND,
   BOOK_SOURCE,
@@ -36,6 +37,7 @@ export const BOOK_PROMPT_NOTE = `
 如果你此刻特别想亲手给用户做一本立体书（一本摊开的双页书，翻开后有东西从纸面立起来；比如想哄TA、想一起回忆点什么、想给TA讲明白一件事），可以自己决定送，不用征求同意；没有这个念头就不要写，不要为了送而送。
 想送就在回复正文最后单独一行写（用户看不到这行）：[BOOK_WANT]
 也可以带上类型：${kindTagList}。
+想让这本书不受现成积木限制、由你自己写整个画面，就在后面加上「自由」，比如 [BOOK_WANT: 回忆 自由]（更费时间，只在你真有想法时用）。
 用户直接要你做立体书时也这样回应。
 重要：这次回复里不要写书的内容，也不要描述书长什么样，只像平时聊天一样接话再加标签；真正做书是系统另外单独问你的那一次。`;
 
@@ -82,7 +84,11 @@ export const matchBookKindId = (rawName) => {
   return loose ? loose.id : BOOK_PROACTIVE_DEFAULT_KIND;
 };
 
-// 摘标签。返回去掉标签后的正文，以及角色是否想送、挑的类型。
+// 标签里带了「自由」（或 free）就是自由发挥模式。
+export const matchBookMode = (rawName) =>
+  /自由|free/i.test(String(rawName || '')) ? BOOK_MODE.FREE : BOOK_MODE.BLOCKS;
+
+// 摘标签。返回去掉标签后的正文，以及角色是否想送、挑的类型和做法。
 export const applyBookDirective = ({ content }) => {
   const rawContent = String(content || '');
   const match = BOOK_WANT_PATTERN.exec(rawContent);
@@ -91,5 +97,6 @@ export const applyBookDirective = ({ content }) => {
     content: rawContent.replace(BOOK_WANT_PATTERN_ALL, ''),
     wantsBook: Boolean(match),
     kind: match ? matchBookKindId(match[1]) : BOOK_PROACTIVE_DEFAULT_KIND,
+    mode: match ? matchBookMode(match[1]) : BOOK_MODE.BLOCKS,
   };
 };
