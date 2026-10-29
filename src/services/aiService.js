@@ -57,6 +57,7 @@ import {
 import { runScreenEffectSession } from '../apps/messages/screenEffects/screenEffectSession';
 import { runBubbleStyleSession } from '../apps/messages/bubbleStyleSession';
 import { buildGreetingPromptNote, applyGreetingDirective } from '../apps/greeting/greetingDirective';
+import { buildBookPromptNote, applyBookDirective } from '../apps/greeting/popupBookDirective';
 import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
 import { CONFIRM_CARD_PROMPT_NOTE, applyConfirmCardDirective } from '../apps/messages/confirmCardDirective';
 import { getAvatarHistorySwitchNote, applyAvatarHistorySwitchDirective } from '../apps/messages/avatarHistoryDirective';
@@ -2656,6 +2657,10 @@ const greetingNote = options.ignoreAway
   ? ''
   : await buildGreetingPromptNote({ characterId: character.id });
 
+const bookNote = options.ignoreAway
+  ? ''
+  : await buildBookPromptNote({ characterId: character.id });
+
 // 分享地方：跟气泡风格同一套"不设限制"的约定，角色任何一次回复都能
 // 自主决定分享一个地方，只在 ignoreAway 时跟其它"可选行为"一样收起。
 const characterPlaceNote = options.ignoreAway ? '' : buildCharacterPlacePromptNote();
@@ -2720,6 +2725,8 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   bubbleStyleNote ? `\n\n${bubbleStyleNote}` : ''
 }${
   greetingNote ? `\n\n${greetingNote}` : ''
+}${
+  bookNote ? `\n\n${bookNote}` : ''
 }${
   characterPlaceNote ? `\n\n${characterPlaceNote}` : ''
 }${
@@ -2903,11 +2910,17 @@ const {
   occasion: greetingOccasion,
 } = applyGreetingDirective({ content: contentAfterBubbleStyle });
 
+const {
+  content: contentAfterBook,
+  wantsBook,
+  kind: bookKind,
+} = applyBookDirective({ content: contentAfterGreeting });
+
 // 取出角色的 [SHARE_PLACE...] 标签（一律从正文去掉）；跟气泡风格同一套
 // "不设限制"的约定，只负责摘标签并告诉调用方"角色想分享一个地方"，
 // 真正的挑选/写入在回复落库之后由 runCharacterPlaceSession 单独完成。
 const { content: contentAfterCharacterPlace, wantsShare: wantsCharacterPlace } = applyCharacterPlaceDirective({
-  content: contentAfterGreeting,
+  content: contentAfterBook,
 });
 
 // 取出角色的 [SWITCH_BACKGROUND: ...] 标签（一律从正文去掉）；标签里写的
@@ -3306,6 +3319,15 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
             chatId, character, triggerReply: greetingTrigger, occasion: greetingOccasion,
           }))
           .catch((error) => console.warn('[GreetingSession] 加载失败：', error));
+      }
+
+      if (wantsBook && messageIds.length > 0) {
+        const bookTrigger = safeParsedMessages.find((m) => m.type === 'text')?.content || '';
+        void import('../apps/greeting/popupBookSession')
+          .then(({ runPopupBookSession }) => runPopupBookSession({
+            chatId, character, triggerReply: bookTrigger, kind: bookKind,
+          }))
+          .catch((error) => console.warn('[PopupBookSession] 加载失败:', error));
       }
 
       // 角色想分享一个地方：回复已经写入后，再单独补一次调用去挑选/落库，

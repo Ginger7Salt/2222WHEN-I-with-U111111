@@ -303,6 +303,7 @@ export const buildPopupBookSystemPrompt = async ({
   kind,
   userNote = '',
   context = '',
+  moment = null,
   spreadCount = DEFAULT_SPREAD_COUNT,
 }) => {
   const kindInfo = getBookKind(kind);
@@ -315,6 +316,24 @@ ${context}
 `
     : '';
 
+  // 主动送的书：说明由来。trigger 是角色刚才在聊天里的那句回复，history 是最近几句。
+  const momentTrigger = moment ? cleanText(moment.trigger, 200) : '';
+  const momentHistory = moment
+    ? String(moment.history || '')
+        .split('\n')
+        .map((line) => cleanText(line, CONTEXT_MESSAGE_CHARS))
+        .filter(Boolean)
+        .join('\n')
+    : '';
+  const momentText = moment
+    ? `
+【这本书的由来】
+这不是用户要你做的，是你刚才聊天时自己想亲手做一本送给TA。${momentTrigger ? `\n你刚才说的是：「${momentTrigger}」` : ''}${
+        momentHistory ? `\n当时最近的几句话（只作背景，不要照搬原话）：\n${momentHistory}` : ''
+      }
+`
+    : '';
+
   return `你现在正扮演「${character?.name || '未命名角色'}」。
 
 ${getCharacterContext(character)}
@@ -324,8 +343,8 @@ ${worldBooksText}
 【任务】
 你要亲手为用户做一本立体书：一本摊开放在桌上的双页书，每个跨页左边是一页文字，右边是一个从纸面上立起来的小模型。
 类型：${kindInfo.label}。${kindInfo.hint}。
-${note ? `用户留了一句话：「${note}」。` : '用户没有留话，由你自己决定写什么。'}
-${contextText}
+${note ? `用户留了一句话：「${note}」。` : moment ? '由你自己决定写什么。' : '用户没有留话，由你自己决定写什么。'}
+${momentText}${contextText}
 【写作要求】
 - 用你自己的口吻写，具体、克制，像一个真实的人会写的话。不要客服式安慰，不要鸡汤，不要堆砌形容词。
 - 一共 ${spreadCount} 个跨页。每个跨页的文字页有：小标签 kick（不超过 ${BOOK_LIMITS.kick} 字，可省略）、标题 heading（不超过 ${BOOK_LIMITS.heading} 字）、1 到 ${BOOK_LIMITS.paragraphs} 段正文 p（每段不超过 ${BOOK_LIMITS.paragraph} 字）。
@@ -376,9 +395,10 @@ export const generatePopupBookContent = async ({
   kind,
   userNote = '',
   context = '',
+  moment = null,
   spreadCount = DEFAULT_SPREAD_COUNT,
 }) => {
-  const systemPrompt = await buildPopupBookSystemPrompt({ character, kind, userNote, context, spreadCount });
+  const systemPrompt = await buildPopupBookSystemPrompt({ character, kind, userNote, context, moment, spreadCount });
   const userPrompt = '请现在就做这本立体书，严格按指定格式输出。';
 
   // 最多尝试两次：第一次格式不对时再要一次。网络/配置类错误由 generateResponse 直接抛出。

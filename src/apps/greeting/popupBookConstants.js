@@ -94,3 +94,10 @@ export const BOOK_MAKING_STAGES = ['构思', '裁切', '折叠', '装订', '上�
 
 // 第一本书的默认跨页数。
 export const DEFAULT_SPREAD_COUNT = 2;
+
+// 角色主动送书：同一个角色两次主动送之间至少隔这么久（毫秒）。冷却期内聊天提示词里
+// 不会带"想做书就写 [BOOK_WANT]"那段说明，所以不占 token。和贺卡的冷却各算各的。
+export const BOOK_PROACTIVE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+// 角色写了 [BOOK_WANT] 但没写类型（或写的认不出来）时用哪一种。
+export const BOOK_PROACTIVE_DEFAULT_KIND = BOOK_KIND.CHEER;

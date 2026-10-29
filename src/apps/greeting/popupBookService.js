@@ -113,11 +113,23 @@ const runGeneration = async (bookId) => {
     // cheer 不带聊天上下文；memory / explain 取最近 30 条（每条已截断）。
     const context = getBookKind(book.kind).useChat ? await loadBookContext(book.characterId) : '';
 
+    // 角色主动送的书：带上"为什么想送"（刚才那句回复 + 最近几句聊天）。
+    // 已经读了完整聊天上下文的类型不再重复带那几句。
+    const stored = book.context && typeof book.context === 'object' ? book.context : null;
+    const moment =
+      book.source === BOOK_SOURCE.PROACTIVE && stored
+        ? {
+            trigger: stored.trigger || '',
+            history: context ? '' : stored.history || '',
+          }
+        : null;
+
     const content = await generatePopupBookContent({
       character,
       kind: book.kind,
       userNote: book.userNote,
       context,
+      moment,
       spreadCount: DEFAULT_SPREAD_COUNT,
     });
 

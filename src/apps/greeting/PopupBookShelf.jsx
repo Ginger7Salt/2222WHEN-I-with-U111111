@@ -154,6 +154,7 @@ const PopupBookShelf = ({ showAsk, onCloseAsk }) => {
         <div className="gc-meta">
           <span>
             {unread ? '未翻 / ' : ''}
+            {book.source === BOOK_SOURCE.PROACTIVE ? 'TA 主动送 / ' : ''}
             {getBookKind(book.kind).label}
           </span>
         </div>
