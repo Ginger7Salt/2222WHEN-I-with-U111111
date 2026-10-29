@@ -25,9 +25,11 @@
   color: var(--text-main);
 }
 
-.gc-app button,
-.gc-unwrap button,
-.gc-sheet-layer button {
+/* 按钮重置：用 :where() 把优先级降到 0，
+   这样 .gc-chip / .gc-primary 等单类名按钮样式都能正常覆盖它。
+   （之前用 .gc-sheet-layer button，优先级 0,1,1，会把单类名的 font-size / color 盖掉，
+   导致场合小标签继承了 16px。） */
+:where(.gc-app, .gc-unwrap, .gc-sheet-layer) button {
   font: inherit;
   color: inherit;
   background: none;
@@ -219,17 +221,18 @@
   padding-bottom: 14px;
   scrollbar-width: none;
 }
-.gc-chip {
+.gc-sheet-layer .gc-chip {
   flex: none;
   padding: 6px 13px;
   border-radius: 99px;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.2;
   color: var(--gc-text-body, var(--text-sub));
   border: 1px solid var(--gc-line, var(--divider)) !important;
   background: var(--control-soft-bg) !important;
   transition: background .3s var(--gc-ease), color .3s var(--gc-ease);
 }
-.gc-chip.is-on {
+.gc-sheet-layer .gc-chip.is-on {
   background: var(--accent-color) !important;
   border-color: var(--accent-color) !important;
   color: var(--accent-foreground);
