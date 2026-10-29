@@ -4,9 +4,9 @@
 // 自己管理列表、"制作中 -> 送到"的推进、失败重试、删除。
 // 请求抽屉的开关由外层（GreetingApp 顶部的"请 TA 做一本"按钮）通过 props 控制。
 //
-// 这一刀还没有阅读器：点已送到的书只会标记已读。阅读器下一刀接在 handleOpen 上。
+// 阅读器（含 three.js）用 lazy 动态引入，不进主包。
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { Trash2, RotateCw } from 'lucide-react';
 
 import db from '../../db';
@@ -25,6 +25,8 @@ import { BOOK_MAKING_STAGES, BOOK_SOURCE, BOOK_STATUS, getBookKind } from './pop
 import GreetingCover from './GreetingCover';
 import PopupBookAskSheet from './PopupBookAskSheet';
 
+const PopupBookReader = lazy(() => import('./PopupBookReader'));
+
 const PopupBookShelf = ({ showAsk, onCloseAsk, onCountChange }) => {
   const [books, setBooks] = useState([]);
   const [characters, setCharacters] = useState([]);
@@ -33,6 +35,7 @@ const PopupBookShelf = ({ showAsk, onCloseAsk, onCountChange }) => {
   const [submitting, setSubmitting] = useState(false);
   const [askError, setAskError] = useState('');
   const [stageIndex, setStageIndex] = useState(0);
+  const [openId, setOpenId] = useState(null);
 
   const charactersById = useMemo(
     () => Object.fromEntries(characters.map((character) => [character.id, character])),
@@ -100,15 +103,20 @@ const PopupBookShelf = ({ showAsk, onCloseAsk, onCountChange }) => {
     }
   };
 
-  // 阅读器接入点：下一刀在这里打开阅读器。现在只记已读。
-  const handleOpen = (book) => {
-    if (!book.isRead) markPopupBookRead(book.id);
-  };
+  const openBook = useMemo(() => books.find((book) => book.id === openId) || null, [books, openId]);
+
+  const handleOpen = (book) => setOpenId(book.id);
+
+  // 第一次翻开封面时才记已读（不是点开阅读器就算）。
+  const handleOpened = useCallback((id) => {
+    markPopupBookRead(id);
+  }, []);
 
   const handleConfirmDelete = async () => {
     const target = deleteTarget;
     setDeleteTarget(null);
     if (!target) return;
+    if (openId === target.id) setOpenId(null);
     await deletePopupBook(target.id);
   };
 
@@ -198,6 +206,12 @@ const PopupBookShelf = ({ showAsk, onCloseAsk, onCountChange }) => {
         onClose={onCloseAsk}
         onSubmit={handleSubmitAsk}
       />
+
+      {openBook && openBook.status === BOOK_STATUS.READY && (
+        <Suspense fallback={null}>
+          <PopupBookReader key={openBook.id} book={openBook} onClose={() => setOpenId(null)} onOpened={handleOpened} />
+        </Suspense>
+      )}
 
       <div style={{ position: 'relative', zIndex: 1300 }}>
         <ConfirmModal
