@@ -239,7 +239,7 @@ export const buildPageSpecs = (book) => {
     items: [
       { t: 'kick', s: 'END' },
       { t: 'h', s: '合上这一本' },
-      { t: 'p', s: '点右下角的按钮，回到封面。' },
+      { t: 'p', s: '点下方的右箭头，回到封面。' },
       { t: 'space', n: 40 },
       ...(book.sign ? [{ t: 'sign', s: book.sign }] : []),
     ],

@@ -22,6 +22,7 @@ import {
   pageCanvas,
 } from './popupBookPaper';
 import { buildModel } from './popupBookModels';
+import { formatBookNo } from './greetingFormat';
 
 const REDUCED =
   typeof window !== 'undefined' &&
@@ -167,7 +168,7 @@ export const createBookScene = ({ canvas, book, theme, labels, onState, onOpened
         title: book.cover?.title,
         motif: book.cover?.motif,
         sign: book.sign,
-        no: `BK.${String(book.id ?? 0).padStart(3, '0')}`,
+        no: formatBookNo(book.id),
         kindLabel: labels?.kind || '',
       },
       coverTheme,

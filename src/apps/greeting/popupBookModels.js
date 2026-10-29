@@ -276,6 +276,15 @@ const buildHouse = ({ THREE, params: rawParams, palette }) => {
     houseInner.scale.z = 0.02 + 0.98 * qHouse;
     house.visible = qHouse > 0.01;
 
+    // 房子完全折起（已经看不见）时，把灭掉的窗灯和弹跳状态恢复，
+    // 下次翻回来立起时又是亮着的。条件和 visible 用同一个阈值，所以不会看到灯突然亮起。
+    if (qHouse <= 0.01 && (!lightsOn || bounce > 0)) {
+      lightsOn = true;
+      bounce = 0;
+      winMats.forEach((m) => m.color.copy(winOn));
+      house.scale.set(1, 1, 1);
+    }
+
     if (plaque) {
       plaque.rotation.x = (Math.PI / 2) * (1 - qLabel);
       plaque.visible = qLabel > 0.01;

@@ -207,16 +207,50 @@ export const parsePopupBookReply = (raw) => {
 
 /* ------------------------------ 聊天上下文 ------------------------------ */
 
+// 多取一些再筛：最近的消息里可能夹着报错、自动回复、空消息，筛完要还能凑够 CONTEXT_MESSAGE_COUNT 条。
+const CONTEXT_FETCH_WINDOW = CONTEXT_MESSAGE_COUNT * 3;
+const CONTEXT_SENDERS = ['user', 'character', 'ai', 'assistant'];
+
+// 一条消息"当前版本"的正文。重新生成过的消息，正文在 versions[currentVersionIndex] 里，
+// 顶层 content 可能还是旧版本。取法和记忆系统（memorySignals）保持一致。
+const getCurrentContent = (row) => {
+  const versions = Array.isArray(row.versions) ? row.versions : [];
+  const index = Number(row.currentVersionIndex);
+  const current = versions.length > 0 && Number.isInteger(index) ? versions[index] : null;
+
+  if (current) {
+    if (typeof current === 'string') return current;
+    return current.metadata?.translationText || current.content || current.text || current.message || '';
+  }
+  return row.metadata?.translationText || row.content || '';
+};
+
+// 按真实时间排序。timestamp 在库里是 ISO 字符串，不能直接相减；读不出时间的退回到 id（写入顺序）。
+const compareByTime = (a, b) => {
+  const ta = new Date(a.row.timestamp).getTime();
+  const tb = new Date(b.row.timestamp).getTime();
+  if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return ta - tb;
+  return (a.row.id || 0) - (b.row.id || 0);
+};
+
 // memory / explain 用：取这个角色最近的聊天，每条截断。cheer 不调用。
+// 只从库里读最近的一小段（按 id 倒序、限条数），不再把这个角色的全部消息读进内存。
 export const loadBookContext = async (characterId) => {
   try {
-    const rows = await db.messages.where('characterId').equals(characterId).toArray();
-    const texts = rows
-      .filter((row) => typeof row.content === 'string' && row.content.trim())
-      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
-      .slice(-CONTEXT_MESSAGE_COUNT);
-    return texts
-      .map((row) => `${row.sender === 'user' ? '用户' : '你'}：${cleanText(row.content, CONTEXT_MESSAGE_CHARS)}`)
+    const rows = await db.messages
+      .where('characterId')
+      .equals(characterId)
+      .reverse()
+      .limit(CONTEXT_FETCH_WINDOW)
+      .toArray();
+
+    return rows
+      .filter((row) => row && row.type !== 'error' && !row.metadata?.autoReply && CONTEXT_SENDERS.includes(row.sender))
+      .map((row) => ({ row, text: cleanText(getCurrentContent(row), CONTEXT_MESSAGE_CHARS) }))
+      .filter((item) => item.text)
+      .sort(compareByTime)
+      .slice(-CONTEXT_MESSAGE_COUNT)
+      .map(({ row, text }) => `${row.sender === 'user' ? '用户' : '你'}：${text}`)
       .join('\n');
   } catch (error) {
     console.warn('读取聊天上下文失败（立体书会继续，只是少一段背景）：', error);

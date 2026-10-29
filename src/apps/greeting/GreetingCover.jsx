@@ -11,7 +11,7 @@
 import React from 'react';
 import { formatCardDate, formatCardNo, hashId } from './greetingFormat';
 
-const GreetingCover = ({ card, signFallback = '', live = false, showUnreadDot = false }) => {
+const GreetingCover = ({ card, signFallback = '', live = false, showUnreadDot = false, indexText = '' }) => {
   const motif = card?.cover?.motif || 'mist';
   const seed = hashId(card?.id);
   const sign = card?.inside?.sign || signFallback;
@@ -36,7 +36,7 @@ const GreetingCover = ({ card, signFallback = '', live = false, showUnreadDot = 
         </>
       )}
 
-      <span className="gc-idx">{formatCardNo(card?.id)}</span>
+      <span className="gc-idx">{indexText || formatCardNo(card?.id)}</span>
       {showUnreadDot && <i className="gc-dot" />}
       <div className="gc-ttl">{card?.cover?.title || ''}</div>
       <div className="gc-sub">

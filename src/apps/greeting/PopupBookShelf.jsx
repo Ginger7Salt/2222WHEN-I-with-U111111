@@ -12,22 +12,21 @@ import { Trash2, RotateCw } from 'lucide-react';
 import db from '../../db';
 import ConfirmModal from '../../components/ConfirmModal';
 import {
-  announcePopupBookReady,
   deletePopupBook,
   listPopupBooks,
   markPopupBookRead,
-  reconcilePopupBooks,
   requestPopupBook,
   retryPopupBook,
   subscribePopupBooks,
 } from './popupBookService';
 import { BOOK_MAKING_STAGES, BOOK_SOURCE, BOOK_STATUS, getBookKind } from './popupBookConstants';
+import { formatBookNo } from './greetingFormat';
 import GreetingCover from './GreetingCover';
 import PopupBookAskSheet from './PopupBookAskSheet';
 
 const PopupBookReader = lazy(() => import('./PopupBookReader'));
 
-const PopupBookShelf = ({ showAsk, onCloseAsk, onCountChange }) => {
+const PopupBookShelf = ({ showAsk, onCloseAsk }) => {
   const [books, setBooks] = useState([]);
   const [characters, setCharacters] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -54,37 +53,8 @@ const PopupBookShelf = ({ showAsk, onCloseAsk, onCountChange }) => {
     return subscribePopupBooks(load);
   }, [load]);
 
-  useEffect(() => {
-    if (onCountChange) {
-      onCountChange(books.filter((book) => book.status === BOOK_STATUS.READY).length);
-    }
-  }, [books, onCountChange]);
-
-  // 推进"制作中 -> 送到"。挂载期间每 3 秒检查一次；有书刚送到就弹提示。
-  useEffect(() => {
-    let alive = true;
-
-    const tick = async () => {
-      try {
-        const ready = await reconcilePopupBooks();
-        if (!alive) return;
-        for (const book of ready) {
-          const character = await db.characters.get(book.characterId);
-          announcePopupBookReady(character);
-        }
-      } catch (error) {
-        console.warn('推进立体书状态失败：', error);
-      }
-    };
-
-    tick();
-    const timer = setInterval(tick, 3000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, []);
-
+  // "制作中 -> 送到"的推进和页签上的数量都放在 GreetingApp 里，这样不管当前停在哪个标签页都会继续。
+  // 这里只管书架自己的列表和"制作中"卡片上轮换的进度文字。
   useEffect(() => {
     const timer = setInterval(() => setStageIndex((value) => value + 1), 3000);
     return () => clearInterval(timer);
@@ -172,7 +142,13 @@ const PopupBookShelf = ({ showAsk, onCloseAsk, onCountChange }) => {
           onClick={() => handleOpen(book)}
           aria-label={`打开立体书：${book.cover?.title || ''}`}
         >
-          <GreetingCover card={coverCard} signFallback={characterName} live={unread} showUnreadDot={unread} />
+          <GreetingCover
+            card={coverCard}
+            signFallback={characterName}
+            live={unread}
+            showUnreadDot={unread}
+            indexText={formatBookNo(book.id)}
+          />
         </button>
         <div className="gc-rule" />
         <div className="gc-meta">

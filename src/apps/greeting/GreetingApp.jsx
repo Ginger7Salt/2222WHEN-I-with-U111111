@@ -22,6 +22,8 @@ import {
 } from './greetingService';
 import { GREETING_SOURCE, GREETING_STATUS, MAKING_STAGES } from './greetingConstants';
 import { announceGreetingReady } from './greetingNotify';
+import { announcePopupBookReady, reconcilePopupBooks, subscribePopupBooks } from './popupBookService';
+import { BOOK_STATUS } from './popupBookConstants';
 import GreetingCover from './GreetingCover';
 import GreetingUnwrap from './GreetingUnwrap';
 import GreetingAskSheet from './GreetingAskSheet';
@@ -63,15 +65,25 @@ const GreetingApp = ({ onBackHub }) => {
   );
 
   const load = useCallback(async () => {
-    const [list, chars] = await Promise.all([listGreetingCards(), db.characters.toArray()]);
+    const [list, chars, readyBooks] = await Promise.all([
+      listGreetingCards(),
+      db.characters.toArray(),
+      db.popupBooks.where('status').equals(BOOK_STATUS.READY).count(),
+    ]);
     setCards(list);
     setCharacters(chars);
+    setBookCount(readyBooks);
     setLoaded(true);
   }, []);
 
   useEffect(() => {
     load();
-    return subscribeGreetingCards(load);
+    const offCards = subscribeGreetingCards(load);
+    const offBooks = subscribePopupBooks(load);
+    return () => {
+      offCards();
+      offBooks();
+    };
   }, [load]);
 
   // 推进"制作中 -> 送到"。页面挂载期间每 3 秒检查一次；有卡刚送到就弹提示。
@@ -88,6 +100,32 @@ const GreetingApp = ({ onBackHub }) => {
         }
       } catch (error) {
         console.warn('推进贺卡状态失败：', error);
+      }
+    };
+
+    tick();
+    const timer = setInterval(tick, 3000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  // 立体书的"制作中 -> 送到"也在这里推进：不管当前停在贺卡还是立体书标签页，
+  // 只要收藏夹开着就会继续，页签上的数量和送到提示也才会及时更新。
+  useEffect(() => {
+    let alive = true;
+
+    const tick = async () => {
+      try {
+        const ready = await reconcilePopupBooks();
+        if (!alive) return;
+        for (const book of ready) {
+          const character = await db.characters.get(book.characterId);
+          announcePopupBookReady(character);
+        }
+      } catch (error) {
+        console.warn('推进立体书状态失败：', error);
       }
     };
 
@@ -238,11 +276,7 @@ const GreetingApp = ({ onBackHub }) => {
       </div>
 
       {tab === 'books' && (
-        <PopupBookShelf
-          showAsk={showBookAsk}
-          onCloseAsk={() => setShowBookAsk(false)}
-          onCountChange={setBookCount}
-        />
+        <PopupBookShelf showAsk={showBookAsk} onCloseAsk={() => setShowBookAsk(false)} />
       )}
 
       {tab === 'cards' && (

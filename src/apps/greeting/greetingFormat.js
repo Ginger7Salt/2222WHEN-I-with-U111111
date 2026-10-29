@@ -8,6 +8,9 @@ export const hashId = (value) =>
 // 序号：NO.005
 export const formatCardNo = (id) => `NO.${String(id ?? 0).padStart(3, '0')}`;
 
+// 立体书的序号：BK.005。书架封面和阅读器封面共用这一个，两边编号一致。
+export const formatBookNo = (id) => `BK.${String(id ?? 0).padStart(3, '0')}`;
+
 const pad2 = (n) => String(n).padStart(2, '0');
 
 // 今天 07:42 / 昨天 21:10 / 10.18
