@@ -149,6 +149,7 @@ const GreetingApp = ({ onBackHub }) => {
   const visibleCards = useMemo(() => cards.filter((card) => matchesFilter(card, filter)), [cards, filter]);
   const openCard = useMemo(() => cards.find((card) => card.id === openId) || null, [cards, openId]);
   const readyCount = cards.filter((card) => card.status === GREETING_STATUS.READY).length;
+  const unreadCount = cards.filter((card) => matchesFilter(card, 'unread')).length;
 
   const handleSubmitAsk = async (payload) => {
     setSubmitting(true);
@@ -177,6 +178,15 @@ const GreetingApp = ({ onBackHub }) => {
     if (!target) return;
     if (openId === target.id) setOpenId(null);
     await deleteGreetingCard(target.id);
+  };
+
+  const handleAskClick = () => {
+    if (tab === 'books') {
+      setShowBookAsk(true);
+      return;
+    }
+    setAskError('');
+    setShowAsk(true);
   };
 
   const renderSlot = (card) => {
@@ -248,19 +258,8 @@ const GreetingApp = ({ onBackHub }) => {
         <button type="button" className="gc-back" onClick={onBackHub}>
           <ArrowLeft size={16} /> 主页
         </button>
-        <button
-          type="button"
-          className="gc-ask-btn"
-          onClick={() => {
-            if (tab === 'books') {
-              setShowBookAsk(true);
-              return;
-            }
-            setAskError('');
-            setShowAsk(true);
-          }}
-        >
-          <Plus size={14} /> {tab === 'books' ? '请 TA 做一本' : '请 TA 做一张'}
+        <button type="button" className="gc-ask-btn" onClick={handleAskClick}>
+          <Plus size={13} /> {tab === 'books' ? '请 TA 做一本' : '请 TA 做一张'}
         </button>
       </div>
 
@@ -274,40 +273,57 @@ const GreetingApp = ({ onBackHub }) => {
         <span className="gc-label">Collection</span>
       </div>
 
-      <div className="gc-tabs">
-        <button type="button" className={tab === 'cards' ? 'is-on' : ''} onClick={() => setTab('cards')}>
+      <div className="gc-tabs" role="tablist" aria-label="收藏类型">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'cards'}
+          className={tab === 'cards' ? 'is-on' : ''}
+          onClick={() => setTab('cards')}
+        >
           贺卡<i>{String(readyCount).padStart(2, '0')}</i>
         </button>
-        <button type="button" className={tab === 'books' ? 'is-on' : ''} onClick={() => setTab('books')}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'books'}
+          className={tab === 'books' ? 'is-on' : ''}
+          onClick={() => setTab('books')}
+        >
           立体书<i>{String(bookCount).padStart(2, '0')}</i>
         </button>
       </div>
 
-      {tab === 'books' && (
+      {tab === 'books' ? (
         <PopupBookShelf showAsk={showBookAsk} onCloseAsk={() => setShowBookAsk(false)} />
-      )}
-
-      {tab === 'cards' && (
-      <div className="gc-filters">
-        {FILTERS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`gc-chip${filter === item.id ? ' is-on' : ''}`}
-            onClick={() => setFilter(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      )}
-
-      {tab === 'cards' && loaded && visibleCards.length === 0 ? (
-        <div className="gc-empty">
-          {cards.length === 0 ? '这里还空着。让 TA 为你做第一张吧。' : '这一格还空着'}
-        </div>
       ) : (
-        tab === 'cards' && <div className="gc-rack">{visibleCards.map(renderSlot)}</div>
+        <>
+          <div className="gc-filterbar" role="tablist" aria-label="贺卡筛选">
+            {FILTERS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={filter === item.id}
+                className={`gc-filterbar__item${filter === item.id ? ' is-on' : ''}`}
+                onClick={() => setFilter(item.id)}
+              >
+                {item.label}
+                {item.id === 'unread' && unreadCount > 0 && (
+                  <i className="gc-filterbar__dot" aria-label={`${unreadCount} 张未拆`} />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {loaded && visibleCards.length === 0 ? (
+            <div className="gc-empty">
+              {cards.length === 0 ? '这里还空着。让 TA 为你做第一张吧。' : '这一格还空着'}
+            </div>
+          ) : (
+            <div className="gc-rack">{visibleCards.map(renderSlot)}</div>
+          )}
+        </>
       )}
 
       <GreetingGuide
@@ -339,15 +355,15 @@ const GreetingApp = ({ onBackHub }) => {
 
       {/* 拆封层是 z-index 1200 的全屏层，确认框要叠在它上面 */}
       <div style={{ position: 'relative', zIndex: 1300 }}>
-      <ConfirmModal
-        isOpen={Boolean(deleteTarget)}
-        title="删除这张贺卡？"
-        message="删除后就找不回来了。"
-        confirmText="删除"
-        cancelText="留着"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
+        <ConfirmModal
+          isOpen={Boolean(deleteTarget)}
+          title="删除这张贺卡？"
+          message="删除后就找不回来了。"
+          confirmText="删除"
+          cancelText="留着"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       </div>
     </div>
   );

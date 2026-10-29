@@ -12,6 +12,14 @@
   --gc-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --gc-ease: cubic-bezier(.22, .61, .36, 1);
   --gc-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* 页签/筛选条用的派生色：都从 --text-main 混出来，换主题时自动跟着变，
+     不会出现"文字和底色都很浅"的情况。 */
+  --gc-text-strong: var(--text-main);
+  --gc-text-body: color-mix(in srgb, var(--text-main) 78%, transparent);
+  --gc-text-dim: color-mix(in srgb, var(--text-main) 56%, transparent);
+  --gc-line: color-mix(in srgb, var(--text-main) 26%, transparent);
+  --gc-line-soft: color-mix(in srgb, var(--text-main) 13%, transparent);
+  --gc-hint: #e0603a;
   position: relative;
   min-height: 100dvh;
   color: var(--text-main);
@@ -35,66 +43,91 @@
 }
 .gc-app { overflow-x: hidden; }
 
-/* ---------- 书架 ---------- */
+/* ---------- 顶栏 ---------- */
 .gc-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 18px 4px;
+  padding: 20px 20px 0;
 }
-.gc-back {
+.gc-app .gc-back {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  padding: 0;
+  font-size: 13px;
+  color: var(--gc-text-body);
+  background: none !important;
+}
+.gc-app .gc-back:active { color: var(--gc-text-strong); }
+.gc-app .gc-ask-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 8px 12px;
   border-radius: 99px;
-  font-size: 13px;
-  color: var(--text-sub);
-  background: var(--control-soft-bg);
-}
-.gc-ask-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 8px 14px;
-  border-radius: 99px;
-  font-size: 12.5px;
-  letter-spacing: .06em;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: .04em;
   background: var(--accent-color) !important;
   color: var(--accent-foreground) !important;
 }
+
+/* ---------- 标题 ---------- */
 .gc-title {
-  padding: 16px 20px 0;
+  padding: 26px 20px 0;
+}
+.gc-title__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .gc-title h1 {
-  font: 500 20px/1.2 var(--gc-serif);
+  margin: 0;
+  font: 500 24px/1.2 var(--gc-serif);
   letter-spacing: .06em;
 }
+.gc-app .gc-help {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--gc-line) !important;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--gc-text-dim);
+}
+.gc-app .gc-help:active { color: var(--gc-text-strong); }
 .gc-label {
   display: block;
   margin-top: 6px;
   font: 500 10px/1 var(--gc-mono);
   letter-spacing: .16em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--gc-text-dim);
 }
+
+/* ---------- 页签：贺卡 / 立体书 ---------- */
 .gc-tabs {
   display: flex;
   gap: 22px;
-  padding: 16px 20px 0;
-  border-bottom: 1px solid var(--divider);
+  margin: 20px 20px 0;
+  border-bottom: 1px solid var(--gc-line-soft);
 }
-.gc-tabs button {
+.gc-app .gc-tabs button {
   position: relative;
   display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 0 11px;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 0 10px;
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--gc-text-dim);
 }
-.gc-tabs button.is-on {
-  color: var(--text-main);
+.gc-app .gc-tabs button.is-on {
+  color: var(--gc-text-strong);
   font-weight: 500;
 }
 .gc-tabs button.is-on::after {
@@ -103,7 +136,7 @@
   left: 0;
   right: 0;
   bottom: -1px;
-  height: 1px;
+  height: 1.5px;
   background: var(--text-main);
 }
 .gc-tabs button:disabled {
@@ -112,7 +145,7 @@
 .gc-tabs i {
   font: 400 10px var(--gc-mono);
   font-style: normal;
-  color: var(--text-muted);
+  color: var(--gc-text-dim);
 }
 .gc-tabs em {
   font: 400 9px var(--gc-mono);
@@ -122,33 +155,87 @@
   padding: 2px 6px;
   border-radius: 99px;
 }
-.gc-filters,
+
+/* ---------- 筛选条：四个选项合成一条，一行放下 ---------- */
+.gc-filterbar {
+  display: flex;
+  margin: 14px 20px 0;
+  padding: 2px;
+  border: 1px solid var(--gc-line);
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--card-bg) 72%, transparent);
+}
+.gc-app .gc-filterbar__item {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 5px;
+  border-radius: 99px;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--gc-text-body);
+  background: transparent !important;
+  transition: background .3s var(--gc-ease), color .3s var(--gc-ease);
+}
+/* 选项之间的细分隔线；选中项两侧的线不显示 */
+.gc-filterbar__item + .gc-filterbar__item::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 9px;
+  bottom: 9px;
+  width: 1px;
+  background: var(--gc-line-soft);
+}
+.gc-filterbar__item.is-on::before,
+.gc-filterbar__item.is-on + .gc-filterbar__item::before {
+  display: none;
+}
+.gc-app .gc-filterbar__item.is-on {
+  background: var(--accent-color) !important;
+  color: var(--accent-foreground);
+  font-weight: 500;
+}
+.gc-filterbar__dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--gc-hint);
+  vertical-align: 1px;
+}
+@media (max-width: 340px) {
+  .gc-app .gc-filterbar__item { font-size: 11px; padding: 9px 3px; }
+}
+
+/* 请 TA 做一张抽屉里的"场合"小标签（仍用 .gc-chip） */
 .gc-chip-row {
   display: flex;
-  gap: 8px;
-  scrollbar-width: none;
-}
-.gc-filters {
-  padding: 14px 20px 2px;
-  overflow-x: auto;
-}
-.gc-chip-row {
   flex-wrap: wrap;
+  gap: 8px;
   padding-bottom: 14px;
+  scrollbar-width: none;
 }
 .gc-chip {
   flex: none;
   padding: 6px 13px;
   border-radius: 99px;
   font-size: 12px;
-  color: var(--text-sub);
+  color: var(--gc-text-body, var(--text-sub));
+  border: 1px solid var(--gc-line, var(--divider)) !important;
   background: var(--control-soft-bg) !important;
   transition: background .3s var(--gc-ease), color .3s var(--gc-ease);
 }
 .gc-chip.is-on {
   background: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
   color: var(--accent-foreground);
 }
+
+/* ---------- 书架 ---------- */
 .gc-rack {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -207,7 +294,7 @@
 .gc-meta span {
   font: 400 10px/1 var(--gc-mono);
   letter-spacing: .12em;
-  color: var(--text-muted);
+  color: var(--gc-text-dim);
 }
 .gc-meta--actions {
   display: flex;
@@ -223,9 +310,10 @@
 }
 .gc-empty {
   text-align: center;
-  color: var(--text-muted);
+  color: var(--gc-text-dim);
   font-size: 13px;
-  padding: 60px 20px;
+  line-height: 1.7;
+  padding: 72px 20px;
 }
 
 /* ---------- 封面：极简，跟随主题 ---------- */
@@ -424,7 +512,7 @@
   text-align: center;
   font: 400 9.5px var(--gc-mono);
   letter-spacing: .14em;
-  color: var(--text-muted);
+  color: var(--gc-text-dim);
 }
 .gc-making.is-failed {
   grid-auto-flow: row;
@@ -437,7 +525,7 @@
   position: relative;
   font-size: 11px;
   line-height: 1.6;
-  color: var(--text-muted);
+  color: var(--gc-text-dim);
 }
 
 /* ---------- 请 TA 做一张：底部抽屉 ---------- */
@@ -449,6 +537,8 @@
   --gc-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
   --gc-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
   --gc-ease: cubic-bezier(.22, .61, .36, 1);
+  --gc-text-body: color-mix(in srgb, var(--text-main) 78%, transparent);
+  --gc-line: color-mix(in srgb, var(--text-main) 26%, transparent);
 }
 .gc-sheet-layer.is-shown { pointer-events: auto; }
 .gc-sheet-bg {
