@@ -37,6 +37,13 @@ export const wrapText = (ctx, text, maxW) => {
   return lines;
 };
 
+// 文字页的自动缩放：字号倍数从 FIT_MAX 起，排不下就按 FIT_STEP 往下缩，最小 FIT_MIN（= 原来的大小）。
+// 嫌字还小就调大 FIT_MAX；FIT_BOTTOM 是正文允许到达的页高比例（页码在 0.965）。
+const FIT_MAX = 1.3;
+const FIT_MIN = 1.0;
+const FIT_STEP = 0.05;
+const FIT_BOTTOM = 0.915;
+
 // 在 (ox, oy, pw, ph) 这块纸面上排版。spec = { items, no, side }。
 // pal = { ink, paper, mute, accent }。
 export const drawPage = (ctx, ox, oy, pw, ph, spec, pal) => {
@@ -53,43 +60,71 @@ export const drawPage = (ctx, ox, oy, pw, ph, spec, pal) => {
   const pad = pw * 0.105;
   const W = pw - pad * 2;
   const f = pw / 1024;
-  let y = ph * 0.075;
   ctx.textBaseline = 'alphabetic';
 
+  // 流式排版（标签 / 标题 / 正文 / 空白 / 署名）。s 是整体字号倍数，所有字号、行距、间距一起缩放。
+  // draw=false 只量高度不画，draw=true 才真的画；s=1 时和原来的排版完全一样。
+  // 图注 cap 和细线 rule 是按页高比例贴在固定位置的，不参与流式排版，也不缩放。
+  const flow = (s, draw) => {
+    const k = f * s;
+    let y = ph * 0.075;
+
+    (spec.items || []).forEach((it) => {
+      if (it.t === 'kick') {
+        ctx.font = `500 ${22 * k}px ${MONO}`;
+        if (draw) {
+          ctx.fillStyle = pal.mute;
+          ctx.textAlign = 'center';
+          ctx.fillText(String(it.s).split('').join(' '), pw / 2, y + 22 * k);
+        }
+        y += 52 * k;
+      } else if (it.t === 'h') {
+        ctx.font = `500 ${62 * k}px ${SERIF}`;
+        if (draw) {
+          ctx.fillStyle = pal.ink;
+          ctx.textAlign = 'center';
+        }
+        wrapText(ctx, it.s, W).forEach((l) => {
+          if (draw) ctx.fillText(l, pw / 2, y + 54 * k);
+          y += 84 * k;
+        });
+        y += 20 * k;
+      } else if (it.t === 'p') {
+        ctx.font = `400 ${33 * k}px ${SERIF}`;
+        if (draw) {
+          ctx.fillStyle = pal.ink;
+          ctx.textAlign = 'left';
+        }
+        wrapText(ctx, it.s, W).forEach((l) => {
+          if (draw) ctx.fillText(l, pad, y + 30 * k);
+          y += 54 * k;
+        });
+        y += 18 * k;
+      } else if (it.t === 'space') {
+        y += it.n * k;
+      } else if (it.t === 'sign') {
+        ctx.font = `400 ${34 * k}px ${SERIF}`;
+        if (draw) {
+          ctx.fillStyle = pal.ink;
+          ctx.textAlign = 'right';
+          ctx.fillText(String(it.s).split('').join(' '), pw - pad, y + 34 * k);
+        }
+        y += 60 * k;
+      }
+    });
+    return y;
+  };
+
+  // 从最大倍数开始，内容排不下就一档一档缩小，直到放得进页面（不会缩到比原来的 1.0 更小）。
+  // 底边留在页码（0.965）之上。
+  let scale = FIT_MAX;
+  while (scale > FIT_MIN + 1e-6 && flow(scale, false) > ph * FIT_BOTTOM) {
+    scale = Math.max(FIT_MIN, scale - FIT_STEP);
+  }
+  flow(scale, true);
+
   (spec.items || []).forEach((it) => {
-    if (it.t === 'kick') {
-      ctx.fillStyle = pal.mute;
-      ctx.font = `500 ${22 * f}px ${MONO}`;
-      ctx.textAlign = 'center';
-      ctx.fillText(String(it.s).split('').join(' '), pw / 2, y + 22 * f);
-      y += 52 * f;
-    } else if (it.t === 'h') {
-      ctx.fillStyle = pal.ink;
-      ctx.font = `500 ${62 * f}px ${SERIF}`;
-      ctx.textAlign = 'center';
-      wrapText(ctx, it.s, W).forEach((l) => {
-        ctx.fillText(l, pw / 2, y + 54 * f);
-        y += 84 * f;
-      });
-      y += 20 * f;
-    } else if (it.t === 'p') {
-      ctx.fillStyle = pal.ink;
-      ctx.font = `400 ${33 * f}px ${SERIF}`;
-      ctx.textAlign = 'left';
-      wrapText(ctx, it.s, W).forEach((l) => {
-        ctx.fillText(l, pad, y + 30 * f);
-        y += 54 * f;
-      });
-      y += 18 * f;
-    } else if (it.t === 'space') {
-      y += it.n * f;
-    } else if (it.t === 'sign') {
-      ctx.fillStyle = pal.ink;
-      ctx.font = `400 ${34 * f}px ${SERIF}`;
-      ctx.textAlign = 'right';
-      ctx.fillText(String(it.s).split('').join(' '), pw - pad, y + 34 * f);
-      y += 60 * f;
-    } else if (it.t === 'cap') {
+    if (it.t === 'cap') {
       // 图注：贴在页面下部，it.y 是占页高的比例
       ctx.textAlign = 'left';
       ctx.fillStyle = pal.mute;
