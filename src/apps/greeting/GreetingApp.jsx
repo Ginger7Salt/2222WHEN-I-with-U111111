@@ -27,6 +27,7 @@ import { BOOK_STATUS } from './popupBookConstants';
 import GreetingCover from './GreetingCover';
 import GreetingUnwrap from './GreetingUnwrap';
 import GreetingAskSheet from './GreetingAskSheet';
+import GreetingGuide, { hasSeenGreetingGuide, markGreetingGuideSeen } from './GreetingGuide';
 import PopupBookShelf from './PopupBookShelf';
 import './greeting.css';
 
@@ -58,6 +59,8 @@ const GreetingApp = ({ onBackHub }) => {
   const [tab, setTab] = useState('cards');
   const [showBookAsk, setShowBookAsk] = useState(false);
   const [bookCount, setBookCount] = useState(0);
+  // 第一次打开收藏夹时自动弹出使用说明；之后点标题旁的"?"再看。
+  const [showGuide, setShowGuide] = useState(() => !hasSeenGreetingGuide());
 
   const charactersById = useMemo(
     () => Object.fromEntries(characters.map((character) => [character.id, character])),
@@ -262,7 +265,12 @@ const GreetingApp = ({ onBackHub }) => {
       </div>
 
       <div className="gc-title">
-        <h1>收藏夹</h1>
+        <div className="gc-title__row">
+          <h1>收藏夹</h1>
+          <button type="button" className="gc-help" onClick={() => setShowGuide(true)} aria-label="使用说明">
+            ?
+          </button>
+        </div>
         <span className="gc-label">Collection</span>
       </div>
 
@@ -301,6 +309,14 @@ const GreetingApp = ({ onBackHub }) => {
       ) : (
         tab === 'cards' && <div className="gc-rack">{visibleCards.map(renderSlot)}</div>
       )}
+
+      <GreetingGuide
+        open={showGuide}
+        onClose={() => {
+          setShowGuide(false);
+          markGreetingGuideSeen();
+        }}
+      />
 
       <GreetingAskSheet
         open={showAsk}
