@@ -6,6 +6,7 @@ import {
   clampNoteGap,
   isValidNoteIndex,
 } from './harpNotes';
+import { normalizeTimbreId } from './harpTimbres';
 
 // ============================================================
 // 星光小竖琴 —— 数据层。
@@ -16,6 +17,7 @@ import {
 //     { chatId, name, createdBy: 'user' | 'character',
 //       notes: number[]   音符编号（0-9，见 harpNotes.js），
 //       delays: number[]  每个音距离上一个音的毫秒数，第一个是 0,
+//       timbre?: string   音色 id（见 harpTimbres.js），没有这个字段就是经典竖琴,
 //       createdAt }
 //   只存音符编号和间隔，不存音频。createdBy 现在只会是 'user'，留给之后
 //   "角色弹给你听、你把它收藏下来"的那一版用（那时写成 'character'）。
@@ -61,6 +63,7 @@ export const saveHarpMelody = async ({
   notes,
   delays,
   createdBy = 'user',
+  timbre,
 }) => {
   if (chatId === undefined || chatId === null) return null;
 
@@ -78,6 +81,9 @@ export const saveHarpMelody = async ({
     delays: melody.delays,
     createdAt: nowIso(),
   };
+  // 只在认得出音色时才写字段，没写的就是经典竖琴
+  const timbreId = normalizeTimbreId(timbre);
+  if (timbreId) record.timbre = timbreId;
 
   const id = await db.harpMelodies.add(record);
   return { ...record, id };

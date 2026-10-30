@@ -528,6 +528,7 @@ export const parseAiResponseToMessages = async (text = '') => {
             notes: harp.notes,
             delays: harp.delays,
             source: 'harp',
+            ...(harp.timbre ? { timbre: harp.timbre } : {}),
           },
         });
       }

@@ -4,7 +4,9 @@ import { ArrowLeft } from 'lucide-react';
 import db from '../../db';
 import HarpCanvas from './HarpCanvas';
 import HarpGuideModal from './HarpGuideModal';
-import { ensureHarpAudio, releaseHarpAudio } from './harpAudio';
+import HarpTimbrePicker from './HarpTimbrePicker';
+import { ensureHarpAudio, releaseHarpAudio, setHarpTimbre } from './harpAudio';
+import { DEFAULT_TIMBRE, getTimbreLabel, normalizeTimbreId } from './harpTimbres';
 import {
   MAX_MELODY_NOTES,
   MIN_PHRASE_NOTES,
@@ -51,6 +53,7 @@ const HarpPage = ({ chatId, character, onBack }) => {
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [isSending, setIsSending] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [timbre, setTimbre] = useState(DEFAULT_TIMBRE);
 
   const characterName = character?.name || 'TA';
 
@@ -68,6 +71,27 @@ const HarpPage = ({ chatId, character, onBack }) => {
     };
 
     void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId]);
+
+  // ---------- 这个聊天选的音色（chat.harpTimbre，没选过就是经典竖琴） ----------
+  useEffect(() => {
+    let cancelled = false;
+    setHarpTimbre(DEFAULT_TIMBRE);
+    setTimbre(DEFAULT_TIMBRE);
+
+    db.chats
+      .get(chatId)
+      .then((chat) => {
+        if (cancelled) return;
+        const id = normalizeTimbreId(chat?.harpTimbre) || DEFAULT_TIMBRE;
+        setHarpTimbre(id);
+        setTimbre(id);
+      })
+      .catch((error) => console.warn('[harp] 读取音色失败:', error));
+
     return () => {
       cancelled = true;
     };
@@ -93,6 +117,18 @@ const HarpPage = ({ chatId, character, onBack }) => {
       .put({ key: GUIDE_SEEN_KEY, value: { seen: true, seenAt: new Date().toISOString() } })
       .catch((error) => console.warn('[harp] 保存说明状态失败:', error));
   }, []);
+
+  const handleTimbreChange = useCallback(
+    (id) => {
+      const next = normalizeTimbreId(id) || DEFAULT_TIMBRE;
+      setTimbre(next);
+      setHarpTimbre(next);
+      db.chats
+        .update(chatId, { harpTimbre: next })
+        .catch((error) => console.warn('[harp] 保存音色失败:', error));
+    },
+    [chatId]
+  );
 
   // ---------- 页面卸载：清掉所有定时器，关掉音频 ----------
   useEffect(
@@ -171,7 +207,13 @@ const HarpPage = ({ chatId, character, onBack }) => {
       timers.push(
         setTimeout(() => {
           if (harpRef.current) {
-            harpRef.current.pluck(note, 0.5 + (Math.random() - 0.5) * 0.3, 'user');
+            // 重听用这段旋律自己的音色；没记过音色的旧旋律就是经典竖琴
+            harpRef.current.pluck(
+              note,
+              0.5 + (Math.random() - 0.5) * 0.3,
+              'user',
+              normalizeTimbreId(melody.timbre) || DEFAULT_TIMBRE
+            );
           }
         }, elapsed)
       );
@@ -202,6 +244,7 @@ const HarpPage = ({ chatId, character, onBack }) => {
         notes: melody.notes,
         delays: melody.delays,
         createdBy: 'user',
+        timbre,
       });
 
       if (saved) {
@@ -238,7 +281,7 @@ const HarpPage = ({ chatId, character, onBack }) => {
     closedRef.current = true;
     setClosed(true);
     const built = buildMelodyFromPhrase(phraseRef.current);
-    void sendToCharacter({ ...built, name: nameDraft }, nameDraft.trim());
+    void sendToCharacter({ ...built, name: nameDraft, timbre }, nameDraft.trim());
   };
 
   const handleDelete = async (id) => {
@@ -327,6 +370,7 @@ const HarpPage = ({ chatId, character, onBack }) => {
           <section className="hp-harp-wrap" aria-label="竖琴">
             <HarpCanvas ref={harpRef} onPluck={handlePluck} disabled={playing} />
             <p className="hp-hint">轻触琴弦，或从弦上滑过</p>
+            <HarpTimbrePicker value={timbre} onChange={handleTimbreChange} disabled={playing} />
           </section>
 
           <section className="hp-trail" aria-label="刚才弹的音">
@@ -397,6 +441,10 @@ const HarpPage = ({ chatId, character, onBack }) => {
                         className={`hp-melody-by${melody.createdBy === 'character' ? ' hp-melody-by-ta' : ''}`}
                       >
                         {melody.createdBy === 'character' ? `${characterName} 弹的` : '你弹的'}
+                        {normalizeTimbreId(melody.timbre) &&
+                        normalizeTimbreId(melody.timbre) !== DEFAULT_TIMBRE
+                          ? ` · ${getTimbreLabel(melody.timbre)}`
+                          : ''}
                       </span>
                     </div>
                     <div className="hp-melody-text">{formatMelodyText(melody.notes)}</div>

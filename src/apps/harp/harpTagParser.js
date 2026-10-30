@@ -4,14 +4,18 @@ import {
   MAX_MELODY_NOTES,
   MIN_PHRASE_NOTES,
 } from './harpNotes';
+import { normalizeTimbreId } from './harpTimbres';
 
 // ============================================================
 // 星光小竖琴 —— 角色主动弹给用户听的标签解析（纯函数）。
 //
 // 标签格式（跟 aiService.js 里其它括号标签同一个约定）：
-//   [HARP: 旋律名 | 简谱 | 节奏(可选)]
+//   [HARP: 旋律名 | 简谱 | 节奏(可选) | 音色(可选)]
 //   简谱：用空格隔开的 1 2 3 5 6，高八度前面加 ^，例如 "3 5 5 6 ^1 6 5"
 //   节奏：轻快 / 适中 / 舒缓，不写就是适中
+//   音色：竖琴 / 八音盒 / 拨弦（见 harpTimbres.js），不写就是经典竖琴
+//   节奏和音色是两个可选段，顺序不严格：后面的段落认出是节奏词就当节奏、
+//   认出是音色名就当音色，两个都认不出的忽略，所以只写音色不写节奏也行。
 //
 // 解析失败（不到 3 个有效音）返回 null，调用方直接不产出卡片。
 // ============================================================
@@ -25,8 +29,14 @@ export const parseHarpTagPayload = (rawPayload) => {
   const parts = String(rawPayload || '').split('|');
   const name = (parts[0] || '').trim().slice(0, 14) || '无名旋律';
   const scoreText = (parts[1] || '').trim();
-  const tempoWord = (parts[2] || '').trim();
-  const gap = TEMPO_GAP_MS[tempoWord] || TEMPO_GAP_MS.适中;
+  let gap = TEMPO_GAP_MS.适中;
+  let timbre = null;
+  parts.slice(2).forEach((rawPart) => {
+    const word = String(rawPart || '').trim();
+    if (!word) return;
+    if (TEMPO_GAP_MS[word]) gap = TEMPO_GAP_MS[word];
+    else if (!timbre) timbre = normalizeTimbreId(word);
+  });
 
   const notes = [];
   scoreText
@@ -52,6 +62,8 @@ export const parseHarpTagPayload = (rawPayload) => {
     name,
     notes,
     delays,
-    content: `弹了一段旋律「${name}」：${describeMelody({ notes, delays })}`,
+    // 认不出音色（或没写）就是 null，调用方不写这个字段，重听时就是经典竖琴
+    timbre,
+    content: `弹了一段旋律「${name}」：${describeMelody({ notes, delays, timbre })}`,
   };
 };

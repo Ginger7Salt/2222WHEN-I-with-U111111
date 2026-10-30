@@ -2,6 +2,7 @@ import db from '../../db';
 import { triggerAiResponse } from '../../services/aiService';
 import { describeMelody } from './harpDescribe';
 import { HARP_NOTES, MIN_PHRASE_NOTES } from './harpNotes';
+import { normalizeTimbreId } from './harpTimbres';
 
 // ============================================================
 // 星光小竖琴 —— "弹给TA听"写回聊天。
@@ -23,7 +24,7 @@ const dispatchLocalMessageEvent = (chatId) => {
 };
 
 // 弹给 TA 听：写一条真实消息，然后立刻让角色回应一次。
-// melody: { name, notes, delays }
+// melody: { name, notes, delays, timbre? }（timbre 是音色 id，没有就是经典竖琴）
 export const sendMelodyToCharacter = async ({ chatId, melody }) => {
   if (chatId === undefined || chatId === null) return null;
 
@@ -37,6 +38,7 @@ export const sendMelodyToCharacter = async ({ chatId, melody }) => {
 
   const name = String(melody?.name || '').trim().slice(0, 14) || '无名旋律';
   const delays = Array.isArray(melody?.delays) ? melody.delays.slice(0, notes.length) : [];
+  const timbreId = normalizeTimbreId(melody?.timbre);
   const timestamp = nowIso();
 
   const record = {
@@ -44,8 +46,8 @@ export const sendMelodyToCharacter = async ({ chatId, melody }) => {
     characterId: chat.characterId,
     sender: 'user',
     type: 'harp_melody',
-    content: `弹了一段旋律「${name}」：${describeMelody({ notes, delays })}`,
-    metadata: { name, notes, delays, source: 'harp' },
+    content: `弹了一段旋律「${name}」：${describeMelody({ notes, delays, timbre: timbreId })}`,
+    metadata: { name, notes, delays, source: 'harp', ...(timbreId ? { timbre: timbreId } : {}) },
     isRead: true,
     timestamp,
   };

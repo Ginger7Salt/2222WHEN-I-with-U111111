@@ -1,4 +1,5 @@
 import { formatMelodyText } from './harpNotes';
+import { DEFAULT_TIMBRE, getTimbreLabel, normalizeTimbreId } from './harpTimbres';
 
 // ============================================================
 // 星光小竖琴 —— 旋律的文字描述（纯函数，不碰数据库、不碰 aiService）。
@@ -26,9 +27,12 @@ const describeRange = (notes) => {
   return high / list.length >= 0.5 ? '音域偏高' : '高低音都有';
 };
 
-export const describeMelody = ({ notes, delays }) => {
+// timbre 可选：不是经典竖琴时，在描述最后补一句"音色是八音盒"
+export const describeMelody = ({ notes, delays, timbre }) => {
   const count = (notes || []).length;
-  return `${count} 个音，${describeTempo(delays)}，${describeRange(notes)}`;
+  const timbreId = normalizeTimbreId(timbre);
+  const timbreText = timbreId && timbreId !== DEFAULT_TIMBRE ? `，音色是${getTimbreLabel(timbreId)}` : '';
+  return `${count} 个音，${describeTempo(delays)}，${describeRange(notes)}${timbreText}`;
 };
 
 // 给 aiService.js 的 formatMsgContentForPrompt 用：把一条 harp_melody 消息
@@ -37,7 +41,7 @@ export const describeMelodyForPrompt = (msg) => {
   const meta = msg?.metadata || {};
   const notes = Array.isArray(meta.notes) ? meta.notes : [];
   const name = meta.name || '无名旋律';
-  const summary = describeMelody({ notes, delays: meta.delays });
+  const summary = describeMelody({ notes, delays: meta.delays, timbre: meta.timbre });
   const score = formatMelodyText(notes);
 
   if (msg?.sender === 'character') {

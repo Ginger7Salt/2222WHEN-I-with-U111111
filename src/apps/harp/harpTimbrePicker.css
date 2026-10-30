@@ -1,0 +1,70 @@
+/* ============================================================
+   星光小竖琴 —— 音色选择条样式。
+   只引用 harp.css 里 .harp-page 上定义的 --hp-* 主题别名，
+   所以只会出现在竖琴页里，也自动跟着主题换色。
+   ============================================================ */
+
+.harp-page .hp-timbre {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.harp-page .hp-timbre-label {
+  color: var(--hp-muted);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+}
+
+.harp-page .hp-timbre-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.harp-page .hp-timbre-option {
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 1px solid var(--hp-border);
+  border-radius: 999px;
+  background: var(--hp-soft);
+  color: var(--hp-sub);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, opacity 0.2s, transform 0.15s;
+}
+
+.harp-page .hp-timbre-option:hover {
+  background: var(--hp-soft-hover);
+}
+
+.harp-page .hp-timbre-option:active {
+  transform: scale(0.97);
+}
+
+.harp-page .hp-timbre-option:focus-visible {
+  outline: 2px solid var(--hp-accent);
+  outline-offset: 2px;
+}
+
+.harp-page .hp-timbre-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.harp-page .hp-timbre-option-active {
+  border-color: transparent;
+  background: var(--hp-accent);
+  color: var(--hp-accent-fg);
+  font-weight: 600;
+}
+
+.harp-page .hp-timbre-option-active:hover {
+  background: var(--hp-accent);
+  opacity: 0.88;
+}
