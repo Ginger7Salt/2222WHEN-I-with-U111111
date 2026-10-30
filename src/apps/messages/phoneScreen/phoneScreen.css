@@ -1,0 +1,242 @@
+/* src/apps/messages/phoneScreen/phoneScreen.css
+ *
+ * 手机截图卡片的样式。颜色全部来自卡片根节点上的 --ps-* 变量（由
+ * PhoneScreenCard.jsx 根据壁纸颜色算出来），所以这里不写任何死颜色，
+ * 也不依赖 App 主题变量——截图本来就应该长得像手机屏幕，不跟着聊天
+ * 主题变。
+ *
+ * 刻意不用 backdrop-filter：html-to-image 导出 PNG 时不会带上毛玻璃
+ * 效果，导出的图跟屏幕上看到的会不一样，所以通知底板用纯半透明色。
+ */
+
+.phone-screen-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.phone-screen-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  max-width: 100%;
+  min-height: 390px;
+  padding: 10px 12px 12px;
+  border-radius: 22px;
+  overflow: hidden;
+  color: var(--ps-fg);
+  background: linear-gradient(
+    165deg,
+    var(--ps-wallpaper) 0%,
+    color-mix(in srgb, var(--ps-wallpaper) 55%, #000000) 100%
+  );
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  user-select: none;
+}
+
+.phone-screen-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 14px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.phone-screen-battery {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.phone-screen-battery__body {
+  position: relative;
+  width: 20px;
+  height: 9px;
+  border: 1px solid var(--ps-fg-soft);
+  border-radius: 3px;
+  padding: 1px;
+  box-sizing: border-box;
+}
+
+.phone-screen-battery__fill {
+  display: block;
+  height: 100%;
+  border-radius: 1.5px;
+}
+
+.phone-screen-battery__cap {
+  width: 1.5px;
+  height: 4px;
+  margin-left: 1px;
+  border-radius: 0 1px 1px 0;
+  background: var(--ps-fg-soft);
+}
+
+.phone-screen-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 14px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.phone-screen-lock {
+  width: 12px;
+  height: 12px;
+  margin-bottom: 4px;
+  color: var(--ps-fg);
+}
+
+.phone-screen-date {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ps-fg-soft);
+}
+
+.phone-screen-time {
+  font-size: 54px;
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.phone-screen-notices {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.phone-screen-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 7px 8px;
+  border-radius: 12px;
+  background: var(--ps-notice-bg);
+}
+
+.phone-screen-notice__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.phone-screen-notice__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.phone-screen-notice__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 9px;
+  color: var(--ps-fg-soft);
+}
+
+.phone-screen-notice__app {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.phone-screen-notice__time {
+  flex-shrink: 0;
+}
+
+.phone-screen-notice__title {
+  margin-top: 1px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.phone-screen-notice__body {
+  margin-top: 1px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--ps-fg);
+  opacity: 0.88;
+  word-break: break-word;
+}
+
+.phone-screen-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.phone-screen-round {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--ps-notice-bg);
+  color: var(--ps-fg);
+}
+
+.phone-screen-homebar {
+  display: block;
+  width: 70px;
+  height: 4px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: var(--ps-fg-soft);
+}
+
+/* 安卓风格：时间和日期靠左，通知底板更方正。 */
+.phone-screen-card--android .phone-screen-clock {
+  align-items: flex-start;
+  text-align: left;
+  margin-top: 10px;
+}
+
+.phone-screen-card--android .phone-screen-time {
+  font-size: 48px;
+}
+
+.phone-screen-card--android .phone-screen-notice {
+  border-radius: 8px;
+}
+
+.phone-screen-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  opacity: 0.55;
+  background: transparent;
+  color: inherit;
+}
+
+.phone-screen-save:hover,
+.phone-screen-save:active {
+  opacity: 1;
+}
+
+.phone-screen-save:disabled {
+  opacity: 0.3;
+}
