@@ -240,3 +240,185 @@
 .phone-screen-save:disabled {
   opacity: 0.3;
 }
+
+/* ------------------------------------------------------------------
+ * 第二片新增：浏览器搜索记录、音乐播放器
+ * ------------------------------------------------------------------ */
+
+/* 浏览器：固定的浅色页面，--ps-accent 只当强调色。 */
+.phone-screen-card--page {
+  background: #f4f5f7;
+  color: var(--ps-fg);
+}
+
+.phone-browser-address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #e4e6eb;
+  font-size: 10.5px;
+  color: var(--ps-fg-soft);
+}
+
+.phone-browser-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ps-accent);
+}
+
+.phone-browser-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.phone-browser-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 2px;
+  border-bottom: 1px solid rgba(27, 27, 31, 0.08);
+}
+
+.phone-browser-row__icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--ps-accent);
+}
+
+.phone-browser-row__query {
+  min-width: 0;
+  flex: 1;
+  font-size: 11.5px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.phone-browser-row__time {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--ps-fg-soft);
+}
+
+.phone-browser-bottom {
+  margin-top: 10px;
+}
+
+.phone-browser-bottom .phone-browser-address {
+  margin-top: 0;
+}
+
+/* 音乐播放器：背景沿用 .phone-screen-card 的渐变（颜色来自 spec.wallpaper）。 */
+.phone-screen-card--music {
+  align-items: stretch;
+}
+
+.phone-music-state {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--ps-fg-soft);
+}
+
+.phone-music-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 130px;
+  height: 130px;
+  margin: 12px auto 14px;
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ps-wallpaper) 55%, #ffffff) 0%,
+    color-mix(in srgb, var(--ps-wallpaper) 70%, #000000) 100%
+  );
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+}
+
+.phone-music-cover__icon {
+  width: 44px;
+  height: 44px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.phone-music-title {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.phone-music-artist {
+  margin-top: 2px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--ps-fg-soft);
+}
+
+.phone-music-lyric {
+  margin-top: 12px;
+  padding: 0 6px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+  font-style: italic;
+  word-break: break-word;
+}
+
+.phone-music-progress {
+  position: relative;
+  height: 3px;
+  margin: auto 4px 0;
+  margin-top: 18px;
+  border-radius: 999px;
+  background: var(--ps-notice-bg);
+}
+
+.phone-music-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ps-fg);
+}
+
+.phone-music-progress__knob {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--ps-fg);
+  transform: translate(-50%, -50%);
+}
+
+.phone-music-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 16px;
+  margin-bottom: 4px;
+  color: var(--ps-fg);
+}
+
+.phone-music-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: var(--ps-notice-bg);
+}

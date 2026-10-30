@@ -10,18 +10,24 @@
 // 正则是 /\[(TAG):\s*([^\]]+)\]/，标签内容里一旦出现右方括号 "]" 就会被
 // 提前截断，JSON 的数组天然带 "]"，所以这里刻意只用不含方括号的分隔符。
 //
-// 标签格式（锁屏）：
-//   [PHONESHOT: lockscreen | 手机风格 | 时间 | 电量 | 壁纸主色 | 通知1 ;; 通知2]
-// 每条通知：应用名::标题::正文::时间(可选)
+// 标签格式：前 5 项是所有画面通用的固定字段，第 6 项起是各画面自己的内容：
+//   [PHONESHOT: 画面 | 手机风格 | 时间 | 电量 | 主色 | 内容]
+// 三种画面（kind）：
+//   lockscreen  内容 = 通知1 ;; 通知2 ...      每条：应用名::标题::正文::时间(可选)
+//   browser     内容 = 搜索1 ;; 搜索2 ...      每条：搜索词::时间(可选)
+//   music       内容 = 歌名::歌手::歌词::进度::状态     （只有一首）
+// "主色"在锁屏里是壁纸颜色，在浏览器里是强调色，在音乐里是封面和背景色。
 //
 // 解析一律"宽容但不放过危险值"：缺字段就用默认值，颜色/数字严格校验，
 // 文字内容只会作为 React 文本节点渲染，不会当 HTML 解释，所以不需要
-// HTML 净化器。解析失败（比如根本没有可显示的通知）返回 null，调用方
+// HTML 净化器。解析失败（比如根本没有可显示的内容）返回 null，调用方
 // 直接丢掉这个标签，不插入任何消息。
 
 export const PHONE_SCREEN_MESSAGE_TYPE = 'phone_screen';
 
 export const PHONE_SCREEN_KIND_LOCKSCREEN = 'lockscreen';
+export const PHONE_SCREEN_KIND_BROWSER = 'browser';
+export const PHONE_SCREEN_KIND_MUSIC = 'music';
 
 export const PHONE_SCREEN_STYLE_IOS = 'ios';
 export const PHONE_SCREEN_STYLE_ANDROID = 'android';
@@ -29,10 +35,16 @@ export const PHONE_SCREEN_STYLE_ANDROID = 'android';
 export const DEFAULT_WALLPAPER_COLOR = '#3b4a6b';
 
 const MAX_NOTIFICATIONS = 6;
+const MAX_SEARCHES = 8;
 const MAX_APP_LENGTH = 12;
 const MAX_TITLE_LENGTH = 24;
 const MAX_BODY_LENGTH = 70;
 const MAX_NOTICE_TIME_LENGTH = 10;
+const MAX_QUERY_LENGTH = 40;
+const MAX_SONG_LENGTH = 30;
+const MAX_ARTIST_LENGTH = 20;
+const MAX_LYRIC_LENGTH = 40;
+const DEFAULT_MUSIC_PROGRESS = 35;
 
 // 按字符（而不是 UTF-16 码元）截断，避免把一个字符劈成两半。
 const clean = (value, maxLength) => {
@@ -44,11 +56,25 @@ const clean = (value, maxLength) => {
   return Array.from(text).slice(0, maxLength).join('');
 };
 
+const splitItems = (text) =>
+  String(text || '').split(/\s*(?:;;|；；)\s*/);
+
+const splitFields = (text) =>
+  String(text || '').split(/::|：：/).map((part) => part.trim());
+
 const normalizeKind = (value) => {
   const text = clean(value, 20).toLowerCase();
 
   if (text === 'lockscreen' || text === 'lock' || text === '锁屏') {
     return PHONE_SCREEN_KIND_LOCKSCREEN;
+  }
+
+  if (text === 'browser' || text === 'search' || text === '浏览器' || text === '搜索') {
+    return PHONE_SCREEN_KIND_BROWSER;
+  }
+
+  if (text === 'music' || text === 'player' || text === '音乐' || text === '播放器') {
+    return PHONE_SCREEN_KIND_MUSIC;
   }
 
   return null;
@@ -102,41 +128,86 @@ const normalizeColor = (value) => {
 const parseNotifications = (itemsText) => {
   const result = [];
 
-  String(itemsText || '')
-    .split(/\s*(?:;;|；；)\s*/)
-    .forEach((rawItem) => {
-      if (result.length >= MAX_NOTIFICATIONS) return;
+  splitItems(itemsText).forEach((rawItem) => {
+    if (result.length >= MAX_NOTIFICATIONS) return;
 
-      const parts = rawItem.split(/::|：：/).map((part) => part.trim());
+    const parts = splitFields(rawItem);
 
-      if (!parts.some(Boolean)) return;
+    if (!parts.some(Boolean)) return;
 
-      let app = '通知';
-      let title = '';
-      let body = '';
-      let time = '';
+    let app = '通知';
+    let title = '';
+    let body = '';
+    let time = '';
 
-      if (parts.length === 1) {
-        [body] = parts;
-      } else if (parts.length === 2) {
-        [app, body] = parts;
-      } else {
-        [app, title, body, time = ''] = parts;
-      }
+    if (parts.length === 1) {
+      [body] = parts;
+    } else if (parts.length === 2) {
+      [app, body] = parts;
+    } else {
+      [app, title, body, time = ''] = parts;
+    }
 
-      const notification = {
-        app: clean(app, MAX_APP_LENGTH) || '通知',
-        title: clean(title, MAX_TITLE_LENGTH),
-        body: clean(body, MAX_BODY_LENGTH),
-        time: clean(time, MAX_NOTICE_TIME_LENGTH),
-      };
+    const notification = {
+      app: clean(app, MAX_APP_LENGTH) || '通知',
+      title: clean(title, MAX_TITLE_LENGTH),
+      body: clean(body, MAX_BODY_LENGTH),
+      time: clean(time, MAX_NOTICE_TIME_LENGTH),
+    };
 
-      if (!notification.title && !notification.body) return;
+    if (!notification.title && !notification.body) return;
 
-      result.push(notification);
-    });
+    result.push(notification);
+  });
 
   return result;
+};
+
+const parseSearches = (itemsText) => {
+  const result = [];
+
+  splitItems(itemsText).forEach((rawItem) => {
+    if (result.length >= MAX_SEARCHES) return;
+
+    const [query = '', time = ''] = splitFields(rawItem);
+    const cleanQuery = clean(query, MAX_QUERY_LENGTH);
+
+    if (!cleanQuery) return;
+
+    result.push({ query: cleanQuery, time: clean(time, MAX_NOTICE_TIME_LENGTH) });
+  });
+
+  return result;
+};
+
+// 音乐只取第一首：歌名::歌手::歌词::进度::状态
+const parseTrack = (itemsText) => {
+  const firstItem = splitItems(itemsText).find((item) => item.trim());
+
+  if (!firstItem) return null;
+
+  const [title = '', artist = '', lyric = '', progress = '', state = ''] =
+    splitFields(firstItem);
+
+  const cleanTitle = clean(title, MAX_SONG_LENGTH);
+
+  if (!cleanTitle) return null;
+
+  const progressDigits = clean(progress, 10).replace(/[^\d]/g, '');
+  const progressNumber = progressDigits
+    ? Math.min(100, Number(progressDigits))
+    : DEFAULT_MUSIC_PROGRESS;
+
+  const stateText = clean(state, 20).toLowerCase();
+  const isPaused = stateText.includes('暂停') || stateText.includes('pause');
+
+  return {
+    title: cleanTitle,
+    artist: clean(artist, MAX_ARTIST_LENGTH) || '未知歌手',
+    lyric: clean(lyric, MAX_LYRIC_LENGTH),
+    progress: progressNumber,
+    playing: !isPaused,
+  };
 };
 
 /**
@@ -146,26 +217,61 @@ const parseNotifications = (itemsText) => {
 export const parsePhoneScreenPayload = (rawPayload) => {
   const fields = String(rawPayload || '').split('|');
 
-  // 前5项是固定字段，后面全部算"通知列表"（把误拆开的 "|" 拼回去）。
+  // 前5项是固定字段，后面全部算"画面内容"（把误拆开的 "|" 拼回去）。
   if (fields.length < 6) return null;
 
   const kind = normalizeKind(fields[0]);
 
   if (!kind) return null;
 
-  const notifications = parseNotifications(fields.slice(5).join('|'));
+  const itemsText = fields.slice(5).join('|');
 
-  if (notifications.length === 0) return null;
-
-  return {
+  const spec = {
     version: 1,
     kind,
     style: normalizeStyle(fields[1]),
     time: normalizeTime(fields[2]),
     battery: normalizeBattery(fields[3]),
     wallpaper: normalizeColor(fields[4]),
-    notifications,
   };
+
+  if (kind === PHONE_SCREEN_KIND_LOCKSCREEN) {
+    const notifications = parseNotifications(itemsText);
+    if (notifications.length === 0) return null;
+    return { ...spec, notifications };
+  }
+
+  if (kind === PHONE_SCREEN_KIND_BROWSER) {
+    const searches = parseSearches(itemsText);
+    if (searches.length === 0) return null;
+    return { ...spec, searches };
+  }
+
+  const track = parseTrack(itemsText);
+  if (!track) return null;
+  return { ...spec, track };
+};
+
+/**
+ * spec 是不是有足够的内容可以画出来（给卡片用，防止存档里的旧数据或
+ * 损坏数据让卡片崩掉）。
+ */
+export const isPhoneScreenSpecRenderable = (spec) => {
+  if (!spec || typeof spec !== 'object') return false;
+
+  if (spec.kind === PHONE_SCREEN_KIND_LOCKSCREEN) {
+    return Array.isArray(spec.notifications) && spec.notifications.length > 0;
+  }
+
+  if (spec.kind === PHONE_SCREEN_KIND_BROWSER) {
+    return Array.isArray(spec.searches) && spec.searches.length > 0;
+  }
+
+  if (spec.kind === PHONE_SCREEN_KIND_MUSIC) {
+    return Boolean(spec.track?.title);
+  }
+
+  return false;
 };
 
 /**
@@ -175,19 +281,35 @@ export const parsePhoneScreenPayload = (rawPayload) => {
  * "喂给 AI 的历史"两件事，不需要给记忆系统加任何新代码。
  */
 export const buildPhoneScreenSummary = (spec) => {
-  if (!spec || !Array.isArray(spec.notifications)) return '';
-
-  const notices = spec.notifications
-    .map((item) => {
-      const head = item.title ? `${item.app}·${item.title}` : item.app;
-      return item.body ? `${head}：${item.body}` : head;
-    })
-    .join('；');
+  if (!isPhoneScreenSpecRenderable(spec)) return '';
 
   const timePart = spec.time ? `手机时间 ${spec.time}，` : '';
   const batteryPart = spec.battery ? `电量 ${spec.battery}%，` : '';
 
-  return `[手机锁屏截图] ${timePart}${batteryPart}通知栏显示：${notices}`;
+  if (spec.kind === PHONE_SCREEN_KIND_LOCKSCREEN) {
+    const notices = spec.notifications
+      .map((item) => {
+        const head = item.title ? `${item.app}·${item.title}` : item.app;
+        return item.body ? `${head}：${item.body}` : head;
+      })
+      .join('；');
+
+    return `[手机锁屏截图] ${timePart}${batteryPart}通知栏显示：${notices}`;
+  }
+
+  if (spec.kind === PHONE_SCREEN_KIND_BROWSER) {
+    const searches = spec.searches
+      .map((item) => (item.time ? `${item.query}（${item.time}）` : item.query))
+      .join('；');
+
+    return `[手机浏览器截图] ${timePart}${batteryPart}最近的搜索记录：${searches}`;
+  }
+
+  const { track } = spec;
+  const stateText = track.playing ? '正在播放' : '已暂停';
+  const lyricPart = track.lyric ? `，当前歌词栏：${track.lyric}` : '';
+
+  return `[手机音乐播放器截图] ${timePart}${batteryPart}${stateText}《${track.title}》- ${track.artist}，进度 ${track.progress}%${lyricPart}`;
 };
 
 /**
@@ -200,6 +322,7 @@ export const formatPhoneScreenForPrompt = (message) =>
 export default {
   PHONE_SCREEN_MESSAGE_TYPE,
   parsePhoneScreenPayload,
+  isPhoneScreenSpecRenderable,
   buildPhoneScreenSummary,
   formatPhoneScreenForPrompt,
 };

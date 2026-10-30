@@ -3,7 +3,7 @@
 // 角色发来的"手机截图"消息卡片（message.type === 'phone_screen'）。
 //
 // 存的是结构化 spec（message.metadata.spec，见 phoneScreenSpec.js），这里
-// 每次渲染时现画一张手机锁屏的样子——不是存下来的图片，所以清晰、不占
+// 每次渲染时现画一张手机屏幕的样子——不是存下来的图片，所以清晰、不占
 // 空间。想保存成真图片时点下面的"保存为图片"，用 html-to-image 把这张卡
 // 片的 DOM 节点导出成 PNG（复用 margin-notes 里现成的 exportPageToImage，
 // 它本身跟便签没有任何绑定，就是个通用的 DOM 转 PNG 并下载的工具）。
@@ -11,15 +11,30 @@
 // 文字内容全部走 React 文本节点，颜色在解析阶段已经被严格校验成
 // #rgb/#rrggbb，所以不存在 HTML/CSS 注入的问题。
 //
-// 目前只有锁屏通知栏一种画面（PHONE_SCREEN_KIND_LOCKSCREEN），以后加
-// 新画面只需要在这个文件里按 spec.kind 多分一支渲染函数。
+// 三种画面：锁屏通知栏 / 浏览器搜索记录 / 音乐播放器，按 spec.kind 分
+// 发。以后加新画面只需要在这个文件里多写一个画面组件、在
+// phoneScreenSpec.js 里多写一段解析，不用动别的地方。
 import React, { useMemo, useRef, useState } from 'react';
-import { Lock, Camera, Download } from 'lucide-react';
+import {
+  Lock,
+  Camera,
+  Download,
+  Search,
+  Clock,
+  Music,
+  SkipBack,
+  SkipForward,
+  Play,
+  Pause,
+} from 'lucide-react';
 import { exportPageToImage } from '../../margin-notes/marginNotesExportService';
 import {
   PHONE_SCREEN_KIND_LOCKSCREEN,
+  PHONE_SCREEN_KIND_BROWSER,
+  PHONE_SCREEN_KIND_MUSIC,
   PHONE_SCREEN_STYLE_ANDROID,
   DEFAULT_WALLPAPER_COLOR,
+  isPhoneScreenSpecRenderable,
 } from './phoneScreenSpec';
 import './phoneScreen.css';
 
@@ -53,6 +68,27 @@ const isLightColor = (hex) => {
   return (0.299 * red + 0.587 * green + 0.114 * blue) / 255 > 0.62;
 };
 
+// 深色/渐变背景的画面（锁屏、音乐）用的一组颜色变量：背景由 spec.wallpaper
+// 决定，文字颜色按背景深浅自动选。
+const buildGradientVars = (color) => {
+  const wallpaper = color || DEFAULT_WALLPAPER_COLOR;
+  const light = isLightColor(wallpaper);
+
+  return {
+    '--ps-wallpaper': wallpaper,
+    '--ps-fg': light ? '#1b1b1f' : '#ffffff',
+    '--ps-fg-soft': light ? 'rgba(27, 27, 31, 0.62)' : 'rgba(255, 255, 255, 0.72)',
+    '--ps-notice-bg': light ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.18)',
+  };
+};
+
+// 浏览器画面是固定的浅色页面，spec.wallpaper 只当强调色用。
+const buildPageVars = (color) => ({
+  '--ps-accent': color || DEFAULT_WALLPAPER_COLOR,
+  '--ps-fg': '#1b1b1f',
+  '--ps-fg-soft': 'rgba(27, 27, 31, 0.55)',
+});
+
 // 应用图标：用应用名第一个字 + 由应用名算出来的稳定颜色，同一个应用
 // 每次渲染都是同一个颜色，不需要图片资源。
 const getAppIconColor = (app) => {
@@ -84,18 +120,16 @@ const Battery = ({ level }) => {
   );
 };
 
+const StatusBar = ({ timeText, battery }) => (
+  <div className="phone-screen-statusbar">
+    <span>{timeText}</span>
+    <Battery level={battery} />
+  </div>
+);
+
 const LockScreen = ({ spec, date, cardRef }) => {
   const isAndroid = spec.style === PHONE_SCREEN_STYLE_ANDROID;
-  const wallpaper = spec.wallpaper || DEFAULT_WALLPAPER_COLOR;
-  const light = isLightColor(wallpaper);
   const timeText = spec.time || formatClock(date);
-
-  const cssVars = {
-    '--ps-wallpaper': wallpaper,
-    '--ps-fg': light ? '#1b1b1f' : '#ffffff',
-    '--ps-fg-soft': light ? 'rgba(27, 27, 31, 0.62)' : 'rgba(255, 255, 255, 0.72)',
-    '--ps-notice-bg': light ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.18)',
-  };
 
   return (
     <div
@@ -103,12 +137,9 @@ const LockScreen = ({ spec, date, cardRef }) => {
       className={`phone-screen-card ${
         isAndroid ? 'phone-screen-card--android' : 'phone-screen-card--ios'
       }`}
-      style={cssVars}
+      style={buildGradientVars(spec.wallpaper)}
     >
-      <div className="phone-screen-statusbar">
-        <span>{isAndroid ? timeText : ''}</span>
-        <Battery level={spec.battery} />
-      </div>
+      <StatusBar timeText={isAndroid ? timeText : ''} battery={spec.battery} />
 
       <div className="phone-screen-clock">
         {!isAndroid && <Lock className="phone-screen-lock" strokeWidth={2.2} />}
@@ -161,6 +192,110 @@ const LockScreen = ({ spec, date, cardRef }) => {
   );
 };
 
+// iOS 风格地址栏在屏幕底部，安卓风格在顶部。
+const AddressBar = () => (
+  <div className="phone-browser-address">
+    <Lock className="h-3 w-3" strokeWidth={2.2} />
+    <span>搜索或输入网址</span>
+  </div>
+);
+
+const BrowserScreen = ({ spec, date, cardRef }) => {
+  const isAndroid = spec.style === PHONE_SCREEN_STYLE_ANDROID;
+  const timeText = spec.time || formatClock(date);
+
+  return (
+    <div
+      ref={cardRef}
+      className={`phone-screen-card phone-screen-card--page ${
+        isAndroid ? 'phone-screen-card--android' : 'phone-screen-card--ios'
+      }`}
+      style={buildPageVars(spec.wallpaper)}
+    >
+      <StatusBar timeText={timeText} battery={spec.battery} />
+
+      {isAndroid && <AddressBar />}
+
+      <div className="phone-browser-title">
+        <Clock className="h-3.5 w-3.5" />
+        <span>搜索记录</span>
+      </div>
+
+      <div className="phone-browser-list">
+        {spec.searches.map((item, index) => (
+          <div className="phone-browser-row" key={`${item.query}-${index}`}>
+            <Search className="phone-browser-row__icon" strokeWidth={2.2} />
+            <span className="phone-browser-row__query">{item.query}</span>
+            {item.time && (
+              <span className="phone-browser-row__time">{item.time}</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {!isAndroid && (
+        <div className="phone-browser-bottom">
+          <AddressBar />
+        </div>
+      )}
+    </div>
+  );
+};
+
+const MusicScreen = ({ spec, date, cardRef }) => {
+  const isAndroid = spec.style === PHONE_SCREEN_STYLE_ANDROID;
+  const timeText = spec.time || formatClock(date);
+  const { track } = spec;
+
+  return (
+    <div
+      ref={cardRef}
+      className={`phone-screen-card phone-screen-card--music ${
+        isAndroid ? 'phone-screen-card--android' : 'phone-screen-card--ios'
+      }`}
+      style={buildGradientVars(spec.wallpaper)}
+    >
+      <StatusBar timeText={timeText} battery={spec.battery} />
+
+      <div className="phone-music-state">
+        {track.playing ? '正在播放' : '已暂停'}
+      </div>
+
+      <div className="phone-music-cover">
+        <Music className="phone-music-cover__icon" strokeWidth={1.6} />
+      </div>
+
+      <div className="phone-music-title">{track.title}</div>
+      <div className="phone-music-artist">{track.artist}</div>
+
+      {track.lyric && <div className="phone-music-lyric">{track.lyric}</div>}
+
+      <div className="phone-music-progress">
+        <span className="phone-music-progress__fill" style={{ width: `${track.progress}%` }} />
+        <span className="phone-music-progress__knob" style={{ left: `${track.progress}%` }} />
+      </div>
+
+      <div className="phone-music-controls">
+        <SkipBack className="h-5 w-5" />
+        <span className="phone-music-play">
+          {track.playing ? (
+            <Pause className="h-5 w-5" />
+          ) : (
+            <Play className="h-5 w-5" />
+          )}
+        </span>
+        <SkipForward className="h-5 w-5" />
+      </div>
+    </div>
+  );
+};
+
+const SCREEN_BY_KIND = {
+  [PHONE_SCREEN_KIND_LOCKSCREEN]: LockScreen,
+  [PHONE_SCREEN_KIND_BROWSER]: BrowserScreen,
+  [PHONE_SCREEN_KIND_MUSIC]: MusicScreen,
+};
+
 export const PhoneScreenCard = ({ content, metadata, timestamp, messageId }) => {
   const cardRef = useRef(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -169,14 +304,11 @@ export const PhoneScreenCard = ({ content, metadata, timestamp, messageId }) => 
   const spec = metadata?.spec;
   const date = useMemo(() => toDate(timestamp), [timestamp]);
 
-  const isRenderable =
-    spec
-    && spec.kind === PHONE_SCREEN_KIND_LOCKSCREEN
-    && Array.isArray(spec.notifications)
-    && spec.notifications.length > 0;
+  const Screen = spec ? SCREEN_BY_KIND[spec.kind] : null;
 
-  // spec 缺失或损坏时退回显示 content 里那段文字摘要，不让整条消息空白。
-  if (!isRenderable) {
+  // spec 缺失、损坏或是不认识的画面时，退回显示 content 里那段文字摘要，
+  // 不让整条消息空白。
+  if (!Screen || !isPhoneScreenSpecRenderable(spec)) {
     return (
       <div className="text-[12px] leading-relaxed opacity-70">
         {content || '[手机截图]'}
@@ -205,7 +337,7 @@ export const PhoneScreenCard = ({ content, metadata, timestamp, messageId }) => 
 
   return (
     <div className="phone-screen-wrap">
-      <LockScreen spec={spec} date={date} cardRef={cardRef} />
+      <Screen spec={spec} date={date} cardRef={cardRef} />
 
       <button
         type="button"
