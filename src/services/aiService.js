@@ -136,6 +136,13 @@ import { getSharedWorldPromptBlock } from '../apps/shared-world/sharedWorldServi
 import { maybeUpdateProfileCard } from '../apps/messages/profile/profileCardService';
 import { buildChatImageGenPromptNote } from '../apps/messages/chatImageGen/chatImageGenDirective';
 import { runChatImageGeneration } from '../apps/messages/chatImageGen/chatImageGenService';
+import { buildPhoneScreenPromptNote } from '../apps/messages/phoneScreen/phoneScreenDirective';
+import {
+  PHONE_SCREEN_MESSAGE_TYPE,
+  parsePhoneScreenPayload,
+  buildPhoneScreenSummary,
+  formatPhoneScreenForPrompt,
+} from '../apps/messages/phoneScreen/phoneScreenSpec';
 import { describeMelodyForPrompt } from '../apps/harp/harpDescribe';
 import { parseHarpTagPayload } from '../apps/harp/harpTagParser';
 import { buildHarpPromptBlock } from '../apps/harp/harpPromptBlock';
@@ -323,7 +330,7 @@ export const parseAiResponseToMessages = async (text = '') => {
   // GENIMAGE：聊天里AI自主触发的真实生图（跟 IMAGE 的纯文字占位卡完全
   // 独立，见 chatImageGen/chatImageGenDirective.js 的系统提示词说明）。
  const pattern =
-  /\[(TRANSFER|VOICE|IMAGE|GENIMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION|PARCEL_START|PARCEL_NOTE|COUPON|COUPON_REDEEM|HARP):\s*([^\]]+)\]/g;
+  /\[(TRANSFER|VOICE|IMAGE|GENIMAGE|PHONESHOT|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION|PARCEL_START|PARCEL_NOTE|COUPON|COUPON_REDEEM|HARP):\s*([^\]]+)\]/g;
   // 一次性读取本地表情包库，建立「名称 -> URL」映射
   const allStickers = await db.stickers.toArray();
 
@@ -405,6 +412,22 @@ export const parseAiResponseToMessages = async (text = '') => {
         content: rawPayload,
         metadata: { status: 'pending' }
       });
+        } else if (cardType === 'phoneshot') {
+      // 角色发自己手机的截图：把标签里的文字解析成结构化 spec 存进
+      // metadata.spec，卡片渲染时现画（见 phoneScreen/PhoneScreenCard.jsx）。
+      // content 存一段文字摘要，记忆系统只要 content 非空就会收录。
+      // 解析失败（格式不对、没有可显示的通知）就直接丢掉这个标签。
+      const phoneScreenSpec = parsePhoneScreenPayload(rawPayload);
+
+      if (phoneScreenSpec) {
+        result.push({
+          type: PHONE_SCREEN_MESSAGE_TYPE,
+          content: buildPhoneScreenSummary(phoneScreenSpec),
+          metadata: { spec: phoneScreenSpec }
+        });
+      } else {
+        console.warn('[PhoneScreen] 标签格式不对，已忽略:', rawPayload);
+      }
     } else if (cardType === 'todo') {
       const parts = rawPayload.split('|');
 
@@ -602,6 +625,10 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
   if (msg.type === 'image') {
     return `[发送了画面/照片: ${msg.content || ''}]`;
   }
+       if (msg.type === 'phone_screen') {
+    return formatPhoneScreenForPrompt(msg);
+  }
+
     if (msg.type === 'image_generated') {
     return `[你刚刚生成了一张真实图片，画面描述: ${msg.content || ''}]`;
   }
@@ -2709,7 +2736,12 @@ const moodBubbleNote = options.ignoreAway ? '' : MOOD_BUBBLE_PROMPT_NOTE;
 // 完整时才会有内容，否则是空字符串（AI完全不会被告知有这个标签）。
 const chatImageGenNote = options.ignoreAway
   ? ''
-  : await buildChatImageGenPromptNote(chat);
+   : await buildChatImageGenPromptNote(chat);
+
+// 角色发手机截图：只有这个聊天窗自己开了开关才有内容，否则是空字符串。
+const phoneScreenNote = options.ignoreAway
+  ? ''
+  : buildPhoneScreenPromptNote(chat);
 
 const trickButtonNote = (!options.ignoreAway && isHalloweenSeasonActive())
   ? `
@@ -2754,7 +2786,9 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
 }${
   trickButtonNote ? `\n\n${trickButtonNote}` : ''
 }${
-  chatImageGenNote ? `\n\n${chatImageGenNote}` : ''
+   chatImageGenNote ? `\n\n${chatImageGenNote}` : ''
+}${
+  phoneScreenNote ? `\n\n${phoneScreenNote}` : ''
 }`;
 
 const historyContext = buildHistoryContext(

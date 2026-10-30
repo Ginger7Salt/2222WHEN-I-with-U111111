@@ -24,6 +24,7 @@ import AwaySettingsSection from '../away/AwaySettingsSection';
 import LearningModeSettingsSection from '../learningMode/LearningModeSettingsSection';
 import ChatReplyLanguageSettingsSection from '../replyLanguage/ChatReplyLanguageSettingsSection';
 import ChatImageGenSettingsSection from '../chatImageGen/ChatImageGenSettingsSection';
+import PhoneScreenSettingsSection from '../phoneScreen/PhoneScreenSettingsSection';
 import db from '../../../db';
 import { CHAT_CONTROL_STYLE_OPTIONS } from '../chatControlStylePresets';
 import { compressImageFile } from '../../../utils/imageHelper';
@@ -965,6 +966,12 @@ const handleToggleLocation = async () => {
 
         {/* AI自动生图（每个聊天窗单独设置，默认关闭） */}
         <ChatImageGenSettingsSection
+          chat={chat}
+          onUpdated={onUpdatedUserPersona}
+        />
+
+                {/* 角色手机截图（每个聊天窗单独设置，默认关闭） */}
+        <PhoneScreenSettingsSection
           chat={chat}
           onUpdated={onUpdatedUserPersona}
         />

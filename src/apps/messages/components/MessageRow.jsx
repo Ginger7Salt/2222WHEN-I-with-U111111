@@ -43,6 +43,7 @@ import TextCard from './cards/TextCard';
 import LearningModeTranslationToggle from '../learningMode/LearningModeTranslationToggle';
 import ImageCard from './cards/ImageCard';
 import GeneratedImageCard from './cards/GeneratedImageCard';
+import PhoneScreenCard from '../phoneScreen/PhoneScreenCard';
 import VoiceCard from './cards/VoiceCard';
 import TransferCard from './cards/TransferCard';
 import ArticleCard from './cards/ArticleCard';
@@ -615,6 +616,15 @@ const MessageRow = ({
                   messageId={msg.id}
                   chatId={msg.chatId}
                   characterId={msg.characterId}
+                />
+              )}
+
+                            {msg.type === 'phone_screen' && (
+                <PhoneScreenCard
+                  content={msg.content}
+                  metadata={msg.metadata}
+                  timestamp={msg.timestamp}
+                  messageId={msg.id}
                 />
               )}
 
