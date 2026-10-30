@@ -11,7 +11,7 @@
 // 文字内容全部走 React 文本节点，颜色在解析阶段已经被严格校验成
 // #rgb/#rrggbb，所以不存在 HTML/CSS 注入的问题。
 //
-// 三种画面：锁屏通知栏 / 浏览器搜索记录 / 音乐播放器，按 spec.kind 分
+// 四种画面：锁屏通知栏 / 浏览器搜索记录 / 音乐播放器 / 聊天软件对话，按 spec.kind 分
 // 发。以后加新画面只需要在这个文件里多写一个画面组件、在
 // phoneScreenSpec.js 里多写一段解析，不用动别的地方。
 import React, { useMemo, useRef, useState } from 'react';
@@ -26,12 +26,15 @@ import {
   SkipForward,
   Play,
   Pause,
+  ChevronLeft,
+  Plus,
 } from 'lucide-react';
 import { exportPageToImage } from '../../margin-notes/marginNotesExportService';
 import {
   PHONE_SCREEN_KIND_LOCKSCREEN,
   PHONE_SCREEN_KIND_BROWSER,
   PHONE_SCREEN_KIND_MUSIC,
+  PHONE_SCREEN_KIND_CHAT,
   PHONE_SCREEN_STYLE_ANDROID,
   DEFAULT_WALLPAPER_COLOR,
   isPhoneScreenSpecRenderable,
@@ -88,6 +91,20 @@ const buildPageVars = (color) => ({
   '--ps-fg': '#1b1b1f',
   '--ps-fg-soft': 'rgba(27, 27, 31, 0.55)',
 });
+
+// 聊天画面：页面是固定的浅色，spec.wallpaper 当"我"发出的气泡颜色，
+// 气泡里的文字颜色按气泡深浅自动选。
+const buildChatVars = (color) => {
+  const accent = color || DEFAULT_WALLPAPER_COLOR;
+
+  return {
+    '--ps-accent': accent,
+    '--ps-fg': '#1b1b1f',
+    '--ps-fg-soft': 'rgba(27, 27, 31, 0.55)',
+    '--ps-me-bg': accent,
+    '--ps-me-fg': isLightColor(accent) ? '#1b1b1f' : '#ffffff',
+  };
+};
 
 // 应用图标：用应用名第一个字 + 由应用名算出来的稳定颜色，同一个应用
 // 每次渲染都是同一个颜色，不需要图片资源。
@@ -290,10 +307,74 @@ const MusicScreen = ({ spec, date, cardRef }) => {
   );
 };
 
+const ChatScreen = ({ spec, date, cardRef }) => {
+  const isAndroid = spec.style === PHONE_SCREEN_STYLE_ANDROID;
+  const timeText = spec.time || formatClock(date);
+  const { chat } = spec;
+
+  return (
+    <div
+      ref={cardRef}
+      className={`phone-screen-card phone-screen-card--page phone-screen-card--chat ${
+        isAndroid ? 'phone-screen-card--android' : 'phone-screen-card--ios'
+      }`}
+      style={buildChatVars(spec.wallpaper)}
+    >
+      <StatusBar timeText={timeText} battery={spec.battery} />
+
+      <div className="phone-chat-header">
+        <ChevronLeft className="h-4 w-4" />
+        <div className="phone-chat-header__main">
+          <div className="phone-chat-header__name">{chat.contact}</div>
+          <div className="phone-chat-header__app">{chat.app}</div>
+        </div>
+        <span className="phone-chat-header__spacer" />
+      </div>
+
+      <div className="phone-chat-messages">
+        {chat.messages.map((item, index) => {
+          const isMe = item.from === 'me';
+
+          return (
+            <div
+              className={`phone-chat-row ${isMe ? 'phone-chat-row--me' : ''}`}
+              key={`${item.from}-${index}`}
+            >
+              {!isMe && (
+                <span
+                  className="phone-chat-avatar"
+                  style={{ background: getAppIconColor(chat.contact) }}
+                >
+                  {Array.from(chat.contact)[0]}
+                </span>
+              )}
+              <div
+                className={`phone-chat-bubble ${
+                  isMe ? 'phone-chat-bubble--me' : 'phone-chat-bubble--other'
+                }`}
+              >
+                {item.text}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="phone-chat-input">
+        <span className="phone-chat-input__field">输入消息</span>
+        <span className="phone-chat-input__plus">
+          <Plus className="h-3.5 w-3.5" />
+        </span>
+      </div>
+    </div>
+  );
+};
+
 const SCREEN_BY_KIND = {
   [PHONE_SCREEN_KIND_LOCKSCREEN]: LockScreen,
   [PHONE_SCREEN_KIND_BROWSER]: BrowserScreen,
   [PHONE_SCREEN_KIND_MUSIC]: MusicScreen,
+  [PHONE_SCREEN_KIND_CHAT]: ChatScreen,
 };
 
 export const PhoneScreenCard = ({ content, metadata, timestamp, messageId }) => {

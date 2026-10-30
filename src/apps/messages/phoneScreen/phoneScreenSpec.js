@@ -12,11 +12,16 @@
 //
 // 标签格式：前 5 项是所有画面通用的固定字段，第 6 项起是各画面自己的内容：
 //   [PHONESHOT: 画面 | 手机风格 | 时间 | 电量 | 主色 | 内容]
-// 三种画面（kind）：
+// 四种画面（kind）：
 //   lockscreen  内容 = 通知1 ;; 通知2 ...      每条：应用名::标题::正文::时间(可选)
 //   browser     内容 = 搜索1 ;; 搜索2 ...      每条：搜索词::时间(可选)
 //   music       内容 = 歌名::歌手::歌词::进度::状态     （只有一首）
-// "主色"在锁屏里是壁纸颜色，在浏览器里是强调色，在音乐里是封面和背景色。
+//   chat        内容 = 对方名::应用名 ;; 谁::话 ;; 谁::话 ...
+//               第一项是聊天对象和应用名（应用名可省略）；后面每条是一句话，
+//               "谁"写 我 表示角色自己发的（显示在右边），写别的（比如对方
+//               的名字）都算对方发的（显示在左边）。
+// "主色"在锁屏里是壁纸颜色，在浏览器里是强调色，在音乐里是封面和背景色，
+// 在聊天里是"我"发出的气泡颜色。
 //
 // 解析一律"宽容但不放过危险值"：缺字段就用默认值，颜色/数字严格校验，
 // 文字内容只会作为 React 文本节点渲染，不会当 HTML 解释，所以不需要
@@ -28,6 +33,7 @@ export const PHONE_SCREEN_MESSAGE_TYPE = 'phone_screen';
 export const PHONE_SCREEN_KIND_LOCKSCREEN = 'lockscreen';
 export const PHONE_SCREEN_KIND_BROWSER = 'browser';
 export const PHONE_SCREEN_KIND_MUSIC = 'music';
+export const PHONE_SCREEN_KIND_CHAT = 'chat';
 
 export const PHONE_SCREEN_STYLE_IOS = 'ios';
 export const PHONE_SCREEN_STYLE_ANDROID = 'android';
@@ -45,6 +51,10 @@ const MAX_SONG_LENGTH = 30;
 const MAX_ARTIST_LENGTH = 20;
 const MAX_LYRIC_LENGTH = 40;
 const DEFAULT_MUSIC_PROGRESS = 35;
+const MAX_CHAT_MESSAGES = 10;
+const MAX_CHAT_TEXT_LENGTH = 60;
+const MAX_CONTACT_LENGTH = 12;
+const DEFAULT_CHAT_APP = '聊天';
 
 // 按字符（而不是 UTF-16 码元）截断，避免把一个字符劈成两半。
 const clean = (value, maxLength) => {
@@ -75,6 +85,16 @@ const normalizeKind = (value) => {
 
   if (text === 'music' || text === 'player' || text === '音乐' || text === '播放器') {
     return PHONE_SCREEN_KIND_MUSIC;
+  }
+
+  if (
+    text === 'chat'
+    || text === 'conversation'
+    || text === '聊天'
+    || text === '对话'
+    || text === '聊天软件'
+  ) {
+    return PHONE_SCREEN_KIND_CHAT;
   }
 
   return null;
@@ -210,6 +230,54 @@ const parseTrack = (itemsText) => {
   };
 };
 
+// 聊天：第一项 对方名::应用名，后面每项 谁::话。
+// "谁"是 我/me 的算角色自己发的，其它任何写法都算对方发的；只有一段
+// 文字、没有 "::" 的也算对方发的。
+const SELF_SPEAKERS = new Set(['我', 'me', 'self']);
+
+const parseChat = (itemsText) => {
+  const items = splitItems(itemsText).filter((item) => item.trim());
+
+  if (items.length < 2) return null;
+
+  const [contactRaw = '', appRaw = ''] = splitFields(items[0]);
+  const contact = clean(contactRaw, MAX_CONTACT_LENGTH);
+
+  if (!contact) return null;
+
+  const messages = [];
+
+  items.slice(1).forEach((rawItem) => {
+    if (messages.length >= MAX_CHAT_MESSAGES) return;
+
+    const parts = splitFields(rawItem);
+    let from = 'other';
+    let text = '';
+
+    if (parts.length === 1) {
+      [text] = parts;
+    } else {
+      const speaker = clean(parts[0], 20).toLowerCase();
+      from = SELF_SPEAKERS.has(speaker) ? 'me' : 'other';
+      text = parts.slice(1).join('::');
+    }
+
+    const cleanText = clean(text, MAX_CHAT_TEXT_LENGTH);
+
+    if (!cleanText) return;
+
+    messages.push({ from, text: cleanText });
+  });
+
+  if (messages.length === 0) return null;
+
+  return {
+    contact,
+    app: clean(appRaw, MAX_APP_LENGTH) || DEFAULT_CHAT_APP,
+    messages,
+  };
+};
+
 /**
  * 解析 [PHONESHOT: ...] 标签里的文字。
  * 返回 spec，或者 null（格式不对/没有可显示的内容）。
@@ -247,6 +315,12 @@ export const parsePhoneScreenPayload = (rawPayload) => {
     return { ...spec, searches };
   }
 
+  if (kind === PHONE_SCREEN_KIND_CHAT) {
+    const chat = parseChat(itemsText);
+    if (!chat) return null;
+    return { ...spec, chat };
+  }
+
   const track = parseTrack(itemsText);
   if (!track) return null;
   return { ...spec, track };
@@ -269,6 +343,12 @@ export const isPhoneScreenSpecRenderable = (spec) => {
 
   if (spec.kind === PHONE_SCREEN_KIND_MUSIC) {
     return Boolean(spec.track?.title);
+  }
+
+  if (spec.kind === PHONE_SCREEN_KIND_CHAT) {
+    return Boolean(spec.chat?.contact)
+      && Array.isArray(spec.chat?.messages)
+      && spec.chat.messages.length > 0;
   }
 
   return false;
@@ -303,6 +383,15 @@ export const buildPhoneScreenSummary = (spec) => {
       .join('；');
 
     return `[手机浏览器截图] ${timePart}${batteryPart}最近的搜索记录：${searches}`;
+  }
+
+  if (spec.kind === PHONE_SCREEN_KIND_CHAT) {
+    const { chat } = spec;
+    const lines = chat.messages
+      .map((item) => `${item.from === 'me' ? '我' : chat.contact}：${item.text}`)
+      .join('；');
+
+    return `[手机聊天界面截图] ${timePart}${batteryPart}在${chat.app}里和「${chat.contact}」的聊天记录：${lines}`;
   }
 
   const { track } = spec;

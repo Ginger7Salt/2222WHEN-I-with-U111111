@@ -422,3 +422,125 @@
   border-radius: 999px;
   background: var(--ps-notice-bg);
 }
+
+/* ------------------------------------------------------------------
+ * 第三片新增：聊天软件对话
+ * 页面沿用 .phone-screen-card--page 的浅色底；"我"的气泡颜色来自
+ * --ps-me-bg / --ps-me-fg（由 spec.wallpaper 算出）。
+ * ------------------------------------------------------------------ */
+
+.phone-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(27, 27, 31, 0.08);
+}
+
+.phone-chat-header__main {
+  min-width: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.phone-chat-header__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.phone-chat-header__app {
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  color: var(--ps-fg-soft);
+}
+
+.phone-chat-header__spacer {
+  display: block;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.phone-chat-messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 8px;
+}
+
+.phone-chat-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.phone-chat-row--me {
+  justify-content: flex-end;
+}
+
+.phone-chat-avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.phone-chat-bubble {
+  max-width: 78%;
+  padding: 6px 10px;
+  border-radius: 14px;
+  font-size: 11px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.phone-chat-bubble--other {
+  border-bottom-left-radius: 4px;
+  background: #ffffff;
+  color: var(--ps-fg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.phone-chat-bubble--me {
+  border-bottom-right-radius: 4px;
+  background: var(--ps-me-bg);
+  color: var(--ps-me-fg);
+}
+
+.phone-chat-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.phone-chat-input__field {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #e4e6eb;
+  font-size: 10.5px;
+  color: var(--ps-fg-soft);
+}
+
+.phone-chat-input__plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #e4e6eb;
+  color: var(--ps-fg);
+}
