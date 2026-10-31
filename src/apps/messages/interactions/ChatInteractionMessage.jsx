@@ -6,6 +6,7 @@ import LotteryDrawInteraction from './LotteryDrawInteraction';
 import IntimacyQaInteraction from './IntimacyQaInteraction';
 import TruthOrDareInteraction from './TruthOrDareInteraction';
 import DivinationInteraction from './divination/DivinationInteraction';
+import DrawGuessInteraction from './drawGuess/DrawGuessInteraction';
 import { INTERACTION_TYPES } from './interactionRules';
 
 export const ChatInteractionMessage = ({
@@ -65,6 +66,15 @@ export const ChatInteractionMessage = ({
     return (
       <DivinationInteraction
         message={message}
+      />
+    );
+  }
+
+    if (interactionType === INTERACTION_TYPES.DRAW_GUESS) {
+    return (
+      <DrawGuessInteraction
+        message={message}
+        character={character}
       />
     );
   }

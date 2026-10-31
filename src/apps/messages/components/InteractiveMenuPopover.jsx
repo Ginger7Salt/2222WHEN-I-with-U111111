@@ -17,6 +17,7 @@ import {
     Flame,
   Moon,
   Ghost,
+  Pencil,
 } from 'lucide-react';
 import { isHalloweenSeasonActive } from '../interactions/halloween/halloweenSeason';
 import {
@@ -124,7 +125,8 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
         buttons: [
           { type: 'interaction_coin', icon: CircleDot, text: '抛旧硬币' },
           { type: 'interaction_dice', icon: Box, text: '掷六面骰' },
-          { type: 'interaction_rps', icon: Swords, text: '猜拳' },
+                  { type: 'interaction_rps', icon: Swords, text: '猜拳' },
+          { type: 'interaction_draw_guess', icon: Pencil, text: '你画我猜' },
         ],
       },
       {

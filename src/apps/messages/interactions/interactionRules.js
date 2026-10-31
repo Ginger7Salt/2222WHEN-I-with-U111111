@@ -7,7 +7,8 @@ export const INTERACTION_TYPES = {
   LOTTERY: 'lottery',
   INTIMACY_QA: 'intimacy_qa',
   TRUTH_OR_DARE: 'truth_or_dare',
-  DIVINATION: 'divination',
+    DIVINATION: 'divination',
+  DRAW_GUESS: 'draw_guess',
 };
 
 export const RPS_CHOICES = ['剪刀', '石头', '布'];
@@ -149,8 +150,10 @@ export const getInteractionLabel = (interactionType) => {
       return '问答卡';
     case INTERACTION_TYPES.TRUTH_OR_DARE:
       return '真心话大冒险';
-    case INTERACTION_TYPES.DIVINATION:
+       case INTERACTION_TYPES.DIVINATION:
       return '占卜';
+    case INTERACTION_TYPES.DRAW_GUESS:
+      return '你画我猜';
     default:
       return '互动';
   }

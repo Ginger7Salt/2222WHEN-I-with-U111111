@@ -96,6 +96,8 @@ import { createInteractionMessage, createTruthOrDareMessage } from './interactio
 import DivinationSetupModal from './interactions/divination/DivinationSetupModal';
 import CouponWalletPanel from './coupon/CouponWalletPanel';
 import { createDivinationMessage } from './interactions/divination/divinationService';
+import DrawGuessCanvasModal from './interactions/drawGuess/DrawGuessCanvasModal';
+import { createDrawGuessMessage } from './interactions/drawGuess/drawGuessService';
 import {
   createPokeMessage,
   ensurePokeReplies,
@@ -294,7 +296,8 @@ export const ChatRoom = ({
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
-  const [showDivinationModal, setShowDivinationModal] = useState(false);
+   const [showDivinationModal, setShowDivinationModal] = useState(false);
+  const [showDrawGuessModal, setShowDrawGuessModal] = useState(false);
   const [checkInDelivery, setCheckInDelivery] = useState(null);
   const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
     const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
@@ -924,7 +927,33 @@ forceScrollMessageIdRef.current = stickerMsgId;
 
       await loadChatData();
     } catch (error) {
-      console.error('[ChatRoom] 创建占卜失败：', error);
+            console.error('[ChatRoom] 创建占卜失败：', error);
+    }
+  };
+
+  // 你画我猜：画布面板里画好、点发送后，在这里把画和题目插入消息，
+  // 角色看画猜答案由 drawGuessService 异步完成。
+  const handleCreateDrawGuess = async ({
+    word,
+    categoryId,
+    categoryLabel,
+    imageDataUrl,
+  }) => {
+    if (!chat?.id || !character?.id) return;
+
+    try {
+      await createDrawGuessMessage({
+        chatId: chat.id,
+        characterId: character.id,
+        word,
+        categoryId,
+        categoryLabel,
+        imageDataUrl,
+      });
+
+      await loadChatData();
+    } catch (error) {
+      console.error('[ChatRoom] 创建你画我猜失败：', error);
     }
   };
 
@@ -3030,14 +3059,20 @@ const handleCancelAiResponse = () => {
                   return;
                 }
 
-                if (type === 'interaction_truth_or_dare') {
+                               if (type === 'interaction_truth_or_dare') {
                   void handleTruthOrDare();
+                  return;
+                }
+
+                if (type === 'interaction_draw_guess') {
+                  inputRef.current?.blur();
+                  setShowDrawGuessModal(true);
                   return;
                 }
 
               if (type === 'interaction_divination') {
   inputRef.current?.blur();
-  setShowDivinationSetup(true);
+   setShowDivinationModal(true);
   return;
 }
 if (type === 'interaction_coupon') {
@@ -3374,7 +3409,13 @@ if (type === 'interaction_coupon') {
       <DivinationSetupModal
         isOpen={showDivinationModal}
         onClose={() => setShowDivinationModal(false)}
-        onSubmit={handleCreateDivination}
+            onSubmit={handleCreateDivination}
+      />
+
+      <DrawGuessCanvasModal
+        isOpen={showDrawGuessModal}
+        onClose={() => setShowDrawGuessModal(false)}
+        onSubmit={handleCreateDrawGuess}
       />
 
       <CouponWalletPanel
